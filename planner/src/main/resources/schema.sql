@@ -1,0 +1,22 @@
+-- CREATE TABLE coaches (
+--                          id BIGSERIAL PRIMARY KEY,
+--                          name VARCHAR(255) NOT NULL,
+--                          specialization VARCHAR(100)
+-- );
+--
+-- CREATE TABLE athletes (
+--                           id BIGSERIAL PRIMARY KEY,
+--                           name VARCHAR(255) NOT NULL,
+--                           coach_id BIGINT REFERENCES coaches(id)
+-- );
+--
+-- CREATE TABLE workouts (
+--                           id BIGSERIAL PRIMARY KEY,
+--                           title VARCHAR(255) NOT NULL,
+--                           description TEXT,
+--                           workout_date DATE NOT NULL,
+--                           workout_time TIME,
+--                           duration_minutes INTEGER,
+--                           athlete_id BIGINT REFERENCES athletes(id),
+--                           coach_id BIGINT REFERENCES coaches(id)
+-- );

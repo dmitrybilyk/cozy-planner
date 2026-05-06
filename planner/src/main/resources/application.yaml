@@ -1,0 +1,23 @@
+spring:
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/planner_db?stringtype=unspecified
+    username: user
+    password: password
+
+  # Автоматичне створення таблиць (тільки для розробки!)
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+
+  # Налаштування Jackson для коректної роботи з часом
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+  thymeleaf:
+    cache: false
+
+server:
+  address: 0.0.0.0
