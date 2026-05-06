@@ -1,0 +1,39 @@
+@startuml
+skinparam componentStyle rectangle
+
+actor "Coach / Athlete" as User
+
+package "Infrastructure" {
+    component [Keycloak] as Auth #LightBlue
+    queue "Kafka / RabbitMQ" as MessageBroker #LightGreen
+    database "PostgreSQL" as PlannerDB #LightYellow
+    database "MongoDB" as AnalyticsDB #LightYellow
+}
+
+package "Kubernetes Cluster" {
+    component [Planner Service\n(Spring MVC + Thymeleaf)] as Planner
+    component [Notification Service\n(Spring WebFlux)] as Notify
+    component [Analytics Service\n(gRPC / GraphQL)] as Analytics
+}
+
+User --> Planner : HTTP / REST
+Planner ..> Auth : OAuth2 Verify
+Planner --> PlannerDB : JDBC / SQL
+
+Planner --(0--> MessageBroker : "Training Created" Event
+
+MessageBroker --(0--> Notify : Consume Events
+Notify --> User : WebSockets / Email
+
+Planner --> Analytics : gRPC (Internal Call)
+Analytics --> AnalyticsDB : NoSQL Storage
+
+package "Monitoring" {
+    component [Prometheus] as Prom
+    component [Grafana] as Graf
+}
+
+Prom ..> Planner : Scrape Metrics
+Prom ..> Notify : Scrape Metrics
+Graf --> Prom : Visualise
+@enduml
