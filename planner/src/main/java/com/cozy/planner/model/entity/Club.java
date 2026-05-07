@@ -2,20 +2,16 @@ package com.cozy.planner.model.entity;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
-@Table("coaches")
+@Table("clubs")
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
 @Builder
-public class Coach {
+public class Club {
     @Id
     private Long id;
     private String name;
-    private String specialization;
-
-    @Column("club_id")
-    private Long clubId;
+    private String description;
 }

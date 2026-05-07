@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Planner Service API
-  description: API for managing sports training schedules between coaches and athletes.
+  description: API for managing sports training schedules, athletes, and sports clubs.
   version: 1.0.0
 
 servers:
@@ -9,6 +9,8 @@ servers:
     description: Local development server
 
 tags:
+  - name: Clubs
+    description: Operations for sports club management
   - name: Coaches
     description: Operations for coach data
   - name: Athletes
@@ -17,6 +19,107 @@ tags:
     description: Operations for planning and retrieving training sessions
 
 paths:
+  # --- КЛУБИ ---
+  /api/v1/clubs:
+    get:
+      tags: [Clubs]
+      summary: List all registered clubs
+      operationId: getClubs
+      responses:
+        '200':
+          description: List of clubs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClubDTO'
+    post:
+      tags: [Clubs]
+      summary: Create a new club
+      operationId: createClub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClubRequest'
+      responses:
+        '201':
+          description: Club created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubDTO'
+
+  /api/v1/clubs/{clubId}:
+    parameters:
+      - name: clubId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [Clubs]
+      summary: Get club by ID
+      operationId: getClubById
+      responses:
+        '200':
+          description: Club details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubDTO'
+    put:
+      tags: [Clubs]
+      summary: Update club details
+      operationId: updateClub
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClubDTO'
+      responses:
+        '200':
+          description: Club updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClubDTO'
+    delete:
+      tags: [Clubs]
+      summary: Delete a club
+      operationId: deleteClub
+      responses:
+        '204':
+          description: Club deleted successfully
+
+  # --- ТРЕНЕРИ ---
+  /api/v1/clubs/{clubId}/coaches:
+    get:
+      tags: [Coaches]
+      summary: Get all coaches in a specific club
+      operationId: getClubCoaches
+      parameters:
+        - name: clubId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of coaches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CoachDTO'
+
+  # --- АТЛЕТИ ---
   /api/v1/coaches/{coachId}/athletes:
     get:
       tags: [Coaches]
@@ -39,6 +142,70 @@ paths:
                 items:
                   $ref: '#/components/schemas/AthleteDTO'
 
+  /api/v1/athletes:
+    post:
+      tags: [Athletes]
+      summary: Create a new athlete
+      operationId: createAthlete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAthleteRequest'
+      responses:
+        '201':
+          description: Athlete created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AthleteDTO'
+
+  /api/v1/athletes/{athleteId}:
+    parameters:
+      - name: athleteId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [Athletes]
+      summary: Get athlete by ID
+      operationId: getAthleteById
+      responses:
+        '200':
+          description: Athlete details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AthleteDTO'
+    put:
+      tags: [Athletes]
+      summary: Update an existing athlete
+      operationId: updateAthlete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AthleteDTO'
+      responses:
+        '200':
+          description: Athlete updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AthleteDTO'
+    delete:
+      tags: [Athletes]
+      summary: Delete an athlete
+      operationId: deleteAthlete
+      responses:
+        '204':
+          description: Athlete deleted successfully
+
+  # --- ТРЕНУВАННЯ ---
   /api/v1/workouts:
     get:
       tags: [Workouts]
@@ -81,7 +248,7 @@ paths:
 
     post:
       tags: [Workouts]
-      summary: Schedule a new workout for an athlete
+      summary: Schedule or update a workout (upsert)
       operationId: createWorkout
       requestBody:
         required: true
@@ -91,14 +258,50 @@ paths:
               $ref: '#/components/schemas/CreateWorkoutRequest'
       responses:
         '201':
-          description: Workout created successfully
+          description: Workout created or updated successfully
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/WorkoutDTO'
 
+  /api/v1/workouts/{workoutId}:
+    parameters:
+      - name: workoutId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    delete:
+      tags: [Workouts]
+      summary: Delete a workout
+      operationId: deleteWorkout
+      responses:
+        '204':
+          description: Workout deleted successfully
+
 components:
   schemas:
+    ClubDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+
+    CreateClubRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
     CoachDTO:
       type: object
       properties:
@@ -109,6 +312,9 @@ components:
           type: string
         specialization:
           type: string
+        clubId:
+          type: integer
+          format: int64
 
     AthleteDTO:
       type: object
@@ -117,6 +323,20 @@ components:
           type: integer
           format: int64
         name:
+          type: string
+        description:
+          type: string
+        coachId:
+          type: integer
+          format: int64
+
+    CreateAthleteRequest:
+      type: object
+      required: [name, coachId]
+      properties:
+        name:
+          type: string
+        description:
           type: string
         coachId:
           type: integer
@@ -152,6 +372,9 @@ components:
       type: object
       required: [title, date, athleteId, coachId]
       properties:
+        id:
+          type: integer
+          format: int64
         title:
           type: string
         description:
