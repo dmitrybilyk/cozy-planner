@@ -1,347 +1,438 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coach View - Planner Service</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Planner Pro — Тренер</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
         [x-cloak] { display: none !important; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #121212;
+            color: #ffffff;
+            overscroll-behavior-y: contain;
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .scroll-container { scroll-snap-type: x mandatory; }
-        .date-card { scroll-snap-align: start; }
+        .ig-gradient { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+        .today-marker { border: 2px solid #ffffff !important; box-shadow: 0 0 12px rgba(255, 255, 255, 0.4); }
+        #calendar-container { touch-action: pan-x; -webkit-overflow-scrolling: touch; }
+        .dragging { opacity: 0.3; transform: scale(0.95); border: 1px dashed #0095f6 !important; }
+        .modal-container { display: flex; flex-direction: column; background: #1c1c1c; border: 1px solid #333; width: 100%; max-width: 512px; max-height: 90vh; border-top-left-radius: 32px; border-top-right-radius: 32px; }
+        @media (min-width: 640px) { .modal-container { border-radius: 24px; max-height: 85vh; } }
+        .modal-body { flex: 1; overflow-y: auto; padding: 1.5rem; }
+        .modal-footer { padding: 1rem 1.5rem; border-top: 1px solid #333; background: #1c1c1c; padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+        input, select, textarea { background: #262626 !important; color: white !important; border: 1px solid #363636 !important; border-radius: 12px !important; padding: 10px !important; }
     </style>
 </head>
-<body class="bg-gray-50 font-sans antialiased" x-data="calendarApp()">
+<body class="antialiased" x-data="calendarApp()">
 
-<!-- Header -->
-<header class="bg-white border-b sticky top-0 z-30 p-4 shadow-sm">
-    <div class="max-w-4xl mx-auto flex flex-col space-y-4">
-        <div class="flex justify-between items-center">
-            <div>
-                <div class="flex items-center space-x-2">
-                    <h1 class="text-2xl font-black text-gray-900" x-text="coach.name">Loading...</h1>
-                    <!-- Відображення клубу -->
-                    <span class="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-1 rounded-full font-black uppercase tracking-tighter" x-text="club.name || 'Loading Club...'"></span>
-                </div>
-                <div class="flex items-center space-x-2 mt-1">
-                    <p class="text-xs text-indigo-600 font-bold uppercase tracking-widest" x-text="coach.specialization || 'Coach Dashboard'"></p>
-                    <template x-if="selectedAthlete">
-                        <button @click="editAthlete(selectedAthlete)" class="text-[10px] bg-gray-100 px-2 py-0.5 rounded text-gray-500 hover:bg-indigo-100 hover:text-indigo-600 transition">Edit Athlete</button>
-                    </template>
-                </div>
-            </div>
-            <div class="flex space-x-2">
-                <button @click="scrollWeeks(-1)" class="p-2 rounded-full bg-gray-100 hover:bg-indigo-100 text-indigo-600 transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                </button>
-                <button @click="scrollWeeks(1)" class="p-2 rounded-full bg-gray-100 hover:bg-indigo-100 text-indigo-600 transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Search / Combobox -->
-        <div class="relative" x-data="{ open: false, search: '' }">
-            <div class="flex space-x-2">
-                <div class="relative flex-1">
-                    <input type="text" placeholder="Search athlete..." class="w-full bg-gray-50 border-none rounded-xl p-3 pl-10 focus:ring-2 focus:ring-indigo-500 outline-none font-medium" x-model="search" @focus="open = true" @click.away="open = false">
-                    <svg class="w-5 h-5 absolute left-3 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                </div>
-                <button @click="openAthleteModal()" class="bg-indigo-50 text-indigo-600 p-3 rounded-xl hover:bg-indigo-100 transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-                </button>
-            </div>
-            <div x-show="open" x-cloak class="absolute w-full mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto p-2">
-                <button @click="selectAthlete(null); open = false; search = ''" class="w-full text-left p-3 rounded-xl hover:bg-indigo-50 transition flex items-center space-x-3">
-                    <div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold">ALL</div>
-                    <span class="font-bold text-gray-700">All Athletes (Team Agenda)</span>
-                </button>
-                <template x-for="athlete in filteredAthletes(search)" :key="athlete.id">
-                    <button @click="selectAthlete(athlete); open = false; search = athlete.name" class="w-full text-left p-3 rounded-xl hover:bg-indigo-50 transition flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xs font-bold" x-text="athlete.name.charAt(0)"></div>
-                        <span class="font-bold text-gray-700" x-text="athlete.name"></span>
-                    </button>
-                </template>
-            </div>
-        </div>
+<header class="bg-[#1a1a1a] border-b border-[#333] sticky top-0 z-40 px-4 h-16 flex items-center justify-between shadow-md">
+    <div class="flex items-center space-x-2">
+        <h1 class="text-xl font-bold tracking-tight italic" x-text="coach.name"></h1>
+        <div class="ig-gradient p-[1.5px] rounded-full"><div class="bg-black rounded-full p-0.5"><div class="w-3 h-3 bg-blue-500 rounded-full"></div></div></div>
+    </div>
+    <div class="flex bg-[#262626] p-1 rounded-xl">
+        <button @click="currentView = 'feed'" class="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">День</button>
+        <button @click="currentView = 'agenda'" class="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">План</button>
+    </div>
+    <div class="flex items-center space-x-3">
+        <button @click="showManageLocations = true"><svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
+        <button @click="showManageAthletes = true"><svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
+        <button @click="openWorkoutModal()"><svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.8" d="M12 4v16m8-8H4"/></svg></button>
     </div>
 </header>
 
-<div class="bg-white border-b sticky top-[158px] z-10">
-    <div id="calendar-container" class="flex overflow-x-auto no-scrollbar scroll-container space-x-3 p-4">
+<div x-show="currentView === 'feed'" class="bg-[#1a1a1a] border-b border-[#333]">
+    <div id="calendar-container" class="flex overflow-x-auto no-scrollbar p-4 space-x-5 scroll-smooth" @wheel.passive="handleMouseScroll($event)">
         <template x-for="day in days" :key="day.dateStr">
-            <button @click="selectedDate = day.dateStr" :id="'date-' + day.dateStr" class="date-card flex-shrink-0 w-16 h-24 rounded-2xl flex flex-col items-center justify-center border-2 transition-all duration-300" :class="selectedDate === day.dateStr ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm scale-105' : 'border-transparent bg-gray-50 text-gray-400 hover:bg-gray-100'">
-                <span class="text-[10px] uppercase font-black mb-1" x-text="day.weekday"></span>
-                <span class="text-lg font-black" x-text="day.dayNum"></span>
-                <div x-show="day.hasWorkout" class="mt-2 w-1.5 h-1.5 rounded-full bg-indigo-500"></div>
+            <button @click="selectedDate = day.dateStr; $nextTick(() => scrollToActive())"
+                    :id="'date-btn-' + day.dateStr"
+                    class="flex-shrink-0 flex flex-col items-center min-w-[64px]">
+                <div class="w-14 h-14 rounded-full p-[2px] flex items-center justify-center transition-all relative"
+                     :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : 'bg-[#333]', day.dateStr === todayStr ? 'today-marker' : '']">
+                    <div class="w-full h-full rounded-full bg-black flex flex-col items-center justify-center border-2 border-black">
+                        <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
+                        <span class="text-sm font-bold text-white" x-text="day.dayNum"></span>
+                    </div>
+                </div>
+                <span x-show="day.dateStr === todayStr" class="text-[7px] font-black text-white uppercase mt-1 tracking-tighter">Сьогодні</span>
+                <div x-show="hasWorkoutOn(day.dateStr)" class="w-1 h-1 bg-blue-500 rounded-full mt-0.5"></div>
             </button>
         </template>
     </div>
 </div>
 
-<main class="max-w-4xl mx-auto p-4 pb-24">
-    <div class="flex items-center justify-between mb-6">
-        <div>
-            <h2 class="text-lg font-bold text-gray-800" x-text="selectedAthlete ? selectedAthlete.name + ' Agenda' : 'Team Agenda'"></h2>
-            <p class="text-sm text-gray-500" x-text="formatDisplayDate(selectedDate)"></p>
+<div x-show="currentView === 'agenda'" class="bg-[#1a1a1a] border-b border-[#333] p-4 overflow-x-auto no-scrollbar flex space-x-2">
+    <button @click="toggleAthleteFilter(null)" class="px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition" :class="selectedAthleteFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'">Всі атлети</button>
+    <template x-for="athlete in athletes" :key="athlete.id">
+        <button @click="toggleAthleteFilter(athlete.id)" class="px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition border border-[#333]" :class="selectedAthleteFilters.includes(athlete.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-[#1a1a1a] text-gray-400'" x-text="athlete.name"></button>
+    </template>
+</div>
+
+<main class="max-w-2xl mx-auto p-4 pb-24">
+    <div x-show="currentView === 'feed'">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xs font-black text-gray-500 uppercase tracking-widest" x-text="formatDisplayDate(selectedDate)"></h2>
+            <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-[10px] font-bold text-blue-400 uppercase">Сьогодні</button>
         </div>
-        <button x-show="selectedAthlete" @click="openWorkoutModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-200 active:scale-95 transition-transform">
-            + Add Workout
-        </button>
+        <div class="space-y-4">
+            <template x-for="(workout, index) in filteredWorkouts" :key="workout.id">
+                <div draggable="true" @dragstart="dragStart($event, index)" @dragover.prevent @drop="drop($event, targetIndex(workout.id))" @click="editWorkout(workout)"
+                     class="bg-[#1c1c1c] border border-[#333] rounded-3xl p-5 shadow-sm transition active:scale-95"
+                     :class="draggedIndex === index ? 'dragging' : ''"
+                     :style="'border-left: 5px solid ' + (workout.color || '#3b82f6')">
+                    <div class="flex items-center space-x-4">
+                        <div class="flex flex-col items-center justify-center rounded-2xl px-3 py-2 min-w-[70px] border border-[#333]"
+                             :style="'background: ' + (workout.color || '#3b82f6') + '33'">
+                            <span class="text-xl font-black" :style="'color: ' + (workout.color || '#3b82f6')" x-text="workout.time"></span>
+                            <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="workout.endTime"></span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-bold text-gray-100" x-text="workout.title"></p>
+                            <p class="text-xs text-gray-500 italic" x-text="workout.description"></p>
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                <template x-for="aId in workout.athleteIds"><span class="text-[10px] bg-[#333] px-2 py-0.5 rounded-full font-semibold text-gray-300" x-text="getAthleteName(aId)"></span></template>
+                            </div>
+                            <div x-show="getLocationName(workout.locationId)" class="mt-1.5 flex items-center space-x-1">
+                                <span class="w-2 h-2 rounded-full" :style="'background: ' + (workout.color || '#3b82f6')"></span>
+                                <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(workout.locationId)"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <div x-show="filteredWorkouts.length === 0" class="text-center py-20 text-gray-600 text-sm italic">Немає тренувань на цей день</div>
+        </div>
     </div>
 
-    <div class="space-y-4">
-        <template x-for="workout in filteredWorkouts" :key="workout.id">
-            <div @click="editWorkout(workout)" class="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-start space-x-4 cursor-pointer hover:border-indigo-200 transition">
-                <div class="bg-indigo-100 p-3 rounded-2xl text-indigo-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                </div>
-                <div class="flex-1">
-                    <div class="flex justify-between items-center">
-                        <h4 class="font-black text-gray-900 text-lg" x-text="workout.title"></h4>
-                        <span x-show="!selectedAthlete" class="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg" x-text="workout.athleteName"></span>
-                    </div>
-                    <p class="text-sm text-gray-500 font-medium mt-1" x-text="workout.time + ' • ' + workout.duration"></p>
-                    <p class="text-sm text-gray-600 mt-2" x-text="workout.description"></p>
+    <div x-show="currentView === 'agenda'" class="space-y-10">
+        <template x-for="dateGroup in agendaGroups" :key="dateGroup.date">
+            <div class="space-y-4">
+                <button @click="goToDay(dateGroup.date)" class="sticky top-16 bg-[#121212] py-2 z-10 w-full text-left flex items-center justify-between">
+                    <span class="text-xs font-black text-blue-400 uppercase tracking-widest" x-text="formatDisplayDate(dateGroup.date)"></span>
+                    <span x-show="dateGroup.date === todayStr" class="text-[9px] font-black text-white bg-[#333] px-2 py-0.5 rounded">СЬОГОДНІ</span>
+                </button>
+                <div class="space-y-3">
+                    <template x-for="workout in dateGroup.items" :key="workout.id">
+                        <div @click="editWorkout(workout)" class="bg-[#1c1c1c] border border-[#333] rounded-2xl p-4 flex items-center justify-between shadow-sm active:bg-[#262626]"
+                             :style="'border-left: 4px solid ' + (workout.color || '#3b82f6')">
+                            <div class="flex items-center space-x-4">
+                                <span class="text-sm font-black text-white" x-text="workout.time"></span>
+                                <div>
+                                    <p class="text-sm font-bold text-gray-200" x-text="workout.title"></p>
+                                    <p class="text-[10px] text-gray-500" x-text="workout.athleteIds.map(id => getAthleteName(id)).join(', ')"></p>
+                                    <div x-show="getLocationName(workout.locationId)" class="flex items-center space-x-1 mt-1">
+                                        <span class="w-2 h-2 rounded-full" :style="'background: ' + (workout.color || '#3b82f6')"></span>
+                                        <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(workout.locationId)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </template>
     </div>
 </main>
 
-<!-- WORKOUT MODAL -->
-<div x-show="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" x-cloak x-transition>
-    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl" @click.away="showModal = false">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-black" x-text="editingWorkoutId ? 'Update Workout' : 'New Workout'"></h3>
-            <button x-show="editingWorkoutId" @click="deleteWorkout()" class="p-2 text-red-500 hover:bg-red-50 rounded-xl transition">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            </button>
+<!-- МЕНЕДЖЕР АТЛЕТІВ (ПОВНОЕКРАННИЙ) -->
+<div x-show="showManageAthletes" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
+    <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
+        <button @click="showManageAthletes = false" class="text-blue-400 font-bold">Назад</button>
+        <h3 class="font-bold">Команда</h3>
+        <div class="w-10"></div>
+    </header>
+    <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
+        <input type="text" x-model="athleteForm.name" placeholder="ПІБ атлета" class="w-full">
+        <input type="text" x-model="athleteForm.description" placeholder="Примітка" class="w-full">
+        <button @click="saveAthlete()" class="w-full bg-white text-black py-4 rounded-xl font-bold uppercase tracking-widest text-[10px]" x-text="editingAthleteId ? 'Оновити' : 'Додати атлета'"></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-3">
+        <template x-for="athlete in athletes" :key="athlete.id">
+            <div class="flex items-center justify-between p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
+                <div>
+                    <p class="font-bold text-gray-100" x-text="athlete.name"></p>
+                    <p class="text-[10px] text-gray-500" x-text="athlete.description"></p>
+                </div>
+                <div class="flex space-x-6 text-[10px] font-black uppercase">
+                    <button @click="editAthlete(athlete)" class="text-blue-400">Правка</button>
+                    <button @click="askDeleteAthlete(athlete.id)" class="text-red-500">Видалити</button>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<!-- МЕНЕДЖЕР ЛОКАЦІЙ (ПОВНОЕКРАННИЙ) -->
+<div x-show="showManageLocations" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
+    <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
+        <button @click="showManageLocations = false" class="text-blue-400 font-bold">Назад</button>
+        <h3 class="font-bold">Локації</h3>
+        <div class="w-10"></div>
+    </header>
+    <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
+        <input type="text" x-model="locationForm.name" placeholder="Назва локації" class="w-full">
+        <input type="text" x-model="locationForm.description" placeholder="Опис" class="w-full">
+        <div class="flex items-center space-x-3">
+            <input type="color" x-model="locationForm.color" class="w-12 h-12 p-0.5 rounded-xl cursor-pointer">
+            <span class="text-xs text-gray-400">Колір</span>
         </div>
-        <div class="space-y-4">
-            <input type="text" placeholder="Title" x-model="workoutForm.title" class="w-full bg-gray-50 border-none rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500">
-            <input type="time" x-model="workoutForm.time" class="w-full bg-gray-50 border-none rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500">
-            <textarea placeholder="Description" x-model="workoutForm.description" class="w-full bg-gray-50 border-none rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500" rows="3"></textarea>
+        <button @click="saveLocation()" class="w-full bg-white text-black py-4 rounded-xl font-bold uppercase tracking-widest text-[10px]" x-text="editingLocationId ? 'Оновити' : 'Додати локацію'"></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-4 space-y-3">
+        <template x-for="location in locations" :key="location.id">
+            <div class="flex items-center justify-between p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl"
+                 :style="'border-left: 5px solid ' + (location.color || '#3b82f6')">
+                <div>
+                    <p class="font-bold text-gray-100" x-text="location.name"></p>
+                    <p class="text-[10px] text-gray-500" x-text="location.description"></p>
+                </div>
+                <div class="flex space-x-6 text-[10px] font-black uppercase">
+                    <button @click="editLocation(location)" class="text-blue-400">Правка</button>
+                    <button @click="askDeleteLocation(location.id)" class="text-red-500">Видалити</button>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+
+<!-- МОДАЛКА ТРЕНУВАННЯ -->
+<div x-show="showModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition>
+    <div class="modal-container" @click.away="showModal = false">
+        <div class="p-6 border-b border-[#333] flex justify-between items-center">
+            <h3 class="text-xl font-bold text-white" x-text="editingWorkoutId ? 'Редагувати' : 'Нова сесія'"></h3>
+            <button x-show="editingWorkoutId" @click="askDeleteWorkout()" class="text-red-500 font-bold text-xs uppercase">Видалити</button>
         </div>
-        <div class="mt-6 flex space-x-3">
-            <button @click="showModal = false" class="flex-1 py-3 font-bold text-gray-400 bg-gray-100 rounded-xl">Cancel</button>
-            <button @click="saveWorkout()" class="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl shadow-lg shadow-indigo-200" x-text="editingWorkoutId ? 'Update' : 'Save'"></button>
+        <div class="modal-body space-y-6">
+            <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold uppercase text-center">Час уже минув</div>
+            <div class="space-y-4">
+                <div><label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Дата</label><input type="date" x-model="workoutForm.date" :min="todayStr" class="w-full"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Назва</label><input type="text" x-model="workoutForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-2 focus:border-blue-500"></div>
+                <div><label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Опис</label><textarea x-model="workoutForm.description" class="w-full" rows="2"></textarea></div>
+                <div class="flex justify-between gap-4">
+                    <div class="flex-1"><span class="text-[9px] font-black text-gray-500 uppercase block mb-1">Початок</span><div class="flex space-x-1"><select x-model="workoutForm.startH" @change="autoUpdateEndTime" class="w-full font-bold"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.startM" @change="autoUpdateEndTime" class="w-full font-bold"><option value="00">00</option><option value="30">30</option></select></div></div>
+                    <div class="flex-1"><span class="text-[9px] font-black text-gray-500 uppercase block mb-1">Кінець</span><div class="flex space-x-1"><select x-model="workoutForm.endH" class="w-full font-bold"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.endM" class="w-full font-bold"><option value="00">00</option><option value="30">30</option></select></div></div>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Локація</label>
+                    <select x-model="workoutForm.locationId" class="w-full">
+                        <option :value="null">Без локації</option>
+                        <template x-for="location in locations" :key="location.id">
+                            <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] font-black text-gray-400 uppercase">Атлети</p>
+                        <span x-show="workoutForm.athleteIds.length" class="text-[10px] font-bold text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full" x-text="workoutForm.athleteIds.length + ' вибр.'"></span>
+                    </div>
+                    <input type="text" x-model="athleteSearch" placeholder="Пошук атлетів..." class="w-full mb-2 text-sm">
+                    <div class="grid grid-cols-1 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
+                        <template x-for="athlete in filteredAthletes" :key="athlete.id">
+                            <label class="flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 active:scale-[0.98] cursor-pointer"
+                                   :class="workoutForm.athleteIds.includes(athlete.id) ? 'bg-blue-900/20 border-blue-500' : 'bg-[#262626] border-transparent'">
+                                <span class="font-semibold text-sm text-gray-200" x-text="athlete.name"></span>
+                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-150"
+                                     :class="workoutForm.athleteIds.includes(athlete.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-600'">
+                                    <svg x-show="workoutForm.athleteIds.includes(athlete.id)" class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                </div>
+                                <input type="checkbox" :value="athlete.id" x-model="workoutForm.athleteIds" class="hidden">
+                            </label>
+                        </template>
+                        <div x-show="filteredAthletes.length === 0 && athleteSearch" class="text-center py-6 text-gray-600 text-xs">Нічого не знайдено</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer flex space-x-3">
+            <button @click="showModal = false" class="flex-1 py-4 font-bold text-gray-500 uppercase text-xs">Скасувати</button>
+            <button @click="saveWorkout()" :disabled="workoutForm.athleteIds.length === 0 || isTimePassed()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg disabled:opacity-20">Зберегти</button>
         </div>
     </div>
 </div>
 
-<!-- ATHLETE MODAL -->
-<div x-show="showAthleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" x-cloak x-transition>
-    <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl" @click.away="showAthleteModal = false">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-black" x-text="editingAthleteId ? 'Update Athlete' : 'Add Athlete'"></h3>
-            <button x-show="editingAthleteId" @click="deleteAthlete()" class="p-2 text-red-500 hover:bg-red-50 rounded-xl transition">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            </button>
-        </div>
-        <div class="space-y-4">
-            <input type="text" placeholder="Athlete Name" x-model="athleteForm.name" class="w-full bg-gray-50 border-none rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500">
-            <textarea placeholder="Athlete Description" x-model="athleteForm.description" class="w-full bg-gray-50 border-none rounded-xl p-3 outline-none focus:ring-2 focus:ring-indigo-500" rows="3"></textarea>
-        </div>
-        <div class="mt-6 flex space-x-3">
-            <button @click="showAthleteModal = false" class="flex-1 py-3 font-bold text-gray-400 bg-gray-100 rounded-xl">Cancel</button>
-            <button @click="saveAthlete()" class="flex-1 py-3 font-bold text-white bg-indigo-600 rounded-xl shadow-lg shadow-indigo-200" x-text="editingAthleteId ? 'Update' : 'Add'"></button>
-        </div>
-    </div>
+<div x-show="confirmData.show" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition>
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-[300px] rounded-[24px] overflow-hidden shadow-2xl"><div class="p-6 text-center text-white"><h4 class="text-lg font-bold" x-text="confirmData.title"></h4><p class="text-sm text-gray-500 mt-2" x-text="confirmData.message"></p></div><div class="flex flex-col border-t border-[#333]"><button @click="confirmData.onConfirm(); confirmData.show = false" class="py-4 text-sm font-bold text-red-500 border-b border-[#333]">Видалити</button><button @click="confirmData.show = false" class="py-4 text-sm font-medium text-gray-300">Скасувати</button></div></div>
 </div>
 
 <script>
     function calendarApp() {
         return {
-            showModal: false,
-            showAthleteModal: false,
-            editingWorkoutId: null,
-            editingAthleteId: null,
-            selectedDate: new Date().toISOString().split('T')[0],
-            days: [],
-            workouts: [],
-            athletes: [],
-            selectedAthlete: null,
-
-            // Hardcoded context (In a real app, this comes from login/session)
-            clubId: 2,
-            coachId: 2, // Olena Rybakova (Tennis Club coach)
-
-            coach: { name: 'Olena Rybakova', specialization: 'Tennis High-Performance' },
-            club: { name: '', description: '' },
-
-            workoutForm: { title: '', time: '08:00', description: '' },
+            currentView: 'feed', showModal: false, showManageAthletes: false, showManageLocations: false,
+            editingWorkoutId: null, editingAthleteId: null, editingLocationId: null, draggedIndex: null,
+            selectedDate: new Date().toISOString().split('T')[0], todayStr: new Date().toISOString().split('T')[0],
+            days: [], workouts: [], athletes: [], locations: [], coachId: 2, coach: { name: 'Олена Ковальчук' },
+            hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
+            selectedAthleteFilters: [], athleteSearch: '',
+            workoutForm: { title: 'Тренування', description: '', date: '', startH: '08', startM: '00', endH: '09', endM: '00', athleteIds: [], locationId: null },
             athleteForm: { name: '', description: '' },
+            locationForm: { name: '', description: '', color: '#3b82f6' },
+            confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
 
             async init() {
                 this.generateDays();
-                await this.fetchClubInfo(); // Завантаження інформації про клуб
+                await this.fetchLocations();
                 await this.fetchAthletes();
                 await this.fetchData();
-                this.$nextTick(() => this.scrollToSelected());
-                this.$watch('selectedDate', () => this.scrollToSelected());
+                setTimeout(() => this.scrollToToday(), 200);
             },
 
-            async fetchClubInfo() {
-                try {
-                    const res = await fetch(`/api/v1/clubs/${this.clubId}`);
-                    if (res.ok) this.club = await res.json();
-                } catch (e) { console.error("Club fetch failed", e); }
+            get filteredWorkouts() {
+                return this.workouts.filter(w => w.date === this.selectedDate);
             },
 
-            filteredAthletes(search) {
-                return this.athletes.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
+            targetIndex(id) {
+                return this.filteredWorkouts.findIndex(w => w.id === id);
             },
 
-            async selectAthlete(athlete) {
-                this.selectedAthlete = athlete;
-                await this.fetchData();
+            scrollToToday() {
+                this.selectedDate = this.todayStr;
+                this.scrollToActive();
+            },
+
+            scrollToActive() {
+                const el = document.getElementById('calendar-container');
+                const activeBtn = document.getElementById('date-btn-' + this.selectedDate);
+                if (el && activeBtn) {
+                    el.scrollTo({
+                        left: activeBtn.offsetLeft - el.offsetWidth / 2 + activeBtn.offsetWidth / 2,
+                        behavior: 'smooth'
+                    });
+                }
+            },
+
+            goToDay(date) { this.selectedDate = date; this.currentView = 'feed'; setTimeout(() => this.scrollToActive(), 150); },
+            toggleAthleteFilter(id) { if (id === null) this.selectedAthleteFilters = []; else { const idx = this.selectedAthleteFilters.indexOf(id); if (idx > -1) this.selectedAthleteFilters.splice(idx, 1); else this.selectedAthleteFilters.push(id); } },
+
+            get agendaGroups() {
+                let filtered = this.workouts.filter(w => w.date >= this.todayStr);
+                if (this.selectedAthleteFilters.length > 0) filtered = filtered.filter(w => w.athleteIds.some(id => this.selectedAthleteFilters.includes(id)));
+                const groups = filtered.reduce((acc, w) => { if (!acc[w.date]) acc[w.date] = []; acc[w.date].push(w); return acc; }, {});
+                return Object.keys(groups).sort().map(date => ({ date, items: groups[date] }));
+            },
+
+            get filteredAthletes() {
+                const q = this.athleteSearch.toLowerCase();
+                return this.athletes
+                    .filter(a => !q || a.name.toLowerCase().includes(q))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+            },
+
+            isTimePassed() {
+                if (this.workoutForm.date < this.todayStr) return true;
+                if (this.workoutForm.date === this.todayStr) {
+                    const now = new Date(); const sel = new Date();
+                    sel.setHours(parseInt(this.workoutForm.startH), parseInt(this.workoutForm.startM), 0);
+                    return sel < now;
+                }
+                return false;
+            },
+
+            async fetchData() {
+                const res = await fetch(`/api/v1/workouts?coachId=${this.coachId}&startDate=${this.days[0].dateStr}&endDate=${this.days[this.days.length-1].dateStr}`);
+                if (res.ok) this.workouts = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
             },
 
             async fetchAthletes() {
-                try {
-                    const res = await fetch(`/api/v1/coaches/${this.coachId}/athletes`);
-                    if (res.ok) this.athletes = await res.json();
-                } catch (e) { console.error(e); }
+                const res = await fetch(`/api/v1/coaches/${this.coachId}/athletes`);
+                if (res.ok) this.athletes = (await res.json()).sort((a, b) => a.name.localeCompare(b.name));
             },
 
-            // --- ATHLETE ACTIONS ---
-            openAthleteModal() {
-                this.editingAthleteId = null;
-                this.athleteForm = { name: '', description: '' };
-                this.showAthleteModal = true;
+            async fetchLocations() {
+                const res = await fetch(`/api/v1/coaches/${this.coachId}/locations`);
+                if (res.ok) this.locations = await res.json();
             },
-            editAthlete(athlete) {
-                this.editingAthleteId = athlete.id;
-                this.athleteForm = { name: athlete.name, description: athlete.description };
-                this.showAthleteModal = true;
+
+            getAthleteName(id) { return this.athletes.find(at => at.id === id)?.name || 'Unknown'; },
+            getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
+            hasWorkoutOn(date) { return this.workouts.some(w => w.date === date); },
+            autoUpdateEndTime() { let h = (parseInt(this.workoutForm.startH) + 1) % 24; this.workoutForm.endH = h.toString().padStart(2, '0'); this.workoutForm.endM = this.workoutForm.startM; },
+            handleMouseScroll(e) { document.getElementById('calendar-container').scrollLeft += e.deltaY; },
+            dragStart(event, index) { this.draggedIndex = index; },
+
+            async drop(event, targetIndex) {
+                if (this.draggedIndex === null || this.draggedIndex === targetIndex) return;
+                const list = this.filteredWorkouts; const dragged = list[this.draggedIndex]; const target = list[targetIndex];
+                if (dragged.date < this.todayStr) return;
+                const ts = dragged.time; const te = dragged.endTime;
+                dragged.time = target.time; dragged.endTime = target.endTime;
+                target.time = ts; target.endTime = te;
+                await this.saveRaw(dragged); await this.saveRaw(target);
+                this.draggedIndex = null; await this.fetchData();
             },
+
+            async saveRaw(w) { await fetch('/api/v1/workouts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...w, coachId: this.coachId }) }); },
+
+            openWorkoutModal() {
+                this.editingWorkoutId = null;
+                this.workoutForm = { title: 'Тренування', description: '', date: this.selectedDate, startH: '08', startM: '00', endH: '09', endM: '00', athleteIds: [], locationId: null };
+                this.showModal = true;
+            },
+
+            editWorkout(w) {
+                this.editingWorkoutId = w.id;
+                this.originalWorkoutData = { date: w.date, time: w.time };
+                const [sh, sm] = w.time.split(':'); const [eh, em] = (w.endTime || '09:00').split(':');
+                this.workoutForm = { title: w.title, description: w.description || '', date: w.date, startH: sh, startM: sm, endH: eh, endM: em, athleteIds: [...(w.athleteIds || [])], locationId: w.locationId || null };
+                this.showModal = true;
+            },
+
+            async saveWorkout() {
+                const newTime = `${this.workoutForm.startH}:${this.workoutForm.startM}`;
+                if (this.editingWorkoutId && this.originalWorkoutData) {
+                    if (this.workoutForm.date !== this.originalWorkoutData.date || newTime !== this.originalWorkoutData.time) {
+                        await fetch(`/api/v1/workouts/${this.editingWorkoutId}`, { method: 'DELETE' });
+                    }
+                }
+                const payload = {
+                    id: (this.editingWorkoutId && this.workoutForm.date === this.originalWorkoutData?.date && newTime === this.originalWorkoutData?.time) ? this.editingWorkoutId : null,
+                    ...this.workoutForm, time: newTime, endTime: `${this.workoutForm.endH}:${this.workoutForm.endM}`, coachId: this.coachId
+                };
+                await fetch('/api/v1/workouts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                this.showModal = false; await this.fetchData();
+            },
+
+            askDeleteWorkout() {
+                this.confirmData = { show: true, title: 'Видалити?', message: 'Дію неможливо скасувати.', onConfirm: async () => { await fetch(`/api/v1/workouts/${this.editingWorkoutId}`, { method: 'DELETE' }); this.showModal = false; await this.fetchData(); } };
+            },
+
             async saveAthlete() {
                 const method = this.editingAthleteId ? 'PUT' : 'POST';
                 const url = this.editingAthleteId ? `/api/v1/athletes/${this.editingAthleteId}` : '/api/v1/athletes';
-                const payload = { ...this.athleteForm, coachId: this.coachId };
-                const res = await fetch(url, {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (res.ok) {
-                    this.showAthleteModal = false;
-                    await this.fetchAthletes();
-                    this.selectedAthlete = null;
-                    await this.fetchData();
-                }
-            },
-            async deleteAthlete() {
-                if (!confirm('Delete this athlete and all their schedule?')) return;
-                await fetch(`/api/v1/athletes/${this.editingAthleteId}`, { method: 'DELETE' });
-                this.showAthleteModal = false;
-                this.selectedAthlete = null;
-                await this.fetchAthletes();
-                await this.fetchData();
+                await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...this.athleteForm, coachId: this.coachId }) });
+                this.athleteForm = { name: '', description: '' }; this.editingAthleteId = null; await this.fetchAthletes();
             },
 
-            // --- WORKOUT ACTIONS ---
-            openWorkoutModal() {
-                this.editingWorkoutId = null;
-                this.workoutForm = { title: '', time: '08:00', description: '' };
-                this.showModal = true;
-            },
-            editWorkout(workout) {
-                if (!this.selectedAthlete) return;
-                this.editingWorkoutId = workout.id;
-                this.workoutForm = { title: workout.title, time: workout.time, description: workout.description };
-                this.showModal = true;
-            },
-            async saveWorkout() {
-                const payload = {
-                    ...this.workoutForm,
-                    id: this.editingWorkoutId,
-                    date: this.selectedDate,
-                    coachId: this.coachId,
-                    athleteId: this.selectedAthlete.id,
-                    durationMinutes: 60
-                };
-                const res = await fetch('/api/v1/workouts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (res.ok) {
-                    this.showModal = false;
-                    await this.fetchData();
-                }
-            },
-            async deleteWorkout() {
-                if (!confirm('Delete this workout?')) return;
-                try {
-                    const res = await fetch(`/api/v1/workouts/${this.editingWorkoutId}`, { method: 'DELETE' });
-                    if (res.ok) {
-                        this.showModal = false;
-                        await this.fetchData();
-                    }
-                } catch (e) { console.error("Delete failed", e); }
+            editAthlete(a) { this.editingAthleteId = a.id; this.athleteForm = { name: a.name, description: a.description }; },
+            askDeleteAthlete(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/athletes/${id}`, { method: 'DELETE' }); await this.fetchAthletes(); await this.fetchData(); } }; },
+
+            async saveLocation() {
+                const method = this.editingLocationId ? 'PUT' : 'POST';
+                const url = this.editingLocationId ? `/api/v1/locations/${this.editingLocationId}` : '/api/v1/locations';
+                await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...this.locationForm, coachId: this.coachId }) });
+                this.locationForm = { name: '', description: '', color: '#3b82f6' }; this.editingLocationId = null;
+                await this.fetchLocations();
             },
 
-            // --- DATA LOADING ---
-            async fetchData() {
-                const start = this.days[0].dateStr;
-                const end = this.days[this.days.length - 1].dateStr;
-                let url = `/api/v1/workouts?coachId=${this.coachId}&startDate=${start}&endDate=${end}`;
-                if (this.selectedAthlete) url += `&athleteId=${this.selectedAthlete.id}`;
-
-                try {
-                    const response = await fetch(url);
-                    const data = await response.json();
-                    this.workouts = data.map(w => ({
-                        ...w,
-                        dateStr: w.date,
-                        time: w.time || '08:00',
-                        duration: w.durationMinutes ? w.durationMinutes + 'm' : '60m',
-                        athleteName: this.athletes.find(a => a.id === w.athleteId)?.name || 'Unknown'
-                    }));
-                    this.updateCalendarDots();
-                } catch (e) { console.error(e); }
-            },
-
-            updateCalendarDots() {
-                this.days.forEach(day => {
-                    day.hasWorkout = this.workouts.some(w => w.dateStr === day.dateStr);
-                });
-            },
+            editLocation(l) { this.editingLocationId = l.id; this.locationForm = { name: l.name, description: l.description || '', color: l.color || '#3b82f6' }; },
+            askDeleteLocation(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Локація зникне з усіх тренувань.', onConfirm: async () => { await fetch(`/api/v1/locations/${id}`, { method: 'DELETE' }); await this.fetchLocations(); await this.fetchData(); } }; },
 
             generateDays() {
-                const start = new Date();
-                start.setDate(start.getDate() - 30);
-                const end = new Date();
-                end.setDate(end.getDate() + 30);
-                let current = new Date(start);
-                while (current <= end) {
-                    const dateStr = current.toISOString().split('T')[0];
-                    this.days.push({
-                        dateStr: dateStr, dayNum: current.getDate(),
-                        weekday: current.toLocaleDateString('en-US', { weekday: 'short' }),
-                        monthName: current.toLocaleDateString('en-US', { month: 'long' }),
-                        year: current.getFullYear(), hasWorkout: false
-                    });
-                    current.setDate(current.getDate() + 1);
+                const start = new Date(); start.setDate(start.getDate() - 14);
+                const ukDays = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                for (let i = 0; i < 74; i++) {
+                    const dateStr = start.toISOString().split('T')[0];
+                    this.days.push({ dateStr, dayNum: start.getDate(), weekday: ukDays[start.getDay()] });
+                    start.setDate(start.getDate() + 1);
                 }
             },
-            get filteredWorkouts() {
-                return this.workouts.filter(w => w.dateStr === this.selectedDate);
-            },
             formatDisplayDate(str) {
-                return new Date(str).toLocaleDateString('en-UK', { day: 'numeric', month: 'short', year: 'numeric' });
-            },
-            scrollWeeks(direction) {
-                document.getElementById('calendar-container').scrollBy({ left: direction * 300, behavior: 'smooth' });
-            },
-            scrollToSelected() {
-                const el = document.getElementById('date-' + this.selectedDate);
-                if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                const d = new Date(str); const months = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
+                return `${d.getDate()} ${months[d.getMonth()]}`;
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.model.entity.Workout;
+import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.WorkoutRepository;
 import com.planner.api.WorkoutsApi;
 import com.planner.model.CreateWorkoutRequest;
@@ -14,70 +15,102 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Collections;
 
 @RestController
 public class WorkoutController implements WorkoutsApi {
 
-    private final WorkoutRepository workoutRepository;
+    private static final String DEFAULT_COLOR = "#3b82f6";
 
-    public WorkoutController(WorkoutRepository workoutRepository) {
+    private final WorkoutRepository workoutRepository;
+    private final LocationRepository locationRepository;
+
+    public WorkoutController(WorkoutRepository workoutRepository, LocationRepository locationRepository) {
         this.workoutRepository = workoutRepository;
+        this.locationRepository = locationRepository;
     }
 
-    // --- READ ---
     @Override
     public Mono<ResponseEntity<Flux<WorkoutDTO>>> getWorkouts(
-            LocalDate startDate,
-            LocalDate endDate,
-            Long coachId,
-            Long athleteId,
-            ServerWebExchange exchange) {
+            LocalDate startDate, LocalDate endDate,
+            Long coachId, Long athleteId, ServerWebExchange exchange) {
 
-        Flux<Workout> workoutFlux = (athleteId != null)
-                ? workoutRepository.findAllByCoachIdAndAthleteIdAndWorkoutDateBetween(coachId, athleteId, startDate, endDate)
+        Flux<Workout> workouts = (athleteId != null)
+                ? workoutRepository.findAllByCoachAndAthleteInPeriod(coachId, athleteId, startDate, endDate)
                 : workoutRepository.findAllByCoachIdAndWorkoutDateBetween(coachId, startDate, endDate);
 
-        return Mono.just(ResponseEntity.ok(workoutFlux.map(this::mapToDto)));
+        Flux<WorkoutDTO> dtoFlux = workouts.flatMap(w ->
+                workoutRepository.findAthleteIdsByWorkoutId(w.getId())
+                        .collectList()
+                        .flatMap(ids -> {
+                            w.setAthleteIds(ids);
+                            return enrichWithColor(w);
+                        })
+        );
+
+        return Mono.just(ResponseEntity.ok(dtoFlux));
     }
 
-    // --- CREATE / UPDATE (Upsert) ---
     @Override
     public Mono<ResponseEntity<WorkoutDTO>> createWorkout(
-            Mono<CreateWorkoutRequest> createWorkoutRequest,
-            ServerWebExchange exchange) {
+            Mono<CreateWorkoutRequest> createWorkoutRequest, ServerWebExchange exchange) {
 
-        return createWorkoutRequest
-                .flatMap(request -> {
-                    Workout entity = Workout.builder()
-                            .id(request.getId()) // Якщо ID є, R2DBC оновить запис, якщо null — створить
-                            .title(request.getTitle())
-                            .description(request.getDescription())
-                            .workoutDate(request.getDate())
-                            .workoutTime(request.getTime() != null ? LocalTime.parse(request.getTime()) : null)
-                            .durationMinutes(request.getDurationMinutes())
-                            .athleteId(request.getAthleteId())
-                            .coachId(request.getCoachId())
-                            .build();
+        return createWorkoutRequest.flatMap(req -> {
+            Workout entity = Workout.builder()
+                    .id(req.getId())
+                    .title(req.getTitle())
+                    .description(req.getDescription())
+                    .workoutDate(req.getDate())
+                    .startTime(req.getTime() != null ? LocalTime.parse(req.getTime()) : null)
+                    .endTime(req.getEndTime() != null ? LocalTime.parse(req.getEndTime()) : null)
+                    .coachId(req.getCoachId())
+                    .locationId(req.getLocationId())
+                    .build();
 
-                    return workoutRepository.save(entity);
-                })
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved)));
+            return workoutRepository.save(entity)
+                    .flatMap(saved -> {
+                        Mono<Void> cleanOldLinks = (req.getId() != null)
+                                ? workoutRepository.deleteAthleteLinks(saved.getId())
+                                : Mono.empty();
+
+                        Mono<Void> addNewLinks = Flux.fromIterable(
+                                        req.getAthleteIds() != null ? req.getAthleteIds() : Collections.<Long>emptyList())
+                                .flatMap(aId -> workoutRepository.linkAthleteToWorkout(saved.getId(), aId))
+                                .then();
+
+                        return cleanOldLinks.then(addNewLinks).then(Mono.just(saved));
+                    })
+                    .flatMap(saved -> {
+                        saved.setAthleteIds(req.getAthleteIds());
+                        return enrichWithColor(saved);
+                    })
+                    .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
+        });
     }
 
-    // --- DELETE ---
     @Override
     public Mono<ResponseEntity<Void>> deleteWorkout(Long workoutId, ServerWebExchange exchange) {
         return workoutRepository.findById(workoutId)
-                .flatMap(workout -> workoutRepository.delete(workout)
+                .flatMap(w -> workoutRepository.delete(w)
                         .then(Mono.just(ResponseEntity.noContent().<Void>build())))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    // --- READ SINGLE (якщо додано в OpenAPI) ---
-    public Mono<ResponseEntity<WorkoutDTO>> getWorkoutById(Long workoutId) {
-        return workoutRepository.findById(workoutId)
-                .map(workout -> ResponseEntity.ok(mapToDto(workout)))
-                .defaultIfEmpty(ResponseEntity.notFound().build());
+    private Mono<WorkoutDTO> enrichWithColor(Workout entity) {
+        Mono<String> colorMono;
+        if (entity.getLocationId() != null) {
+            colorMono = locationRepository.findById(entity.getLocationId())
+                    .map(loc -> loc.getColor() != null ? loc.getColor() : DEFAULT_COLOR)
+                    .defaultIfEmpty(DEFAULT_COLOR);
+        } else {
+            colorMono = Mono.just(DEFAULT_COLOR);
+        }
+
+        return colorMono.map(color -> {
+            WorkoutDTO dto = mapToDto(entity);
+            dto.setColor(color);
+            return dto;
+        });
     }
 
     private WorkoutDTO mapToDto(Workout entity) {
@@ -86,10 +119,11 @@ public class WorkoutController implements WorkoutsApi {
         dto.setTitle(entity.getTitle());
         dto.setDescription(entity.getDescription());
         dto.setDate(entity.getWorkoutDate());
-        dto.setTime(entity.getWorkoutTime() != null ? entity.getWorkoutTime().toString() : null);
-        dto.setDurationMinutes(entity.getDurationMinutes());
-        dto.setAthleteId(entity.getAthleteId());
+        dto.setTime(entity.getStartTime() != null ? entity.getStartTime().toString() : null);
+        dto.setEndTime(entity.getEndTime() != null ? entity.getEndTime().toString() : null);
         dto.setCoachId(entity.getCoachId());
+        dto.setLocationId(entity.getLocationId());
+        dto.setAthleteIds(entity.getAthleteIds());
         return dto;
     }
 }

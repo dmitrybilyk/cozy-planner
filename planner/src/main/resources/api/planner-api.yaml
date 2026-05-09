@@ -17,6 +17,8 @@ tags:
     description: Operations for athlete data
   - name: Workouts
     description: Operations for planning and retrieving training sessions
+  - name: Locations
+    description: Operations for location (venue) management
 
 paths:
   # --- КЛУБИ ---
@@ -205,6 +207,92 @@ paths:
         '204':
           description: Athlete deleted successfully
 
+  # --- ЛОКАЦІЇ ---
+  /api/v1/coaches/{coachId}/locations:
+    get:
+      tags: [Locations]
+      summary: Get all locations for a specific coach
+      operationId: getCoachLocations
+      parameters:
+        - name: coachId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocationDTO'
+
+  /api/v1/locations:
+    post:
+      tags: [Locations]
+      summary: Create a new location
+      operationId: createLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLocationRequest'
+      responses:
+        '201':
+          description: Location created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationDTO'
+
+  /api/v1/locations/{locationId}:
+    parameters:
+      - name: locationId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+    get:
+      tags: [Locations]
+      summary: Get location by ID
+      operationId: getLocationById
+      responses:
+        '200':
+          description: Location details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationDTO'
+    put:
+      tags: [Locations]
+      summary: Update a location
+      operationId: updateLocation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationDTO'
+      responses:
+        '200':
+          description: Location updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocationDTO'
+    delete:
+      tags: [Locations]
+      summary: Delete a location
+      operationId: deleteLocation
+      responses:
+        '204':
+          description: Location deleted successfully
+
   # --- ТРЕНУВАННЯ ---
   /api/v1/workouts:
     get:
@@ -359,18 +447,57 @@ components:
           type: string
           pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
           example: "08:30"
-        durationMinutes:
-          type: integer
-        athleteId:
+        endTime:
+          type: string
+          pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+          example: "09:30"
+        athleteIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        coachId:
           type: integer
           format: int64
+        locationId:
+          type: integer
+          format: int64
+        color:
+          type: string
+
+    LocationDTO:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        coachId:
+          type: integer
+          format: int64
+
+    CreateLocationRequest:
+      type: object
+      required: [name, coachId]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
         coachId:
           type: integer
           format: int64
 
     CreateWorkoutRequest:
       type: object
-      required: [title, date, athleteId, coachId]
+      required: [title, date, athleteIds, coachId]
       properties:
         id:
           type: integer
@@ -384,11 +511,18 @@ components:
           format: date
         time:
           type: string
-        durationMinutes:
-          type: integer
-        athleteId:
+          pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+        endTime:
+          type: string
+          pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
+        athleteIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        coachId:
           type: integer
           format: int64
-        coachId:
+        locationId:
           type: integer
           format: int64
