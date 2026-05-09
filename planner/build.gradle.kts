@@ -45,6 +45,10 @@ dependencies {
 //	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 	runtimeOnly("org.postgresql:postgresql")
 	runtimeOnly("org.postgresql:r2dbc-postgresql")
+
+	// Flyway
+	implementation("org.flywaydb:flyway-core")
+	runtimeOnly("org.flywaydb:flyway-database-postgresql")
 //	testImplementation("org.springframework.boot:spring-boot-starter-test")
 //	testImplementation("io.projectreactor:reactor-test")
 //	testImplementation("org.springframework.kafka:spring-kafka-test")
@@ -80,6 +84,10 @@ sourceSets {
 // Автоматично генерувати код перед компіляцією
 tasks.compileJava {
 	dependsOn(tasks.openApiGenerate)
+}
+
+tasks.openApiGenerate {
+	outputs.upToDateWhen { false }
 }
 
 tasks.withType<Test> {

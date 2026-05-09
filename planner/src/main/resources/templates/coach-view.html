@@ -51,9 +51,9 @@
             <button @click="selectedDate = day.dateStr; $nextTick(() => scrollToActive())"
                     :id="'date-btn-' + day.dateStr"
                     class="flex-shrink-0 flex flex-col items-center min-w-[64px]">
-                <div class="w-14 h-14 rounded-full p-[2px] flex items-center justify-center transition-all relative"
+                <div class="w-14 h-14 rounded-xl p-[2px] flex items-center justify-center transition-all relative"
                      :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : 'bg-[#333]', day.dateStr === todayStr ? 'today-marker' : '']">
-                    <div class="w-full h-full rounded-full bg-black flex flex-col items-center justify-center border-2 border-black">
+                    <div class="w-full h-full rounded-xl bg-black flex flex-col items-center justify-center border-2 border-black">
                         <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
                         <span class="text-sm font-bold text-white" x-text="day.dayNum"></span>
                     </div>

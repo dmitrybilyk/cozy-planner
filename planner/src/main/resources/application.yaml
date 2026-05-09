@@ -6,14 +6,14 @@ spring:
     username: user
     password: password
 
-  # Автоматичне створення таблиць (тільки для розробки!)
-#  sql:
-#    init:
-#      mode: always
-#      schema-locations: classpath:schema.sql
-#      data-locations: classpath:data.sql
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://localhost:5432/planner_db?stringtype=unspecified
+    user: user
+    password: password
+    locations: classpath:db/migration
+    clean-disabled: false
 
-  # Налаштування Jackson для коректної роботи з часом
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -23,3 +23,7 @@ spring:
 
 server:
   address: 0.0.0.0
+
+app:
+  flyway:
+    clean-on-start: false
