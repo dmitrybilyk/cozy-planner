@@ -46,28 +46,39 @@
 </head>
 <body class="antialiased" x-data="calendarApp()">
 
-<header class="bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#333] sticky top-0 z-40 px-2 sm:px-4 h-14 sm:h-16 flex items-center justify-between shadow-md">
-    <div class="flex items-center space-x-1.5 sm:space-x-3 min-w-0">
-        <div class="ig-ring w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center flex-shrink-0">
-            <div class="bg-black rounded-full w-full h-full flex items-center justify-center">
-                <span class="text-[8px] sm:text-[10px] font-black italic ig-gradient-text">CP</span>
+<header class="bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#333] sticky top-0 z-40 shadow-md">
+    <div class="px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
+        <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
+            <div class="ig-ring w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center flex-shrink-0">
+                <div class="bg-black rounded-full w-full h-full flex items-center justify-center">
+                    <span class="text-[8px] sm:text-[10px] font-black italic ig-gradient-text">CP</span>
+                </div>
+            </div>
+            <div class="leading-tight truncate">
+                <h1 class="text-[11px] sm:text-sm font-bold truncate" x-text="coach.name || 'Cozy Planner'"></h1>
+                <p x-show="user.email" class="text-[8px] sm:text-[9px] text-gray-500 font-medium truncate" x-text="user.email"></p>
             </div>
         </div>
-        <div class="leading-tight truncate">
-            <h1 class="text-[11px] sm:text-sm font-bold truncate" x-text="coach.name || 'Cozy Planner'"></h1>
-            <p x-show="user.email" class="text-[8px] sm:text-[9px] text-gray-500 font-medium truncate" x-text="user.email"></p>
+        <div class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl flex-shrink-0">
+            <button @click="currentView = 'feed'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">День</button>
+            <button @click="currentView = 'agenda'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">План</button>
         </div>
-    </div>
-    <div class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl flex-shrink-0">
-        <button @click="currentView = 'feed'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">День</button>
-        <button @click="currentView = 'agenda'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">План</button>
-    </div>
-    <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-        <button @click="showManageLocations = true"><svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
-        <button @click="showManageAthletes = true"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
-        <button @click="openWorkoutModal()"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.8" d="M12 4v16m8-8H4"/></svg></button>
         <form method="POST" action="/logout" id="logoutForm" class="hidden"></form>
-        <button onclick="document.getElementById('logoutForm').submit()"><svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
+        <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
+    </div>
+    <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex gap-2">
+        <button @click="openWorkoutModal()" class="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl font-bold text-sm sm:text-base shadow-lg transition">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>Нова сесія</span>
+        </button>
+        <button @click="showManageAthletes = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Атлети</span>
+        </button>
+        <button @click="showManageLocations = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span>Локації</span>
+        </button>
     </div>
 </header>
 
@@ -106,7 +117,10 @@
         </div>
         <div class="space-y-4">
             <template x-for="(workout, index) in filteredWorkouts" :key="workout.id">
-                <div draggable="true" @dragstart="dragStart($event, index)" @dragover.prevent @drop="drop($event, targetIndex(workout.id))" @click="editWorkout(workout)"
+                <div draggable="true" @dragstart="dragStart($event, index)" @dragend="dragEnd" @dragover.prevent @drop="drop($event, targetIndex(workout.id))"
+                     @click="handleCardClick(workout, index)"
+                     :data-workout-id="workout.id"
+                     :id="'workout-card-' + workout.id"
                      class="bg-[#1c1c1c] border border-[#333] rounded-3xl p-5 shadow-sm card-hover fade-in"
                      :class="draggedIndex === index ? 'dragging' : ''"
                      :style="'border-left: 5px solid ' + (workout.color || '#3b82f6')">
@@ -126,6 +140,7 @@
                                 <span class="w-2 h-2 rounded-full" :style="'background: ' + (workout.color || '#3b82f6')"></span>
                                 <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(workout.locationId)"></span>
                             </div>
+                            <button @click.stop="copyWorkout(workout)" class="mt-2 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider">Копіювати</button>
                         </div>
                     </div>
                 </div>
@@ -137,17 +152,20 @@
     <div x-show="currentView === 'agenda'" class="space-y-10">
         <template x-for="dateGroup in agendaGroups" :key="dateGroup.date">
             <div class="space-y-4">
-                <button @click="goToDay(dateGroup.date)" class="sticky top-16 bg-[#121212] py-2 z-10 w-full text-left flex items-center justify-between">
+                <button @click="goToDay(dateGroup.date)" class="sticky top-[108px] sm:top-[116px] bg-[#121212] py-2 z-10 w-full text-left flex items-center justify-between">
                     <span class="text-xs font-black text-blue-400 uppercase tracking-widest" x-text="formatDisplayDate(dateGroup.date)"></span>
                     <span x-show="dateGroup.date === todayStr" class="text-[9px] font-black text-white bg-[#333] px-2 py-0.5 rounded">СЬОГОДНІ</span>
                 </button>
                 <div class="space-y-3">
-                    <template x-for="workout in dateGroup.items" :key="workout.id">
-                        <div @click="editWorkout(workout)" class="bg-[#1c1c1c] border border-[#333] rounded-2xl p-4 flex items-center justify-between shadow-sm card-hover"
+                    <template x-for="(workout, index) in dateGroup.items" :key="workout.id">
+                        <div @click="handleCardClick(workout, index)"
+                             :data-workout-id="workout.id"
+                             :id="'agenda-card-' + workout.id"
+                             class="bg-[#1c1c1c] border border-[#333] rounded-2xl p-4 flex items-center justify-between shadow-sm card-hover"
                              :style="'border-left: 4px solid ' + (workout.color || '#3b82f6')">
-                            <div class="flex items-center space-x-4 min-w-0">
+                            <div class="flex items-center space-x-4 min-w-0 flex-1">
                                 <span class="text-sm font-black text-white flex-shrink-0" x-text="workout.time"></span>
-                                <div class="min-w-0">
+                                <div class="min-w-0 flex-1">
                                 <p class="text-base sm:text-lg font-bold text-gray-200 truncate" x-text="workout.title"></p>
                                 <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="workout.athleteIds.map(id => getAthleteName(id)).join(', ')"></p>
                                     <div x-show="getLocationName(workout.locationId)" class="flex items-center space-x-1 mt-1">
@@ -156,6 +174,7 @@
                                     </div>
                                 </div>
                             </div>
+                            <button @click.stop="copyWorkout(workout)" class="ml-2 flex-shrink-0 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider">Копіювати</button>
                         </div>
                     </template>
                 </div>
@@ -238,9 +257,21 @@
                 <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Дата</label><input type="date" x-model="workoutForm.date" :min="todayStr" class="w-full text-base"></div>
                 <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Назва</label><input type="text" x-model="workoutForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
                 <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Опис</label><textarea x-model="workoutForm.description" class="w-full text-base" rows="3"></textarea></div>
-                <div class="flex justify-between gap-4">
-                    <div class="flex-1"><span class="text-xs sm:text-sm font-black text-gray-500 uppercase block mb-1">Початок</span><div class="flex space-x-1"><select x-model="workoutForm.startH" @change="autoUpdateEndTime" class="w-full font-bold text-base"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.startM" @change="autoUpdateEndTime" class="w-full font-bold text-base"><option value="00">00</option><option value="30">30</option></select></div></div>
-                    <div class="flex-1"><span class="text-xs sm:text-sm font-black text-gray-500 uppercase block mb-1">Кінець</span><div class="flex space-x-1"><select x-model="workoutForm.endH" class="w-full font-bold text-base"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.endM" class="w-full font-bold text-base"><option value="00">00</option><option value="30">30</option></select></div></div>
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs sm:text-sm font-black text-gray-500 uppercase">Час</span>
+                        <span x-show="workoutForm.startTime && workoutForm.endTime" class="text-xs font-bold text-blue-400 bg-blue-900/30 px-2.5 py-1 rounded-full" x-text="getDurationLabel()"></span>
+                        <button x-show="workoutForm.startTime || workoutForm.endTime" @click="workoutForm.startTime = null; workoutForm.endTime = null" type="button" class="text-xs font-bold text-red-400 uppercase">Скинути</button>
+                    </div>
+                    <div class="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
+                        <template x-for="t in daySlots" :key="t">
+                            <button @click="pickTime(t)" type="button"
+                                    class="py-2 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95"
+                                    :class="getTimeClass(t)">
+                                <span x-text="t"></span>
+                            </button>
+                        </template>
+                    </div>
                 </div>
                 <div>
                     <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Локація</label>
@@ -257,6 +288,15 @@
                         <span x-show="workoutForm.athleteIds.length" class="text-xs sm:text-sm font-bold text-blue-400 bg-blue-900/30 px-2.5 py-0.5 rounded-full" x-text="workoutForm.athleteIds.length + ' вибр.'"></span>
                     </div>
                     <input type="text" x-model="athleteSearch" placeholder="Пошук атлетів..." class="w-full mb-2 text-base">
+                    <div x-show="workoutForm.athleteIds.length" class="flex flex-wrap gap-1.5 mb-2">
+                        <template x-for="aId in workoutForm.athleteIds" :key="aId">
+                            <button @click="workoutForm.athleteIds = workoutForm.athleteIds.filter(id => id !== aId)" type="button"
+                                    class="inline-flex items-center gap-1 bg-blue-900/40 text-blue-300 text-xs sm:text-sm font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 active:scale-95 transition-all">
+                                <span x-text="getAthleteName(aId)"></span>
+                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </template>
+                    </div>
                     <div class="grid grid-cols-1 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
                         <template x-for="athlete in filteredAthletes" :key="athlete.id">
                             <label class="flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 active:scale-[0.98] cursor-pointer"
@@ -276,7 +316,7 @@
         </div>
         <div class="modal-footer flex space-x-3">
             <button @click="showModal = false" class="flex-1 py-4 font-bold text-gray-500 uppercase text-sm">Скасувати</button>
-            <button @click="saveWorkout()" :disabled="workoutForm.athleteIds.length === 0 || isTimePassed()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">Зберегти</button>
+            <button @click="saveWorkout()" :disabled="workoutForm.athleteIds.length === 0 || isTimePassed() || !workoutForm.endTime" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">Зберегти</button>
         </div>
     </div>
 </div>
@@ -286,18 +326,28 @@
 </div>
 
 <script>
+    function localDateStr(d) {
+        d = d || new Date();
+        return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+    }
     function calendarApp() {
+        const _today = localDateStr();
         return {
             currentView: 'feed', showModal: false, showManageAthletes: false, showManageLocations: false,
             editingWorkoutId: null, editingAthleteId: null, editingLocationId: null, draggedIndex: null,
-            selectedDate: new Date().toISOString().split('T')[0], todayStr: new Date().toISOString().split('T')[0],
+            selectedDate: _today, todayStr: _today,
             days: [], workouts: [], athletes: [], locations: [], coachId: null, coach: { name: '' }, user: {},
             hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
+            halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
+            daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             selectedAthleteFilters: [], athleteSearch: '',
-            workoutForm: { title: 'Тренування', description: '', date: '', startH: '08', startM: '00', endH: '09', endM: '00', athleteIds: [], locationId: null },
+            workoutForm: { title: 'Тренування', description: '', date: '', startTime: null, endTime: null, athleteIds: [], locationId: null },
             athleteForm: { name: '', description: '' },
             locationForm: { name: '', description: '', color: '#3b82f6' },
             confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
+            touchDrag: null,
+            touchJustDragged: false,
+            _touchDragCleanup: null,
 
             async init() {
                 const me = await this.fetchMe();
@@ -307,6 +357,7 @@
                 await this.fetchAthletes();
                 await this.fetchData();
                 this.connectSSE();
+                this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
             },
 
@@ -316,6 +367,109 @@
                 es.addEventListener('athlete_changed', () => { this.fetchAthletes(); this.fetchData(); });
                 es.addEventListener('location_changed', () => { this.fetchLocations(); this.fetchData(); });
                 es.onerror = () => { es.close(); setTimeout(() => this.connectSSE(), 3000); };
+            },
+
+            handleCardClick(workout, index) {
+                if (this.touchJustDragged) return;
+                this.editWorkout(workout);
+            },
+
+            copyWorkout(w) {
+                this.editingWorkoutId = null;
+                this.originalWorkoutData = null;
+                let st = w.time, et = w.endTime || this.nextSlot(w.time);
+                if (w.date === this.todayStr && new Date(`${w.date}T${st}`) <= new Date()) {
+                    const dur = this.slotToMin(et) - this.slotToMin(st);
+                    st = this.getNearestSlot();
+                    const em = this.slotToMin(st) + Math.max(dur, 30);
+                    const eh = Math.floor(em / 60) % 24;
+                    et = `${eh.toString().padStart(2, '0')}:${em % 60 === 0 ? '00' : '30'}`;
+                }
+                this.workoutForm = {
+                    title: w.title,
+                    description: w.description || '',
+                    date: w.date,
+                    startTime: st,
+                    endTime: et,
+                    athleteIds: [...(w.athleteIds || [])],
+                    locationId: w.locationId || null
+                };
+                this.showModal = true;
+            },
+
+            initTouchDrag() {
+                const container = document.querySelector('main') || document.body;
+                if (!container) return;
+                if (this._touchDragCleanup) return;
+
+                let timer = null;
+                let drag = null;
+
+                const onStart = (e) => {
+                    const card = e.target.closest('[data-workout-id]');
+                    if (!card) return;
+                    const id = parseInt(card.dataset.workoutId);
+                    const workout = this.workouts.find(w => w.id === id);
+                    if (!workout) return;
+                    const t = e.touches[0];
+                    this.touchJustDragged = false;
+                    drag = { workout, card, startX: t.clientX, startY: t.clientY, armed: false, ghost: null };
+                    timer = setTimeout(() => { if (drag) drag.armed = true; }, 400);
+                };
+
+                    const onMove = (e) => {
+                    if (!drag || !drag.armed) return;
+                    e.preventDefault();
+                    const t = e.touches[0];
+                    if (!drag.ghost) {
+                        const g = drag.card.cloneNode(true);
+                        g.style.position = 'fixed';
+                        g.style.width = drag.card.offsetWidth + 'px';
+                        g.style.opacity = '0.85';
+                        g.style.pointerEvents = 'none';
+                        g.style.zIndex = '9999';
+                        g.style.transform = 'scale(0.95) rotate(1deg)';
+                        g.style.transition = 'none';
+                        document.body.appendChild(g);
+                        drag.ghost = g;
+                    }
+                    drag.ghost.style.left = (t.clientX - drag.ghost.offsetWidth / 2) + 'px';
+                    drag.ghost.style.top = (t.clientY - 30) + 'px';
+                };
+
+                const onEnd = async (e) => {
+                    clearTimeout(timer);
+                    if (!drag) return;
+                    if (drag.armed && drag.ghost) {
+                        this.touchJustDragged = true;
+                        setTimeout(() => { this.touchJustDragged = false; }, 400);
+                        const el = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+                        const c = el?.closest('[data-workout-id]');
+                        if (c) {
+                            const tid = parseInt(c.dataset.workoutId);
+                            const tw = this.workouts.find(w => w.id === tid);
+                            if (tw && tw.id !== drag.workout.id) {
+                                const ts = drag.workout.time, te = drag.workout.endTime;
+                                drag.workout.time = tw.time; drag.workout.endTime = tw.endTime;
+                                tw.time = ts; tw.endTime = te;
+                                await this.saveRaw(drag.workout); await this.saveRaw(tw);
+                                await this.fetchData();
+                            }
+                        }
+                    }
+                    if (drag.ghost) drag.ghost.remove();
+                    drag = null;
+                };
+
+                container.addEventListener('touchstart', onStart, { passive: true });
+                container.addEventListener('touchmove', onMove, { passive: false });
+                container.addEventListener('touchend', onEnd, { passive: true });
+
+                this._touchDragCleanup = () => {
+                    container.removeEventListener('touchstart', onStart);
+                    container.removeEventListener('touchmove', onMove);
+                    container.removeEventListener('touchend', onEnd);
+                };
             },
 
             async fetchMe() {
@@ -379,11 +533,10 @@
             },
 
             isTimePassed() {
+                if (this.workoutForm.startTime === null) return true;
                 if (this.workoutForm.date < this.todayStr) return true;
                 if (this.workoutForm.date === this.todayStr) {
-                    const now = new Date(); const sel = new Date();
-                    sel.setHours(parseInt(this.workoutForm.startH), parseInt(this.workoutForm.startM), 0);
-                    return sel < now;
+                    return new Date(`${this.workoutForm.date}T${this.workoutForm.startTime}`) <= new Date();
                 }
                 return false;
             },
@@ -403,12 +556,77 @@
                 if (res.ok) this.locations = await res.json();
             },
 
-            getAthleteName(id) { return this.athletes.find(at => at.id === id)?.name || 'Unknown'; },
+            getAthleteName(id) { return (this.athletes.find(at => at.id == id)?.name) || 'Unknown'; },
             getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
             hasWorkoutOn(date) { return this.workouts.some(w => w.date === date); },
-            autoUpdateEndTime() { let h = (parseInt(this.workoutForm.startH) + 1) % 24; this.workoutForm.endH = h.toString().padStart(2, '0'); this.workoutForm.endM = this.workoutForm.startM; },
             handleMouseScroll(e) { document.getElementById('calendar-container').scrollLeft += e.deltaY; },
             dragStart(event, index) { this.draggedIndex = index; },
+            dragEnd() { this.draggedIndex = null; },
+
+            getNearestSlot() {
+                const now = new Date();
+                const totalMin = Math.max(now.getHours() * 60 + now.getMinutes(), 7 * 60);
+                const nextSlot = Math.ceil(totalMin / 30) * 30;
+                const nh = Math.floor(nextSlot / 60) % 24;
+                const nm = nextSlot % 60;
+                return `${nh.toString().padStart(2, '0')}:${nm === 0 ? '00' : '30'}`;
+            },
+
+            slotToMin(t) {
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + m;
+            },
+
+            pickTime(t) {
+                const tm = this.slotToMin(t);
+                const sm = this.workoutForm.startTime !== null ? this.slotToMin(this.workoutForm.startTime) : -1;
+                const em = this.workoutForm.endTime !== null ? this.slotToMin(this.workoutForm.endTime) : -1;
+
+                if (sm < 0) {
+                    this.workoutForm.startTime = t;
+                    this.workoutForm.endTime = this.nextSlot(t);
+                } else if (em < 0) {
+                    if (tm > sm) {
+                        this.workoutForm.endTime = t;
+                    } else {
+                        this.workoutForm.startTime = t;
+                        this.workoutForm.endTime = this.nextSlot(t);
+                    }
+                } else if (tm > em) {
+                    this.workoutForm.endTime = t;
+                } else if (tm > sm && tm < em) {
+                    this.workoutForm.endTime = t;
+                } else {
+                    this.workoutForm.startTime = t;
+                    this.workoutForm.endTime = this.nextSlot(t);
+                }
+            },
+
+            nextSlot(t) {
+                const m = this.slotToMin(t) + 30;
+                const h = Math.floor(m / 60) % 24;
+                return `${h.toString().padStart(2, '0')}:${m % 60 === 0 ? '00' : '30'}`;
+            },
+
+            getTimeClass(t) {
+                const tm = this.slotToMin(t);
+                const s = this.workoutForm.startTime !== null ? this.slotToMin(this.workoutForm.startTime) : -1;
+                const e = this.workoutForm.endTime !== null ? this.slotToMin(this.workoutForm.endTime) : -1;
+                if (tm === s) return 'bg-blue-600 text-white shadow-lg scale-105 ring-2 ring-blue-400';
+                if (tm === e) return 'bg-blue-600 text-white shadow-lg';
+                if (s >= 0 && e >= 0 && tm > s && tm < e) return 'bg-blue-500/20 text-blue-300';
+                return 'bg-[#262626] text-gray-400 hover:bg-[#333]';
+            },
+
+            getDurationLabel() {
+                if (!this.workoutForm.startTime || !this.workoutForm.endTime) return '';
+                const diff = this.slotToMin(this.workoutForm.endTime) - this.slotToMin(this.workoutForm.startTime);
+                const h = Math.floor(diff / 60);
+                const m = diff % 60;
+                if (h > 0 && m > 0) return `${h} год ${m} хв`;
+                if (h > 0) return `${h} год`;
+                return `${m} хв`;
+            },
 
             async drop(event, targetIndex) {
                 if (this.draggedIndex === null || this.draggedIndex === targetIndex) return;
@@ -425,28 +643,32 @@
 
             openWorkoutModal() {
                 this.editingWorkoutId = null;
-                this.workoutForm = { title: 'Тренування', description: '', date: this.selectedDate, startH: '08', startM: '00', endH: '09', endM: '00', athleteIds: [], locationId: null };
+                this.originalWorkoutData = null;
+                this.workoutForm = { title: 'Тренування', description: '', date: this.selectedDate, startTime: null, endTime: null, athleteIds: [], locationId: null };
                 this.showModal = true;
             },
 
             editWorkout(w) {
                 this.editingWorkoutId = w.id;
                 this.originalWorkoutData = { date: w.date, time: w.time };
-                const [sh, sm] = w.time.split(':'); const [eh, em] = (w.endTime || '09:00').split(':');
-                this.workoutForm = { title: w.title, description: w.description || '', date: w.date, startH: sh, startM: sm, endH: eh, endM: em, athleteIds: [...(w.athleteIds || [])], locationId: w.locationId || null };
+                this.workoutForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, athleteIds: [...(w.athleteIds || [])], locationId: w.locationId || null };
                 this.showModal = true;
             },
 
             async saveWorkout() {
-                const newTime = `${this.workoutForm.startH}:${this.workoutForm.startM}`;
+                const { startTime, endTime, date, title, description, athleteIds, locationId } = this.workoutForm;
+                if (!startTime || !endTime) return;
+                const newTime = startTime;
                 if (this.editingWorkoutId && this.originalWorkoutData) {
-                    if (this.workoutForm.date !== this.originalWorkoutData.date || newTime !== this.originalWorkoutData.time) {
+                    if (date !== this.originalWorkoutData.date || newTime !== this.originalWorkoutData.time) {
                         await fetch(`/api/v1/workouts/${this.editingWorkoutId}`, { method: 'DELETE' });
                     }
                 }
                 const payload = {
-                    id: (this.editingWorkoutId && this.workoutForm.date === this.originalWorkoutData?.date && newTime === this.originalWorkoutData?.time) ? this.editingWorkoutId : null,
-                    ...this.workoutForm, time: newTime, endTime: `${this.workoutForm.endH}:${this.workoutForm.endM}`, coachId: this.coachId
+                    id: (this.editingWorkoutId && date === this.originalWorkoutData?.date && newTime === this.originalWorkoutData?.time) ? this.editingWorkoutId : null,
+                    title, description, date, coachId: this.coachId,
+                    time: newTime, endTime,
+                    athleteIds, locationId
                 };
                 await fetch('/api/v1/workouts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 this.showModal = false; await this.fetchData();
@@ -481,8 +703,7 @@
                 const start = new Date(); start.setDate(start.getDate() - 14);
                 const ukDays = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
                 for (let i = 0; i < 74; i++) {
-                    const dateStr = start.toISOString().split('T')[0];
-                    this.days.push({ dateStr, dayNum: start.getDate(), weekday: ukDays[start.getDay()] });
+                    this.days.push({ dateStr: localDateStr(start), dayNum: start.getDate(), weekday: ukDays[start.getDay()] });
                     start.setDate(start.getDate() + 1);
                 }
             },

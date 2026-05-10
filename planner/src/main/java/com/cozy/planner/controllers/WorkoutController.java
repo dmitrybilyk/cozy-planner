@@ -65,7 +65,7 @@ public class WorkoutController implements WorkoutsApi {
                     .description(req.getDescription())
                     .workoutDate(req.getDate())
                     .startTime(req.getTime() != null ? LocalTime.parse(req.getTime()) : null)
-                    .endTime(req.getEndTime() != null ? LocalTime.parse(req.getEndTime()) : null)
+                    .endTime(req.getEndTime() != null ? LocalTime.parse(req.getEndTime()) : (req.getTime() != null ? LocalTime.parse(req.getTime()).plusMinutes(30) : null))
                     .coachId(req.getCoachId())
                     .locationId(req.getLocationId())
                     .build();
