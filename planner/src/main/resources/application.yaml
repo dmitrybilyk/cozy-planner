@@ -19,7 +19,7 @@ spring:
       client:
         registration:
           google:
-            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID}                                                                                                  LSP
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID}
             client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET}
             scope: openid, profile, email
 
@@ -37,3 +37,10 @@ server:
 app:
   flyway:
     clean-on-start: false
+  base-url: ${APP_BASE_URL:https://footwork-lid-attendee.ngrok-free.dev}
+
+telegram:
+  enabled: ${TELEGRAM_ENABLED:true}
+  bot-token: ${TELEGRAM_BOT_TOKEN:8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY}
+  bot-username: ${TELEGRAM_BOT_USERNAME:CozyPlannerBot}
+  webhook-url: ${TELEGRAM_WEBHOOK_URL:}

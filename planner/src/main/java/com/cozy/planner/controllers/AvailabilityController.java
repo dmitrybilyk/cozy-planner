@@ -16,10 +16,13 @@ import reactor.core.publisher.Mono;
 import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 public class AvailabilityController {
@@ -107,43 +110,57 @@ public class AvailabilityController {
                                                        ServerWebExchange exchange) {
         return getAthleteId(exchange)
                 .flatMap(athleteId -> {
-                    if (entries.isEmpty()) {
+                    Set<LocalDate> uniqueDates = entries.stream()
+                            .map(SlotEntry::date)
+                            .collect(Collectors.toSet());
+                    
+                    if (uniqueDates.isEmpty()) {
                         return Mono.just(ResponseEntity.ok().<Void>build());
                     }
-                    LocalDate date = entries.get(0).date;
-                    return availabilityRepository.findByAthleteIdAndDate(athleteId, date)
-                            .collectList()
-                            .flatMap(existing -> {
-                                List<AthleteAvailability> toSave = entries.stream()
-                                        .map(e -> {
-                                            AthleteAvailability aa = new AthleteAvailability();
-                                            aa.setAthleteId(athleteId);
-                                            aa.setDate(e.date);
-                                            aa.setStartTime(e.startTime);
-                                            aa.setEndTime(e.endTime);
-                                            return aa;
-                                        })
-                                        .toList();
-                                return Flux.fromIterable(existing)
-                                        .flatMap(availabilityRepository::delete)
-                                        .thenMany(Flux.fromIterable(toSave))
-                                        .flatMap(availabilityRepository::save)
-                                        .then();
+
+                    List<AthleteAvailability> toSave = entries.stream()
+                            .map(e -> {
+                                AthleteAvailability aa = new AthleteAvailability();
+                                aa.setAthleteId(athleteId);
+                                aa.setDate(e.date);
+                                aa.setStartTime(e.startTime);
+                                aa.setEndTime(e.endTime);
+                                return aa;
                             })
+                            .toList();
+
+                    return Flux.fromIterable(uniqueDates)
+                            .flatMap(date -> availabilityRepository.findByAthleteIdAndDate(athleteId, date))
+                            .flatMap(availabilityRepository::delete)
+                            .thenMany(Flux.fromIterable(toSave))
+                            .flatMap(availabilityRepository::save)
                             .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
                             .then(Mono.just(ResponseEntity.ok().<Void>build()));
                 });
     }
 
     @DeleteMapping("/api/v1/athlete/availability")
-    public Mono<ResponseEntity<Void>> clearAvailability(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+    public Mono<ResponseEntity<Void>> clearAvailability(@RequestParam String dates,
                                                          ServerWebExchange exchange) {
         return getAthleteId(exchange)
-                .flatMap(athleteId -> availabilityRepository.findByAthleteIdAndDate(athleteId, date)
-                        .flatMap(availabilityRepository::delete)
-                        .then()
-                        .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
-                        .then(Mono.just(ResponseEntity.ok().<Void>build())));
+                .flatMap(athleteId -> {
+                    List<LocalDate> dateList = Arrays.stream(dates.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .map(LocalDate::parse)
+                            .toList();
+                    
+                    if (dateList.isEmpty()) {
+                        return Mono.just(ResponseEntity.ok().<Void>build());
+                    }
+
+                    return Flux.fromIterable(dateList)
+                            .flatMap(date -> availabilityRepository.findByAthleteIdAndDate(athleteId, date))
+                            .flatMap(availabilityRepository::delete)
+                            .then()
+                            .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
+                            .then(Mono.just(ResponseEntity.ok().<Void>build()));
+                });
     }
 
     private Mono<Long> getCoachId(ServerWebExchange exchange) {
@@ -173,7 +190,7 @@ public class AvailabilityController {
         int port = exchange.getRequest().getURI().getPort();
         String scheme = exchange.getRequest().getURI().getScheme();
         String base = scheme + "://" + host + (port > 0 ? ":" + port : "");
-        return base + "/athlete/register?token=" + token;
+        return base + "/athlete/" + token;
     }
 
     public record SlotEntry(LocalDate date, LocalTime startTime, LocalTime endTime) {}

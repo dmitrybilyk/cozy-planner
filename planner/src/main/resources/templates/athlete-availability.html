@@ -16,12 +16,35 @@
 <body class="antialiased" x-data="availabilityApp()">
 
 <header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-16 flex items-center justify-between sticky top-0 z-40">
-    <h1 class="text-lg font-bold">Моя доступність</h1>
+    <div class="flex items-center gap-2">
+        <h1 class="text-lg font-bold">Моя доступність</h1>
+        <span x-show="me.telegramEnabled" 
+              :class="me.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
+              class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+            <span x-text="me.telegramConnected ? '✓ TG' : '! TG'"></span>
+            <span x-show="me.telegramUsername" class="opacity-60" x-text="'@' + me.telegramUsername"></span>
+        </span>
+    </div>
     <button @click="saveAvailability()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-lg">Зберегти</button>
 </header>
 
 <main class="max-w-lg mx-auto p-4 pb-24">
     <div x-show="saved" class="bg-green-900/20 text-green-400 p-3 rounded-xl text-sm font-bold text-center mb-4">Збережено!</div>
+
+    <div x-show="me.telegramEnabled && !me.telegramConnected && me.telegramConnectLink" 
+         class="bg-yellow-900/20 border border-yellow-600/30 p-4 rounded-2xl mb-6">
+        <div class="flex items-start gap-3">
+            <span class="text-2xl">📲</span>
+            <div class="flex-1">
+                <p class="text-sm text-yellow-400 font-bold">Підключіть Telegram</p>
+                <p class="text-xs text-gray-400 mt-1">Отримуйте нагадування про необхідність заповнити доступність</p>
+            </div>
+            <a :href="me.telegramConnectLink" target="_blank" 
+               class="bg-yellow-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold uppercase">
+                Підключити
+            </a>
+        </div>
+    </div>
 
     <div class="flex overflow-x-auto no-scrollbar mb-6 space-x-2">
         <template x-for="day in days" :key="day.dateStr">
@@ -87,6 +110,7 @@
             pickStart: null,
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             saved: false,
+            me: {},
 
             get currentSlots() {
                 return this.slotsByDate[this.selectedDate] || [];
@@ -98,6 +122,7 @@
                 const me = await res.json();
                 if (!me.athleteId) { window.location.href = '/signin'; return; }
                 this.athleteId = me.athleteId;
+                this.me = me;
 
                 const now = new Date();
                 const start = snapToMonday(now);
@@ -202,22 +227,40 @@
             },
 
             async saveAvailability() {
-                const date = this.selectedDate;
-                const slots = this.currentSlots;
-                let res;
-                if (slots.length === 0) {
-                    res = await fetch(`/api/v1/athlete/availability?date=${date}`, { method: 'DELETE' });
-                } else {
-                    const entries = slots.map(s => ({ date, startTime: s.startTime, endTime: s.endTime }));
-                    res = await fetch('/api/v1/athlete/availability', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(entries)
-                    });
+                const allEntries = [];
+                const datesToDelete = [];
+
+                for (const date in this.slotsByDate) {
+                    const slots = this.slotsByDate[date];
+                    if (slots.length === 0) {
+                        datesToDelete.push(date);
+                    } else {
+                        for (const s of slots) {
+                            allEntries.push({ date, startTime: s.startTime, endTime: s.endTime });
+                        }
+                    }
                 }
-                if (res.ok) {
+
+                try {
+                    if (allEntries.length > 0) {
+                        const res = await fetch('/api/v1/athlete/availability', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(allEntries)
+                        });
+                        if (!res.ok) throw new Error('POST failed');
+                    }
+                    
+                    if (datesToDelete.length > 0) {
+                        const datesParam = datesToDelete.join(',');
+                        const res = await fetch(`/api/v1/athlete/availability?dates=${datesParam}`, { method: 'DELETE' });
+                        if (!res.ok) throw new Error('DELETE failed');
+                    }
+                    
                     this.saved = true;
                     setTimeout(() => this.saved = false, 3000);
+                } catch (e) {
+                    console.error('Save failed:', e);
                 }
             }
         }
