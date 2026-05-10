@@ -27,7 +27,6 @@ dependencies {
 	implementation("org.springframework.boot:spring-boot-starter-security")
 	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 	implementation("org.springframework.boot:spring-boot-starter-webflux")
-	implementation("org.springframework.boot:spring-boot-starter-websocket")
 
 	// Lombok
 	compileOnly("org.projectlombok:lombok:1.18.30")
@@ -40,7 +39,7 @@ dependencies {
 	implementation("org.openapitools:jackson-databind-nullable:0.2.6")
 	implementation("jakarta.validation:jakarta.validation-api")
 	// Якщо використовуєш Spring Boot 3
-	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
+	implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:2.3.0")
 //	implementation("org.springframework.kafka:spring-kafka")
 	implementation("org.thymeleaf.extras:thymeleaf-extras-springsecurity6")
 //	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
