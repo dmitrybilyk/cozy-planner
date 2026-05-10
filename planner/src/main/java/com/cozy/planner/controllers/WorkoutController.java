@@ -3,6 +3,7 @@ package com.cozy.planner.controllers;
 import com.cozy.planner.model.entity.Workout;
 import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.WorkoutRepository;
+import com.cozy.planner.service.EventBroadcastService;
 import com.planner.api.WorkoutsApi;
 import com.planner.model.CreateWorkoutRequest;
 import com.planner.model.WorkoutDTO;
@@ -24,10 +25,12 @@ public class WorkoutController implements WorkoutsApi {
 
     private final WorkoutRepository workoutRepository;
     private final LocationRepository locationRepository;
+    private final EventBroadcastService eventService;
 
-    public WorkoutController(WorkoutRepository workoutRepository, LocationRepository locationRepository) {
+    public WorkoutController(WorkoutRepository workoutRepository, LocationRepository locationRepository, EventBroadcastService eventService) {
         this.workoutRepository = workoutRepository;
         this.locationRepository = locationRepository;
+        this.eventService = eventService;
     }
 
     @Override
@@ -84,7 +87,10 @@ public class WorkoutController implements WorkoutsApi {
                         saved.setAthleteIds(req.getAthleteIds());
                         return enrichWithColor(saved);
                     })
-                    .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
+                    .map(dto -> {
+                        eventService.broadcast("workout_changed");
+                        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+                    });
         });
     }
 
@@ -92,6 +98,7 @@ public class WorkoutController implements WorkoutsApi {
     public Mono<ResponseEntity<Void>> deleteWorkout(Long workoutId, ServerWebExchange exchange) {
         return workoutRepository.findById(workoutId)
                 .flatMap(w -> workoutRepository.delete(w)
+                        .then(Mono.fromRunnable(() -> eventService.broadcast("workout_changed")))
                         .then(Mono.just(ResponseEntity.noContent().<Void>build())))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }

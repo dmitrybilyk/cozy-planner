@@ -2,6 +2,7 @@ package com.cozy.planner.controllers;
 
 import com.cozy.planner.repositories.AthleteRepository;
 import com.cozy.planner.model.entity.Athlete;
+import com.cozy.planner.service.EventBroadcastService;
 import com.planner.api.AthletesApi;
 import com.planner.model.AthleteDTO;
 import com.planner.model.CreateAthleteRequest;
@@ -15,9 +16,11 @@ import reactor.core.publisher.Mono;
 public class AthleteController implements AthletesApi {
 
     private final AthleteRepository athleteRepository;
+    private final EventBroadcastService eventService;
 
-    public AthleteController(AthleteRepository athleteRepository) {
+    public AthleteController(AthleteRepository athleteRepository, EventBroadcastService eventService) {
         this.athleteRepository = athleteRepository;
+        this.eventService = eventService;
     }
 
     @Override
@@ -31,7 +34,10 @@ public class AthleteController implements AthletesApi {
                     return athleteRepository.save(athlete);
                 })
                 .map(this::mapToDto)
-                .map(dto -> ResponseEntity.status(HttpStatus.CREATED).body(dto));
+                .map(dto -> {
+                    eventService.broadcast("athlete_changed");
+                    return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+                });
     }
 
     @Override
@@ -55,13 +61,16 @@ public class AthleteController implements AthletesApi {
                 )
                 .map(this::mapToDto)
                 .map(ResponseEntity::ok)
-                .defaultIfEmpty(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build())
+                .doOnSuccess(r -> { if (r.getStatusCode().is2xxSuccessful()) eventService.broadcast("athlete_changed"); });
     }
 
     @Override
     public Mono<ResponseEntity<Void>> deleteAthlete(Long athleteId, ServerWebExchange exchange) {
         return athleteRepository.findById(athleteId)
-                .flatMap(athlete -> athleteRepository.delete(athlete).then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT))))
+                .flatMap(athlete -> athleteRepository.delete(athlete)
+                        .then(Mono.fromRunnable(() -> eventService.broadcast("athlete_changed")))
+                        .then(Mono.just(new ResponseEntity<Void>(HttpStatus.NO_CONTENT))))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 

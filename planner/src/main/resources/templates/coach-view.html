@@ -46,28 +46,28 @@
 </head>
 <body class="antialiased" x-data="calendarApp()">
 
-<header class="bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#333] sticky top-0 z-40 px-4 h-16 flex items-center justify-between shadow-md">
-    <div class="flex items-center space-x-3">
-        <div class="ig-ring w-9 h-9 flex items-center justify-center flex-shrink-0">
+<header class="bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#333] sticky top-0 z-40 px-2 sm:px-4 h-14 sm:h-16 flex items-center justify-between shadow-md">
+    <div class="flex items-center space-x-1.5 sm:space-x-3 min-w-0">
+        <div class="ig-ring w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center flex-shrink-0">
             <div class="bg-black rounded-full w-full h-full flex items-center justify-center">
-                <span class="text-[10px] font-black italic ig-gradient-text">CP</span>
+                <span class="text-[8px] sm:text-[10px] font-black italic ig-gradient-text">CP</span>
             </div>
         </div>
-        <div class="leading-tight">
-            <h1 class="text-sm font-bold" x-text="coach.name || 'Cozy Planner'"></h1>
-            <p x-show="user.email" class="text-[9px] text-gray-500 font-medium" x-text="user.email"></p>
+        <div class="leading-tight truncate">
+            <h1 class="text-[11px] sm:text-sm font-bold truncate" x-text="coach.name || 'Cozy Planner'"></h1>
+            <p x-show="user.email" class="text-[8px] sm:text-[9px] text-gray-500 font-medium truncate" x-text="user.email"></p>
         </div>
     </div>
-    <div class="flex bg-[#262626] p-1 rounded-xl">
-        <button @click="currentView = 'feed'" class="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">День</button>
-        <button @click="currentView = 'agenda'" class="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">План</button>
+    <div class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl flex-shrink-0">
+        <button @click="currentView = 'feed'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">День</button>
+        <button @click="currentView = 'agenda'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">План</button>
     </div>
-    <div class="flex items-center space-x-2">
-        <button @click="showManageLocations = true"><svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
-        <button @click="showManageAthletes = true"><svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
-        <button @click="openWorkoutModal()"><svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.8" d="M12 4v16m8-8H4"/></svg></button>
+    <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+        <button @click="showManageLocations = true"><svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
+        <button @click="showManageAthletes = true"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
+        <button @click="openWorkoutModal()"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.8" d="M12 4v16m8-8H4"/></svg></button>
         <form method="POST" action="/logout" id="logoutForm" class="hidden"></form>
-        <button onclick="document.getElementById('logoutForm').submit()"><svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
+        <button onclick="document.getElementById('logoutForm').submit()"><svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
     </div>
 </header>
 
@@ -92,17 +92,17 @@
 </div>
 
 <div x-show="currentView === 'agenda'" class="bg-[#1a1a1a] border-b border-[#333] p-4 overflow-x-auto no-scrollbar flex space-x-2">
-    <button @click="toggleAthleteFilter(null)" class="px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition" :class="selectedAthleteFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'">Всі атлети</button>
+    <button @click="toggleAthleteFilter(null)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition" :class="selectedAthleteFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'">Всі атлети</button>
     <template x-for="athlete in athletes" :key="athlete.id">
-        <button @click="toggleAthleteFilter(athlete.id)" class="px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition border border-[#333]" :class="selectedAthleteFilters.includes(athlete.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-[#1a1a1a] text-gray-400'" x-text="athlete.name"></button>
+        <button @click="toggleAthleteFilter(athlete.id)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition border border-[#333]" :class="selectedAthleteFilters.includes(athlete.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-[#1a1a1a] text-gray-400'" x-text="athlete.name"></button>
     </template>
 </div>
 
 <main class="max-w-2xl mx-auto p-4 pb-24">
     <div x-show="currentView === 'feed'">
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xs font-black text-gray-500 uppercase tracking-widest" x-text="formatDisplayDate(selectedDate)"></h2>
-            <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-[10px] font-bold text-blue-400 uppercase">Сьогодні</button>
+            <h2 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest" x-text="formatDisplayDate(selectedDate)"></h2>
+            <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-xs sm:text-sm font-bold text-blue-400 uppercase">Сьогодні</button>
         </div>
         <div class="space-y-4">
             <template x-for="(workout, index) in filteredWorkouts" :key="workout.id">
@@ -113,14 +113,14 @@
                     <div class="flex items-center space-x-4">
                         <div class="flex flex-col items-center justify-center rounded-2xl px-3 py-2 min-w-[70px] border border-[#333]"
                              :style="'background: ' + (workout.color || '#3b82f6') + '33'">
-                            <span class="text-xl font-black" :style="'color: ' + (workout.color || '#3b82f6')" x-text="workout.time"></span>
+                            <span class="text-lg sm:text-xl font-black" :style="'color: ' + (workout.color || '#3b82f6')" x-text="workout.time"></span>
                             <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="workout.endTime"></span>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="font-bold text-gray-100 truncate" x-text="workout.title"></p>
-                            <p class="text-xs text-gray-500 italic truncate" x-text="workout.description"></p>
+                            <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="workout.title"></p>
+                            <p class="text-sm text-gray-500 italic truncate" x-text="workout.description"></p>
                             <div class="flex flex-wrap gap-1 mt-2">
-                                <template x-for="aId in workout.athleteIds"><span class="text-[10px] bg-[#333] px-2 py-0.5 rounded-full font-semibold text-gray-300" x-text="getAthleteName(aId)"></span></template>
+                                <template x-for="aId in workout.athleteIds"><span class="text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300" x-text="getAthleteName(aId)"></span></template>
                             </div>
                             <div x-show="getLocationName(workout.locationId)" class="mt-1.5 flex items-center space-x-1">
                                 <span class="w-2 h-2 rounded-full" :style="'background: ' + (workout.color || '#3b82f6')"></span>
@@ -148,8 +148,8 @@
                             <div class="flex items-center space-x-4 min-w-0">
                                 <span class="text-sm font-black text-white flex-shrink-0" x-text="workout.time"></span>
                                 <div class="min-w-0">
-                                    <p class="text-sm font-bold text-gray-200 truncate" x-text="workout.title"></p>
-                                    <p class="text-[10px] text-gray-500 truncate" x-text="workout.athleteIds.map(id => getAthleteName(id)).join(', ')"></p>
+                                <p class="text-base sm:text-lg font-bold text-gray-200 truncate" x-text="workout.title"></p>
+                                <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="workout.athleteIds.map(id => getAthleteName(id)).join(', ')"></p>
                                     <div x-show="getLocationName(workout.locationId)" class="flex items-center space-x-1 mt-1">
                                         <span class="w-2 h-2 rounded-full" :style="'background: ' + (workout.color || '#3b82f6')"></span>
                                         <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(workout.locationId)"></span>
@@ -172,18 +172,18 @@
         <div class="w-10"></div>
     </header>
     <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
-        <input type="text" x-model="athleteForm.name" placeholder="ПІБ атлета" class="w-full">
-        <input type="text" x-model="athleteForm.description" placeholder="Примітка" class="w-full">
-        <button @click="saveAthlete()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg" x-text="editingAthleteId ? 'Оновити' : 'Додати атлета'"></button>
+        <input type="text" x-model="athleteForm.name" placeholder="ПІБ атлета" class="w-full text-base">
+        <input type="text" x-model="athleteForm.description" placeholder="Примітка" class="w-full text-base">
+        <button @click="saveAthlete()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingAthleteId ? 'Оновити' : 'Додати атлета'"></button>
     </div>
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
         <template x-for="athlete in athletes" :key="athlete.id">
             <div class="flex items-center justify-between p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
                 <div class="min-w-0">
-                    <p class="font-bold text-gray-100" x-text="athlete.name"></p>
-                    <p class="text-[10px] text-gray-500 truncate" x-text="athlete.description"></p>
+                    <p class="text-base sm:text-lg font-bold text-gray-100" x-text="athlete.name"></p>
+                    <p class="text-sm text-gray-500 truncate" x-text="athlete.description"></p>
                 </div>
-                <div class="flex space-x-6 text-[10px] font-black uppercase flex-shrink-0">
+                <div class="flex space-x-6 text-xs sm:text-sm font-black uppercase flex-shrink-0">
                     <button @click="editAthlete(athlete)" class="text-blue-400">Правка</button>
                     <button @click="askDeleteAthlete(athlete.id)" class="text-red-500">Видалити</button>
                 </div>
@@ -200,23 +200,23 @@
         <div class="w-10"></div>
     </header>
     <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
-        <input type="text" x-model="locationForm.name" placeholder="Назва локації" class="w-full">
-        <input type="text" x-model="locationForm.description" placeholder="Опис" class="w-full">
+        <input type="text" x-model="locationForm.name" placeholder="Назва локації" class="w-full text-base">
+        <input type="text" x-model="locationForm.description" placeholder="Опис" class="w-full text-base">
         <div class="flex items-center space-x-3">
-            <input type="color" x-model="locationForm.color" class="w-12 h-12 p-0.5 rounded-xl cursor-pointer">
-            <span class="text-xs text-gray-400">Колір</span>
+            <input type="color" x-model="locationForm.color" class="w-14 h-14 p-0.5 rounded-xl cursor-pointer">
+            <span class="text-sm text-gray-400">Колір</span>
         </div>
-        <button @click="saveLocation()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg" x-text="editingLocationId ? 'Оновити' : 'Додати локацію'"></button>
+        <button @click="saveLocation()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingLocationId ? 'Оновити' : 'Додати локацію'"></button>
     </div>
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
         <template x-for="location in locations" :key="location.id">
             <div class="flex items-center justify-between p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl"
                  :style="'border-left: 5px solid ' + (location.color || '#3b82f6')">
                 <div class="min-w-0">
-                    <p class="font-bold text-gray-100" x-text="location.name"></p>
-                    <p class="text-[10px] text-gray-500 truncate" x-text="location.description"></p>
+                    <p class="text-base sm:text-lg font-bold text-gray-100" x-text="location.name"></p>
+                    <p class="text-sm text-gray-500 truncate" x-text="location.description"></p>
                 </div>
-                <div class="flex space-x-6 text-[10px] font-black uppercase flex-shrink-0">
+                <div class="flex space-x-6 text-xs sm:text-sm font-black uppercase flex-shrink-0">
                     <button @click="editLocation(location)" class="text-blue-400">Правка</button>
                     <button @click="askDeleteLocation(location.id)" class="text-red-500">Видалити</button>
                 </div>
@@ -229,22 +229,22 @@
 <div x-show="showModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition>
     <div class="modal-container" @click.away="showModal = false">
         <div class="p-6 border-b border-[#333] flex justify-between items-center">
-            <h3 class="text-xl font-bold text-white" x-text="editingWorkoutId ? 'Редагувати' : 'Нова сесія'"></h3>
+            <h3 class="text-2xl sm:text-3xl font-bold text-white" x-text="editingWorkoutId ? 'Редагувати' : 'Нова сесія'"></h3>
             <button x-show="editingWorkoutId" @click="askDeleteWorkout()" class="text-red-500 font-bold text-xs uppercase">Видалити</button>
         </div>
         <div class="modal-body space-y-6">
             <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold uppercase text-center">Час уже минув</div>
             <div class="space-y-4">
-                <div><label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Дата</label><input type="date" x-model="workoutForm.date" :min="todayStr" class="w-full"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Назва</label><input type="text" x-model="workoutForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-2 focus:border-blue-500"></div>
-                <div><label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Опис</label><textarea x-model="workoutForm.description" class="w-full" rows="2"></textarea></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Дата</label><input type="date" x-model="workoutForm.date" :min="todayStr" class="w-full text-base"></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Назва</label><input type="text" x-model="workoutForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Опис</label><textarea x-model="workoutForm.description" class="w-full text-base" rows="3"></textarea></div>
                 <div class="flex justify-between gap-4">
-                    <div class="flex-1"><span class="text-[9px] font-black text-gray-500 uppercase block mb-1">Початок</span><div class="flex space-x-1"><select x-model="workoutForm.startH" @change="autoUpdateEndTime" class="w-full font-bold"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.startM" @change="autoUpdateEndTime" class="w-full font-bold"><option value="00">00</option><option value="30">30</option></select></div></div>
-                    <div class="flex-1"><span class="text-[9px] font-black text-gray-500 uppercase block mb-1">Кінець</span><div class="flex space-x-1"><select x-model="workoutForm.endH" class="w-full font-bold"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.endM" class="w-full font-bold"><option value="00">00</option><option value="30">30</option></select></div></div>
+                    <div class="flex-1"><span class="text-xs sm:text-sm font-black text-gray-500 uppercase block mb-1">Початок</span><div class="flex space-x-1"><select x-model="workoutForm.startH" @change="autoUpdateEndTime" class="w-full font-bold text-base"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.startM" @change="autoUpdateEndTime" class="w-full font-bold text-base"><option value="00">00</option><option value="30">30</option></select></div></div>
+                    <div class="flex-1"><span class="text-xs sm:text-sm font-black text-gray-500 uppercase block mb-1">Кінець</span><div class="flex space-x-1"><select x-model="workoutForm.endH" class="w-full font-bold text-base"><template x-for="h in hours"><option :value="h" x-text="h"></option></template></select><select x-model="workoutForm.endM" class="w-full font-bold text-base"><option value="00">00</option><option value="30">30</option></select></div></div>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-gray-400 uppercase mb-2 block">Локація</label>
-                    <select x-model="workoutForm.locationId" class="w-full">
+                    <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Локація</label>
+                    <select x-model="workoutForm.locationId" class="w-full text-base">
                         <option :value="null">Без локації</option>
                         <template x-for="location in locations" :key="location.id">
                             <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
@@ -253,15 +253,15 @@
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <p class="text-[10px] font-black text-gray-400 uppercase">Атлети</p>
-                        <span x-show="workoutForm.athleteIds.length" class="text-[10px] font-bold text-blue-400 bg-blue-900/30 px-2 py-0.5 rounded-full" x-text="workoutForm.athleteIds.length + ' вибр.'"></span>
+                        <p class="text-xs sm:text-sm font-black text-gray-400 uppercase">Атлети</p>
+                        <span x-show="workoutForm.athleteIds.length" class="text-xs sm:text-sm font-bold text-blue-400 bg-blue-900/30 px-2.5 py-0.5 rounded-full" x-text="workoutForm.athleteIds.length + ' вибр.'"></span>
                     </div>
-                    <input type="text" x-model="athleteSearch" placeholder="Пошук атлетів..." class="w-full mb-2 text-sm">
+                    <input type="text" x-model="athleteSearch" placeholder="Пошук атлетів..." class="w-full mb-2 text-base">
                     <div class="grid grid-cols-1 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
                         <template x-for="athlete in filteredAthletes" :key="athlete.id">
                             <label class="flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                    :class="workoutForm.athleteIds.includes(athlete.id) ? 'bg-blue-900/20 border-blue-500' : 'bg-[#262626] border-transparent'">
-                                <span class="font-semibold text-sm text-gray-200" x-text="athlete.name"></span>
+                                <span class="font-semibold text-base sm:text-lg text-gray-200" x-text="athlete.name"></span>
                                 <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-150"
                                      :class="workoutForm.athleteIds.includes(athlete.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-600'">
                                     <svg x-show="workoutForm.athleteIds.includes(athlete.id)" class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M5 13l4 4L19 7"/></svg>
@@ -275,8 +275,8 @@
             </div>
         </div>
         <div class="modal-footer flex space-x-3">
-            <button @click="showModal = false" class="flex-1 py-4 font-bold text-gray-500 uppercase text-xs">Скасувати</button>
-            <button @click="saveWorkout()" :disabled="workoutForm.athleteIds.length === 0 || isTimePassed()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg disabled:opacity-20">Зберегти</button>
+            <button @click="showModal = false" class="flex-1 py-4 font-bold text-gray-500 uppercase text-sm">Скасувати</button>
+            <button @click="saveWorkout()" :disabled="workoutForm.athleteIds.length === 0 || isTimePassed()" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">Зберегти</button>
         </div>
     </div>
 </div>
@@ -306,7 +306,16 @@
                 await this.fetchLocations();
                 await this.fetchAthletes();
                 await this.fetchData();
+                this.connectSSE();
                 setTimeout(() => this.scrollToToday(), 200);
+            },
+
+            connectSSE() {
+                const es = new EventSource('/api/v1/events');
+                es.addEventListener('workout_changed', () => this.fetchData());
+                es.addEventListener('athlete_changed', () => { this.fetchAthletes(); this.fetchData(); });
+                es.addEventListener('location_changed', () => { this.fetchLocations(); this.fetchData(); });
+                es.onerror = () => { es.close(); setTimeout(() => this.connectSSE(), 3000); };
             },
 
             async fetchMe() {

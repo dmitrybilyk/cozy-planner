@@ -2,6 +2,7 @@ package com.cozy.planner.controllers;
 
 import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.model.entity.Location;
+import com.cozy.planner.service.EventBroadcastService;
 import com.planner.api.LocationsApi;
 import com.planner.model.CreateLocationRequest;
 import com.planner.model.LocationDTO;
@@ -16,9 +17,11 @@ import reactor.core.publisher.Mono;
 public class LocationController implements LocationsApi {
 
     private final LocationRepository locationRepository;
+    private final EventBroadcastService eventService;
 
-    public LocationController(LocationRepository locationRepository) {
+    public LocationController(LocationRepository locationRepository, EventBroadcastService eventService) {
         this.locationRepository = locationRepository;
+        this.eventService = eventService;
     }
 
     @Override
@@ -40,7 +43,10 @@ public class LocationController implements LocationsApi {
                             .build();
                     return locationRepository.save(entity);
                 })
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved)));
+                .map(saved -> {
+                    eventService.broadcast("location_changed");
+                    return ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved));
+                });
     }
 
     @Override
@@ -65,13 +71,15 @@ public class LocationController implements LocationsApi {
         )
                 .map(this::mapToDto)
                 .map(ResponseEntity::ok)
-                .defaultIfEmpty(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build())
+                .doOnSuccess(r -> { if (r.getStatusCode().is2xxSuccessful()) eventService.broadcast("location_changed"); });
     }
 
     @Override
     public Mono<ResponseEntity<Void>> deleteLocation(Long locationId, ServerWebExchange exchange) {
         return locationRepository.findById(locationId)
                 .flatMap(location -> locationRepository.delete(location)
+                        .then(Mono.fromRunnable(() -> eventService.broadcast("location_changed")))
                         .then(Mono.just(ResponseEntity.noContent().<Void>build())))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
