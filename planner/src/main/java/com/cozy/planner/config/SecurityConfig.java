@@ -23,7 +23,7 @@ public class SecurityConfig {
 
         return http
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/signin", "/login**", "/demo-login", "/oauth2/**", "/webjars/**", "/error**", "/api/v1/events")
+                        .pathMatchers("/signin", "/login**", "/demo-login", "/oauth2/**", "/webjars/**", "/error**", "/api/v1/events", "/athlete/**", "/api/v1/athlete/**", "/api/v1/athlete/invite", "/api/v1/me", "/api/v1/athletes/*/availability")
                         .permitAll()
                         .anyExchange().authenticated()
                 )

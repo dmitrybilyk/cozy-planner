@@ -29,30 +29,44 @@ public class MeController {
     @GetMapping("/api/v1/me")
     public Mono<Map<String, Object>> me(ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
+            // If coach session exists, return coach data (athlete should not override)
             String googleSub = session.getAttribute("google_sub");
-            if (googleSub == null) {
+            if (googleSub != null) {
+                return userRepository.findByGoogleSub(googleSub)
+                        .flatMap(user -> clubRepository.findByUserId(user.getId())
+                                .next()
+                                .flatMap(club -> coachRepository.findAllByClubId(club.getId())
+                                        .next()
+                                        .map(coach -> {
+                                            session.getAttributes().put("coach_id", coach.getId());
+                                            Map<String, Object> r = new HashMap<>();
+                                            r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
+                                            r.put("club", Map.of("id", club.getId(), "name", club.getName()));
+                                            r.put("coach", Map.of("id", coach.getId(), "name", coach.getName()));
+                                            return r;
+                                        })
+                                )
+                                .defaultIfEmpty(defaultWithUser(user, "Демо"))
+                        )
+                        .defaultIfEmpty(defaultWithUser(googleSub));
+            }
+
+            // Pure athlete session (no google_sub)
+            Object athleteId = session.getAttribute("athlete_id");
+            if (athleteId instanceof Number) {
+                Map<String, Object> r = new HashMap<>();
+                r.put("athleteId", ((Number) athleteId).longValue());
+                return Mono.just(r);
+            }
+
+            // No auth at all
+            {
                 Map<String, Object> r = new HashMap<>();
                 r.put("user", Map.of("email", "demo@cozyplanner.app", "name", "Демо"));
                 r.put("club", Map.of());
                 r.put("coach", Map.of("id", -1, "name", "Демо"));
                 return Mono.just(r);
             }
-            return userRepository.findByGoogleSub(googleSub)
-                    .flatMap(user -> clubRepository.findByUserId(user.getId())
-                            .next()
-                            .flatMap(club -> coachRepository.findAllByClubId(club.getId())
-                                    .next()
-                                    .map(coach -> {
-                                        Map<String, Object> r = new HashMap<>();
-                                        r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
-                                        r.put("club", Map.of("id", club.getId(), "name", club.getName()));
-                                        r.put("coach", Map.of("id", coach.getId(), "name", coach.getName()));
-                                        return r;
-                                    })
-                            )
-                            .defaultIfEmpty(defaultWithUser(user, "Демо"))
-                    )
-                    .defaultIfEmpty(defaultWithUser(googleSub));
         });
     }
 

@@ -15,4 +15,6 @@ public class Athlete {
     private String name;
     private String description;
     private Long coachId;
+    @org.springframework.data.relational.core.mapping.Column("invite_token")
+    private String inviteToken;
 }

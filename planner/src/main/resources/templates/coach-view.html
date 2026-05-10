@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cozy Planner</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <style>
@@ -79,6 +80,10 @@
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <span>Локації</span>
         </button>
+        <button @click="showAvailabilityOverview = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span>Зайнятість</span>
+        </button>
     </div>
 </header>
 
@@ -134,7 +139,7 @@
                             <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="workout.title"></p>
                             <p class="text-sm text-gray-500 italic truncate" x-text="workout.description"></p>
                             <div class="flex flex-wrap gap-1 mt-2">
-                                <template x-for="aId in workout.athleteIds"><span class="text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300" x-text="getAthleteName(aId)"></span></template>
+                                <template x-for="aId in workout.athleteIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, workout.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, workout.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getAthleteName(aId)"></span></span></template>
                             </div>
                             <div x-show="getLocationName(workout.locationId)" class="mt-1.5 flex items-center space-x-1">
                                 <span class="w-2 h-2 rounded-full" :style="'background: ' + (workout.color || '#3b82f6')"></span>
@@ -198,13 +203,19 @@
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
         <template x-for="athlete in athletes" :key="athlete.id">
             <div class="flex items-center justify-between p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
-                <div class="min-w-0">
-                    <p class="text-base sm:text-lg font-bold text-gray-100" x-text="athlete.name"></p>
-                    <p class="text-sm text-gray-500 truncate" x-text="athlete.description"></p>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <span :class="isAvailable(athlete.id, selectedDate)?.length > 0 ? 'w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0' : isAvailable(athlete.id, selectedDate) !== null ? 'w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0' : 'w-2.5 h-2.5 rounded-full bg-gray-600 flex-shrink-0'"></span>
+                        <p class="text-base sm:text-lg font-bold text-gray-100" x-text="athlete.name"></p>
+                    </div>
+                    <p class="text-sm text-gray-500 truncate ml-5" x-text="athlete.description"></p>
                 </div>
-                <div class="flex space-x-6 text-xs sm:text-sm font-black uppercase flex-shrink-0">
-                    <button @click="editAthlete(athlete)" class="text-blue-400">Правка</button>
-                    <button @click="askDeleteAthlete(athlete.id)" class="text-red-500">Видалити</button>
+                <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
+                    <div class="flex space-x-4 text-xs sm:text-sm font-black uppercase">
+                        <button @click="editAthlete(athlete)" class="text-blue-400">Правка</button>
+                        <button @click="askDeleteAthlete(athlete.id)" class="text-red-500">Видалити</button>
+                    </div>
+                    <button @click="generateInvite(athlete.id)" class="text-[10px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[athlete.id] ? 'Скопійовано' : 'Запросити'"></button>
                 </div>
             </div>
         </template>
@@ -241,6 +252,34 @@
                 </div>
             </div>
         </template>
+    </div>
+</div>
+
+<!-- ПЕРЕГЛЯД ЗАЙНЯТОСТІ АТЛЕТІВ -->
+<div x-show="showAvailabilityOverview" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
+    <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
+        <button @click="showAvailabilityOverview = false" class="text-blue-400 font-bold">Назад</button>
+        <h3 class="font-bold">Зайнятість атлетів</h3>
+        <div class="w-10"></div>
+    </header>
+    <div class="flex-1 overflow-y-auto p-4 space-y-3">
+        <template x-for="athlete in athletes" :key="athlete.id">
+            <div class="bg-[#1c1c1c] border border-[#333] rounded-3xl p-4">
+                <div class="font-bold text-gray-100 mb-2" x-text="athlete.name"></div>
+                <template x-for="day in futureDays" :key="day.dateStr">
+                    <div x-show="isAvailable(athlete.id, day.dateStr)?.length > 0" class="flex items-start gap-3 py-2 border-b border-[#252525] last:border-0">
+                        <span class="text-xs font-bold text-gray-500 w-14 flex-shrink-0 pt-0.5" x-text="day.weekday + ' ' + day.dayNum"></span>
+                        <div class="flex flex-wrap gap-1.5">
+                            <template x-for="slot in isAvailable(athlete.id, day.dateStr)" :key="slot.startTime">
+                                <span class="bg-blue-900/30 text-blue-300 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-500/30" x-text="slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                <div x-show="!athleteHasFutureAvailability(athlete.id)" class="text-sm text-gray-600 italic">Немає даних про доступність</div>
+            </div>
+        </template>
+        <div x-show="athletes.length === 0" class="text-center py-20 text-gray-600 text-sm">Немає атлетів</div>
     </div>
 </div>
 
@@ -301,7 +340,10 @@
                         <template x-for="athlete in filteredAthletes" :key="athlete.id">
                             <label class="flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 active:scale-[0.98] cursor-pointer"
                                    :class="workoutForm.athleteIds.includes(athlete.id) ? 'bg-blue-900/20 border-blue-500' : 'bg-[#262626] border-transparent'">
-                                <span class="font-semibold text-base sm:text-lg text-gray-200" x-text="athlete.name"></span>
+                                <div class="flex items-center gap-2 min-w-0">
+                                    <span :class="isAvailable(athlete.id, workoutForm.date)?.length > 0 ? 'w-2 h-2 rounded-full bg-green-500 flex-shrink-0' : isAvailable(athlete.id, workoutForm.date) !== null ? 'w-2 h-2 rounded-full bg-red-500 flex-shrink-0' : 'w-2 h-2 rounded-full bg-gray-600 flex-shrink-0'"></span>
+                                    <span class="font-semibold text-base sm:text-lg text-gray-200 truncate" x-text="athlete.name"></span>
+                                </div>
                                 <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-150"
                                      :class="workoutForm.athleteIds.includes(athlete.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-600'">
                                     <svg x-show="workoutForm.athleteIds.includes(athlete.id)" class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M5 13l4 4L19 7"/></svg>
@@ -316,7 +358,7 @@
         </div>
         <div class="modal-footer flex space-x-3">
             <button @click="showModal = false" class="flex-1 py-4 font-bold text-gray-500 uppercase text-sm">Скасувати</button>
-            <button @click="saveWorkout()" :disabled="workoutForm.athleteIds.length === 0 || isTimePassed() || !workoutForm.endTime" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">Зберегти</button>
+            <button @click="saveWorkout()" :disabled="workoutForm.athleteIds.length === 0 || isTimePassed() || !workoutForm.endTime || !isWorkoutTimeValid" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">Зберегти</button>
         </div>
     </div>
 </div>
@@ -325,7 +367,7 @@
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-[300px] rounded-[24px] overflow-hidden shadow-2xl"><div class="p-6 text-center text-white"><h4 class="text-lg font-bold" x-text="confirmData.title"></h4><p class="text-sm text-gray-500 mt-2" x-text="confirmData.message"></p></div><div class="flex flex-col border-t border-[#333]"><button @click="confirmData.onConfirm(); confirmData.show = false" class="py-4 text-sm font-bold text-red-500 border-b border-[#333]">Видалити</button><button @click="confirmData.show = false" class="py-4 text-sm font-medium text-gray-300">Скасувати</button></div></div>
 </div>
 
-<script>
+<script th:inline="none">
     function localDateStr(d) {
         d = d || new Date();
         return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
@@ -333,7 +375,7 @@
     function calendarApp() {
         const _today = localDateStr();
         return {
-            currentView: 'feed', showModal: false, showManageAthletes: false, showManageLocations: false,
+            currentView: 'feed', showModal: false, showManageAthletes: false, showManageLocations: false, showAvailabilityOverview: false,
             editingWorkoutId: null, editingAthleteId: null, editingLocationId: null, draggedIndex: null,
             selectedDate: _today, todayStr: _today,
             days: [], workouts: [], athletes: [], locations: [], coachId: null, coach: { name: '' }, user: {},
@@ -345,6 +387,8 @@
             athleteForm: { name: '', description: '' },
             locationForm: { name: '', description: '', color: '#3b82f6' },
             confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
+            inviteUrls: {},
+            availabilityMap: {},
             touchDrag: null,
             touchJustDragged: false,
             _touchDragCleanup: null,
@@ -356,6 +400,7 @@
                 await this.fetchLocations();
                 await this.fetchAthletes();
                 await this.fetchData();
+                await this.fetchAvailability();
                 this.connectSSE();
                 this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
@@ -366,6 +411,7 @@
                 es.addEventListener('workout_changed', () => this.fetchData());
                 es.addEventListener('athlete_changed', () => { this.fetchAthletes(); this.fetchData(); });
                 es.addEventListener('location_changed', () => { this.fetchLocations(); this.fetchData(); });
+                es.addEventListener('availability_changed', () => this.fetchAvailability());
                 es.onerror = () => { es.close(); setTimeout(() => this.connectSSE(), 3000); };
             },
 
@@ -525,6 +571,17 @@
                 return Object.keys(groups).sort().map(date => ({ date, items: groups[date] }));
             },
 
+            get futureDays() {
+                return this.days.filter(d => d.dateStr >= this.todayStr);
+            },
+
+            athleteHasFutureAvailability(id) {
+                return this.futureDays.some(d => {
+                    const slots = this.availabilityMap[id + '|' + d.dateStr];
+                    return slots && slots.length > 0;
+                });
+            },
+
             get filteredAthletes() {
                 const q = this.athleteSearch.toLowerCase();
                 return this.athletes
@@ -542,18 +599,63 @@
             },
 
             async fetchData() {
+                if (!this.coachId) return;
                 const res = await fetch(`/api/v1/workouts?coachId=${this.coachId}&startDate=${this.days[0].dateStr}&endDate=${this.days[this.days.length-1].dateStr}`);
                 if (res.ok) this.workouts = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
             },
 
             async fetchAthletes() {
+                if (!this.coachId) return;
                 const res = await fetch(`/api/v1/coaches/${this.coachId}/athletes`);
                 if (res.ok) this.athletes = (await res.json()).sort((a, b) => a.name.localeCompare(b.name));
             },
 
             async fetchLocations() {
+                if (!this.coachId) return;
                 const res = await fetch(`/api/v1/coaches/${this.coachId}/locations`);
                 if (res.ok) this.locations = await res.json();
+            },
+
+            async fetchAvailability() {
+                if (!this.coachId) return;
+                const start = this.days[0].dateStr;
+                const end = this.days[this.days.length - 1].dateStr;
+                const res = await fetch(`/api/v1/coaches/${this.coachId}/availability?startDate=${start}&endDate=${end}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const map = {};
+                    for (const entry of data) {
+                        for (const slot of entry.slots) {
+                            const key = entry.athleteId + '|' + slot.date;
+                            if (!map[key]) map[key] = [];
+                            map[key].push({ startTime: slot.startTime, endTime: slot.endTime });
+                        }
+                    }
+                    this.availabilityMap = map;
+                }
+            },
+
+            async generateInvite(athleteId) {
+                if (this.inviteUrls[athleteId]) {
+                    await navigator.clipboard?.writeText(this.inviteUrls[athleteId]);
+                    return;
+                }
+                const res = await fetch(`/api/v1/athletes/${athleteId}/generate-invite`, { method: 'POST' });
+                if (res.ok) {
+                    const data = await res.json();
+                    this.inviteUrls[athleteId] = data.inviteUrl;
+                    await navigator.clipboard?.writeText(data.inviteUrl);
+                }
+            },
+
+            isAvailable(athleteId, date) {
+                const key = athleteId + '|' + date;
+                return this.availabilityMap[key] !== undefined ? this.availabilityMap[key] : null;
+            },
+
+            getAvailLabel(slots) {
+                if (!slots || slots.length === 0) return '';
+                return slots.map(s => s.startTime.slice(0,5) + '-' + s.endTime.slice(0,5)).join(', ');
             },
 
             getAthleteName(id) { return (this.athletes.find(at => at.id == id)?.name) || 'Unknown'; },
@@ -612,10 +714,49 @@
                 const tm = this.slotToMin(t);
                 const s = this.workoutForm.startTime !== null ? this.slotToMin(this.workoutForm.startTime) : -1;
                 const e = this.workoutForm.endTime !== null ? this.slotToMin(this.workoutForm.endTime) : -1;
+                const conflict = this.workoutForm.athleteIds.length > 0 ? this.hasSlotConflict(t) : false;
+                if (tm === s && conflict) return 'bg-blue-600 text-white shadow-lg scale-105 ring-2 ring-red-400';
                 if (tm === s) return 'bg-blue-600 text-white shadow-lg scale-105 ring-2 ring-blue-400';
+                if (tm === e && conflict) return 'bg-blue-600 text-white shadow-lg ring-2 ring-red-400';
                 if (tm === e) return 'bg-blue-600 text-white shadow-lg';
-                if (s >= 0 && e >= 0 && tm > s && tm < e) return 'bg-blue-500/20 text-blue-300';
+                if (s >= 0 && e >= 0 && tm > s && tm < e) return conflict ? 'bg-red-900/30 text-red-300' : 'bg-blue-500/20 text-blue-300';
+                if (conflict) return 'bg-red-900/20 text-red-400/60 line-through';
                 return 'bg-[#262626] text-gray-400 hover:bg-[#333]';
+            },
+
+            hasSlotConflict(t) {
+                if (this.workoutForm.athleteIds.length === 0) return false;
+                const tm = this.slotToMin(t);
+                for (const aId of this.workoutForm.athleteIds) {
+                    const key = aId + '|' + this.workoutForm.date;
+                    const slots = this.availabilityMap[key];
+                    if (!slots) continue;
+                    const ok = slots.some(s => {
+                        const ss = this.slotToMin(s.startTime);
+                        const se = this.slotToMin(s.endTime);
+                        return tm >= ss && tm < se;
+                    });
+                    if (!ok) return true;
+                }
+                return false;
+            },
+
+            get isWorkoutTimeValid() {
+                const { startTime, endTime, date, athleteIds } = this.workoutForm;
+                if (!startTime || !endTime || athleteIds.length === 0) return true;
+                const sm = this.slotToMin(startTime);
+                const em = this.slotToMin(endTime);
+                for (const aId of athleteIds) {
+                    const slots = this.availabilityMap[aId + '|' + date];
+                    if (!slots || slots.length === 0) continue;
+                    const ok = slots.some(s => {
+                        const ss = this.slotToMin(s.startTime);
+                        const se = this.slotToMin(s.endTime);
+                        return sm >= ss && em <= se;
+                    });
+                    if (!ok) return false;
+                }
+                return true;
             },
 
             getDurationLabel() {
@@ -658,6 +799,7 @@
             async saveWorkout() {
                 const { startTime, endTime, date, title, description, athleteIds, locationId } = this.workoutForm;
                 if (!startTime || !endTime) return;
+                if (!this.isWorkoutTimeValid) return;
                 const newTime = startTime;
                 if (this.editingWorkoutId && this.originalWorkoutData) {
                     if (date !== this.originalWorkoutData.date || newTime !== this.originalWorkoutData.time) {
@@ -701,9 +843,9 @@
 
             generateDays() {
                 const start = new Date(); start.setDate(start.getDate() - 14);
-                const ukDays = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                 for (let i = 0; i < 74; i++) {
-                    this.days.push({ dateStr: localDateStr(start), dayNum: start.getDate(), weekday: ukDays[start.getDay()] });
+                    this.days.push({ dateStr: localDateStr(start), dayNum: start.getDate(), weekday: days[(start.getDay() + 6) % 7] });
                     start.setDate(start.getDate() + 1);
                 }
             },
