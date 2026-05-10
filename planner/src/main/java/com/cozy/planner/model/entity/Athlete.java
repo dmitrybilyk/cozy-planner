@@ -26,6 +26,8 @@ public class Athlete {
     private String telegramUsername;
     @Column("telegram_connected_at")
     private LocalDateTime telegramConnectedAt;
+    @Column("photo_base64")
+    private String photoBase64;
 
     public boolean hasTelegram() {
         return telegramChatId != null && !telegramChatId.isBlank();

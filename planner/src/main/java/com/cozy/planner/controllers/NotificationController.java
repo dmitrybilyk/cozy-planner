@@ -96,6 +96,7 @@ public class NotificationController {
         result.put("telegramConnected", athlete.hasTelegram());
         result.put("telegramUsername", athlete.getTelegramUsername());
         result.put("connectLink", getConnectLink(athlete.getInviteToken()));
+        result.put("photoBase64", athlete.getPhotoBase64());
         return result;
     }
 

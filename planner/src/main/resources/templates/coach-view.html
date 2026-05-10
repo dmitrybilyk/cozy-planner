@@ -75,7 +75,7 @@
         </button>
         <button @click="showManageAthletes = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span>Атлети</span>
+            <span>Учні</span>
         </button>
         <button @click="showManageLocations = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -110,7 +110,7 @@
 </div>
 
 <div x-show="currentView === 'agenda'" class="bg-[#1a1a1a] border-b border-[#333] p-4 overflow-x-auto no-scrollbar flex space-x-2">
-    <button @click="toggleAthleteFilter(null)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition" :class="selectedAthleteFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'">Всі атлети</button>
+    <button @click="toggleAthleteFilter(null)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition" :class="selectedAthleteFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'">Всі учні</button>
     <template x-for="athlete in athletes" :key="athlete.id">
         <button @click="toggleAthleteFilter(athlete.id)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition border border-[#333]" :class="selectedAthleteFilters.includes(athlete.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-[#1a1a1a] text-gray-400'" x-text="athlete.name"></button>
     </template>
@@ -198,53 +198,80 @@
         <div class="w-10"></div>
     </header>
     <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
-        <input type="text" x-model="athleteForm.name" placeholder="ПІБ атлета" class="w-full text-base">
-        <input type="text" x-model="athleteForm.description" placeholder="Примітка" class="w-full text-base">
-        <button @click="saveAthlete()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingAthleteId ? 'Оновити' : 'Додати атлета'"></button>
+        <div class="flex items-center gap-4">
+            <div class="relative flex-shrink-0">
+                <div x-show="athleteForm.photoBase64" class="w-20 h-20 rounded-2xl bg-gray-700 overflow-hidden">
+                    <img :src="athleteForm.photoBase64" class="w-full h-full object-cover">
+                </div>
+                <div x-show="!athleteForm.photoBase64" class="w-20 h-20 rounded-2xl bg-gray-700 flex items-center justify-center text-gray-400 text-3xl">
+                    👤
+                </div>
+                <label class="absolute -bottom-1 -right-1 w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm cursor-pointer shadow-lg">
+                    <span>📷</span>
+                    <input type="file" accept="image/*" class="hidden" @change="handleAthletePhotoSelect($event)">
+                </label>
+            </div>
+            <div class="flex-1 space-y-3">
+                <input type="text" x-model="athleteForm.name" placeholder="ПІБ учня" class="w-full text-base">
+                <input type="text" x-model="athleteForm.description" placeholder="Примітка" class="w-full text-base">
+            </div>
+        </div>
+        <div x-show="athleteForm.photoBase64" class="text-center">
+            <button @click="athleteForm.photoBase64 = null" type="button" class="text-red-400 text-xs font-bold uppercase">Видалити фото</button>
+        </div>
+        <button @click="saveAthlete()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingAthleteId ? 'Оновити' : 'Додати учня'"></button>
     </div>
      <div class="flex-1 overflow-y-auto p-4 space-y-3">
-        <template x-for="athlete in athletes" :key="athlete.id">
-            <div class="p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
-                <div class="flex items-center justify-between">
-                    <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span :class="isAvailable(athlete.id, selectedDate)?.length > 0 ? 'w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0' : isAvailable(athlete.id, selectedDate) !== null ? 'w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0' : 'w-2.5 h-2.5 rounded-full bg-gray-600 flex-shrink-0'"></span>
-                            <p class="text-base sm:text-lg font-bold text-gray-100" x-text="athlete.name"></p>
-                            <template x-if="athlete.telegramEnabled">
-                                <span :class="athlete.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'" 
-                                      class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">
-                                    <span x-text="athlete.telegramConnected ? '✓ TG' : '! TG'"></span>
-                                    <span x-show="athlete.telegramUsername" class="opacity-60" x-text="'@' + athlete.telegramUsername"></span>
-                                </span>
-                            </template>
-                        </div>
-                        <p class="text-sm text-gray-500 truncate ml-5" x-text="athlete.description"></p>
-                    </div>
-                    <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
-                        <div class="flex space-x-4 text-xs sm:text-sm font-black uppercase">
-                            <button @click="editAthlete(athlete)" class="text-blue-400">Правка</button>
-                            <button @click="askDeleteAthlete(athlete.id)" class="text-red-500">Видалити</button>
-                        </div>
-                    </div>
-                </div>
+         <template x-for="athlete in athletes" :key="athlete.id">
+             <div class="p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
+                 <div class="flex items-center justify-between">
+                     <div class="flex items-start gap-3 min-w-0 flex-1">
+                         <div class="w-12 h-12 rounded-2xl bg-gray-700 flex-shrink-0 overflow-hidden">
+                             <template x-if="athlete.photoBase64">
+                                 <img :src="athlete.photoBase64" class="w-full h-full object-cover">
+                             </template>
+                             <template x-if="!athlete.photoBase64">
+                                 <div class="w-full h-full flex items-center justify-center text-gray-400 text-xl">👤</div>
+                             </template>
+                         </div>
+                         <div class="min-w-0 flex-1">
+                             <div class="flex items-center gap-2 flex-wrap">
+                                 <span :class="isAvailable(athlete.id, selectedDate)?.length > 0 ? 'w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0' : isAvailable(athlete.id, selectedDate) !== null ? 'w-2.5 h-2.5 rounded-full bg-red-500 flex-shrink-0' : 'w-2.5 h-2.5 rounded-full bg-gray-600 flex-shrink-0'"></span>
+                                 <p class="text-base sm:text-lg font-bold text-gray-100" x-text="athlete.name"></p>
+                                 <template x-if="athlete.telegramEnabled">
+                                     <span :class="athlete.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'" 
+                                           class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">
+                                         <span x-text="athlete.telegramConnected ? '✓ TG' : '! TG'"></span>
+                                         <span x-show="athlete.telegramUsername" class="opacity-60" x-text="'@' + athlete.telegramUsername"></span>
+                                     </span>
+                                 </template>
+                             </div>
+                             <p class="text-sm text-gray-500 truncate" x-text="athlete.description"></p>
+                         </div>
+                     </div>
+                     <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
+                         <div class="flex space-x-4 text-xs sm:text-sm font-black uppercase">
+                             <button @click="editAthlete(athlete)" class="text-blue-400">Правка</button>
+                             <button @click="askDeleteAthlete(athlete.id)" class="text-red-500">Видалити</button>
+                         </div>
+                     </div>
+                 </div>
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#292929]">
-                    <button @click="generateInvite(athlete.id)" class="text-[10px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[athlete.id] ? '✓ Скопійовано' : 'Посилання'"></button>
-                    <template x-if="athlete.telegramEnabled">
-                        <div class="flex items-center gap-2">
-                            <button x-show="athlete.telegramConnected" @click="notifyAthlete(athlete)" 
-                                    x-bind:disabled="notifyingAthletes[athlete.id] === true"
-                                    :class="notifyingAthletes[athlete.id] === true ? 'text-gray-500' : (notifySuccess[athlete.id] === true ? 'text-green-400' : 'text-blue-400')"
-                                    class="text-[10px] font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer">
-                                <span x-show="notifyingAthletes[athlete.id] === true">Відправка...</span>
-                                <span x-show="notifySuccess[athlete.id] === true">✓ Відправлено!</span>
-                                <span x-show="notifyingAthletes[athlete.id] !== true && notifySuccess[athlete.id] !== true">📲 Нагадати</span>
-                            </button>
-                            <button x-show="!athlete.telegramConnected && athlete.connectLink" @click="navigator.clipboard?.writeText(athlete.connectLink)" 
-                                    class="text-[10px] font-bold text-yellow-400 uppercase tracking-wider cursor-pointer">
-                                📋 Скопіювати TG посилання
-                            </button>
-                        </div>
-                    </template>
+                    <button @click="generateInvite(athlete.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[athlete.id] ? '✓ Скопійовано' : 'Посилання'"></button>
+                    <div x-show="athlete.telegramEnabled" class="flex items-center gap-2">
+                        <button x-show="athlete.telegramConnected" @click="notifyAthlete(athlete)" 
+                                x-bind:disabled="notifyingAthletes[athlete.id] === true"
+                                :class="notifyingAthletes[athlete.id] === true ? 'bg-gray-700 text-gray-500' : (notifySuccess[athlete.id] === true ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400')"
+                                class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer">
+                            <span x-show="notifyingAthletes[athlete.id] === true">Відправка...</span>
+                            <span x-show="notifySuccess[athlete.id] === true">✓ Відправлено!</span>
+                            <span x-show="notifyingAthletes[athlete.id] !== true && notifySuccess[athlete.id] !== true">📲 Нагадати</span>
+                        </button>
+                        <button x-show="!athlete.telegramConnected && athlete.connectLink" @click="navigator.clipboard?.writeText(athlete.connectLink)" 
+                                class="px-3 py-1.5 rounded-lg bg-yellow-900/50 text-[11px] font-bold text-yellow-400 uppercase tracking-wider cursor-pointer">
+                            📋 Посилання
+                        </button>
+                    </div>
                 </div>
                 <div x-show="!!notifyErrors[athlete.id]" class="mt-2 text-[10px] text-red-400 font-medium" x-text="notifyErrors[athlete.id]"></div>
             </div>
@@ -289,7 +316,7 @@
 <div x-show="showAvailabilityOverview" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
     <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
         <button @click="showAvailabilityOverview = false" class="text-blue-400 font-bold">Назад</button>
-        <h3 class="font-bold">Зайнятість атлетів</h3>
+        <h3 class="font-bold">Зайнятість учнів</h3>
         <div class="w-10"></div>
     </header>
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
@@ -309,7 +336,7 @@
                 <div x-show="!athleteHasFutureAvailability(athlete.id)" class="text-sm text-gray-600 italic">Немає даних про доступність</div>
             </div>
         </template>
-        <div x-show="athletes.length === 0" class="text-center py-20 text-gray-600 text-sm">Немає атлетів</div>
+        <div x-show="athletes.length === 0" class="text-center py-20 text-gray-600 text-sm">Немає учнів</div>
     </div>
 </div>
 
@@ -353,10 +380,10 @@
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <p class="text-xs sm:text-sm font-black text-gray-400 uppercase">Атлети</p>
+                        <p class="text-xs sm:text-sm font-black text-gray-400 uppercase">Учні</p>
                         <span x-show="workoutForm.athleteIds.length" class="text-xs sm:text-sm font-bold text-blue-400 bg-blue-900/30 px-2.5 py-0.5 rounded-full" x-text="workoutForm.athleteIds.length + ' вибр.'"></span>
                     </div>
-                    <input type="text" x-model="athleteSearch" placeholder="Пошук атлетів..." class="w-full mb-2 text-base">
+                    <input type="text" x-model="athleteSearch" placeholder="Пошук учнів..." class="w-full mb-2 text-base">
                     <div x-show="workoutForm.athleteIds.length" class="flex flex-wrap gap-1.5 mb-2">
                         <template x-for="aId in workoutForm.athleteIds" :key="aId">
                             <button @click="workoutForm.athleteIds = workoutForm.athleteIds.filter(id => id !== aId)" type="button"
@@ -414,7 +441,7 @@
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             selectedAthleteFilters: [], athleteSearch: '',
             workoutForm: { title: 'Тренування', description: '', date: '', startTime: null, endTime: null, athleteIds: [], locationId: null },
-            athleteForm: { name: '', description: '' },
+            athleteForm: { name: '', description: '', photoBase64: null },
             locationForm: { name: '', description: '', color: '#3b82f6' },
             confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
             inviteUrls: {},
@@ -727,10 +754,17 @@
                                             a.telegramConnected = tg.telegramConnected;
                                             a.telegramUsername = tg.telegramUsername;
                                             a.connectLink = tg.connectLink;
+                                            a.photoBase64 = tg.photoBase64;
                                         } else {
-                                            a.telegramEnabled = false;
+                                            a.telegramEnabled = true;
+                                            a.telegramConnected = false;
+                                            a.photoBase64 = null;
                                         }
                                     }
+                                }
+                            } else {
+                                for (const a of this.athletes) {
+                                    a.telegramEnabled = false;
                                 }
                             }
                         }
@@ -774,7 +808,7 @@
                         this.notifySuccess[athlete.id] = true;
                         setTimeout(() => { this.notifySuccess[athlete.id] = false; }, 3000);
                     } else if (data.reason === 'Telegram not connected') {
-                        this.notifyErrors[athlete.id] = `Атлет не підключив Telegram. Поділіться посиланням-з'єднанням.`;
+                        this.notifyErrors[athlete.id] = `Учень не підключив Telegram. Поділіться посиланням-з'єднанням.`;
                     } else {
                         this.notifyErrors[athlete.id] = data.reason || `Помилка відправки`;
                     }
@@ -998,12 +1032,66 @@
             async saveAthlete() {
                 const method = this.editingAthleteId ? 'PUT' : 'POST';
                 const url = this.editingAthleteId ? `/api/v1/athletes/${this.editingAthleteId}` : '/api/v1/athletes';
-                await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...this.athleteForm, coachId: this.coachId }) });
-                this.athleteForm = { name: '', description: '' }; this.editingAthleteId = null; await this.fetchAthletes();
+                const res = await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...this.athleteForm, coachId: this.coachId }) });
+                
+                let athleteId = this.editingAthleteId;
+                if (!athleteId && res.ok) {
+                    try {
+                        const data = await res.json();
+                        athleteId = data.id;
+                    } catch (e) {}
+                }
+                
+                if (athleteId && this.athleteForm.photoBase64 !== undefined) {
+                    await fetch(`/api/v1/athletes/${athleteId}/photo`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ photoBase64: this.athleteForm.photoBase64 })
+                    });
+                }
+                
+                this.athleteForm = { name: '', description: '', photoBase64: null }; this.editingAthleteId = null; await this.fetchAthletes();
             },
 
-            editAthlete(a) { this.editingAthleteId = a.id; this.athleteForm = { name: a.name, description: a.description }; },
+            editAthlete(a) { this.editingAthleteId = a.id; this.athleteForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null }; },
             askDeleteAthlete(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/athletes/${id}`, { method: 'DELETE' }); await this.fetchAthletes(); await this.fetchData(); } }; },
+            
+            handleAthletePhotoSelect(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const maxSize = 200;
+                        let w = img.width;
+                        let h = img.height;
+                        
+                        if (w > h) {
+                            if (w > maxSize) {
+                                h = Math.round(h * maxSize / w);
+                                w = maxSize;
+                            }
+                        } else {
+                            if (h > maxSize) {
+                                w = Math.round(w * maxSize / h);
+                                h = maxSize;
+                            }
+                        }
+                        
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        this.athleteForm.photoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+                event.target.value = '';
+            },
 
             async saveLocation() {
                 const method = this.editingLocationId ? 'PUT' : 'POST';
