@@ -2,20 +2,20 @@ package com.cozy.planner.model.entity;
 
 import lombok.*;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
-@Table("clubs")
+import java.time.LocalDateTime;
+
+@Table("users")
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
 @Builder
-public class Club {
+public class User {
     @Id
     private Long id;
+    private String email;
     private String name;
-    private String description;
-
-    @Column("user_id")
-    private Long userId;
+    private String googleSub;
+    private LocalDateTime createdAt;
 }

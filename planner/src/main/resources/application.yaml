@@ -14,6 +14,15 @@ spring:
     locations: classpath:db/migration
     clean-disabled: false
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com
+            client-secret: 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
+            scope: openid, profile, email
+
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -26,4 +35,4 @@ server:
 
 app:
   flyway:
-    clean-on-start: false
+    clean-on-start: true
