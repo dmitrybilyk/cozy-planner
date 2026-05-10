@@ -19,8 +19,8 @@ spring:
       client:
         registration:
           google:
-            client-id: 743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com
-            client-secret: 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
+            client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID}                                                                                                  LSP
+            client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET}
             scope: openid, profile, email
 
   jackson:
