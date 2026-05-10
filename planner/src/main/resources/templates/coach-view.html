@@ -25,7 +25,8 @@
             background-clip: text;
         }
         .today-marker { border: 2px solid #ffffff !important; box-shadow: 0 0 12px rgba(255, 255, 255, 0.4); }
-        #calendar-container { touch-action: pan-x; -webkit-overflow-scrolling: touch; }
+        #calendar-container { touch-action: pan-x; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; scroll-padding-left: 1rem; }
+        .week-start { scroll-snap-align: start; border-left: 1px solid #333; padding-left: 0.75rem; margin-left: 0.25rem; }
         .dragging { opacity: 0.3; transform: scale(0.95); border: 1px dashed #0095f6 !important; }
         .modal-container { display: flex; flex-direction: column; background: #1c1c1c; border: 1px solid #333; width: 100%; max-width: 512px; max-height: 90vh; border-top-left-radius: 32px; border-top-right-radius: 32px; }
         @media (min-width: 640px) { .modal-container { border-radius: 24px; max-height: 85vh; } }
@@ -89,10 +90,11 @@
 
 <div x-show="currentView === 'feed'" class="bg-[#1a1a1a] border-b border-[#333]">
     <div id="calendar-container" class="flex overflow-x-auto no-scrollbar p-4 space-x-5 scroll-smooth" @wheel.passive="handleMouseScroll($event)">
-        <template x-for="day in days" :key="day.dateStr">
+         <template x-for="day in days" :key="day.dateStr">
             <button @click="selectedDate = day.dateStr; $nextTick(() => scrollToActive())"
                     :id="'date-btn-' + day.dateStr"
-                    class="flex-shrink-0 flex flex-col items-center min-w-[64px]">
+                    class="flex-shrink-0 flex flex-col items-center min-w-[64px]"
+                    :class="day.isMonday ? 'week-start' : ''">
                 <div class="w-14 h-14 rounded-xl p-[2px] flex items-center justify-center transition-all relative"
                      :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : 'bg-[#333]', day.dateStr === todayStr ? 'today-marker' : '']">
                     <div class="w-full h-full rounded-xl bg-black flex flex-col items-center justify-center border-2 border-black">
@@ -401,18 +403,34 @@
                 await this.fetchAthletes();
                 await this.fetchData();
                 await this.fetchAvailability();
-                this.connectSSE();
+                this.connectWebSocket();
                 this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
             },
 
-            connectSSE() {
-                const es = new EventSource('/api/v1/events');
-                es.addEventListener('workout_changed', () => this.fetchData());
-                es.addEventListener('athlete_changed', () => { this.fetchAthletes(); this.fetchData(); });
-                es.addEventListener('location_changed', () => { this.fetchLocations(); this.fetchData(); });
-                es.addEventListener('availability_changed', () => this.fetchAvailability());
-                es.onerror = () => { es.close(); setTimeout(() => this.connectSSE(), 3000); };
+            connectWebSocket() {
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws`;
+                const ws = new WebSocket(wsUrl);
+                
+                ws.onmessage = (event) => {
+                    switch(event.data) {
+                        case 'workout_changed': this.fetchData(); break;
+                        case 'athlete_changed': this.fetchAthletes(); this.fetchData(); break;
+                        case 'location_changed': this.fetchLocations(); this.fetchData(); break;
+                        case 'availability_changed': this.fetchAvailability(); break;
+                    }
+                };
+                
+                ws.onclose = () => {
+                    setTimeout(() => this.connectWebSocket(), 3000);
+                };
+                
+                ws.onerror = () => {
+                    ws.close();
+                };
+                
+                this.ws = ws;
             },
 
             handleCardClick(workout, index) {
@@ -547,7 +565,35 @@
 
             scrollToToday() {
                 this.selectedDate = this.todayStr;
-                this.scrollToActive();
+                this.scrollToWeekStart();
+            },
+
+            scrollToWeekStart() {
+                const el = document.getElementById('calendar-container');
+                const todayBtn = document.getElementById('date-btn-' + this.todayStr);
+                if (!el || !todayBtn) {
+                    this.scrollToActive();
+                    return;
+                }
+                
+                const todayIdx = this.days.findIndex(d => d.dateStr === this.todayStr);
+                if (todayIdx === -1) {
+                    this.scrollToActive();
+                    return;
+                }
+                
+                let mondayIdx = todayIdx;
+                while (mondayIdx > 0 && !this.days[mondayIdx].isMonday) {
+                    mondayIdx--;
+                }
+                
+                const mondayBtn = document.getElementById('date-btn-' + this.days[mondayIdx].dateStr);
+                if (mondayBtn) {
+                    el.scrollTo({
+                        left: mondayBtn.offsetLeft - 16,
+                        behavior: 'smooth'
+                    });
+                }
             },
 
             scrollToActive() {
@@ -841,11 +887,19 @@
             editLocation(l) { this.editingLocationId = l.id; this.locationForm = { name: l.name, description: l.description || '', color: l.color || '#3b82f6' }; },
             askDeleteLocation(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Локація зникне з усіх тренувань.', onConfirm: async () => { await fetch(`/api/v1/locations/${id}`, { method: 'DELETE' }); await this.fetchLocations(); await this.fetchData(); } }; },
 
+            snapToMonday(date) {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                d.setDate(diff);
+                return d;
+            },
             generateDays() {
-                const start = new Date(); start.setDate(start.getDate() - 14);
+                const start = this.snapToMonday(new Date());
+                start.setDate(start.getDate() - 14);
                 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                for (let i = 0; i < 74; i++) {
-                    this.days.push({ dateStr: localDateStr(start), dayNum: start.getDate(), weekday: days[(start.getDay() + 6) % 7] });
+                for (let i = 0; i < 77; i++) {
+                    this.days.push({ dateStr: localDateStr(start), dayNum: start.getDate(), weekday: days[(start.getDay() + 6) % 7], isMonday: start.getDay() === 1 });
                     start.setDate(start.getDate() + 1);
                 }
             },

@@ -69,6 +69,13 @@
         d = d || new Date();
         return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
     }
+    function snapToMonday(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        return d;
+    }
     function availabilityApp() {
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         const today = localDateStr();
@@ -93,13 +100,37 @@
                 this.athleteId = me.athleteId;
 
                 const now = new Date();
+                const start = snapToMonday(now);
                 for (let i = 0; i < 14; i++) {
-                    const d = new Date(now);
-                    d.setDate(now.getDate() + i);
+                    const d = new Date(start);
+                    d.setDate(start.getDate() + i);
                     const ds = localDateStr(d);
                     this.days.push({ dateStr: ds, weekday: days[(d.getDay() + 6) % 7], dayNum: d.getDate() });
                 }
                 await this.loadAvailability();
+                this.connectWebSocket();
+            },
+
+            connectWebSocket() {
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws`;
+                const ws = new WebSocket(wsUrl);
+                
+                ws.onmessage = (event) => {
+                    if (event.data === 'availability_changed') {
+                        this.loadAvailability();
+                    }
+                };
+                
+                ws.onclose = () => {
+                    setTimeout(() => this.connectWebSocket(), 3000);
+                };
+                
+                ws.onerror = () => {
+                    ws.close();
+                };
+                
+                this.ws = ws;
             },
 
             selectDate(date) {

@@ -8,9 +8,11 @@ import reactor.core.publisher.Sinks;
 public class EventBroadcastService {
 
     private final Sinks.Many<String> sink;
+    private final WebSocketSessionManager webSocketSessionManager;
 
-    public EventBroadcastService() {
+    public EventBroadcastService(WebSocketSessionManager webSocketSessionManager) {
         this.sink = Sinks.many().multicast().onBackpressureBuffer();
+        this.webSocketSessionManager = webSocketSessionManager;
     }
 
     public Flux<String> getEventStream() {
@@ -19,5 +21,6 @@ public class EventBroadcastService {
 
     public void broadcast(String event) {
         sink.tryEmitNext(event);
+        webSocketSessionManager.broadcast(event);
     }
 }
