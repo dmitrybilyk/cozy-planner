@@ -22,14 +22,14 @@ public class ScheduledNotificationService {
         this.athleteRepository = athleteRepository;
     }
 
-    @Scheduled(cron = "0 0 17 * * FRI")
+    @Scheduled(cron = "${app.scheduler.weekly-reminder-cron:0 0 17 * * FRI}")
     public void sendFridayReminders() {
         if (!telegramService.isEnabled()) {
             log.info("Telegram not enabled, skipping Friday reminders");
             return;
         }
 
-        log.info("Starting Friday 17:00 weekly availability reminders...");
+        log.info("Starting Friday weekly availability reminders...");
 
         athleteRepository.findAll()
                 .filter(Athlete::hasTelegram)
@@ -51,14 +51,14 @@ public class ScheduledNotificationService {
                 );
     }
 
-    @Scheduled(cron = "0 0 16 * * FRI")
+    @Scheduled(cron = "${app.scheduler.weekend-reminder-cron:0 0 16 * * FRI}")
     public void sendWeekendReminders() {
         if (!telegramService.isEnabled()) {
             log.info("Telegram not enabled, skipping weekend reminders");
             return;
         }
 
-        log.info("Starting Friday 16:00 weekend availability reminders...");
+        log.info("Starting weekend availability reminders...");
 
         athleteRepository.findAllAthletesWithWeekendRemindersEnabled()
                 .flatMap(athlete -> {

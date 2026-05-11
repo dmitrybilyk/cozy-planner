@@ -1,6 +1,11 @@
 spring:
   application:
     name: planner
+  task:
+    scheduling:
+      pool:
+        size: 4
+      timezone: Europe/Kiev
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/planner_db?stringtype=unspecified
     username: user
@@ -38,6 +43,9 @@ app:
   flyway:
     clean-on-start: false
   base-url: ${APP_BASE_URL:https://footwork-lid-attendee.ngrok-free.dev}
+  scheduler:
+    weekly-reminder-cron: ${SCHEDULER_WEEKLY_REMINDER_CRON:0 * * * * *}
+    weekend-reminder-cron: ${SCHEDULER_WEEKEND_REMINDER_CRON:0 * * * * *}
 
 telegram:
   enabled: ${TELEGRAM_ENABLED:true}
