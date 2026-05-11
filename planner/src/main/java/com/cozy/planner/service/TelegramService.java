@@ -8,6 +8,7 @@ import com.cozy.planner.repositories.CoachRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -29,6 +30,9 @@ public class TelegramService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    @Value("${app.base-url:}")
+    private String appBaseUrl;
 
     public TelegramService(TelegramConfig config, 
                            AthleteRepository athleteRepository,
@@ -58,16 +62,22 @@ public class TelegramService {
             return Mono.just(false);
         }
 
+        log.info("Sending Telegram message to chatId: {}, text length: {}", chatId, text.length());
+        log.debug("Message text: {}", text);
+
         Map<String, Object> body = new HashMap<>();
         body.put("chat_id", chatId);
         body.put("text", text);
-        body.put("parse_mode", "Markdown");
+        body.put("parse_mode", "HTML");
         if (replyMarkup != null) {
             body.put("reply_markup", replyMarkup);
         }
 
+        String path = "/bot" + botToken + "/sendMessage";
+        log.debug("Using API path: {}", path);
+
         return webClient.post()
-                .uri("/bot{token}/sendMessage", botToken)
+                .uri(path)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(body)
                 .retrieve()
@@ -76,8 +86,13 @@ public class TelegramService {
                 .map(response -> {
                     try {
                         JsonNode json = objectMapper.readTree(response);
-                        return json.path("ok").asBoolean(false);
+                        boolean ok = json.path("ok").asBoolean(false);
+                        if (!ok) {
+                            log.warn("Telegram API returned not OK: {}", response);
+                        }
+                        return ok;
                     } catch (Exception e) {
+                        log.error("Failed to parse Telegram response: {}", e.getMessage());
                         return false;
                     }
                 })
@@ -97,11 +112,31 @@ public class TelegramService {
     }
     
     public Mono<Boolean> sendMessageToCoach(String chatId, String text) {
+        return sendMessageToCoach(chatId, text, null);
+    }
+    
+    public Mono<Boolean> sendMessageToCoach(String chatId, String text, Object replyMarkup) {
         if (!isEnabled() || chatId == null || chatId.isBlank()) {
             return Mono.just(false);
         }
         String botToken = isCoachBotEnabled() ? config.getCoachBotToken() : config.getBotToken();
-        return sendMessageWithToken(botToken, chatId, text, null);
+        return sendMessageWithToken(botToken, chatId, text, replyMarkup);
+    }
+
+    private Map<String, Object> createInlineUrlButton(String buttonText, String url) {
+        if (url == null || url.contains("localhost") || url.contains("127.0.0.1")) {
+            log.warn("Skipping inline keyboard for localhost URL: {}", url);
+            return null;
+        }
+        Map<String, Object> button = new HashMap<>();
+        button.put("text", buttonText);
+        button.put("url", url);
+
+        Map<String, Object> keyboard = new HashMap<>();
+        keyboard.put("inline_keyboard", java.util.Collections.singletonList(
+                java.util.Collections.singletonList(button)
+        ));
+        return keyboard;
     }
 
     public Mono<Boolean> sendAvailabilityReminder(Athlete athlete, String baseUrl) {
@@ -114,19 +149,29 @@ public class TelegramService {
         }
 
         String link = baseUrl + "/athlete/" + athlete.getInviteToken();
+        log.info("Sending availability reminder to athlete: {}, link: {}", athlete.getName(), link);
         
         StringBuilder text = new StringBuilder();
-        text.append("👋 *").append(athlete.getName()).append("*!\n\n");
+        text.append("👋 <b>").append(escapeHtml(athlete.getName())).append("</b>!\n\n");
         text.append("📋 Тренер просить вказати доступність на найближчі дні.\n\n");
         
         if (customMessage != null && !customMessage.isBlank()) {
-            text.append("💬 *").append(customMessage).append("*\n\n");
+            text.append("💬 <b>").append(escapeHtml(customMessage)).append("</b>\n\n");
         }
         
-        text.append("[Відкрити календар →](").append(link).append(")\n\n");
-        text.append("_Будь ласка, заповни години, коли ти можеш зайнятися._");
+        text.append(link).append("\n\n");
+        text.append("<i>Будь ласка, заповни години, коли ти можеш зайнятися.</i>");
 
-        return sendMessage(athlete.getTelegramChatId(), text.toString());
+        Map<String, Object> keyboard = createInlineUrlButton("📅 Відкрити календар", link);
+        return sendMessage(athlete.getTelegramChatId(), text.toString(), keyboard);
+    }
+
+    private String escapeHtml(String text) {
+        if (text == null) return "";
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;");
     }
 
     public Mono<Boolean> sendFridayReminder(Athlete athlete, String baseUrl) {
@@ -135,12 +180,15 @@ public class TelegramService {
         }
 
         String link = baseUrl + "/athlete/" + athlete.getInviteToken();
-        String text = "📅 *Напоминалка на кінець тижня*\n\n" +
+        log.info("Sending Friday reminder to athlete: {}, link: {}", athlete.getName(), link);
+        
+        String text = "📅 <b>Напоминалка на кінець тижня</b>\n\n" +
                 "Будь ласка, заповни доступність на наступний тиждень!\n\n" +
-                "[Відкрити календар →](" + link + ")\n\n" +
-                "_Це допоможе тренеру складати розклад._";
+                link + "\n\n" +
+                "<i>Це допоможе тренеру складати розклад.</i>";
 
-        return sendMessage(athlete.getTelegramChatId(), text);
+        Map<String, Object> keyboard = createInlineUrlButton("📅 Відкрити календар", link);
+        return sendMessage(athlete.getTelegramChatId(), text, keyboard);
     }
 
     public Mono<Boolean> sendWeekendReminder(Athlete athlete, String baseUrl) {
@@ -149,13 +197,16 @@ public class TelegramService {
         }
 
         String link = baseUrl + "/athlete/" + athlete.getInviteToken();
-        String text = "🌴 *Запит на доступність у вихідні*\n\n" +
-                "👋 Привіт, " + athlete.getName() + "!\n\n" +
-                "Будь ласка, заповни доступність на **суботу та неділю**!\n\n" +
-                "[Відкрити календар →](" + link + ")\n\n" +
-                "_Тренеру потрібно знати, коли ти зможеш зайнятися у вихідні._";
+        log.info("Sending weekend reminder to athlete: {}, link: {}", athlete.getName(), link);
+        
+        String text = "🌴 <b>Запит на доступність у вихідні</b>\n\n" +
+                "👋 Привіт, " + escapeHtml(athlete.getName()) + "!\n\n" +
+                "Будь ласка, заповни доступність на <b>суботу та неділю</b>!\n\n" +
+                link + "\n\n" +
+                "<i>Тренеру потрібно знати, коли ти зможеш зайнятися у вихідні.</i>";
 
-        return sendMessage(athlete.getTelegramChatId(), text);
+        Map<String, Object> keyboard = createInlineUrlButton("📅 Відкрити календар", link);
+        return sendMessage(athlete.getTelegramChatId(), text, keyboard);
     }
 
     public Mono<Boolean> sendCoachAthleteAvailabilityUpdateNotification(Coach coach, Athlete athlete) {
@@ -163,11 +214,26 @@ public class TelegramService {
             return Mono.just(false);
         }
 
-        String text = "✅ *Оновлення доступності*\n\n" +
-                "Учень *" + athlete.getName() + "* щойно оновив(ла) свою доступність.\n\n" +
-                "_Перевірте календар для планування занять._";
+        StringBuilder text = new StringBuilder();
+        text.append("✅ <b>Оновлення доступності</b>\n\n");
+        text.append("Учень <b>").append(escapeHtml(athlete.getName())).append("</b> щойно оновив(ла) свою доступність.\n\n");
+        
+        if (appBaseUrl != null && !appBaseUrl.isBlank() 
+                && !appBaseUrl.contains("localhost") 
+                && !appBaseUrl.contains("127.0.0.1")) {
+            text.append(appBaseUrl).append("\n\n");
+        }
+        
+        text.append("<i>Перевірте календар для планування занять.</i>");
 
-        return sendMessageToCoach(coach.getTelegramChatId(), text);
+        if (appBaseUrl != null && !appBaseUrl.isBlank() 
+                && !appBaseUrl.contains("localhost") 
+                && !appBaseUrl.contains("127.0.0.1")) {
+            Map<String, Object> keyboard = createInlineUrlButton("📋 Відкрити планувальник", appBaseUrl);
+            return sendMessageToCoach(coach.getTelegramChatId(), text.toString(), keyboard);
+        }
+
+        return sendMessageToCoach(coach.getTelegramChatId(), text.toString());
     }
 
     public Mono<Athlete> connectAthleteByToken(String token, String chatId, String username) {
@@ -187,7 +253,7 @@ public class TelegramService {
     }
 
     private void sendWelcomeMessage(String chatId, String athleteName) {
-        String welcome = "✅ *Привіт, " + athleteName + "!*\n\n" +
+        String welcome = "✅ <b>Привіт, " + escapeHtml(athleteName) + "!</b>\n\n" +
                 "Ти успішно підключив Telegram до Cozy Planner.\n\n" +
                 "Тепер ти будеш отримувати нагадування про необхідність заповнити доступність для тренувань.\n\n" +
                 "Хороших тренувань! 🏋️";
@@ -216,7 +282,7 @@ public class TelegramService {
     }
 
     private void sendCoachWelcomeMessage(String chatId, String coachName) {
-        String welcome = "✅ *Привіт, " + coachName + "!*\n\n" +
+        String welcome = "✅ <b>Привіт, " + escapeHtml(coachName) + "!</b>\n\n" +
                 "Ти успішно підключив(ла) Telegram до Cozy Planner.\n\n" +
                 "🔔 Тепер ти будеш отримувати сповіщення:\n" +
                 "• Коли учень заповнить свою доступність\n" +

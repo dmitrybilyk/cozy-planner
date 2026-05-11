@@ -4,6 +4,7 @@ import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.Athlete;
 import com.cozy.planner.repositories.AthleteRepository;
 import com.cozy.planner.service.TelegramService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
@@ -20,6 +21,9 @@ public class NotificationController {
     private final TelegramService telegramService;
     private final AthleteRepository athleteRepository;
     private final TelegramConfig telegramConfig;
+
+    @Value("${app.base-url:}")
+    private String configuredBaseUrl;
 
     public NotificationController(TelegramService telegramService, AthleteRepository athleteRepository, TelegramConfig telegramConfig) {
         this.telegramService = telegramService;
@@ -121,6 +125,12 @@ public class NotificationController {
     }
 
     private String getBaseUrl(ServerWebExchange exchange) {
+        if (configuredBaseUrl != null && !configuredBaseUrl.isBlank() 
+                && !configuredBaseUrl.contains("localhost") 
+                && !configuredBaseUrl.contains("127.0.0.1")) {
+            return configuredBaseUrl;
+        }
+
         var request = exchange.getRequest();
         var headers = request.getHeaders();
 
