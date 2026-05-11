@@ -17,3 +17,5 @@ https://footwork-lid-attendee.ngrok-free.dev/athlete/register?token=5VW2KFIzBhFF
 https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/getWebhookInf
 
 tg://resolve?domain=CozyPlannerCoachBot&start=AT7lQ3KR8KxEQ8A7z9mL2-6LbSzxe9pa
+
+SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com;SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=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

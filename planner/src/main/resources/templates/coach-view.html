@@ -101,11 +101,11 @@
         </button>
         <button @click="showManageLocations = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span>Локації</span>
+            <span>Місця</span>
         </button>
         <button @click="showAvailabilityOverview = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span>Зайнятість</span>
+            <span>Доступність</span>
         </button>
     </div>
 </header>
@@ -232,7 +232,7 @@
                     </div>
                 </div>
                 <div class="flex-1">
-                    <p class="font-bold text-base sm:text-lg" x-text="coach.name || 'Тренер'"></p>
+                    <p class="font-bold text-base sm:text-lg" x-text="coach.name || 'Ментор'"></p>
                     <p x-show="user.email" class="text-gray-500 text-sm" x-text="user.email"></p>
                 </div>
             </div>
@@ -320,13 +320,18 @@
                 <input type="text" x-model="athleteForm.description" placeholder="Примітка" class="w-full text-base">
             </div>
         </div>
-        <div x-show="athleteForm.photoBase64" class="text-center">
-            <button @click="athleteForm.photoBase64 = null" type="button" class="text-red-400 text-xs font-bold uppercase">Видалити фото</button>
-        </div>
-        <div x-show="editingAthleteId" class="flex items-center gap-2 p-3 bg-[#222] rounded-xl">
-            <input type="checkbox" x-model="athleteForm.weekendReminderEnabled" class="w-5 h-5 rounded cursor-pointer">
-            <label class="text-sm text-gray-300 cursor-pointer">🌴 Доступність у вихідні (повідомлення в п'ятницю о 16:00)</label>
-        </div>
+         <div x-show="athleteForm.photoBase64" class="text-center">
+             <button @click="athleteForm.photoBase64 = null" type="button" class="text-red-400 text-xs font-bold uppercase">Видалити фото</button>
+         </div>
+         <div class="flex items-center gap-2 p-3 bg-[#222] rounded-xl">
+             <input type="checkbox" x-model="athleteForm.weekendReminderEnabled" 
+                    :disabled="editingAthleteId ? !athletes.find(a => a.id === editingAthleteId)?.telegramConnected : false"
+                    class="w-5 h-5 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+             <label class="text-sm text-gray-300 cursor-pointer" 
+                    :class="(!editingAthleteId || !athletes.find(a => a.id === editingAthleteId)?.telegramConnected) ? 'text-gray-500' : ''">
+                 🌴 Нагадувати про доступність по п'ятницях
+             </label>
+         </div>
         <button @click="saveAthlete()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingAthleteId ? 'Оновити' : 'Додати учня'"></button>
     </div>
      <div class="flex-1 overflow-y-auto p-4 space-y-3">
@@ -364,30 +369,33 @@
                          </div>
                      </div>
                  </div>
-                <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#292929]">
-                    <div class="flex items-center gap-2">
-                        <button @click="generateInvite(athlete.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[athlete.id] ? '✓ Скопійовано' : 'Посилання'"></button>
-                        <button @click="toggleWeekendReminder(athlete)" 
-                                :class="athlete.weekendReminderEnabled ? 'bg-orange-900/50 text-orange-400' : 'bg-[#262626] text-gray-500'"
-                                class="px-2 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer">
-                            🌴 <span x-text="athlete.weekendReminderEnabled ? 'Вих. ON' : 'Вих. OFF'"></span>
-                        </button>
-                    </div>
-                    <div x-show="athlete.telegramEnabled" class="flex items-center gap-2">
-                        <button x-show="athlete.telegramConnected" @click="openNotifyModal(athlete)" 
-                                x-bind:disabled="notifyingAthletes[athlete.id] === true"
-                                :class="notifyingAthletes[athlete.id] === true ? 'bg-gray-700 text-gray-500' : (notifySuccess[athlete.id] === true ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400')"
-                                class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer">
-                            <span x-show="notifyingAthletes[athlete.id] === true">Відправка...</span>
-                            <span x-show="notifySuccess[athlete.id] === true">✓ Відправлено!</span>
-                            <span x-show="notifyingAthletes[athlete.id] !== true && notifySuccess[athlete.id] !== true">📲 Запитати</span>
-                        </button>
-                        <button x-show="!athlete.telegramConnected && athlete.connectLink" @click="navigator.clipboard?.writeText(athlete.connectLink)" 
-                                class="px-3 py-1.5 rounded-lg bg-yellow-900/50 text-[11px] font-bold text-yellow-400 uppercase tracking-wider cursor-pointer">
-                            📋 Посилання
-                        </button>
-                    </div>
-                </div>
+                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#292929]">
+                     <div class="flex items-center gap-2 flex-wrap">
+                         <template x-if="athlete.telegramEnabled && !athlete.telegramConnected">
+                             <button @click="generateInvite(athlete.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[athlete.id] ? '✓ Скопійовано!' : '🌐 Запросити в TG'"></button>
+                         </template>
+                         <div class="flex items-center gap-1.5" x-show="athlete.telegramEnabled">
+                             <input type="checkbox" x-model="athlete.weekendReminderEnabled" 
+                                    @change="toggleWeekendReminder(athlete)"
+                                    :disabled="!athlete.telegramConnected"
+                                    class="w-4 h-4 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                             <label class="text-xs text-gray-400 cursor-pointer select-none" 
+                                    :class="!athlete.telegramConnected ? 'text-gray-600' : ''">
+                                 🌴 Нагадування по п'ятницях
+                             </label>
+                         </div>
+                     </div>
+                     <div x-show="athlete.telegramEnabled && athlete.telegramConnected" class="flex items-center gap-2">
+                         <button @click="openNotifyModal(athlete)" 
+                                 x-bind:disabled="notifyingAthletes[athlete.id] === true"
+                                 :class="notifyingAthletes[athlete.id] === true ? 'bg-gray-700 text-gray-500' : (notifySuccess[athlete.id] === true ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400')"
+                                 class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer">
+                             <span x-show="notifyingAthletes[athlete.id] === true">Відправка...</span>
+                             <span x-show="notifySuccess[athlete.id] === true">✓</span>
+                             <span x-show="notifyingAthletes[athlete.id] !== true && notifySuccess[athlete.id] !== true">Запитати Доступність</span>
+                         </button>
+                     </div>
+                 </div>
                 <div x-show="!!notifyErrors[athlete.id]" class="mt-2 text-[10px] text-red-400 font-medium" x-text="notifyErrors[athlete.id]"></div>
             </div>
         </template>
@@ -398,11 +406,10 @@
 <div x-show="showManageLocations" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
     <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
         <button @click="showManageLocations = false" class="text-blue-400 font-bold">Назад</button>
-        <h3 class="font-bold">Локації</h3>
-        <div class="w-10"></div>
+        <h3 class="font-bold">Місця</h3>
     </header>
     <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
-        <input type="text" x-model="locationForm.name" placeholder="Назва локації" class="w-full text-base">
+        <input type="text" x-model="locationForm.name" placeholder="Назва місця" class="w-full text-base">
         <input type="text" x-model="locationForm.description" placeholder="Опис" class="w-full text-base">
         <div class="flex items-center space-x-3">
             <input type="color" x-model="locationForm.color" class="w-14 h-14 p-0.5 rounded-xl cursor-pointer">
@@ -487,7 +494,7 @@
                 <div>
                     <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Локація</label>
                     <select x-model="workoutForm.locationId" class="w-full text-base">
-                        <option :value="null">Без локації</option>
+                        <option :value="null">Без місця</option>
                         <template x-for="location in locations" :key="location.id">
                             <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
                         </template>
@@ -583,7 +590,7 @@
             halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             selectedAthleteFilters: [], athleteSearch: '',
-            workoutForm: { title: 'Тренування', description: '', date: '', startTime: null, endTime: null, athleteIds: [], locationId: null },
+            workoutForm: { title: 'Зустріч', description: '', date: '', startTime: null, endTime: null, athleteIds: [], locationId: null },
             athleteForm: { name: '', description: '', photoBase64: null, weekendReminderEnabled: false },
             locationForm: { name: '', description: '', color: '#3b82f6' },
             confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
@@ -1223,7 +1230,7 @@
             openWorkoutModal() {
                 this.editingWorkoutId = null;
                 this.originalWorkoutData = null;
-                this.workoutForm = { title: 'Тренування', description: '', date: this.selectedDate, startTime: null, endTime: null, athleteIds: [], locationId: null };
+                this.workoutForm = { title: 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, athleteIds: [], locationId: null };
                 this.showModal = true;
             },
 
@@ -1293,17 +1300,17 @@
             editAthlete(a) { this.editingAthleteId = a.id; this.athleteForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null, weekendReminderEnabled: a.weekendReminderEnabled || false }; },
             askDeleteAthlete(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/athletes/${id}`, { method: 'DELETE' }); await this.fetchAthletes(); await this.fetchData(); } }; },
             
-            async toggleWeekendReminder(athlete) {
-                const newVal = !athlete.weekendReminderEnabled;
-                const res = await fetch(`/api/v1/athletes/${athlete.id}/weekend-reminder`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ enabled: newVal })
-                });
-                if (res.ok) {
-                    athlete.weekendReminderEnabled = newVal;
-                }
-            },
+             async toggleWeekendReminder(athlete) {
+                 if (!athlete.telegramEnabled || !athlete.telegramConnected) return;
+                 const res = await fetch(`/api/v1/athletes/${athlete.id}/weekend-reminder`, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ enabled: athlete.weekendReminderEnabled })
+                 });
+                 if (!res.ok) {
+                     athlete.weekendReminderEnabled = !athlete.weekendReminderEnabled;
+                 }
+             },
             
             handleAthletePhotoSelect(event) {
                 const file = event.target.files[0];

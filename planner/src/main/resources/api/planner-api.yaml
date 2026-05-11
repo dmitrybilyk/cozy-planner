@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Planner Service API
-  description: API for managing sports training schedules, athletes, and sports clubs.
+  description: API for managing scheduling and planning.
   version: 1.0.0
 
 servers:
@@ -10,15 +10,15 @@ servers:
 
 tags:
   - name: Clubs
-    description: Operations for sports club management
+    description: Operations for club/group management
   - name: Coaches
-    description: Operations for coach data
+    description: Operations for coach (mentor) data
   - name: Athletes
-    description: Operations for athlete data
+    description: Operations for athlete (trainee) data
   - name: Workouts
-    description: Operations for planning and retrieving training sessions
+    description: Operations for planning and retrieving meetings
   - name: Locations
-    description: Operations for location (venue) management
+    description: Operations for location (place) management
 
 paths:
   # --- КЛУБИ ---
@@ -326,7 +326,7 @@ paths:
             format: date
       responses:
         '200':
-          description: List of training sessions
+          description: List of workouts
           content:
             application/json:
               schema:
@@ -354,12 +354,12 @@ paths:
 
   /api/v1/workouts/{workoutId}:
     parameters:
-      - name: workoutId
-        in: path
-        required: true
-        schema:
-          type: integer
-          format: int64
+       - name: workoutId
+         in: path
+         required: true
+         schema:
+           type: integer
+           format: int64
     delete:
       tags: [Workouts]
       summary: Delete a workout

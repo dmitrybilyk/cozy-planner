@@ -38,7 +38,6 @@ public class MeController {
     @GetMapping("/api/v1/me")
     public Mono<Map<String, Object>> me(ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
-            // If coach session exists, return coach data (athlete should not override)
             String googleSub = session.getAttribute("google_sub");
             if (googleSub != null) {
                 return userRepository.findByGoogleSub(googleSub)
@@ -52,6 +51,7 @@ public class MeController {
                                             r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
                                             r.put("club", Map.of("id", club.getId(), "name", club.getName()));
                                             r.put("coach", Map.of("id", coach.getId(), "name", coach.getName()));
+                                            r.put("mentor", Map.of("id", coach.getId(), "name", coach.getName()));
                                             return r;
                                         })
                                 )
@@ -60,12 +60,12 @@ public class MeController {
                         .defaultIfEmpty(defaultWithUser(googleSub));
             }
 
-            // Pure athlete session (no google_sub)
-            Object athleteId = session.getAttribute("athlete_id");
-            if (athleteId instanceof Number) {
-                return athleteRepository.findById(((Number) athleteId).longValue())
+            Object traineeId = session.getAttribute("athlete_id");
+            if (traineeId instanceof Number) {
+                return athleteRepository.findById(((Number) traineeId).longValue())
                         .map(athlete -> {
                             Map<String, Object> r = new HashMap<>();
+                            r.put("traineeId", athlete.getId());
                             r.put("athleteId", athlete.getId());
                             r.put("name", athlete.getName());
                             r.put("inviteToken", athlete.getInviteToken());
@@ -92,12 +92,12 @@ public class MeController {
                         });
             }
 
-            // No auth at all
             {
                 Map<String, Object> r = new HashMap<>();
                 r.put("user", Map.of("email", "demo@cozyplanner.app", "name", "Демо"));
                 r.put("club", Map.of());
                 r.put("coach", Map.of("id", -1, "name", "Демо"));
+                r.put("mentor", Map.of("id", -1, "name", "Демо"));
                 return Mono.just(r);
             }
         });
@@ -108,6 +108,7 @@ public class MeController {
         r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
         r.put("club", Map.of());
         r.put("coach", Map.of("id", -1, "name", fallbackName));
+        r.put("mentor", Map.of("id", -1, "name", fallbackName));
         return r;
     }
 
@@ -116,6 +117,7 @@ public class MeController {
         r.put("user", Map.of("email", googleSub, "name", "Демо"));
         r.put("club", Map.of());
         r.put("coach", Map.of("id", -1, "name", "Демо"));
+        r.put("mentor", Map.of("id", -1, "name", "Демо"));
         return r;
     }
 }

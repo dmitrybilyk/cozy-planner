@@ -5,7 +5,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
-@Table("locations")
+@Table("places")
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -17,6 +17,6 @@ public class Location {
     private String description;
     private String color;
 
-    @Column("coach_id")
+    @Column("mentor_id")
     private Long coachId;
 }

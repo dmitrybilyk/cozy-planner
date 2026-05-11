@@ -160,7 +160,7 @@ public class TelegramService {
         }
         
         text.append(link).append("\n\n");
-        text.append("<i>Будь ласка, заповни години, коли ти можеш зайнятися.</i>");
+        text.append("<i>Будь ласка, заповни години, коли ти можеш зустрітися.</i>");
 
         Map<String, Object> keyboard = createInlineUrlButton("📅 Відкрити календар", link);
         return sendMessage(athlete.getTelegramChatId(), text.toString(), keyboard);
@@ -221,15 +221,17 @@ public class TelegramService {
         if (appBaseUrl != null && !appBaseUrl.isBlank() 
                 && !appBaseUrl.contains("localhost") 
                 && !appBaseUrl.contains("127.0.0.1")) {
-            text.append(appBaseUrl).append("\n\n");
+            String plannerLink = appBaseUrl.endsWith("/") ? appBaseUrl + "planner" : appBaseUrl + "/planner";
+            text.append(plannerLink).append("\n\n");
         }
         
-        text.append("<i>Перевірте календар для планування занять.</i>");
+        text.append("<i>Перевірте календар для планування.</i>");
 
         if (appBaseUrl != null && !appBaseUrl.isBlank() 
                 && !appBaseUrl.contains("localhost") 
                 && !appBaseUrl.contains("127.0.0.1")) {
-            Map<String, Object> keyboard = createInlineUrlButton("📋 Відкрити планувальник", appBaseUrl);
+            String plannerLink = appBaseUrl.endsWith("/") ? appBaseUrl + "planner" : appBaseUrl + "/planner";
+            Map<String, Object> keyboard = createInlineUrlButton("📋 Відкрити планувальник", plannerLink);
             return sendMessageToCoach(coach.getTelegramChatId(), text.toString(), keyboard);
         }
 
@@ -255,8 +257,8 @@ public class TelegramService {
     private void sendWelcomeMessage(String chatId, String athleteName) {
         String welcome = "✅ <b>Привіт, " + escapeHtml(athleteName) + "!</b>\n\n" +
                 "Ти успішно підключив Telegram до Cozy Planner.\n\n" +
-                "Тепер ти будеш отримувати нагадування про необхідність заповнити доступність для тренувань.\n\n" +
-                "Хороших тренувань! 🏋️";
+                "Тепер ти будеш отримувати нагадування про необхідність заповнити доступність.\n\n" +
+                "Чекаємо на твої оновлення! ✨";
 
         sendMessage(chatId, welcome).subscribe();
     }
@@ -286,7 +288,7 @@ public class TelegramService {
                 "Ти успішно підключив(ла) Telegram до Cozy Planner.\n\n" +
                 "🔔 Тепер ти будеш отримувати сповіщення:\n" +
                 "• Коли учень заповнить свою доступність\n" +
-                "• Про майбутні заняття\n\n" +
+                "• Про майбутні зустрічі\n\n" +
                 "Гарного дня!";
 
         sendMessageToCoach(chatId, welcome).subscribe();

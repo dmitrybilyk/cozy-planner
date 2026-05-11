@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
-@Table("workouts")
+@Table("meetings")
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -21,7 +21,7 @@ public class Workout {
     private String title;
     private String description;
 
-    @Column("workout_date")
+    @Column("meeting_date")
     private LocalDate workoutDate;
 
     @Column("start_time")
@@ -30,10 +30,10 @@ public class Workout {
     @Column("end_time")
     private LocalTime endTime;
 
-    @Column("coach_id")
+    @Column("mentor_id")
     private Long coachId;
 
-    @Column("location_id")
+    @Column("place_id")
     private Long locationId;
 
     @Transient

@@ -39,23 +39,25 @@ public class NotificationController {
         return ResponseEntity.ok().body(result);
     }
 
-    @GetMapping("/coaches/{coachId}/athletes-telegram")
-    public Flux<Map<String, Object>> getAthletesWithTelegram(@PathVariable Long coachId) {
-        return athleteRepository.findAllByCoachId(coachId)
+    @GetMapping(path = {"/coaches/{coachId}/athletes-telegram", "/mentors/{mentorId}/trainees-telegram"})
+    public Flux<Map<String, Object>> getTraineesWithTelegram(@PathVariable(required = false) Long mentorId,
+                                                               @PathVariable(required = false) Long coachId) {
+        Long id = (mentorId != null) ? mentorId : coachId;
+        return athleteRepository.findAllByCoachId(id)
                 .map(this::toTelegramStatus);
     }
 
-    @GetMapping("/athletes/{athleteId}/telegram-status")
-    public Mono<ResponseEntity<Map<String, Object>>> getTelegramStatus(@PathVariable Long athleteId) {
-        return athleteRepository.findById(athleteId)
+    @GetMapping(path = {"/athletes/{traineeId}/telegram-status", "/trainees/{traineeId}/telegram-status"})
+    public Mono<ResponseEntity<Map<String, Object>>> getTelegramStatus(@PathVariable Long traineeId) {
+        return athleteRepository.findById(traineeId)
                 .map(this::toTelegramStatus)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/athletes/{athleteId}/notify-availability")
-    public Mono<ResponseEntity<Map<String, Object>>> notifyAthlete(
-            @PathVariable Long athleteId,
+    @PostMapping(path = {"/athletes/{traineeId}/notify-availability", "/trainees/{traineeId}/notify-availability"})
+    public Mono<ResponseEntity<Map<String, Object>>> notifyTrainee(
+            @PathVariable Long traineeId,
             @RequestBody(required = false) Map<String, Object> body,
             ServerWebExchange exchange) {
 
@@ -76,7 +78,7 @@ public class NotificationController {
 
         final String finalCustomMessage = customMessage;
 
-        return athleteRepository.findById(athleteId)
+        return athleteRepository.findById(traineeId)
                 .flatMap(athlete -> {
                     Map<String, Object> result = new HashMap<>();
                     

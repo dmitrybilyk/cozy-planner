@@ -7,7 +7,7 @@ import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
-@Table("coaches")
+@Table("mentors")
 @NoArgsConstructor
 @AllArgsConstructor
 @Data

@@ -7,13 +7,16 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface AthleteRepository extends ReactiveCrudRepository<Athlete, Long> {
+
+    @Query("SELECT * FROM trainees WHERE mentor_id = :coachId")
     Flux<Athlete> findAllByCoachId(Long coachId);
-    @Query("SELECT * FROM athletes WHERE invite_token = :token")
+
+    @Query("SELECT * FROM trainees WHERE invite_token = :token")
     Mono<Athlete> findByInviteToken(String token);
     
-    @Query("SELECT * FROM athletes WHERE coach_id = :coachId AND weekend_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
+    @Query("SELECT * FROM trainees WHERE mentor_id = :coachId AND weekend_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
     Flux<Athlete> findAllByCoachIdForWeekendReminders(Long coachId);
     
-    @Query("SELECT * FROM athletes WHERE weekend_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
+    @Query("SELECT * FROM trainees WHERE weekend_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
     Flux<Athlete> findAllAthletesWithWeekendRemindersEnabled();
 }
