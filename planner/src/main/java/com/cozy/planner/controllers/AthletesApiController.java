@@ -1,8 +1,8 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.config.TelegramConfig;
-import com.cozy.planner.model.entity.Athlete;
-import com.cozy.planner.repositories.AthleteRepository;
+import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
 import com.planner.api.AthletesApi;
 import com.planner.model.AthleteDTO;
@@ -20,14 +20,14 @@ import java.util.Map;
 @RestController
 public class AthletesApiController implements AthletesApi {
 
-    private final AthleteRepository athleteRepository;
+    private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final EventBroadcastService eventBroadcastService;
 
-    public AthletesApiController(AthleteRepository athleteRepository, 
-                                  TelegramConfig telegramConfig,
-                                  EventBroadcastService eventBroadcastService) {
-        this.athleteRepository = athleteRepository;
+    public AthletesApiController(TraineeRepository traineeRepository, 
+                                   TelegramConfig telegramConfig,
+                                   EventBroadcastService eventBroadcastService) {
+        this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.eventBroadcastService = eventBroadcastService;
     }
@@ -36,22 +36,34 @@ public class AthletesApiController implements AthletesApi {
     public Mono<ResponseEntity<AthleteDTO>> createAthlete(Mono<CreateAthleteRequest> createAthleteRequest, ServerWebExchange exchange) {
         return createAthleteRequest
                 .flatMap(request -> {
-                    Athlete athlete = Athlete.builder()
-                            .name(request.getName())
+                    String name = request.getName();
+                    if (name == null || name.isBlank()) {
+                        return Mono.error(new IllegalArgumentException("Name is required"));
+                    }
+                    Trainee trainee = Trainee.builder()
+                            .name(name.trim())
                             .description(request.getDescription())
-                            .coachId(request.getCoachId())
+                            .mentorId(request.getCoachId())
                             .weekendReminderEnabled(false)
                             .build();
-                    return athleteRepository.save(athlete);
+                    return traineeRepository.save(trainee);
                 })
                 .doOnSuccess(saved -> eventBroadcastService.broadcast("athlete_changed"))
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved)));
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved)))
+                .onErrorResume(e -> {
+                    if (e instanceof IllegalArgumentException || 
+                            (e.getCause() != null && e.getCause() instanceof java.sql.SQLIntegrityConstraintViolationException) ||
+                            e.getMessage() != null && (e.getMessage().contains("unique") || e.getMessage().contains("duplicate"))) {
+                        return Mono.just(ResponseEntity.badRequest().build());
+                    }
+                    return Mono.error(e);
+                });
     }
 
     @Override
     public Mono<ResponseEntity<Void>> deleteAthlete(Long athleteId, ServerWebExchange exchange) {
-        return athleteRepository.findById(athleteId)
-                .flatMap(athlete -> athleteRepository.delete(athlete)
+        return traineeRepository.findById(athleteId)
+                .flatMap(trainee -> traineeRepository.delete(trainee)
                         .then(Mono.fromRunnable(() -> eventBroadcastService.broadcast("athlete_changed")))
                         .then(Mono.just(ResponseEntity.noContent().<Void>build())))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
@@ -59,7 +71,7 @@ public class AthletesApiController implements AthletesApi {
 
     @Override
     public Mono<ResponseEntity<AthleteDTO>> getAthleteById(Long athleteId, ServerWebExchange exchange) {
-        return athleteRepository.findById(athleteId)
+        return traineeRepository.findById(athleteId)
                 .map(this::mapToDto)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
@@ -68,35 +80,46 @@ public class AthletesApiController implements AthletesApi {
     @Override
     public Mono<ResponseEntity<AthleteDTO>> updateAthlete(Long athleteId, Mono<AthleteDTO> athleteDTO, ServerWebExchange exchange) {
         return athleteDTO
-                .flatMap(dto -> athleteRepository.findById(athleteId)
+                .flatMap(dto -> traineeRepository.findById(athleteId)
                         .flatMap(existing -> {
                             if (dto.getName() != null) {
-                                existing.setName(dto.getName());
+                                if (dto.getName().isBlank()) {
+                                    return Mono.error(new IllegalArgumentException("Name cannot be blank"));
+                                }
+                                existing.setName(dto.getName().trim());
                             }
                             if (dto.getDescription() != null) {
                                 existing.setDescription(dto.getDescription());
                             }
                             if (dto.getCoachId() != null) {
-                                existing.setCoachId(dto.getCoachId());
+                                existing.setMentorId(dto.getCoachId());
                             }
-                            return athleteRepository.save(existing);
+                            return traineeRepository.save(existing);
                         }))
                 .doOnSuccess(updated -> eventBroadcastService.broadcast("athlete_changed"))
                 .map(updated -> ResponseEntity.ok(mapToDto(updated)))
-                .defaultIfEmpty(ResponseEntity.notFound().build());
+                .defaultIfEmpty(ResponseEntity.notFound().build())
+                .onErrorResume(e -> {
+                    if (e instanceof IllegalArgumentException || 
+                            (e.getCause() != null && e.getCause() instanceof java.sql.SQLIntegrityConstraintViolationException) ||
+                            e.getMessage() != null && (e.getMessage().contains("unique") || e.getMessage().contains("duplicate"))) {
+                        return Mono.just(ResponseEntity.badRequest().build());
+                    }
+                    return Mono.error(e);
+                });
     }
 
     @PostMapping("/api/v1/athletes/{athleteId}/photo")
     public Mono<ResponseEntity<Map<String, Object>>> updatePhoto(@PathVariable Long athleteId,
-                                                                  @RequestBody Map<String, Object> body,
-                                                                  ServerWebExchange exchange) {
+                                                                   @RequestBody Map<String, Object> body,
+                                                                   ServerWebExchange exchange) {
         Object photoObj = body.get("photoBase64");
         String photoBase64 = photoObj != null ? photoObj.toString() : null;
         
-        return athleteRepository.findById(athleteId)
+        return traineeRepository.findById(athleteId)
                 .flatMap(existing -> {
                     existing.setPhotoBase64(photoBase64);
-                    return athleteRepository.save(existing);
+                    return traineeRepository.save(existing);
                 })
                 .doOnSuccess(saved -> eventBroadcastService.broadcast("athlete_changed"))
                 .map(saved -> {
@@ -110,15 +133,15 @@ public class AthletesApiController implements AthletesApi {
 
     @PostMapping("/api/v1/athletes/{athleteId}/weekend-reminder")
     public Mono<ResponseEntity<Map<String, Object>>> updateWeekendReminder(@PathVariable Long athleteId,
-                                                                             @RequestBody Map<String, Object> body,
-                                                                             ServerWebExchange exchange) {
+                                                                              @RequestBody Map<String, Object> body,
+                                                                              ServerWebExchange exchange) {
         Object enabledObj = body.get("enabled");
         boolean enabled = enabledObj != null && Boolean.TRUE.equals(enabledObj);
         
-        return athleteRepository.findById(athleteId)
+        return traineeRepository.findById(athleteId)
                 .flatMap(existing -> {
                     existing.setWeekendReminderEnabled(enabled);
-                    return athleteRepository.save(existing);
+                    return traineeRepository.save(existing);
                 })
                 .doOnSuccess(saved -> eventBroadcastService.broadcast("athlete_changed"))
                 .map(saved -> {
@@ -130,12 +153,12 @@ public class AthletesApiController implements AthletesApi {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    private AthleteDTO mapToDto(Athlete entity) {
+    private AthleteDTO mapToDto(Trainee entity) {
         AthleteDTO dto = new AthleteDTO();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setDescription(entity.getDescription());
-        dto.setCoachId(entity.getCoachId());
+        dto.setCoachId(entity.getMentorId());
         return dto;
     }
 }

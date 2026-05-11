@@ -1,10 +1,11 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.config.TelegramConfig;
-import com.cozy.planner.model.entity.Athlete;
-import com.cozy.planner.repositories.AthleteRepository;
+import com.cozy.planner.model.entity.Mentor;
+import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.ClubRepository;
-import com.cozy.planner.repositories.CoachRepository;
+import com.cozy.planner.repositories.MentorRepository;
+import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.repositories.UserRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,19 +20,19 @@ public class MeController {
 
     private final UserRepository userRepository;
     private final ClubRepository clubRepository;
-    private final CoachRepository coachRepository;
-    private final AthleteRepository athleteRepository;
+    private final MentorRepository mentorRepository;
+    private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
 
     public MeController(UserRepository userRepository,
-                        ClubRepository clubRepository,
-                        CoachRepository coachRepository,
-                        AthleteRepository athleteRepository,
-                        TelegramConfig telegramConfig) {
+                         ClubRepository clubRepository,
+                         MentorRepository mentorRepository,
+                         TraineeRepository traineeRepository,
+                         TelegramConfig telegramConfig) {
         this.userRepository = userRepository;
         this.clubRepository = clubRepository;
-        this.coachRepository = coachRepository;
-        this.athleteRepository = athleteRepository;
+        this.mentorRepository = mentorRepository;
+        this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
     }
 
@@ -43,15 +44,15 @@ public class MeController {
                 return userRepository.findByGoogleSub(googleSub)
                         .flatMap(user -> clubRepository.findByUserId(user.getId())
                                 .next()
-                                .flatMap(club -> coachRepository.findAllByClubId(club.getId())
+                                .flatMap(club -> mentorRepository.findAllByClubId(club.getId())
                                         .next()
-                                        .map(coach -> {
-                                            session.getAttributes().put("coach_id", coach.getId());
+                                        .map(mentor -> {
+                                            session.getAttributes().put("coach_id", mentor.getId());
                                             Map<String, Object> r = new HashMap<>();
                                             r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
                                             r.put("club", Map.of("id", club.getId(), "name", club.getName()));
-                                            r.put("coach", Map.of("id", coach.getId(), "name", coach.getName()));
-                                            r.put("mentor", Map.of("id", coach.getId(), "name", coach.getName()));
+                                            r.put("coach", Map.of("id", mentor.getId(), "name", mentor.getName()));
+                                            r.put("mentor", Map.of("id", mentor.getId(), "name", mentor.getName()));
                                             return r;
                                         })
                                 )
@@ -62,28 +63,28 @@ public class MeController {
 
             Object traineeId = session.getAttribute("athlete_id");
             if (traineeId instanceof Number) {
-                return athleteRepository.findById(((Number) traineeId).longValue())
-                        .map(athlete -> {
+                return traineeRepository.findById(((Number) traineeId).longValue())
+                        .map(trainee -> {
                             Map<String, Object> r = new HashMap<>();
-                            r.put("traineeId", athlete.getId());
-                            r.put("athleteId", athlete.getId());
-                            r.put("name", athlete.getName());
-                            r.put("inviteToken", athlete.getInviteToken());
+                            r.put("traineeId", trainee.getId());
+                            r.put("athleteId", trainee.getId());
+                            r.put("name", trainee.getName());
+                            r.put("inviteToken", trainee.getInviteToken());
                             
                             boolean tgEnabled = telegramConfig.isEnabled() 
                                     && telegramConfig.getBotToken() != null 
                                     && !telegramConfig.getBotToken().isBlank();
                             r.put("telegramEnabled", tgEnabled);
-                            r.put("telegramConnected", athlete.hasTelegram());
-                            r.put("telegramUsername", athlete.getTelegramUsername());
+                            r.put("telegramConnected", trainee.hasTelegram());
+                            r.put("telegramUsername", trainee.getTelegramUsername());
                             
-                            if (tgEnabled && athlete.getInviteToken() != null 
-                                    && !athlete.getInviteToken().isBlank()
+                            if (tgEnabled && trainee.getInviteToken() != null 
+                                    && !trainee.getInviteToken().isBlank()
                                     && telegramConfig.getBotUsername() != null 
                                     && !telegramConfig.getBotUsername().isBlank()) {
                                 r.put("telegramConnectLink", 
                                         "https://t.me/" + telegramConfig.getBotUsername() 
-                                        + "?start=" + athlete.getInviteToken());
+                                        + "?start=" + trainee.getInviteToken());
                             } else {
                                 r.put("telegramConnectLink", null);
                             }

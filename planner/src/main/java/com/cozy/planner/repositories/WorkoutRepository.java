@@ -29,4 +29,7 @@ public interface WorkoutRepository extends ReactiveCrudRepository<Workout, Long>
 
     @Query("INSERT INTO meeting_trainees (meeting_id, trainee_id) VALUES (:workoutId, :athleteId)")
     Mono<Void> linkAthleteToWorkout(Long workoutId, Long athleteId);
+
+    @Query("SELECT * FROM meetings WHERE reminder_sent = FALSE AND meeting_date BETWEEN :startDate AND :endDate")
+    Flux<Workout> findUpcomingWithoutReminder(LocalDate startDate, LocalDate endDate);
 }

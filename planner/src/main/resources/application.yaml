@@ -44,8 +44,8 @@ app:
     clean-on-start: false
   base-url: ${APP_BASE_URL:https://footwork-lid-attendee.ngrok-free.dev}
   scheduler:
-    weekly-reminder-cron: ${SCHEDULER_WEEKLY_REMINDER_CRON:0 * * * * *}
-    weekend-reminder-cron: ${SCHEDULER_WEEKEND_REMINDER_CRON:0 * * * * *}
+    weekend-reminder-cron: ${SCHEDULER_WEEKEND_REMINDER_CRON:0 0 16 * * FRI}
+    session-reminder-cron: ${SCHEDULER_SESSION_REMINDER_CRON:0 */5 * * * *}
 
 telegram:
   enabled: ${TELEGRAM_ENABLED:true}

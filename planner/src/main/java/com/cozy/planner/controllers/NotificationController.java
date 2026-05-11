@@ -1,8 +1,8 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.config.TelegramConfig;
-import com.cozy.planner.model.entity.Athlete;
-import com.cozy.planner.repositories.AthleteRepository;
+import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.TelegramService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -19,15 +19,15 @@ import java.util.Map;
 public class NotificationController {
 
     private final TelegramService telegramService;
-    private final AthleteRepository athleteRepository;
+    private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
 
     @Value("${app.base-url:}")
     private String configuredBaseUrl;
 
-    public NotificationController(TelegramService telegramService, AthleteRepository athleteRepository, TelegramConfig telegramConfig) {
+    public NotificationController(TelegramService telegramService, TraineeRepository traineeRepository, TelegramConfig telegramConfig) {
         this.telegramService = telegramService;
-        this.athleteRepository = athleteRepository;
+        this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
     }
 
@@ -43,13 +43,13 @@ public class NotificationController {
     public Flux<Map<String, Object>> getTraineesWithTelegram(@PathVariable(required = false) Long mentorId,
                                                                @PathVariable(required = false) Long coachId) {
         Long id = (mentorId != null) ? mentorId : coachId;
-        return athleteRepository.findAllByCoachId(id)
+        return traineeRepository.findAllByMentorId(id)
                 .map(this::toTelegramStatus);
     }
 
     @GetMapping(path = {"/athletes/{traineeId}/telegram-status", "/trainees/{traineeId}/telegram-status"})
     public Mono<ResponseEntity<Map<String, Object>>> getTelegramStatus(@PathVariable Long traineeId) {
-        return athleteRepository.findById(traineeId)
+        return traineeRepository.findById(traineeId)
                 .map(this::toTelegramStatus)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
@@ -78,43 +78,43 @@ public class NotificationController {
 
         final String finalCustomMessage = customMessage;
 
-        return athleteRepository.findById(traineeId)
-                .flatMap(athlete -> {
+        return traineeRepository.findById(traineeId)
+                .flatMap(trainee -> {
                     Map<String, Object> result = new HashMap<>();
                     
-                    if (!athlete.hasTelegram()) {
+                    if (!trainee.hasTelegram()) {
                         result.put("success", false);
                         result.put("reason", "Telegram not connected");
                         result.put("telegramConnected", false);
-                        result.put("connectLink", getConnectLink(athlete.getInviteToken()));
+                        result.put("connectLink", getConnectLink(trainee.getInviteToken()));
                         return Mono.just(ResponseEntity.ok().body(result));
                     }
 
                     String baseUrl = getBaseUrl(exchange);
-                    return telegramService.sendAvailabilityReminder(athlete, baseUrl, finalCustomMessage)
+                    return telegramService.sendAvailabilityReminder(trainee, baseUrl, finalCustomMessage)
                             .map(sent -> {
                                 result.put("success", sent);
                                 result.put("telegramConnected", true);
                                 if (sent) {
-                                    result.put("message", "Notification sent to " + athlete.getName());
+                                    result.put("message", "Notification sent to " + trainee.getName());
                                 } else {
                                     result.put("reason", "Failed to send (chat may be blocked)");
                                 }
-                                return ResponseEntity.ok().body(result);
+                                return ResponseEntity.ok(result);
                             });
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    private Map<String, Object> toTelegramStatus(Athlete athlete) {
+    private Map<String, Object> toTelegramStatus(Trainee trainee) {
         Map<String, Object> result = new HashMap<>();
-        result.put("id", athlete.getId());
+        result.put("id", trainee.getId());
         result.put("telegramEnabled", telegramService.isEnabled());
-        result.put("telegramConnected", athlete.hasTelegram());
-        result.put("telegramUsername", athlete.getTelegramUsername());
-        result.put("connectLink", getConnectLink(athlete.getInviteToken()));
-        result.put("photoBase64", athlete.getPhotoBase64());
-        result.put("weekendReminderEnabled", athlete.isWeekendReminderEnabled());
+        result.put("telegramConnected", trainee.hasTelegram());
+        result.put("telegramUsername", trainee.getTelegramUsername());
+        result.put("connectLink", getConnectLink(trainee.getInviteToken()));
+        result.put("photoBase64", trainee.getPhotoBase64());
+        result.put("weekendReminderEnabled", trainee.isWeekendReminderEnabled());
         return result;
     }
 

@@ -1,7 +1,7 @@
 package com.cozy.planner.controllers;
 
-import com.cozy.planner.model.entity.Athlete;
-import com.cozy.planner.repositories.AthleteRepository;
+import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.TraineeRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,10 +11,10 @@ import reactor.core.publisher.Mono;
 @Controller
 public class PlannerController {
 
-    private final AthleteRepository athleteRepository;
+    private final TraineeRepository traineeRepository;
 
-    public PlannerController(AthleteRepository athleteRepository) {
-        this.athleteRepository = athleteRepository;
+    public PlannerController(TraineeRepository traineeRepository) {
+        this.traineeRepository = traineeRepository;
     }
 
     @GetMapping("/planner")
@@ -28,12 +28,12 @@ public class PlannerController {
     }
 
     @GetMapping("/athlete/{token}")
-    public Mono<String> getAthleteInvite(@PathVariable String token, ServerWebExchange exchange) {
+    public Mono<String> getTraineeInvite(@PathVariable String token, ServerWebExchange exchange) {
         return exchange.getSession()
-                .flatMap(session -> athleteRepository.findByInviteToken(token)
-                        .map(athlete -> {
-                            session.getAttributes().put("athlete_id", athlete.getId());
-                            session.getAttributes().put("trainee_id", athlete.getId());
+                .flatMap(session -> traineeRepository.findByInviteToken(token)
+                        .map(trainee -> {
+                            session.getAttributes().put("athlete_id", trainee.getId());
+                            session.getAttributes().put("trainee_id", trainee.getId());
                             return "athlete-availability";
                         })
                         .defaultIfEmpty("redirect:/signin"));

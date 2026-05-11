@@ -323,16 +323,16 @@
          <div x-show="athleteForm.photoBase64" class="text-center">
              <button @click="athleteForm.photoBase64 = null" type="button" class="text-red-400 text-xs font-bold uppercase">Видалити фото</button>
          </div>
-         <div class="flex items-center gap-2 p-3 bg-[#222] rounded-xl">
+          <div x-show="editingAthleteId" class="flex items-center gap-2 p-3 bg-[#222] rounded-xl">
              <input type="checkbox" x-model="athleteForm.weekendReminderEnabled" 
-                    :disabled="editingAthleteId ? !athletes.find(a => a.id === editingAthleteId)?.telegramConnected : false"
+                    :disabled="!athletes.find(a => a.id === editingAthleteId)?.telegramConnected"
                     class="w-5 h-5 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
              <label class="text-sm text-gray-300 cursor-pointer" 
-                    :class="(!editingAthleteId || !athletes.find(a => a.id === editingAthleteId)?.telegramConnected) ? 'text-gray-500' : ''">
+                    :class="!athletes.find(a => a.id === editingAthleteId)?.telegramConnected ? 'text-gray-500' : ''">
                  🌴 Нагадувати про доступність по п'ятницях
              </label>
          </div>
-        <button @click="saveAthlete()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingAthleteId ? 'Оновити' : 'Додати учня'"></button>
+        <button @click="saveAthlete()" :disabled="!athleteForm.name || athleteForm.name.trim() === ''" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" x-text="editingAthleteId ? 'Оновити' : 'Додати учня'"></button>
     </div>
      <div class="flex-1 overflow-y-auto p-4 space-y-3">
          <template x-for="athlete in athletes" :key="athlete.id">
@@ -650,6 +650,7 @@
                         case 'athlete_changed': this.fetchAthletes(); this.fetchData(); break;
                         case 'location_changed': this.fetchLocations(); this.fetchData(); break;
                         case 'availability_changed': this.fetchAvailability(); break;
+                        case 'coach_changed': this.fetchCoachTelegramStatus(); this.fetchAthletes(); break;
                     }
                 };
                 
@@ -878,7 +879,12 @@
             async fetchData() {
                 if (!this.coachId) return;
                 const res = await fetch(`/api/v1/workouts?coachId=${this.coachId}&startDate=${this.days[0].dateStr}&endDate=${this.days[this.days.length-1].dateStr}`);
-                if (res.ok) this.workouts = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
+                if (res.ok) {
+                    this.workouts = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
+                    for (const w of this.workouts) {
+                        w.color = this.getLocationColor(w.locationId);
+                    }
+                }
             },
 
             async fetchAthletes() {
@@ -1105,6 +1111,7 @@
 
             getAthleteName(id) { return (this.athletes.find(at => at.id == id)?.name) || 'Unknown'; },
             getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
+            getLocationColor(id) { return this.locations.find(l => l.id === id)?.color || '#3b82f6'; },
             hasWorkoutOn(date) { return this.workouts.some(w => w.date === date); },
             handleMouseScroll(e) { document.getElementById('calendar-container').scrollLeft += e.deltaY; },
             dragStart(event, index) { this.draggedIndex = index; },

@@ -36,6 +36,13 @@ public class Workout {
     @Column("place_id")
     private Long locationId;
 
+    @Column("reminder_sent")
+    @Builder.Default
+    private Boolean reminderSent = false;
+
     @Transient
     private List<Long> athleteIds;
+
+    public Long getMentorId() { return coachId; }
+    public void setMentorId(Long mentorId) { this.coachId = mentorId; }
 }

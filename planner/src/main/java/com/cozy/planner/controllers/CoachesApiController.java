@@ -1,10 +1,10 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.config.TelegramConfig;
-import com.cozy.planner.model.entity.Athlete;
-import com.cozy.planner.model.entity.Coach;
-import com.cozy.planner.repositories.AthleteRepository;
-import com.cozy.planner.repositories.CoachRepository;
+import com.cozy.planner.model.entity.Mentor;
+import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.MentorRepository;
+import com.cozy.planner.repositories.TraineeRepository;
 import com.planner.api.CoachesApi;
 import com.planner.model.AthleteDTO;
 import com.planner.model.CoachDTO;
@@ -24,40 +24,40 @@ import java.util.Map;
 @RestController
 public class CoachesApiController implements CoachesApi {
 
-    private final CoachRepository coachRepository;
-    private final AthleteRepository athleteRepository;
+    private final MentorRepository mentorRepository;
+    private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final com.cozy.planner.service.TelegramService telegramService;
 
-    public CoachesApiController(CoachRepository coachRepository, 
-                                 AthleteRepository athleteRepository,
-                                 TelegramConfig telegramConfig,
-                                 com.cozy.planner.service.TelegramService telegramService) {
-        this.coachRepository = coachRepository;
-        this.athleteRepository = athleteRepository;
+    public CoachesApiController(MentorRepository mentorRepository, 
+                                  TraineeRepository traineeRepository,
+                                  TelegramConfig telegramConfig,
+                                  com.cozy.planner.service.TelegramService telegramService) {
+        this.mentorRepository = mentorRepository;
+        this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.telegramService = telegramService;
     }
 
     @Override
     public Mono<ResponseEntity<Flux<CoachDTO>>> getClubCoaches(Long clubId, ServerWebExchange exchange) {
-        Flux<CoachDTO> coachFlux = coachRepository.findAllByClubId(clubId)
-                .map(this::mapToDto);
+        Flux<CoachDTO> coachFlux = mentorRepository.findAllByClubId(clubId)
+                .map(this::mapToCoachDto);
         return Mono.just(ResponseEntity.ok(coachFlux));
     }
 
     @Override
     public Mono<ResponseEntity<Flux<AthleteDTO>>> getCoachAthletes(Long coachId, ServerWebExchange exchange) {
-        Flux<AthleteDTO> athleteFlux = athleteRepository.findAllByCoachId(coachId)
-                .map(this::mapToDto);
+        Flux<AthleteDTO> athleteFlux = traineeRepository.findAllByMentorId(coachId)
+                .map(this::mapToAthleteDto);
         return Mono.just(ResponseEntity.ok(athleteFlux));
     }
 
     @GetMapping("/api/v1/coach/telegram/status")
-    public Mono<ResponseEntity<Map<String, Object>>> getCoachTelegramStatus(ServerWebExchange exchange) {
+    public Mono<ResponseEntity<Map<String, Object>>> getMentorTelegramStatus(ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
-            Object coachIdObj = session.getAttribute("coach_id");
-            if (!(coachIdObj instanceof Number)) {
+            Object mentorIdObj = session.getAttribute("coach_id");
+            if (!(mentorIdObj instanceof Number)) {
                 Map<String, Object> result = new HashMap<>();
                 result.put("enabled", telegramService.isEnabled());
                 result.put("connected", false);
@@ -66,8 +66,8 @@ public class CoachesApiController implements CoachesApi {
                 return Mono.just(ResponseEntity.ok(result));
             }
 
-            Long coachId = ((Number) coachIdObj).longValue();
-            if (coachId <= 0) {
+            Long mentorId = ((Number) mentorIdObj).longValue();
+            if (mentorId <= 0) {
                 Map<String, Object> result = new HashMap<>();
                 result.put("enabled", telegramService.isEnabled());
                 result.put("connected", false);
@@ -76,26 +76,26 @@ public class CoachesApiController implements CoachesApi {
                 return Mono.just(ResponseEntity.ok(result));
             }
 
-            return coachRepository.findById(coachId)
-                    .map(coach -> {
+            return mentorRepository.findById(mentorId)
+                    .map(mentor -> {
                         Map<String, Object> result = new HashMap<>();
                         result.put("enabled", telegramService.isEnabled());
-                        result.put("connected", coach.hasTelegram());
-                        result.put("telegramUsername", coach.getTelegramUsername());
+                        result.put("connected", mentor.hasTelegram());
+                        result.put("telegramUsername", mentor.getTelegramUsername());
 
                         String connectLink = null;
                         if (telegramService.isEnabled() 
-                                && coach.getTelegramToken() != null 
-                                && !coach.getTelegramToken().isBlank()
+                                && mentor.getTelegramToken() != null 
+                                && !mentor.getTelegramToken().isBlank()
                                 && telegramConfig.getCoachBotUsername() != null 
                                 && !telegramConfig.getCoachBotUsername().isBlank()) {
-                            connectLink = "https://t.me/" + telegramConfig.getCoachBotUsername() + "?start=" + coach.getTelegramToken();
+                            connectLink = "https://t.me/" + telegramConfig.getCoachBotUsername() + "?start=" + mentor.getTelegramToken();
                         } else if (telegramService.isEnabled() 
-                                && coach.getTelegramToken() != null 
-                                && !coach.getTelegramToken().isBlank()
+                                && mentor.getTelegramToken() != null 
+                                && !mentor.getTelegramToken().isBlank()
                                 && telegramConfig.getBotUsername() != null 
                                 && !telegramConfig.getBotUsername().isBlank()) {
-                            connectLink = "https://t.me/" + telegramConfig.getBotUsername() + "?start=" + coach.getTelegramToken();
+                            connectLink = "https://t.me/" + telegramConfig.getBotUsername() + "?start=" + mentor.getTelegramToken();
                         }
                         result.put("connectLink", connectLink);
                         return ResponseEntity.ok(result);
@@ -105,18 +105,18 @@ public class CoachesApiController implements CoachesApi {
     }
 
     @PostMapping("/api/v1/coach/telegram/generate-token")
-    public Mono<ResponseEntity<Map<String, Object>>> generateCoachTelegramToken(ServerWebExchange exchange) {
+    public Mono<ResponseEntity<Map<String, Object>>> generateMentorTelegramToken(ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
-            Object coachIdObj = session.getAttribute("coach_id");
-            if (!(coachIdObj instanceof Number)) {
+            Object mentorIdObj = session.getAttribute("coach_id");
+            if (!(mentorIdObj instanceof Number)) {
                 Map<String, Object> result = new HashMap<>();
                 result.put("success", false);
                 result.put("reason", "Not authenticated");
                 return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(result));
             }
 
-            Long coachId = ((Number) coachIdObj).longValue();
-            if (coachId <= 0) {
+            Long mentorId = ((Number) mentorIdObj).longValue();
+            if (mentorId <= 0) {
                 Map<String, Object> result = new HashMap<>();
                 result.put("success", false);
                 result.put("reason", "Demo mode not supported");
@@ -130,17 +130,17 @@ public class CoachesApiController implements CoachesApi {
                 return Mono.just(ResponseEntity.badRequest().body(result));
             }
 
-            return coachRepository.findById(coachId)
-                    .flatMap(coach -> {
-                        if (coach.hasTelegram()) {
+            return mentorRepository.findById(mentorId)
+                    .flatMap(mentor -> {
+                        if (mentor.hasTelegram()) {
                             Map<String, Object> result = new HashMap<>();
                             result.put("success", false);
                             result.put("reason", "Telegram already connected");
-                            result.put("telegramUsername", coach.getTelegramUsername());
+                            result.put("telegramUsername", mentor.getTelegramUsername());
                             return Mono.just(ResponseEntity.badRequest().body(result));
                         }
 
-                        return telegramService.generateCoachTelegramToken(coachId)
+                        return telegramService.generateMentorTelegramToken(mentorId)
                                 .flatMap(token -> {
                                     String botUsername = telegramConfig.isCoachBotEnabled() 
                                             ? telegramConfig.getCoachBotUsername() 
@@ -160,7 +160,7 @@ public class CoachesApiController implements CoachesApi {
         });
     }
 
-    private CoachDTO mapToDto(Coach entity) {
+    private CoachDTO mapToCoachDto(Mentor entity) {
         CoachDTO dto = new CoachDTO();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
@@ -169,12 +169,12 @@ public class CoachesApiController implements CoachesApi {
         return dto;
     }
 
-    private AthleteDTO mapToDto(Athlete entity) {
+    private AthleteDTO mapToAthleteDto(Trainee entity) {
         AthleteDTO dto = new AthleteDTO();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setDescription(entity.getDescription());
-        dto.setCoachId(entity.getCoachId());
+        dto.setCoachId(entity.getMentorId());
         return dto;
     }
 }

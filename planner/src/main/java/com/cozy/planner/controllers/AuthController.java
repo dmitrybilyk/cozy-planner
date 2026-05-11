@@ -1,10 +1,10 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.model.entity.Club;
-import com.cozy.planner.model.entity.Coach;
+import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.User;
 import com.cozy.planner.repositories.ClubRepository;
-import com.cozy.planner.repositories.CoachRepository;
+import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.UserRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,14 +19,14 @@ public class AuthController {
 
     private final UserRepository userRepository;
     private final ClubRepository clubRepository;
-    private final CoachRepository coachRepository;
+    private final MentorRepository mentorRepository;
 
     public AuthController(UserRepository userRepository,
                           ClubRepository clubRepository,
-                          CoachRepository coachRepository) {
+                          MentorRepository mentorRepository) {
         this.userRepository = userRepository;
         this.clubRepository = clubRepository;
-        this.coachRepository = coachRepository;
+        this.mentorRepository = mentorRepository;
     }
 
     @GetMapping("/setup")
@@ -50,7 +50,7 @@ public class AuthController {
     public Mono<String> setup(ServerWebExchange exchange) {
         return exchange.getFormData().flatMap(formData -> {
             String clubName = formData.getFirst("clubName");
-            String coachName = formData.getFirst("coachName");
+            String mentorName = formData.getFirst("coachName");
             return exchange.getSession().flatMap(session -> {
                 String googleSub = session.getAttribute("google_sub");
                 String email = session.getAttribute("user_email");
@@ -59,18 +59,18 @@ public class AuthController {
                     return Mono.just("redirect:/login");
                 }
                 return userRepository.findByGoogleSub(googleSub)
-                        .flatMap(existingUser -> createClubAndCoach(existingUser, clubName, coachName)
+                        .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName)
                                 .thenReturn("redirect:/planner"))
                         .switchIfEmpty(
                                 Mono.defer(() -> {
                                     User newUser = User.builder()
                                             .email(email)
-                                            .name(name != null ? name : coachName)
+                                            .name(name != null ? name : mentorName)
                                             .googleSub(googleSub)
                                             .createdAt(LocalDateTime.now())
                                             .build();
                                     return userRepository.save(newUser)
-                                            .flatMap(user -> createClubAndCoach(user, clubName, coachName))
+                                            .flatMap(user -> createClubAndMentor(user, clubName, mentorName))
                                             .thenReturn("redirect:/planner");
                                 })
                         );
@@ -78,14 +78,14 @@ public class AuthController {
         });
     }
 
-    private Mono<Void> createClubAndCoach(User user, String clubName, String coachName) {
+    private Mono<Void> createClubAndMentor(User user, String clubName, String mentorName) {
         Club club = Club.builder().name(clubName).userId(user.getId()).build();
         return clubRepository.save(club).flatMap(savedClub -> {
-            Coach coach = Coach.builder()
-                    .name(coachName)
+            Mentor mentor = Mentor.builder()
+                    .name(mentorName)
                     .clubId(savedClub.getId())
                     .build();
-            return coachRepository.save(coach).then();
+            return mentorRepository.save(mentor).then();
         });
     }
 }
