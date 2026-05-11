@@ -70,25 +70,32 @@ public class TelegramController {
         String chatId = message.path("chat").path("id").asText();
         String username = message.path("from").path("username").asText();
 
+        log.info("Received message: '{}' from chatId: {} via {} bot", text, chatId, botType);
+
         if (text.startsWith("/start ")) {
             String token = text.substring("/start ".length()).trim();
-            log.info("Processing /start with token: {} from chatId: {} via {} bot", token, chatId, botType);
+            log.info("Processing /start with token: {}", token);
 
             return telegramService.connectAthleteByToken(token, chatId, username)
-                    .flatMap(athlete -> {
-                        if (athlete != null) {
-                            return Mono.just(ResponseEntity.ok().build());
-                        }
+                    .<ResponseEntity<String>>map(athlete -> {
+                        log.info("Athlete connected successfully with token: {}", token);
+                        return ResponseEntity.ok().build();
+                    })
+                    .switchIfEmpty(Mono.defer(() -> {
+                        log.info("Athlete not found with token: {}, trying coach...", token);
                         return telegramService.connectCoachByToken(token, chatId, username)
-                                .map(coach -> {
-                                    if (coach != null) {
-                                        return ResponseEntity.ok().build();
-                                    }
-                                    sendResponse(chatId, "❌ Невірний токен.\nЗвернись для уточнення.", botType);
+                                .<ResponseEntity<String>>map(coach -> {
+                                    log.info("Coach connected successfully with token: {}", token);
                                     return ResponseEntity.ok().build();
-                                });
-                    });
+                                })
+                                .switchIfEmpty(Mono.defer(() -> {
+                                    log.warn("Neither athlete nor coach found with token: {}", token);
+                                    sendResponse(chatId, "❌ Невірний токен.\nЗвернись для уточнення.", botType);
+                                    return Mono.just(ResponseEntity.ok().build());
+                                }));
+                    }));
         } else if (text.equals("/start")) {
+            log.info("Received /start without token from chatId: {}", chatId);
             sendResponse(chatId,
                     "👋 Привіт!\n\n" +
                     "Щоб підключитись, надішли мені посилання або команду " +

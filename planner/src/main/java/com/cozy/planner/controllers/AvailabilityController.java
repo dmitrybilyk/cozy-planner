@@ -203,10 +203,16 @@ public class AvailabilityController {
     }
 
     private Mono<Long> getAthleteId(ServerWebExchange exchange) {
-        return exchange.getSession().map(session -> {
+        return exchange.getSession().flatMap(session -> {
             Object athleteId = session.getAttribute("athlete_id");
-            if (athleteId instanceof Number) return ((Number) athleteId).longValue();
-            return -1L;
+            if (athleteId instanceof Number) {
+                long id = ((Number) athleteId).longValue();
+                if (id > 0) {
+                    return athleteRepository.findById(id)
+                            .map(athlete -> athlete.getId());
+                }
+            }
+            return Mono.error(new RuntimeException("Athlete not authenticated"));
         });
     }
 
