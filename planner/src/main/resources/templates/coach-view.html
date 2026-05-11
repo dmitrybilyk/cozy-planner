@@ -65,8 +65,27 @@
             <button @click="currentView = 'feed'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">День</button>
             <button @click="currentView = 'agenda'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">План</button>
         </div>
-        <form method="POST" action="/logout" id="logoutForm" class="hidden"></form>
-        <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
+         <form method="POST" action="/logout" id="logoutForm" class="hidden"></form>
+         
+         <div x-show="coachTg.enabled" class="flex items-center gap-2 mr-2">
+             <template x-if="coachTg.connected">
+                 <span class="px-2 py-1 bg-green-900/30 text-green-400 rounded-full text-[9px] font-bold uppercase">
+                     ✓ TG підключено
+                     <span x-show="coachTg.username" class="opacity-60 ml-1" x-text="'@' + coachTg.username"></span>
+                 </span>
+             </template>
+             <template x-if="!coachTg.connected">
+                 <button @click="generateCoachTelegramToken()" 
+                         :class="coachTg.copied ? 'bg-green-600' : (coachTg.connectLink ? 'bg-orange-500' : 'bg-blue-600')"
+                         class="px-2 py-1 text-white rounded-lg text-[10px] font-bold uppercase">
+                     <span x-show="coachTg.copied">✓ Скопійовано!</span>
+                     <span x-show="!coachTg.copied && coachTg.connectLink">🔗 Копіювати посилання</span>
+                     <span x-show="!coachTg.copied && !coachTg.connectLink">📲 Підключити Телеграм</span>
+                 </button>
+             </template>
+         </div>
+         
+         <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
     </div>
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex gap-2">
         <button @click="openWorkoutModal()" class="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl font-bold text-sm sm:text-base shadow-lg transition">
@@ -219,6 +238,10 @@
         <div x-show="athleteForm.photoBase64" class="text-center">
             <button @click="athleteForm.photoBase64 = null" type="button" class="text-red-400 text-xs font-bold uppercase">Видалити фото</button>
         </div>
+        <div x-show="editingAthleteId" class="flex items-center gap-2 p-3 bg-[#222] rounded-xl">
+            <input type="checkbox" x-model="athleteForm.weekendReminderEnabled" class="w-5 h-5 rounded cursor-pointer">
+            <label class="text-sm text-gray-300 cursor-pointer">🌴 Доступність у вихідні (повідомлення в п'ятницю о 16:00)</label>
+        </div>
         <button @click="saveAthlete()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingAthleteId ? 'Оновити' : 'Додати учня'"></button>
     </div>
      <div class="flex-1 overflow-y-auto p-4 space-y-3">
@@ -257,15 +280,22 @@
                      </div>
                  </div>
                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#292929]">
-                    <button @click="generateInvite(athlete.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[athlete.id] ? '✓ Скопійовано' : 'Посилання'"></button>
+                    <div class="flex items-center gap-2">
+                        <button @click="generateInvite(athlete.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[athlete.id] ? '✓ Скопійовано' : 'Посилання'"></button>
+                        <button @click="toggleWeekendReminder(athlete)" 
+                                :class="athlete.weekendReminderEnabled ? 'bg-orange-900/50 text-orange-400' : 'bg-[#262626] text-gray-500'"
+                                class="px-2 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer">
+                            🌴 <span x-text="athlete.weekendReminderEnabled ? 'Вих. ON' : 'Вих. OFF'"></span>
+                        </button>
+                    </div>
                     <div x-show="athlete.telegramEnabled" class="flex items-center gap-2">
-                        <button x-show="athlete.telegramConnected" @click="notifyAthlete(athlete)" 
+                        <button x-show="athlete.telegramConnected" @click="openNotifyModal(athlete)" 
                                 x-bind:disabled="notifyingAthletes[athlete.id] === true"
                                 :class="notifyingAthletes[athlete.id] === true ? 'bg-gray-700 text-gray-500' : (notifySuccess[athlete.id] === true ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400')"
                                 class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer">
                             <span x-show="notifyingAthletes[athlete.id] === true">Відправка...</span>
                             <span x-show="notifySuccess[athlete.id] === true">✓ Відправлено!</span>
-                            <span x-show="notifyingAthletes[athlete.id] !== true && notifySuccess[athlete.id] !== true">📲 Нагадати</span>
+                            <span x-show="notifyingAthletes[athlete.id] !== true && notifySuccess[athlete.id] !== true">📲 Запитати</span>
                         </button>
                         <button x-show="!athlete.telegramConnected && athlete.connectLink" @click="navigator.clipboard?.writeText(athlete.connectLink)" 
                                 class="px-3 py-1.5 rounded-lg bg-yellow-900/50 text-[11px] font-bold text-yellow-400 uppercase tracking-wider cursor-pointer">
@@ -424,6 +454,34 @@
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-[300px] rounded-[24px] overflow-hidden shadow-2xl"><div class="p-6 text-center text-white"><h4 class="text-lg font-bold" x-text="confirmData.title"></h4><p class="text-sm text-gray-500 mt-2" x-text="confirmData.message"></p></div><div class="flex flex-col border-t border-[#333]"><button @click="confirmData.onConfirm(); confirmData.show = false" class="py-4 text-sm font-bold text-red-500 border-b border-[#333]">Видалити</button><button @click="confirmData.show = false" class="py-4 text-sm font-medium text-gray-300">Скасувати</button></div></div>
 </div>
 
+<div x-show="notifyModal.show" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition>
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
+        <div class="p-6">
+            <h4 class="text-lg font-bold text-white mb-1">📲 Запросити доступність</h4>
+            <p class="text-sm text-gray-400 mb-4" x-text="'Надішліть запит учневі: ' + notifyModal.athleteName"></p>
+            
+            <div class="mb-6">
+                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Коментар (необов'язково):</label>
+                <textarea x-model="notifyModal.customMessage" 
+                          placeholder="наприклад: 'на два дні', 'на наступний тиждень'"
+                          class="w-full bg-[#262626] text-white rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          rows="3"></textarea>
+            </div>
+            
+            <div class="flex gap-3">
+                <button @click="closeNotifyModal()" 
+                        class="flex-1 py-3 rounded-xl text-sm font-bold text-gray-400 bg-[#262626]">
+                    Скасувати
+                </button>
+                <button @click="sendNotifyAthlete()" 
+                        class="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-blue-600">
+                    Надіслати
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script th:inline="none">
     function localDateStr(d) {
         d = d || new Date();
@@ -441,9 +499,11 @@
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             selectedAthleteFilters: [], athleteSearch: '',
             workoutForm: { title: 'Тренування', description: '', date: '', startTime: null, endTime: null, athleteIds: [], locationId: null },
-            athleteForm: { name: '', description: '', photoBase64: null },
+            athleteForm: { name: '', description: '', photoBase64: null, weekendReminderEnabled: false },
             locationForm: { name: '', description: '', color: '#3b82f6' },
             confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
+            notifyModal: { show: false, athleteId: null, athleteName: '', customMessage: '' },
+            coachTg: { enabled: false, connected: false, username: '', connectLink: '', copied: false },
             inviteUrls: {},
             notifyingAthletes: {},
             notifyErrors: {},
@@ -474,6 +534,9 @@
                     
                     await this.fetchAvailability();
                     console.log('fetchAvailability done');
+                    
+                    await this.fetchCoachTelegramStatus();
+                    console.log('fetchCoachTelegramStatus done');
                     
                     this.connectWebSocket();
                     this.initTouchDrag();
@@ -755,16 +818,19 @@
                                             a.telegramUsername = tg.telegramUsername;
                                             a.connectLink = tg.connectLink;
                                             a.photoBase64 = tg.photoBase64;
+                                            a.weekendReminderEnabled = tg.weekendReminderEnabled;
                                         } else {
                                             a.telegramEnabled = true;
                                             a.telegramConnected = false;
                                             a.photoBase64 = null;
+                                            a.weekendReminderEnabled = false;
                                         }
                                     }
                                 }
                             } else {
                                 for (const a of this.athletes) {
                                     a.telegramEnabled = false;
+                                    a.weekendReminderEnabled = false;
                                 }
                             }
                         }
@@ -772,6 +838,7 @@
                         console.log('Telegram config fetch failed (probably not configured):', e.message);
                         for (const a of this.athletes) {
                             a.telegramEnabled = false;
+                            a.weekendReminderEnabled = false;
                         }
                     }
                     
@@ -787,36 +854,113 @@
                 }
             },
 
-            async notifyAthlete(athlete) {
-                console.log('notifyAthlete clicked:', athlete.id, athlete.name, 'telegramConnected:', athlete.telegramConnected);
-                if (this.notifyingAthletes[athlete.id] === true) {
-                    console.log('  already notifying, skip');
-                    return;
+            openNotifyModal(athlete) {
+                if (athlete.telegramConnected) {
+                    this.notifyModal = {
+                        show: true,
+                        athleteId: athlete.id,
+                        athleteName: athlete.name,
+                        customMessage: ''
+                    };
                 }
-                console.log('  calling API...');
-                this.notifyingAthletes[athlete.id] = true;
-                this.notifyErrors[athlete.id] = null;
-                this.notifySuccess[athlete.id] = false;
+            },
+            
+            closeNotifyModal() {
+                this.notifyModal = {
+                    show: false,
+                    athleteId: null,
+                    athleteName: '',
+                    customMessage: ''
+                };
+            },
+            
+            async sendNotifyAthlete() {
+                const athleteId = this.notifyModal.athleteId;
+                const customMsg = this.notifyModal.customMessage;
                 
-                const res = await fetch(`/api/v1/athletes/${athlete.id}/notify-availability`, { method: 'POST' });
-                console.log(`  API response status: ${res.status}`);
+                if (this.notifyingAthletes[athleteId] === true) return;
+                
+                this.notifyingAthletes[athleteId] = true;
+                this.notifyErrors[athleteId] = null;
+                this.notifySuccess[athleteId] = false;
+                
+                const body = {};
+                if (customMsg && customMsg.trim().length > 0) {
+                    body.customMessage = customMsg;
+                }
+                
+                const res = await fetch(`/api/v1/athletes/${athleteId}/notify-availability`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                
                 if (res.ok) {
                     const data = await res.json();
-                    console.log(`  API response data:`, data);
                     if (data.success) {
-                        console.log(`  SUCCESS!`);
-                        this.notifySuccess[athlete.id] = true;
-                        setTimeout(() => { this.notifySuccess[athlete.id] = false; }, 3000);
+                        this.notifySuccess[athleteId] = true;
+                        setTimeout(() => { this.notifySuccess[athleteId] = false; }, 3000);
+                        this.closeNotifyModal();
                     } else if (data.reason === 'Telegram not connected') {
-                        this.notifyErrors[athlete.id] = `Учень не підключив Telegram. Поділіться посиланням-з'єднанням.`;
+                        this.notifyErrors[athleteId] = `Учень не підключив Telegram.`;
                     } else {
-                        this.notifyErrors[athlete.id] = data.reason || `Помилка відправки`;
+                        this.notifyErrors[athleteId] = data.reason || `Помилка відправки`;
                     }
                 } else {
-                    this.notifyErrors[athlete.id] = `Помилка сервера`;
+                    this.notifyErrors[athleteId] = `Помилка сервера`;
                 }
                 
-                this.notifyingAthletes[athlete.id] = false;
+                this.notifyingAthletes[athleteId] = false;
+            },
+            
+            async fetchCoachTelegramStatus() {
+                try {
+                    const res = await fetch('/api/v1/coach/telegram/status');
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.coachTg = {
+                            enabled: data.enabled,
+                            connected: data.connected,
+                            username: data.telegramUsername,
+                            connectLink: data.connectLink
+                        };
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch coach telegram status:', e);
+                }
+            },
+            
+            async generateCoachTelegramToken() {
+                if (this.coachTg.connectLink && this.coachTg.connectLink.length > 0) {
+                    try {
+                        await navigator.clipboard?.writeText(this.coachTg.connectLink);
+                        this.coachTg.copied = true;
+                        setTimeout(() => { 
+                            this.coachTg.copied = false; 
+                        }, 2000);
+                    } catch (e) {
+                        console.error('Failed to copy coach telegram link:', e);
+                    }
+                    return;
+                }
+                try {
+                    const res = await fetch('/api/v1/coach/telegram/generate-token', { method: 'POST' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.success) {
+                            this.coachTg.connectLink = data.connectLink;
+                            if (data.connectLink) {
+                                await navigator.clipboard?.writeText(data.connectLink);
+                                this.coachTg.copied = true;
+                                setTimeout(() => { 
+                                    this.coachTg.copied = false; 
+                                }, 2000);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to generate coach telegram token:', e);
+                }
             },
 
             async fetchLocations() {
@@ -1050,11 +1194,31 @@
                     });
                 }
                 
-                this.athleteForm = { name: '', description: '', photoBase64: null }; this.editingAthleteId = null; await this.fetchAthletes();
+                if (athleteId && this.athleteForm.weekendReminderEnabled !== undefined) {
+                    await fetch(`/api/v1/athletes/${athleteId}/weekend-reminder`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enabled: this.athleteForm.weekendReminderEnabled })
+                    });
+                }
+                
+                this.athleteForm = { name: '', description: '', photoBase64: null, weekendReminderEnabled: false }; this.editingAthleteId = null; await this.fetchAthletes();
             },
 
-            editAthlete(a) { this.editingAthleteId = a.id; this.athleteForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null }; },
+            editAthlete(a) { this.editingAthleteId = a.id; this.athleteForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null, weekendReminderEnabled: a.weekendReminderEnabled || false }; },
             askDeleteAthlete(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/athletes/${id}`, { method: 'DELETE' }); await this.fetchAthletes(); await this.fetchData(); } }; },
+            
+            async toggleWeekendReminder(athlete) {
+                const newVal = !athlete.weekendReminderEnabled;
+                const res = await fetch(`/api/v1/athletes/${athlete.id}/weekend-reminder`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: newVal })
+                });
+                if (res.ok) {
+                    athlete.weekendReminderEnabled = newVal;
+                }
+            },
             
             handleAthletePhotoSelect(event) {
                 const file = event.target.files[0];

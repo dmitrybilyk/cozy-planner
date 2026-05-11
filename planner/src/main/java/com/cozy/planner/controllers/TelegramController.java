@@ -23,19 +23,35 @@ public class TelegramController {
 
     @PostMapping("/telegram/webhook")
     public Mono<ResponseEntity<String>> webhook(@RequestBody String body) {
+        return webhookAthlete(body);
+    }
+
+    @PostMapping("/telegram/webhook/athlete")
+    public Mono<ResponseEntity<String>> webhookAthlete(@RequestBody String body) {
         if (!telegramService.isEnabled()) {
             return Mono.just(ResponseEntity.ok().build());
         }
+        log.debug("Received Athlete Telegram webhook: {}", body);
+        return processWebhook(body, BotType.ATHLETE);
+    }
 
-        log.debug("Received Telegram webhook: {}", body);
+    @PostMapping("/telegram/webhook/coach")
+    public Mono<ResponseEntity<String>> webhookCoach(@RequestBody String body) {
+        if (!telegramService.isEnabled()) {
+            return Mono.just(ResponseEntity.ok().build());
+        }
+        log.debug("Received Coach Telegram webhook: {}", body);
+        return processWebhook(body, BotType.COACH);
+    }
 
+    private Mono<ResponseEntity<String>> processWebhook(String body, BotType botType) {
         try {
             JsonNode json = objectMapper.readTree(body);
             JsonNode message = json.path("message");
             JsonNode callbackQuery = json.path("callback_query");
 
             if (!message.isMissingNode()) {
-                return handleMessage(message);
+                return handleMessage(message, botType);
             }
 
             if (!callbackQuery.isMissingNode()) {
@@ -49,46 +65,61 @@ public class TelegramController {
         return Mono.just(ResponseEntity.ok().build());
     }
 
-    private Mono<ResponseEntity<String>> handleMessage(JsonNode message) {
+    private Mono<ResponseEntity<String>> handleMessage(JsonNode message, BotType botType) {
         String text = message.path("text").asText("");
         String chatId = message.path("chat").path("id").asText();
         String username = message.path("from").path("username").asText();
 
         if (text.startsWith("/start ")) {
             String token = text.substring("/start ".length()).trim();
-            log.info("Processing /start with token: {} from chatId: {}", token, chatId);
+            log.info("Processing /start with token: {} from chatId: {} via {} bot", token, chatId, botType);
 
             return telegramService.connectAthleteByToken(token, chatId, username)
-                    .map(athlete -> {
+                    .flatMap(athlete -> {
                         if (athlete != null) {
-                            return ResponseEntity.ok().build();
-                        } else {
-                            telegramService.sendMessage(chatId,
-                                    "❌ Невірний токен.\nЗвернись до тренера за коректним посиланням.")
-                                    .subscribe();
-                            return ResponseEntity.ok().build();
+                            return Mono.just(ResponseEntity.ok().build());
                         }
+                        return telegramService.connectCoachByToken(token, chatId, username)
+                                .map(coach -> {
+                                    if (coach != null) {
+                                        return ResponseEntity.ok().build();
+                                    }
+                                    sendResponse(chatId, "❌ Невірний токен.\nЗвернись для уточнення.", botType);
+                                    return ResponseEntity.ok().build();
+                                });
                     });
         } else if (text.equals("/start")) {
-            telegramService.sendMessage(chatId,
+            sendResponse(chatId,
                     "👋 Привіт!\n\n" +
                     "Щоб підключитись, надішли мені посилання або команду " +
                     "/start [токен], яку дав тренер.\n\n" +
-                    "Наприклад: `/start abc123xyz`")
-                    .subscribe();
+                    "Наприклад: `/start abc123xyz`",
+                    botType);
             return Mono.just(ResponseEntity.ok().build());
         } else if (text.startsWith("/")) {
-            telegramService.sendMessage(chatId,
+            sendResponse(chatId,
                     "Доступні команди:\n" +
                     "/start - Підключити акаунт\n" +
-                    "/help - Допомога")
-                    .subscribe();
+                    "/help - Допомога",
+                    botType);
         }
 
         return Mono.just(ResponseEntity.ok().build());
     }
 
+    private void sendResponse(String chatId, String text, BotType botType) {
+        if (botType == BotType.COACH && telegramService.isCoachBotEnabled()) {
+            telegramService.sendMessageToCoach(chatId, text).subscribe();
+        } else {
+            telegramService.sendMessage(chatId, text).subscribe();
+        }
+    }
+
     private Mono<ResponseEntity<String>> handleCallbackQuery(JsonNode callbackQuery) {
         return Mono.just(ResponseEntity.ok().build());
+    }
+
+    private enum BotType {
+        ATHLETE, COACH
     }
 }

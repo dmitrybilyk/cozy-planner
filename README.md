@@ -7,4 +7,11 @@ After deploying, tell Telegram where to send updates:                           
 curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY/setWebhook?url=https://footwork-lid-attendee.ngrok-free.dev/api/v1/telegram/webhook"
 
 
+coach bot
+curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=https://footwork-lid-attendee.ngrok-free.dev/api/v1/telegram/webhook/coach"
+
+
 https://footwork-lid-attendee.ngrok-free.dev/athlete/register?token=5VW2KFIzBhFFR7FkagGtdComMvLXX7PpeF2w80pGj7g
+
+
+https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/getWebhookInf

@@ -4,7 +4,9 @@ import com.cozy.planner.model.entity.Athlete;
 import com.cozy.planner.model.entity.AthleteAvailability;
 import com.cozy.planner.repositories.AthleteAvailabilityRepository;
 import com.cozy.planner.repositories.AthleteRepository;
+import com.cozy.planner.repositories.CoachRepository;
 import com.cozy.planner.service.EventBroadcastService;
+import com.cozy.planner.service.TelegramService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -29,15 +31,21 @@ public class AvailabilityController {
 
     private final AthleteRepository athleteRepository;
     private final AthleteAvailabilityRepository availabilityRepository;
+    private final CoachRepository coachRepository;
     private final EventBroadcastService eventService;
+    private final TelegramService telegramService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AvailabilityController(AthleteRepository athleteRepository,
                                   AthleteAvailabilityRepository availabilityRepository,
-                                  EventBroadcastService eventService) {
+                                  CoachRepository coachRepository,
+                                  EventBroadcastService eventService,
+                                  TelegramService telegramService) {
         this.athleteRepository = athleteRepository;
         this.availabilityRepository = availabilityRepository;
+        this.coachRepository = coachRepository;
         this.eventService = eventService;
+        this.telegramService = telegramService;
     }
 
     @PostMapping("/api/v1/athletes/{athleteId}/generate-invite")
@@ -129,13 +137,35 @@ public class AvailabilityController {
                             })
                             .toList();
 
-                    return Flux.fromIterable(uniqueDates)
+                     return Flux.fromIterable(uniqueDates)
                             .flatMap(date -> availabilityRepository.findByAthleteIdAndDate(athleteId, date))
                             .flatMap(availabilityRepository::delete)
                             .thenMany(Flux.fromIterable(toSave))
                             .flatMap(availabilityRepository::save)
+                            .then()
+                            .then(notifyCoachIfNeeded(athleteId))
                             .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
                             .then(Mono.just(ResponseEntity.ok().<Void>build()));
+                });
+    }
+    
+    private Mono<Void> notifyCoachIfNeeded(Long athleteId) {
+        return athleteRepository.findById(athleteId)
+                .flatMap(athlete -> {
+                    if (athlete.getCoachId() == null) {
+                        return Mono.empty();
+                    }
+                    return coachRepository.findById(athlete.getCoachId())
+                            .flatMap(coach -> {
+                                if (coach.hasTelegram()) {
+                                    return telegramService.sendCoachAthleteAvailabilityUpdateNotification(coach, athlete)
+                                            .then();
+                                }
+                                return Mono.empty();
+                            });
+                })
+                .onErrorResume(e -> {
+                    return Mono.empty();
                 });
     }
 
@@ -154,10 +184,11 @@ public class AvailabilityController {
                         return Mono.just(ResponseEntity.ok().<Void>build());
                     }
 
-                    return Flux.fromIterable(dateList)
+                     return Flux.fromIterable(dateList)
                             .flatMap(date -> availabilityRepository.findByAthleteIdAndDate(athleteId, date))
                             .flatMap(availabilityRepository::delete)
                             .then()
+                            .then(notifyCoachIfNeeded(athleteId))
                             .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
                             .then(Mono.just(ResponseEntity.ok().<Void>build()));
                 });

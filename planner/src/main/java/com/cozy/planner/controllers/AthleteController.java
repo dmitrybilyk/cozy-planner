@@ -1,8 +1,12 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.config.TelegramConfig;
+import com.cozy.planner.model.entity.Coach;
 import com.cozy.planner.repositories.AthleteRepository;
 import com.cozy.planner.model.entity.Athlete;
+import com.cozy.planner.repositories.CoachRepository;
 import com.cozy.planner.service.EventBroadcastService;
+import com.cozy.planner.service.TelegramService;
 import com.planner.api.AthletesApi;
 import com.planner.model.AthleteDTO;
 import com.planner.model.CreateAthleteRequest;
@@ -19,11 +23,21 @@ import java.util.Map;
 public class AthleteController implements AthletesApi {
 
     private final AthleteRepository athleteRepository;
+    private final CoachRepository coachRepository;
     private final EventBroadcastService eventService;
+    private final TelegramService telegramService;
+    private final TelegramConfig telegramConfig;
 
-    public AthleteController(AthleteRepository athleteRepository, EventBroadcastService eventService) {
+    public AthleteController(AthleteRepository athleteRepository,
+                             CoachRepository coachRepository,
+                             EventBroadcastService eventService,
+                             TelegramService telegramService,
+                             TelegramConfig telegramConfig) {
         this.athleteRepository = athleteRepository;
+        this.coachRepository = coachRepository;
         this.eventService = eventService;
+        this.telegramService = telegramService;
+        this.telegramConfig = telegramConfig;
     }
 
     @Override
@@ -134,6 +148,89 @@ public class AthleteController implements AthletesApi {
                                     });
                         })
                         .defaultIfEmpty(ResponseEntity.notFound().build()));
+    }
+
+    @PostMapping("/api/v1/athletes/{athleteId}/weekend-reminder")
+    public Mono<ResponseEntity<Map<String, Object>>> setWeekendReminder(
+            @PathVariable Long athleteId,
+            @RequestBody Map<String, Object> body,
+            ServerWebExchange exchange) {
+        
+        return getCoachId(exchange)
+                .flatMap(coachId -> athleteRepository.findById(athleteId)
+                        .flatMap(athlete -> {
+                            if (!athlete.getCoachId().equals(coachId)) {
+                                return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).<Map<String, Object>>build());
+                            }
+                            
+                            Object enabledObj = body.get("enabled");
+                            boolean enabled = false;
+                            if (enabledObj instanceof Boolean) {
+                                enabled = (Boolean) enabledObj;
+                            } else if (enabledObj instanceof Number) {
+                                enabled = ((Number) enabledObj).intValue() != 0;
+                            }
+                            
+                            athlete.setWeekendReminderEnabled(enabled);
+                            return athleteRepository.save(athlete)
+                                    .map(saved -> {
+                                        eventService.broadcast("athlete_changed");
+                                        Map<String, Object> result = new HashMap<>();
+                                        result.put("success", true);
+                                        result.put("weekendReminderEnabled", saved.isWeekendReminderEnabled());
+                                        return ResponseEntity.ok(result);
+                                    });
+                        })
+                        .defaultIfEmpty(ResponseEntity.notFound().build()));
+    }
+
+    @GetMapping("/api/v1/coach/telegram/status")
+    public Mono<ResponseEntity<Map<String, Object>>> getCoachTelegramStatus(
+            ServerWebExchange exchange) {
+        
+        return getCoachId(exchange)
+                .flatMap(coachId -> coachRepository.findById(coachId)
+                        .map(coach -> {
+                            Map<String, Object> result = new HashMap<>();
+                            result.put("enabled", telegramService.isEnabled());
+                            result.put("connected", coach.hasTelegram());
+                            result.put("telegramUsername", coach.getTelegramUsername());
+                            result.put("connectLink", getCoachConnectLink(coach));
+                            return ResponseEntity.ok(result);
+                        })
+                        .defaultIfEmpty(ResponseEntity.notFound().build()));
+    }
+
+    @PostMapping("/api/v1/coach/telegram/generate-token")
+    public Mono<ResponseEntity<Map<String, Object>>> generateCoachTelegramToken(
+            ServerWebExchange exchange) {
+        
+        return getCoachId(exchange)
+                .flatMap(coachId -> telegramService.generateCoachTelegramToken(coachId)
+                        .flatMap(token -> coachRepository.findById(coachId)
+                                .map(coach -> {
+                                    Map<String, Object> result = new HashMap<>();
+                                    result.put("success", true);
+                                    result.put("token", token);
+                                    result.put("connectLink", getCoachConnectLink(coach));
+                                    return ResponseEntity.ok(result);
+                                })))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    private String getCoachConnectLink(Coach coach) {
+        if (!telegramService.isEnabled()) return null;
+        String token = coach.getTelegramToken();
+        String botUsername;
+        if (telegramConfig.isCoachBotEnabled()) {
+            botUsername = telegramConfig.getCoachBotUsername();
+        } else {
+            botUsername = telegramConfig.getBotUsername();
+        }
+        if (token == null || token.isBlank() || botUsername == null || botUsername.isBlank()) {
+            return null;
+        }
+        return "https://t.me/" + botUsername + "?start=" + token;
     }
 
     private Mono<Long> getCoachId(ServerWebExchange exchange) {

@@ -52,6 +52,7 @@ public class NotificationController {
     @PostMapping("/athletes/{athleteId}/notify-availability")
     public Mono<ResponseEntity<Map<String, Object>>> notifyAthlete(
             @PathVariable Long athleteId,
+            @RequestBody(required = false) Map<String, Object> body,
             ServerWebExchange exchange) {
 
         if (!telegramService.isEnabled()) {
@@ -60,6 +61,16 @@ public class NotificationController {
             result.put("reason", "Telegram not configured");
             return Mono.just(ResponseEntity.badRequest().body(result));
         }
+
+        String customMessage = null;
+        if (body != null && body.containsKey("customMessage")) {
+            Object msg = body.get("customMessage");
+            if (msg != null && !msg.toString().isBlank()) {
+                customMessage = msg.toString().trim();
+            }
+        }
+
+        final String finalCustomMessage = customMessage;
 
         return athleteRepository.findById(athleteId)
                 .flatMap(athlete -> {
@@ -74,7 +85,7 @@ public class NotificationController {
                     }
 
                     String baseUrl = getBaseUrl(exchange);
-                    return telegramService.sendAvailabilityReminder(athlete, baseUrl)
+                    return telegramService.sendAvailabilityReminder(athlete, baseUrl, finalCustomMessage)
                             .map(sent -> {
                                 result.put("success", sent);
                                 result.put("telegramConnected", true);
@@ -97,6 +108,7 @@ public class NotificationController {
         result.put("telegramUsername", athlete.getTelegramUsername());
         result.put("connectLink", getConnectLink(athlete.getInviteToken()));
         result.put("photoBase64", athlete.getPhotoBase64());
+        result.put("weekendReminderEnabled", athlete.isWeekendReminderEnabled());
         return result;
     }
 

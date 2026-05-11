@@ -10,4 +10,12 @@ public class TelegramConfig {
     private String botUsername;
     private String webhookUrl;
     private boolean enabled = false;
+    
+    // Separate coach bot (optional)
+    private String coachBotToken;
+    private String coachBotUsername;
+    
+    public boolean isCoachBotEnabled() {
+        return coachBotToken != null && !coachBotToken.isBlank();
+    }
 }

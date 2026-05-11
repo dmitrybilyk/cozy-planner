@@ -29,12 +29,12 @@ public class ScheduledNotificationService {
             return;
         }
 
-        log.info("Starting Friday 17:00 availability reminders...");
+        log.info("Starting Friday 17:00 weekly availability reminders...");
 
         athleteRepository.findAll()
                 .filter(Athlete::hasTelegram)
                 .flatMap(athlete -> {
-                    log.info("Sending Friday reminder to athlete: {} (chatId: {})", athlete.getName(), athlete.getTelegramChatId());
+                    log.info("Sending weekly reminder to: {} (chatId: {})", athlete.getName(), athlete.getTelegramChatId());
                     return telegramService.sendFridayReminder(athlete, baseUrl)
                             .doOnNext(success -> {
                                 if (success) {
@@ -47,7 +47,35 @@ public class ScheduledNotificationService {
                 .subscribe(
                         success -> {},
                         error -> log.error("Error in Friday reminders: {}", error.getMessage()),
-                        () -> log.info("Friday reminders completed")
+                        () -> log.info("Friday weekly reminders completed")
+                );
+    }
+
+    @Scheduled(cron = "0 0 16 * * FRI")
+    public void sendWeekendReminders() {
+        if (!telegramService.isEnabled()) {
+            log.info("Telegram not enabled, skipping weekend reminders");
+            return;
+        }
+
+        log.info("Starting Friday 16:00 weekend availability reminders...");
+
+        athleteRepository.findAllAthletesWithWeekendRemindersEnabled()
+                .flatMap(athlete -> {
+                    log.info("Sending weekend reminder to: {} (chatId: {})", athlete.getName(), athlete.getTelegramChatId());
+                    return telegramService.sendWeekendReminder(athlete, baseUrl)
+                            .doOnNext(success -> {
+                                if (success) {
+                                    log.info("Weekend reminder sent to {}", athlete.getName());
+                                } else {
+                                    log.warn("Failed to send weekend reminder to {}", athlete.getName());
+                                }
+                            });
+                })
+                .subscribe(
+                        success -> {},
+                        error -> log.error("Error in weekend reminders: {}", error.getMessage()),
+                        () -> log.info("Weekend reminders completed")
                 );
     }
 

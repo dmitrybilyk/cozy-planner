@@ -28,8 +28,15 @@ public class Athlete {
     private LocalDateTime telegramConnectedAt;
     @Column("photo_base64")
     private String photoBase64;
+    @Column("weekend_reminder_enabled")
+    @Builder.Default
+    private Boolean weekendReminderEnabled = false;
 
     public boolean hasTelegram() {
         return telegramChatId != null && !telegramChatId.isBlank();
+    }
+
+    public boolean isWeekendReminderEnabled() {
+        return Boolean.TRUE.equals(weekendReminderEnabled);
     }
 }
