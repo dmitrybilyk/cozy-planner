@@ -1,6 +1,13 @@
 # cozy-planner
 Cozy planner for every day's usage
 
+oraclecloud: dmitrybilyk
+ssh ubuntu@92.5.42.35
+
+e2e
+npm test                # headless                                                                                  ┃                       ┃    49,768 tokens                           
+npm run test:headed     # with browser UI
+
 http://localhost:8080/api/v1/workouts?startDate=2026-05-06&endDate=2026-05-13
 
 After deploying, tell Telegram where to send updates:                                                                                                                                  LSP                                     
