@@ -22,11 +22,11 @@ curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGq
 
 
 After deploying, tell Telegram where to send updates:                                                                                                                                  LSP                                     
-curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY/setWebhook?url=http://cozy-planner.duckdns.org:8080/api/v1/telegram/webhook"
+curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook"
 
 
 coach bot
-curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=http://cozy-planner.duckdns.org:8080/api/v1/telegram/webhook/coach"
+curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook/coach"
 
 sudo certbot certonly --standalone -d cozy-planner.duckdns.org
 
@@ -38,3 +38,7 @@ https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/getWe
 tg://resolve?domain=CozyPlannerCoachBot&start=AT7lQ3KR8KxEQ8A7z9mL2-6LbSzxe9pa
 
 SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com;SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=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
+
+
+# start monitoring                                                                                                                               Add Playwright tests                 ▀
+     docker compose -f docker-compose/docker-compose-monitoring.yaml up -d

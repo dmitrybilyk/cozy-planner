@@ -1,0 +1,135 @@
+{
+  "title": "Cozy Planner — JVM",
+  "uid": "cozy-planner-jvm",
+  "tags": ["cozy-planner", "jvm"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "panels": [
+    {
+      "title": "CPU Usage",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "system_cpu_usage",
+          "legendFormat": "system"
+        },
+        {
+          "expr": "process_cpu_usage",
+          "legendFormat": "process"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }, { "value": 0.8, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "title": "Heap Memory",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area='heap'}",
+          "legendFormat": "used"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{area='heap'}",
+          "legendFormat": "max"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green" }, { "value": 0, "color": "red" }] }
+        }
+      }
+    },
+    {
+      "title": "Non-Heap Memory",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{area='nonheap'}",
+          "legendFormat": "used"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{area='nonheap'}",
+          "legendFormat": "max"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" }
+      }
+    },
+    {
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        { "expr": "process_uptime_seconds", "legendFormat": "uptime" }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s" }
+      }
+    },
+    {
+      "title": "CPU Usage (time series)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "system_cpu_usage", "legendFormat": "system" },
+        { "expr": "process_cpu_usage", "legendFormat": "process" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "showPoints": "never" }
+        }
+      }
+    },
+    {
+      "title": "JVM Memory (time series)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "jvm_memory_used_bytes{area='heap'}", "legendFormat": "heap used" },
+        { "expr": "jvm_memory_max_bytes{area='heap'}", "legendFormat": "heap max" },
+        { "expr": "jvm_memory_used_bytes{area='nonheap'}", "legendFormat": "non-heap used" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "showPoints": "never" }
+        }
+      }
+    },
+    {
+      "title": "Threads",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 17 },
+      "targets": [
+        { "expr": "jvm_threads_live_threads", "legendFormat": "live" },
+        { "expr": "jvm_threads_daemon_threads", "legendFormat": "daemon" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "showPoints": "never" } }
+      }
+    },
+    {
+      "title": "HTTP Requests (rate)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 17 },
+      "targets": [
+        { "expr": "rate(http_server_requests_seconds_count[5m])", "legendFormat": "{{method}} {{uri}}" }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "showPoints": "never" } }
+      }
+    }
+  ]
+}

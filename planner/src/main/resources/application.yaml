@@ -39,6 +39,18 @@ server:
   address: 0.0.0.0
   forward-headers-strategy: framework
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 app:
   flyway:
     clean-on-start: false

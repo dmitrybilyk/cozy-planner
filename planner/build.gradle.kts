@@ -42,7 +42,7 @@ dependencies {
 	implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:2.3.0")
 //	implementation("org.springframework.kafka:spring-kafka")
 	implementation("org.thymeleaf.extras:thymeleaf-extras-springsecurity6")
-//	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
+	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 	runtimeOnly("org.postgresql:postgresql")
 	runtimeOnly("org.postgresql:r2dbc-postgresql")
 
