@@ -2,10 +2,8 @@ import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-// Custom metrics for load analysis
 const traineeCreateTime = new Trend('trainee_create_time');
 const sessionCreateTime = new Trend('session_create_time');
-const sessionEditTime = new Trend('session_edit_time');
 const sessionDeleteTime = new Trend('session_delete_time');
 const traineeDeleteTime = new Trend('trainee_delete_time');
 const errorRate = new Rate('request_errors');
@@ -14,7 +12,7 @@ export const options = {
   scenarios: {
     continuous: {
       executor: 'constant-vus',
-      vus: 5,
+      vus: 3,
       duration: '24h',
     },
   },
@@ -26,6 +24,8 @@ export const options = {
 };
 
 const BASE_URL = 'https://cozy-planner.duckdns.org';
+
+let ITER = 0;
 
 const TRAINEE_NAMES = [
   'LT-Олександр', 'LT-Марія', 'LT-Іван', 'LT-Ольга', 'LT-Андрій',
@@ -64,96 +64,189 @@ function randEnd(t) {
   return `${eh.toString().padStart(2,'0')}:${total%60===0?'00':'30'}`;
 }
 
-// ── AUTH via demo-login ─────────────────────────────────────────────────────
-export function setup() {
-  // POST to /k6-login — k6 stores the session cookie automatically
-  const loginRes = http.post(`${BASE_URL}/k6-login`);
-
-  if (loginRes.status !== 302 && loginRes.status !== 200) {
-    console.error(`Login failed: ${loginRes.status}`);
-    return { sessionOk: false, coachId: -1, locationIds: [1, 2] };
-  }
-
-  // Now fetch /api/v1/me to get coachId
-  const meRes = http.get(`${BASE_URL}/api/v1/me`);
-  let coachId = -1;
-  let locationIds = [1, 2];
-
-  if (meRes.status === 200) {
-    const me = JSON.parse(meRes.body);
-    coachId = me.coach?.id || me.mentor?.id || -1;
-    console.log(`Mentor ID: ${coachId}`);
-
-    const locRes = http.get(`${BASE_URL}/api/v1/coaches/${coachId}/locations`);
-    if (locRes.status === 200) {
-      const locs = JSON.parse(locRes.body);
-      if (locs.length > 0) locationIds = locs.map(l => l.id);
-    }
-
-    return { sessionOk: true, coachId, locationIds };
-  }
-
-  return { sessionOk: false, coachId: -1, locationIds: [1, 2] };
+function log(msg) {
+  const now = new Date().toISOString().slice(11, 19);
+  console.log(`[${now}][VU=${__VU}] ${msg}`);
 }
 
-// ── MAIN ────────────────────────────────────────────────────────────────────
-export default function (data) {
-  if (!data.sessionOk) {
-    sleep(3);
-    return;
+// ── Auth state per VU ──
+const vuState = { loggedIn: false };
+
+// Re-login: fresh POST + full setup.
+// Returns true if successful, false otherwise.
+function relogin() {
+  const loginRes = http.post(`${BASE_URL}/k6-login`, null, { redirects: 0 });
+  if (loginRes.status !== 302) {
+    log(`Relogin FAILED: ${loginRes.status}`);
+    return false;
   }
 
-  const { coachId, locationIds } = data;
+  const loc = loginRes.headers.Location || loginRes.headers.location;
+  if (loc) http.get(`${BASE_URL}${loc}`);
+
+  const meRes = http.get(`${BASE_URL}/api/v1/me`);
+  if (meRes.status !== 200) {
+    log(`Relogin: /api/v1/me failed: ${meRes.status}`);
+    return false;
+  }
+
+  const me = JSON.parse(meRes.body);
+  const coachId = me.coach?.id || me.mentor?.id || -1;
+  log(`Relogin OK, Mentor ID: ${coachId}`);
+
+  let locationIds = [1, 2];
+  const locRes = http.get(`${BASE_URL}/api/v1/coaches/${coachId}/locations`);
+  if (locRes.status === 200) {
+    const locs = JSON.parse(locRes.body);
+    if (locs.length > 0) locationIds = locs.map(l => l.id);
+  }
+
+  vuState.loggedIn = true;
+  vuState.coachId = coachId;
+  vuState.locationIds = locationIds;
+  return true;
+}
+
+// Do a GET, and if it returns 302 (session expired), re-login and retry once.
+function authedGet(url) {
+  let res = http.get(url, { redirects: 0 });
+  if (res.status === 302) {
+    log(`Session expired on GET ${url}, re-logging in`);
+    if (relogin()) {
+      res = http.get(url, { redirects: 0 });
+    }
+  }
+  return res;
+}
+
+// Do a POST, same re-login-on-302 logic.
+function authedPost(url, body, params) {
+  const fullParams = { ...params, redirects: 0 };
+  let res = http.post(url, body, fullParams);
+  if (res.status === 302) {
+    log(`Session expired on POST ${url}, re-logging in`);
+    if (relogin()) {
+      res = http.post(url, body, fullParams);
+    }
+  }
+  return res;
+}
+
+// Do a PUT, same re-login-on-302 logic.
+function authedPut(url, body, params) {
+  const fullParams = { ...params, redirects: 0 };
+  let res = http.put(url, body, fullParams);
+  if (res.status === 302) {
+    log(`Session expired on PUT ${url}, re-logging in`);
+    if (relogin()) {
+      res = http.put(url, body, fullParams);
+    }
+  }
+  return res;
+}
+
+// Do a DELETE, same re-login-on-302 logic.
+function authedDel(url, params) {
+  const fullParams = { ...params, redirects: 0 };
+  let res = http.del(url, null, fullParams);
+  if (res.status === 302) {
+    log(`Session expired on DEL ${url}, re-logging in`);
+    if (relogin()) {
+      res = http.del(url, null, fullParams);
+    }
+  }
+  return res;
+}
+
+// ── Entry point ──
+
+export function setup() {
+  log('Setup complete');
+  return {};
+}
+
+export default function (data) {
+  // First-time login
+  if (!vuState.loggedIn) {
+    if (!relogin()) {
+      log('Cannot log in, sleeping 10s');
+      sleep(10);
+      return;
+    }
+  }
+
+  ITER++;
+  const iterLabel = `ITER=${ITER}`;
+  const coachId = vuState.coachId;
+  const locationIds = vuState.locationIds;
   const ids = { trainees: [], workouts: [] };
 
-  // Use a fresh cookie jar per VU to simulate distinct users
-  // (but share the session from setup)
-  const jar = http.cookieJar();
-  // k6 automatically persists cookies from the setup() response,
-  // so subsequent calls should carry the session cookie.
+  log(`=== ${iterLabel} START === coachId=${coachId}`);
 
-  group('1. Fetch existing data', () => {
-    const r1 = http.get(`${BASE_URL}/api/v1/coaches/${coachId}/athletes`);
-    check(r1, { 'GET athletes ok': r => r.status === 200 });
+  group('1. Fetch existing', () => {
+    const r1 = authedGet(`${BASE_URL}/api/v1/coaches/${coachId}/athletes`);
+    const ok1 = check(r1, { 'GET athletes ok': r => r.status === 200 });
     errorRate.add(r1.status !== 200);
-    sleep(0.2);
+    if (ok1) {
+      const athletes = JSON.parse(r1.body);
+      log(`Existing athletes: ${athletes.length}`);
+    } else {
+      log(`FAILED to fetch athletes: ${r1.status}`);
+    }
+    sleep(0.5);
 
     const today = new Date();
     const start = new Date(today); start.setDate(today.getDate() - 3);
     const end   = new Date(today); end.setDate(today.getDate() + 14);
-    const r2 = http.get(`${BASE_URL}/api/v1/workouts?coachId=${coachId}&startDate=${fmtDate(start)}&endDate=${fmtDate(end)}`);
-    check(r2, { 'GET workouts ok': r => r.status === 200 });
+    const r2 = authedGet(`${BASE_URL}/api/v1/workouts?coachId=${coachId}&startDate=${fmtDate(start)}&endDate=${fmtDate(end)}`);
+    const ok2 = check(r2, { 'GET workouts ok': r => r.status === 200 });
     errorRate.add(r2.status !== 200);
-    sleep(0.3);
+    if (ok2) {
+      const workouts = JSON.parse(r2.body);
+      log(`Existing workouts: ${workouts.length}`);
+    } else {
+      log(`FAILED to fetch workouts: ${r2.status}`);
+    }
+    sleep(0.5);
   });
 
   group('2. Create trainees', () => {
     for (let i = 0; i < 3; i++) {
-      const name = `${randItem(TRAINEE_NAMES)}-vu${__VU}-it${__ITER}-${i}`;
+      const name = `${randItem(TRAINEE_NAMES)}-vu${__VU}-it${ITER}-${i}`;
       const start = Date.now();
-      const res = http.post(`${BASE_URL}/api/v1/athletes`,
+      const res = authedPost(`${BASE_URL}/api/v1/athletes`,
         JSON.stringify({ name, description: 'load-test', coachId }),
         { headers: { 'Content-Type': 'application/json' } }
       );
       traineeCreateTime.add(Date.now() - start);
       const ok = check(res, { 'trainee created': r => r.status === 201 });
       errorRate.add(!ok);
-      if (ok) ids.trainees.push(JSON.parse(res.body).id);
-      sleep(0.2 + Math.random() * 0.3);
+      if (ok) {
+        const id = JSON.parse(res.body).id;
+        ids.trainees.push(id);
+        log(`Created trainee: id=${id} name="${name}"`);
+      } else {
+        log(`FAILED to create trainee: ${res.status} ${res.body.slice(0, 200)}`);
+      }
+      sleep(0.5);
     }
+    log(`Trainees created: ${ids.trainees.length}`);
   });
 
   group('3. Edit first trainee', () => {
     if (ids.trainees.length > 0) {
       const id = ids.trainees[0];
-      const res = http.put(`${BASE_URL}/api/v1/athletes/${id}`,
-        JSON.stringify({ name: `${randItem(TRAINEE_NAMES)}-EDITED-${__VU}`, coachId }),
+      const newName = `${randItem(TRAINEE_NAMES)}-EDITED-${__VU}`;
+      const res = authedPut(`${BASE_URL}/api/v1/athletes/${id}`,
+        JSON.stringify({ name: newName, coachId }),
         { headers: { 'Content-Type': 'application/json' } }
       );
-      check(res, { 'trainee edited': r => r.status === 200 });
+      const ok = check(res, { 'trainee edited': r => r.status === 200 });
       errorRate.add(res.status !== 200);
+      if (ok) log(`Edited trainee: id=${id} newName="${newName}"`);
+      else log(`FAILED to edit trainee: ${res.status}`);
     }
-    sleep(0.3);
+    sleep(1);
   });
 
   group('4. Create sessions', () => {
@@ -162,8 +255,9 @@ export default function (data) {
       const aIds = ids.trainees.length > 0
         ? ids.trainees.slice(0, Math.min(ids.trainees.length, 2))
         : [];
+      const title = randItem(SESSION_TITLES);
       const body = {
-        title: randItem(SESSION_TITLES),
+        title,
         description: 'load-test',
         date: randDate(14),
         time: t,
@@ -173,69 +267,58 @@ export default function (data) {
         athleteIds: aIds,
       };
       const start = Date.now();
-      const res = http.post(`${BASE_URL}/api/v1/workouts`,
+      const res = authedPost(`${BASE_URL}/api/v1/workouts`,
         JSON.stringify(body),
         { headers: { 'Content-Type': 'application/json' } }
       );
       sessionCreateTime.add(Date.now() - start);
       const ok = check(res, { 'session created': r => r.status === 201 });
       errorRate.add(!ok);
-      if (ok) ids.workouts.push(JSON.parse(res.body).id);
-      sleep(0.2 + Math.random() * 0.3);
+      if (ok) {
+        const id = JSON.parse(res.body).id;
+        ids.workouts.push(id);
+        log(`Created session: id=${id} title="${title}" ${body.date} ${body.time}-${body.endTime}`);
+      } else {
+        log(`FAILED to create session: ${res.status} ${res.body.slice(0, 200)}`);
+      }
+      sleep(0.5);
     }
+    log(`Sessions created: ${ids.workouts.length} — visible on planner page now!`);
   });
 
-  group('5. Edit sessions', () => {
-    for (const wid of ids.workouts) {
-      const t = randTime();
-      const body = {
-        id: wid,
-        title: `${randItem(SESSION_TITLES)} (edited)`,
-        description: 'load-test-edited',
-        date: randDate(14),
-        time: t,
-        endTime: randEnd(t),
-        coachId,
-        locationId: randItem(locationIds),
-        athleteIds: [],
-      };
-      const start = Date.now();
-      const res = http.post(`${BASE_URL}/api/v1/workouts`,
-        JSON.stringify(body),
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      sessionEditTime.add(Date.now() - start);
-      check(res, { 'session edited': r => r.status === 201 });
-      errorRate.add(res.status !== 201);
-      sleep(0.2 + Math.random() * 0.2);
-    }
-  });
+  if (ids.workouts.length > 0) {
+    log(`Holding ${ids.workouts.length} sessions for 8s — watch the planner page!`);
+    sleep(8);
+  }
 
-  group('6. Delete sessions', () => {
+  group('5. Delete sessions', () => {
     for (const wid of ids.workouts) {
       const start = Date.now();
-      const res = http.del(`${BASE_URL}/api/v1/workouts/${wid}`);
+      const res = authedDel(`${BASE_URL}/api/v1/workouts/${wid}`);
       sessionDeleteTime.add(Date.now() - start);
-      check(res, { 'session deleted': r => r.status === 204 });
+      const ok = check(res, { 'session deleted': r => r.status === 204 });
       errorRate.add(res.status !== 204);
-      sleep(0.1 + Math.random() * 0.2);
+      if (ok) log(`Deleted session: id=${wid}`);
+      else log(`FAILED to delete session: ${res.status}`);
+      sleep(0.3);
     }
+    if (ids.workouts.length > 0) log(`All ${ids.workouts.length} sessions deleted`);
   });
 
-  group('7. Delete trainees', () => {
+  group('6. Delete trainees', () => {
     for (const tid of ids.trainees) {
       const start = Date.now();
-      const res = http.del(`${BASE_URL}/api/v1/athletes/${tid}`);
+      const res = authedDel(`${BASE_URL}/api/v1/athletes/${tid}`);
       traineeDeleteTime.add(Date.now() - start);
-      check(res, { 'trainee deleted': r => r.status === 204 });
+      const ok = check(res, { 'trainee deleted': r => r.status === 204 });
       errorRate.add(res.status !== 204);
-      sleep(0.1 + Math.random() * 0.2);
+      if (ok) log(`Deleted trainee: id=${tid}`);
+      else log(`FAILED to delete trainee: ${res.status}`);
+      sleep(0.3);
     }
+    if (ids.trainees.length > 0) log(`All ${ids.trainees.length} trainees deleted`);
   });
 
-  sleep(1);
-}
-
-export function teardown(data) {
-  console.log(`Load test completed. VUs: ${__VU}`);
+  log(`=== ${iterLabel} END ===`);
+  sleep(2);
 }

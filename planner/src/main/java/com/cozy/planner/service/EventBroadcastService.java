@@ -7,20 +7,17 @@ import reactor.core.publisher.Sinks;
 @Service
 public class EventBroadcastService {
 
-    private final Sinks.Many<String> sink;
-    private final WebSocketSessionManager webSocketSessionManager;
+    private final Sinks.Many<String> eventBus;
 
-    public EventBroadcastService(WebSocketSessionManager webSocketSessionManager) {
-        this.sink = Sinks.many().multicast().onBackpressureBuffer();
-        this.webSocketSessionManager = webSocketSessionManager;
+    public EventBroadcastService() {
+        this.eventBus = Sinks.many().multicast().onBackpressureBuffer();
     }
 
     public Flux<String> getEventStream() {
-        return sink.asFlux();
+        return eventBus.asFlux();
     }
 
     public void broadcast(String event) {
-        sink.tryEmitNext(event);
-        webSocketSessionManager.broadcast(event);
+        eventBus.tryEmitNext(event);
     }
 }
