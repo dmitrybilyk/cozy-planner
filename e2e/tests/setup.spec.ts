@@ -18,9 +18,9 @@ test.describe('Setup page', () => {
     await expect(clubInput).toBeVisible();
     await expect(clubInput).toHaveAttribute('placeholder', 'напр. Тенісний клуб');
 
-    const coachInput = page.locator('input[name="coachName"]');
-    await expect(coachInput).toBeVisible();
-    await expect(coachInput).toHaveAttribute('placeholder', 'напр. Катя');
+    const mentorInput = page.locator('input[name="mentorName"]');
+    await expect(mentorInput).toBeVisible();
+    await expect(mentorInput).toHaveAttribute('placeholder', 'напр. Катя');
 
     const submitButton = page.locator('button[type="submit"]');
     await expect(submitButton).toBeVisible();

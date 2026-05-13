@@ -52,19 +52,14 @@ public class TelegramService {
 
     public boolean isEnabled() {
         boolean mainBotOk = config.isEnabled() && config.getBotToken() != null && !config.getBotToken().isBlank();
-        boolean coachBotOk = config.isEnabled() && isMentorBotEnabled();
-        return mainBotOk || coachBotOk;
+        boolean mentorBotOk = config.isEnabled() && isMentorBotEnabled();
+        return mainBotOk || mentorBotOk;
     }
     
     public boolean isMentorBotEnabled() {
-        return config.isCoachBotEnabled();
+        return config.isMentorBotEnabled();
     }
     
-    @Deprecated
-    public boolean isCoachBotEnabled() {
-        return config.isCoachBotEnabled();
-    }
-
     private Mono<Boolean> sendMessageWithToken(String botToken, String chatId, String text, Object replyMarkup) {
         if (botToken == null || botToken.isBlank() || chatId == null || chatId.isBlank()) {
             return Mono.just(false);
@@ -127,18 +122,8 @@ public class TelegramService {
         if (!isEnabled() || chatId == null || chatId.isBlank()) {
             return Mono.just(false);
         }
-        String botToken = isMentorBotEnabled() ? config.getCoachBotToken() : config.getBotToken();
+        String botToken = isMentorBotEnabled() ? config.getMentorBotToken() : config.getBotToken();
         return sendMessageWithToken(botToken, chatId, text, replyMarkup);
-    }
-    
-    @Deprecated
-    public Mono<Boolean> sendMessageToCoach(String chatId, String text) {
-        return sendMessageToMentor(chatId, text, null);
-    }
-    
-    @Deprecated
-    public Mono<Boolean> sendMessageToCoach(String chatId, String text, Object replyMarkup) {
-        return sendMessageToMentor(chatId, text, replyMarkup);
     }
 
     private Map<String, Object> createInlineUrlButton(String buttonText, String url) {
@@ -166,7 +151,7 @@ public class TelegramService {
             return Mono.just(false);
         }
 
-        String link = baseUrl + "/athlete/" + trainee.getInviteToken();
+        String link = baseUrl + "/trainee/" + trainee.getInviteToken();
         log.info("Sending availability reminder to trainee: {}, link: {}", trainee.getName(), link);
         
         StringBuilder text = new StringBuilder();
@@ -192,7 +177,6 @@ public class TelegramService {
                    .replace("\"", "&quot;");
     }
 
-    @Deprecated
     public Mono<Boolean> sendFridayReminder(Trainee trainee, String baseUrl) {
         return Mono.just(false);
     }
@@ -202,7 +186,7 @@ public class TelegramService {
             return Mono.just(false);
         }
 
-        String link = baseUrl + "/athlete/" + trainee.getInviteToken();
+        String link = baseUrl + "/trainee/" + trainee.getInviteToken();
         log.info("Sending weekend reminder to trainee: {}, link: {}", trainee.getName(), link);
         
         String text = "🌴 <b>Запит на доступність у вихідні</b>\n\n" +
@@ -243,11 +227,6 @@ public class TelegramService {
 
         return sendMessageToMentor(mentor.getTelegramChatId(), text.toString());
     }
-    
-    @Deprecated
-    public Mono<Boolean> sendCoachAthleteAvailabilityUpdateNotification(Mentor mentor, Trainee trainee) {
-        return sendMentorTraineeAvailabilityUpdateNotification(mentor, trainee);
-    }
 
     public Mono<Trainee> connectTraineeByToken(String token, String chatId, String username) {
         return traineeRepository.findByInviteToken(token)
@@ -260,15 +239,10 @@ public class TelegramService {
                 .doOnSuccess(t -> {
                     if (t != null) {
                         log.info("Trainee {} connected Telegram: chatId={}", t.getId(), chatId);
-                        eventBroadcastService.broadcast("athlete_changed");
+                        eventBroadcastService.broadcast("trainee_changed");
                         sendWelcomeMessage(chatId, t.getName());
                     }
                 });
-    }
-    
-    @Deprecated
-    public Mono<Trainee> connectAthleteByToken(String token, String chatId, String username) {
-        return connectTraineeByToken(token, chatId, username);
     }
 
     private void sendWelcomeMessage(String chatId, String traineeName) {
@@ -295,15 +269,10 @@ public class TelegramService {
                 .doOnSuccess(m -> {
                     if (m != null) {
                         log.info("Mentor {} connected Telegram: chatId={}", m.getId(), chatId);
-                        eventBroadcastService.broadcast("coach_changed");
+                        eventBroadcastService.broadcast("mentor_changed");
                         sendMentorWelcomeMessage(chatId, m.getName());
                     }
                 });
-    }
-    
-    @Deprecated
-    public Mono<Mentor> connectCoachByToken(String token, String chatId, String username) {
-        return connectMentorByToken(token, chatId, username);
     }
 
     private void sendMentorWelcomeMessage(String chatId, String mentorName) {
@@ -315,11 +284,6 @@ public class TelegramService {
                 "Гарного дня!";
 
         sendMessageToMentor(chatId, welcome).subscribe();
-    }
-    
-    @Deprecated
-    private void sendCoachWelcomeMessage(String chatId, String mentorName) {
-        sendMentorWelcomeMessage(chatId, mentorName);
     }
 
     public Mono<String> generateMentorTelegramToken(Long mentorId) {
@@ -338,11 +302,6 @@ public class TelegramService {
                     mentor.setTelegramToken(token);
                     return mentorRepository.save(mentor).thenReturn(token);
                 });
-    }
-    
-    @Deprecated
-    public Mono<String> generateCoachTelegramToken(Long coachId) {
-        return generateMentorTelegramToken(coachId);
     }
 
     public Mono<Boolean> sendSessionReminderToMentor(Mentor mentor, String sessionTitle, String sessionDate, String sessionTime, String locationName, int minutesBefore) {
@@ -373,9 +332,5 @@ public class TelegramService {
 
         return sendMessageToMentor(mentor.getTelegramChatId(), text.toString());
     }
-    
-    @Deprecated
-    public Mono<Boolean> sendSessionReminderToCoach(Mentor mentor, String sessionTitle, String sessionDate, String sessionTime, String locationName, int minutesBefore) {
-        return sendSessionReminderToMentor(mentor, sessionTitle, sessionDate, sessionTime, locationName, minutesBefore);
-    }
+
 }

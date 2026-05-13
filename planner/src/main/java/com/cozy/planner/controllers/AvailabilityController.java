@@ -1,9 +1,9 @@
 package com.cozy.planner.controllers;
 
-import com.cozy.planner.model.entity.AthleteAvailability;
+import com.cozy.planner.model.entity.TraineeAvailability;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
-import com.cozy.planner.repositories.AthleteAvailabilityRepository;
+import com.cozy.planner.repositories.TraineeAvailabilityRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
@@ -31,14 +31,14 @@ import java.util.stream.Collectors;
 public class AvailabilityController {
 
     private final TraineeRepository traineeRepository;
-    private final AthleteAvailabilityRepository availabilityRepository;
+    private final TraineeAvailabilityRepository availabilityRepository;
     private final MentorRepository mentorRepository;
     private final EventBroadcastService eventService;
     private final TelegramService telegramService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AvailabilityController(TraineeRepository traineeRepository,
-                                   AthleteAvailabilityRepository availabilityRepository,
+                                   TraineeAvailabilityRepository availabilityRepository,
                                    MentorRepository mentorRepository,
                                    EventBroadcastService eventService,
                                    TelegramService telegramService) {
@@ -49,7 +49,7 @@ public class AvailabilityController {
         this.telegramService = telegramService;
     }
 
-    @PostMapping(path = {"/api/v1/athletes/{traineeId}/generate-invite", "/api/v1/trainees/{traineeId}/generate-invite"})
+    @PostMapping(path = {"/api/v1/trainees/{traineeId}/generate-invite"})
     public Mono<ResponseEntity<Map<String, String>>> generateInvite(@PathVariable Long traineeId, ServerWebExchange exchange) {
         return getMentorId(exchange)
                 .flatMap(mentorId -> traineeRepository.findById(traineeId)
@@ -73,7 +73,7 @@ public class AvailabilityController {
                         .defaultIfEmpty(ResponseEntity.notFound().build()));
     }
 
-    @GetMapping(path = {"/api/v1/athlete/invite", "/api/v1/trainee/invite"})
+    @GetMapping(path = {"/api/v1/trainee/invite"})
     public Mono<ResponseEntity<Map<String, Object>>> checkInvite(@RequestParam String token) {
         return traineeRepository.findByInviteToken(token)
                 .map(trainee -> {
@@ -86,21 +86,19 @@ public class AvailabilityController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @GetMapping(path = {"/api/v1/athletes/{traineeId}/availability", "/api/v1/trainees/{traineeId}/availability"})
-    public Flux<AthleteAvailability> getAvailability(@PathVariable Long traineeId,
-                                                      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                                                      @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        return availabilityRepository.findByAthleteIdAndDateBetween(traineeId, startDate, endDate);
+    @GetMapping(path = {"/api/v1/trainees/{traineeId}/availability"})
+    public Flux<TraineeAvailability> getAvailability(@PathVariable Long traineeId,
+                                                       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                       @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return availabilityRepository.findByTraineeIdAndDateBetween(traineeId, startDate, endDate);
     }
 
-    @GetMapping(path = {"/api/v1/coaches/{coachId}/availability", "/api/v1/mentors/{mentorId}/availability"})
-    public Flux<Map<String, Object>> getTraineesAvailability(@PathVariable(required = false) Long mentorId,
-                                                               @PathVariable(required = false) Long coachId,
-                                                               @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                                                               @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        Long id = (mentorId != null) ? mentorId : coachId;
-        return traineeRepository.findAllByMentorId(id)
-                .flatMap(trainee -> availabilityRepository.findByAthleteIdAndDateBetween(trainee.getId(), startDate, endDate)
+    @GetMapping(path = {"/api/v1/mentors/{mentorId}/availability"})
+    public Flux<Map<String, Object>> getTraineesAvailability(@PathVariable Long mentorId,
+                                                                @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return traineeRepository.findAllByMentorId(mentorId)
+                .flatMap(trainee -> availabilityRepository.findByTraineeIdAndDateBetween(trainee.getId(), startDate, endDate)
                         .collectList()
                         .map(availList -> {
                             Map<String, Object> entry = new HashMap<>();
@@ -119,9 +117,9 @@ public class AvailabilityController {
                         }));
     }
 
-    @PostMapping(path = {"/api/v1/athlete/availability", "/api/v1/trainee/availability"})
+    @PostMapping(path = {"/api/v1/trainee/availability"})
     public Mono<ResponseEntity<Void>> setAvailability(@RequestBody List<SlotEntry> entries,
-                                                       ServerWebExchange exchange) {
+                                                        ServerWebExchange exchange) {
         return getTraineeId(exchange)
                 .flatMap(traineeId -> {
                     Set<LocalDate> uniqueDates = entries.stream()
@@ -132,10 +130,10 @@ public class AvailabilityController {
                         return Mono.just(ResponseEntity.ok().<Void>build());
                     }
 
-                    List<AthleteAvailability> toSave = entries.stream()
+                    List<TraineeAvailability> toSave = entries.stream()
                             .map(e -> {
-                                AthleteAvailability ta = new AthleteAvailability();
-                                ta.setAthleteId(traineeId);
+                                TraineeAvailability ta = new TraineeAvailability();
+                                ta.setTraineeId(traineeId);
                                 ta.setDate(e.date);
                                 ta.setStartTime(e.startTime);
                                 ta.setEndTime(e.endTime);
@@ -144,7 +142,7 @@ public class AvailabilityController {
                             .toList();
 
                      return Flux.fromIterable(uniqueDates)
-                            .flatMap(date -> availabilityRepository.findByAthleteIdAndDate(traineeId, date))
+                            .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
                             .flatMap(availabilityRepository::delete)
                             .thenMany(Flux.fromIterable(toSave))
                             .flatMap(availabilityRepository::save)
@@ -175,9 +173,9 @@ public class AvailabilityController {
                 });
     }
 
-    @DeleteMapping(path = {"/api/v1/athlete/availability", "/api/v1/trainee/availability"})
+    @DeleteMapping(path = {"/api/v1/trainee/availability"})
     public Mono<ResponseEntity<Void>> clearAvailability(@RequestParam String dates,
-                                                          ServerWebExchange exchange) {
+                                                           ServerWebExchange exchange) {
         return getTraineeId(exchange)
                 .flatMap(traineeId -> {
                     List<LocalDate> dateList = Arrays.stream(dates.split(","))
@@ -191,7 +189,7 @@ public class AvailabilityController {
                     }
 
                      return Flux.fromIterable(dateList)
-                            .flatMap(date -> availabilityRepository.findByAthleteIdAndDate(traineeId, date))
+                            .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
                             .flatMap(availabilityRepository::delete)
                             .then()
                             .then(notifyMentorIfNeeded(traineeId))
@@ -202,15 +200,15 @@ public class AvailabilityController {
 
     private Mono<Long> getMentorId(ServerWebExchange exchange) {
         return exchange.getSession().map(session -> {
-            Object coachId = session.getAttribute("coach_id");
-            if (coachId instanceof Number) return ((Number) coachId).longValue();
+            Object mentorId = session.getAttribute("mentor_id");
+            if (mentorId instanceof Number) return ((Number) mentorId).longValue();
             return -1L;
         });
     }
 
     private Mono<Long> getTraineeId(ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
-            Object traineeId = session.getAttribute("athlete_id");
+            Object traineeId = session.getAttribute("trainee_id");
             if (traineeId instanceof Number) {
                 long id = ((Number) traineeId).longValue();
                 if (id > 0) {
@@ -233,7 +231,7 @@ public class AvailabilityController {
         int port = exchange.getRequest().getURI().getPort();
         String scheme = exchange.getRequest().getURI().getScheme();
         String base = scheme + "://" + host + (port > 0 ? ":" + port : "");
-        return base + "/athlete/" + token;
+        return base + "/trainee/" + token;
     }
 
     public record SlotEntry(LocalDate date, LocalTime startTime, LocalTime endTime) {}

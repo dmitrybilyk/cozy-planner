@@ -93,13 +93,13 @@ public class K6AuthController {
                                     .name("k6 Location 1")
                                     .description("k6 test location")
                                     .color("#10b981")
-                                    .coachId(savedMentor.getId())
+                                    .mentorId(savedMentor.getId())
                                     .build();
                             Location loc2 = Location.builder()
                                     .name("k6 Location 2")
                                     .description("k6 test location")
                                     .color("#6366f1")
-                                    .coachId(savedMentor.getId())
+                                    .mentorId(savedMentor.getId())
                                     .build();
                             return locationRepository.save(loc1)
                                     .then(locationRepository.save(loc2))

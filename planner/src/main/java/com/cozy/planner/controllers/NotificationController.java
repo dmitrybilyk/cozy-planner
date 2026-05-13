@@ -39,15 +39,13 @@ public class NotificationController {
         return ResponseEntity.ok().body(result);
     }
 
-    @GetMapping(path = {"/coaches/{coachId}/athletes-telegram", "/mentors/{mentorId}/trainees-telegram"})
-    public Flux<Map<String, Object>> getTraineesWithTelegram(@PathVariable(required = false) Long mentorId,
-                                                               @PathVariable(required = false) Long coachId) {
-        Long id = (mentorId != null) ? mentorId : coachId;
-        return traineeRepository.findAllByMentorId(id)
+    @GetMapping(path = {"/mentors/{mentorId}/trainees-telegram"})
+    public Flux<Map<String, Object>> getTraineesWithTelegram(@PathVariable Long mentorId) {
+        return traineeRepository.findAllByMentorId(mentorId)
                 .map(this::toTelegramStatus);
     }
 
-    @GetMapping(path = {"/athletes/{traineeId}/telegram-status", "/trainees/{traineeId}/telegram-status"})
+    @GetMapping(path = {"/trainees/{traineeId}/telegram-status"})
     public Mono<ResponseEntity<Map<String, Object>>> getTelegramStatus(@PathVariable Long traineeId) {
         return traineeRepository.findById(traineeId)
                 .map(this::toTelegramStatus)
@@ -55,7 +53,7 @@ public class NotificationController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PostMapping(path = {"/athletes/{traineeId}/notify-availability", "/trainees/{traineeId}/notify-availability"})
+    @PostMapping(path = {"/trainees/{traineeId}/notify-availability"})
     public Mono<ResponseEntity<Map<String, Object>>> notifyTrainee(
             @PathVariable Long traineeId,
             @RequestBody(required = false) Map<String, Object> body,

@@ -19,10 +19,4 @@ public interface TraineeRepository extends ReactiveCrudRepository<Trainee, Long>
     
     @Query("SELECT * FROM trainees WHERE weekend_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
     Flux<Trainee> findAllTraineesWithWeekendRemindersEnabled();
-
-    @Deprecated
-    @Query("SELECT * FROM trainees WHERE mentor_id = :coachId")
-    default Flux<Trainee> findAllByCoachId(Long coachId) {
-        return findAllByMentorId(coachId);
-    }
 }

@@ -23,24 +23,24 @@ public class TelegramController {
 
     @PostMapping("/telegram/webhook")
     public Mono<ResponseEntity<String>> webhook(@RequestBody String body) {
-        return webhookAthlete(body);
+        return webhookTrainee(body);
     }
 
-    @PostMapping("/telegram/webhook/athlete")
-    public Mono<ResponseEntity<String>> webhookAthlete(@RequestBody String body) {
+    @PostMapping("/telegram/webhook/trainee")
+    public Mono<ResponseEntity<String>> webhookTrainee(@RequestBody String body) {
         if (!telegramService.isEnabled()) {
             return Mono.just(ResponseEntity.ok().build());
         }
-        log.debug("Received Athlete Telegram webhook: {}", body);
+        log.debug("Received Trainee Telegram webhook: {}", body);
         return processWebhook(body, BotType.ATHLETE);
     }
 
-    @PostMapping("/telegram/webhook/coach")
-    public Mono<ResponseEntity<String>> webhookCoach(@RequestBody String body) {
+    @PostMapping("/telegram/webhook/mentor")
+    public Mono<ResponseEntity<String>> webhookMentor(@RequestBody String body) {
         if (!telegramService.isEnabled()) {
             return Mono.just(ResponseEntity.ok().build());
         }
-        log.debug("Received Coach Telegram webhook: {}", body);
+        log.debug("Received Mentor Telegram webhook: {}", body);
         return processWebhook(body, BotType.COACH);
     }
 
@@ -76,20 +76,20 @@ public class TelegramController {
             String token = text.substring("/start ".length()).trim();
             log.info("Processing /start with token: {}", token);
 
-            return telegramService.connectAthleteByToken(token, chatId, username)
-                    .<ResponseEntity<String>>map(athlete -> {
-                        log.info("Athlete connected successfully with token: {}", token);
+            return telegramService.connectTraineeByToken(token, chatId, username)
+                    .<ResponseEntity<String>>map(trainee -> {
+                        log.info("Trainee connected successfully with token: {}", token);
                         return ResponseEntity.ok().build();
                     })
                     .switchIfEmpty(Mono.defer(() -> {
-                        log.info("Athlete not found with token: {}, trying coach...", token);
-                        return telegramService.connectCoachByToken(token, chatId, username)
-                                .<ResponseEntity<String>>map(coach -> {
-                                    log.info("Coach connected successfully with token: {}", token);
+                        log.info("Trainee not found with token: {}, trying mentor...", token);
+                        return telegramService.connectMentorByToken(token, chatId, username)
+                                .<ResponseEntity<String>>map(mentor -> {
+                                    log.info("Mentor connected successfully with token: {}", token);
                                     return ResponseEntity.ok().build();
                                 })
                                 .switchIfEmpty(Mono.defer(() -> {
-                                    log.warn("Neither athlete nor coach found with token: {}", token);
+                                    log.warn("Neither trainee nor mentor found with token: {}", token);
                                     sendResponse(chatId, "❌ Невірний токен.\nЗвернись для уточнення.", botType);
                                     return Mono.just(ResponseEntity.ok().build());
                                 }));
@@ -115,8 +115,8 @@ public class TelegramController {
     }
 
     private void sendResponse(String chatId, String text, BotType botType) {
-        if (botType == BotType.COACH && telegramService.isCoachBotEnabled()) {
-            telegramService.sendMessageToCoach(chatId, text).subscribe();
+        if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+            telegramService.sendMessageToMentor(chatId, text).subscribe();
         } else {
             telegramService.sendMessage(chatId, text).subscribe();
         }

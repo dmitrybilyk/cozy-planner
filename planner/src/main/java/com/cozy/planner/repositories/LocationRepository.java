@@ -9,6 +9,6 @@ import reactor.core.publisher.Flux;
 @Repository
 public interface LocationRepository extends ReactiveCrudRepository<Location, Long> {
 
-    @Query("SELECT * FROM places WHERE mentor_id = :coachId")
-    Flux<Location> findAllByCoachId(Long coachId);
+    @Query("SELECT * FROM places WHERE mentor_id = :mentorId")
+    Flux<Location> findAllByMentorId(Long mentorId);
 }

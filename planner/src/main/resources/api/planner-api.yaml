@@ -11,12 +11,12 @@ servers:
 tags:
   - name: Clubs
     description: Operations for club/group management
-  - name: Coaches
-    description: Operations for coach (mentor) data
-  - name: Athletes
-    description: Operations for athlete (trainee) data
-  - name: Workouts
-    description: Operations for planning and retrieving meetings
+  - name: Mentors
+    description: Operations for mentor data
+  - name: Trainees
+    description: Operations for trainee data
+  - name: Sessions
+    description: Operations for planning and retrieving sessions
   - name: Locations
     description: Operations for location (place) management
 
@@ -99,11 +99,11 @@ paths:
           description: Club deleted successfully
 
   # --- ТРЕНЕРИ ---
-  /api/v1/clubs/{clubId}/coaches:
+  /api/v1/clubs/{clubId}/mentors:
     get:
-      tags: [Coaches]
-      summary: Get all coaches in a specific club
-      operationId: getClubCoaches
+      tags: [Mentors]
+      summary: Get all mentors in a specific club
+      operationId: getClubMentors
       parameters:
         - name: clubId
           in: path
@@ -119,16 +119,16 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/CoachDTO'
+                  $ref: '#/components/schemas/MentorDTO'
 
   # --- АТЛЕТИ ---
-  /api/v1/coaches/{coachId}/athletes:
+  /api/v1/mentors/{mentorId}/trainees:
     get:
-      tags: [Coaches]
-      summary: Get all athletes assigned to a specific coach
-      operationId: getCoachAthletes
+      tags: [Mentors]
+      summary: Get all trainees assigned to a specific mentor
+      operationId: getMentorTrainees
       parameters:
-        - name: coachId
+        - name: mentorId
           in: path
           required: true
           schema:
@@ -136,85 +136,85 @@ paths:
             format: int64
       responses:
         '200':
-          description: A list of athletes
+          description: A list of trainees
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/AthleteDTO'
+                  $ref: '#/components/schemas/TraineeDTO'
 
-  /api/v1/athletes:
+  /api/v1/trainees:
     post:
-      tags: [Athletes]
-      summary: Create a new athlete
-      operationId: createAthlete
+      tags: [Trainees]
+      summary: Create a new trainee
+      operationId: createTrainee
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAthleteRequest'
+              $ref: '#/components/schemas/CreateTraineeRequest'
       responses:
         '201':
           description: Athlete created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AthleteDTO'
+                $ref: '#/components/schemas/TraineeDTO'
 
-  /api/v1/athletes/{athleteId}:
+  /api/v1/trainees/{traineeId}:
     parameters:
-      - name: athleteId
+      - name: traineeId
         in: path
         required: true
         schema:
           type: integer
           format: int64
     get:
-      tags: [Athletes]
-      summary: Get athlete by ID
-      operationId: getAthleteById
+      tags: [Trainees]
+      summary: Get trainee by ID
+      operationId: getTraineeById
       responses:
         '200':
-          description: Athlete details
+          description: Trainee details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AthleteDTO'
+                $ref: '#/components/schemas/TraineeDTO'
     put:
-      tags: [Athletes]
-      summary: Update an existing athlete
-      operationId: updateAthlete
+      tags: [Trainees]
+      summary: Update an existing trainee
+      operationId: updateTrainee
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AthleteDTO'
+              $ref: '#/components/schemas/TraineeDTO'
       responses:
         '200':
           description: Athlete updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AthleteDTO'
+                $ref: '#/components/schemas/TraineeDTO'
     delete:
-      tags: [Athletes]
-      summary: Delete an athlete
-      operationId: deleteAthlete
+      tags: [Trainees]
+      summary: Delete a trainee
+      operationId: deleteTrainee
       responses:
         '204':
-          description: Athlete deleted successfully
+          description: Trainee deleted successfully
 
   # --- ЛОКАЦІЇ ---
-  /api/v1/coaches/{coachId}/locations:
+  /api/v1/mentors/{mentorId}/locations:
     get:
       tags: [Locations]
-      summary: Get all locations for a specific coach
-      operationId: getCoachLocations
+      summary: Get all locations for a specific mentor
+      operationId: getMentorLocations
       parameters:
-        - name: coachId
+        - name: mentorId
           in: path
           required: true
           schema:
@@ -293,20 +293,20 @@ paths:
         '204':
           description: Location deleted successfully
 
-  # --- ТРЕНУВАННЯ ---
-  /api/v1/workouts:
+  # --- СЕСІЇ ---
+  /api/v1/sessions:
     get:
-      tags: [Workouts]
-      summary: Retrieve workouts based on filters
-      operationId: getWorkouts
+      tags: [Sessions]
+      summary: Retrieve sessions based on filters
+      operationId: getSessions
       parameters:
-        - name: coachId
+        - name: mentorId
           in: query
           required: false
           schema:
             type: integer
             format: int64
-        - name: athleteId
+        - name: traineeId
           in: query
           required: false
           schema:
@@ -326,47 +326,47 @@ paths:
             format: date
       responses:
         '200':
-          description: List of workouts
+          description: List of sessions
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/WorkoutDTO'
+                  $ref: '#/components/schemas/SessionDTO'
 
     post:
-      tags: [Workouts]
-      summary: Schedule or update a workout (upsert)
-      operationId: createWorkout
+      tags: [Sessions]
+      summary: Schedule or update a session (upsert)
+      operationId: createSession
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateWorkoutRequest'
+              $ref: '#/components/schemas/CreateSessionRequest'
       responses:
         '201':
-          description: Workout created or updated successfully
+          description: Session created or updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WorkoutDTO'
+                $ref: '#/components/schemas/SessionDTO'
 
-  /api/v1/workouts/{workoutId}:
+  /api/v1/sessions/{sessionId}:
     parameters:
-       - name: workoutId
+       - name: sessionId
          in: path
          required: true
          schema:
            type: integer
            format: int64
     delete:
-      tags: [Workouts]
-      summary: Delete a workout
-      operationId: deleteWorkout
+      tags: [Sessions]
+      summary: Delete a session
+      operationId: deleteSession
       responses:
         '204':
-          description: Workout deleted successfully
+          description: Session deleted successfully
 
 components:
   schemas:
@@ -390,7 +390,7 @@ components:
         description:
           type: string
 
-    CoachDTO:
+    MentorDTO:
       type: object
       properties:
         id:
@@ -404,7 +404,7 @@ components:
           type: integer
           format: int64
 
-    AthleteDTO:
+    TraineeDTO:
       type: object
       properties:
         id:
@@ -414,23 +414,23 @@ components:
           type: string
         description:
           type: string
-        coachId:
+        mentorId:
           type: integer
           format: int64
 
-    CreateAthleteRequest:
+    CreateTraineeRequest:
       type: object
-      required: [name, coachId]
+      required: [name, mentorId]
       properties:
         name:
           type: string
         description:
           type: string
-        coachId:
+        mentorId:
           type: integer
           format: int64
 
-    WorkoutDTO:
+    SessionDTO:
       type: object
       properties:
         id:
@@ -451,12 +451,12 @@ components:
           type: string
           pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
           example: "09:30"
-        athleteIds:
+        traineeIds:
           type: array
           items:
             type: integer
             format: int64
-        coachId:
+        mentorId:
           type: integer
           format: int64
         locationId:
@@ -477,13 +477,13 @@ components:
           type: string
         color:
           type: string
-        coachId:
+        mentorId:
           type: integer
           format: int64
 
     CreateLocationRequest:
       type: object
-      required: [name, coachId]
+      required: [name, mentorId]
       properties:
         name:
           type: string
@@ -491,13 +491,13 @@ components:
           type: string
         color:
           type: string
-        coachId:
+        mentorId:
           type: integer
           format: int64
 
-    CreateWorkoutRequest:
+    CreateSessionRequest:
       type: object
-      required: [title, date, athleteIds, coachId]
+      required: [title, date, traineeIds, mentorId]
       properties:
         id:
           type: integer
@@ -515,12 +515,12 @@ components:
         endTime:
           type: string
           pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$'
-        athleteIds:
+        traineeIds:
           type: array
           items:
             type: integer
             format: int64
-        coachId:
+        mentorId:
           type: integer
           format: int64
         locationId:

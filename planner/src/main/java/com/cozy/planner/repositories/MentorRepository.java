@@ -14,9 +14,4 @@ public interface MentorRepository extends ReactiveCrudRepository<Mentor, Long> {
 
     @Query("SELECT * FROM mentors WHERE telegram_token = :token")
     Mono<Mentor> findByTelegramToken(String token);
-
-    @Deprecated
-    default Flux<Mentor> findAllByCoachId(Long clubId) {
-        return findAllByClubId(clubId);
-    }
 }

@@ -23,7 +23,7 @@ public class SecurityConfig {
 
         return http
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/signin", "/login**", "/demo-login", "/k6-login", "/oauth2/**", "/webjars/**", "/error**", "/api/v1/events", "/api/v1/ws", "/athlete/**", "/api/v1/athlete/**", "/api/v1/athlete/invite", "/api/v1/me", "/api/v1/athletes/*/availability", "/api/v1/telegram/webhook", "/api/v1/telegram/webhook/**", "/api/v1/telegram/config", "/actuator/**")
+                        .pathMatchers("/signin", "/login**", "/demo-login", "/k6-login", "/oauth2/**", "/webjars/**", "/error**", "/api/v1/events", "/api/v1/ws", "/trainee/**", "/api/v1/trainee/**", "/api/v1/trainee/invite", "/api/v1/me", "/api/v1/trainees/*/availability", "/api/v1/telegram/webhook", "/api/v1/telegram/webhook/**", "/api/v1/telegram/config", "/actuator/**")
                         .permitAll()
                         .anyExchange().authenticated()
                 )

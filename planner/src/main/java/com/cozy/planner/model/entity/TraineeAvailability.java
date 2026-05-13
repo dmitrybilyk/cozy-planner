@@ -11,12 +11,12 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
-public class AthleteAvailability {
+public class TraineeAvailability {
     @Id
     private Long id;
 
     @Column("trainee_id")
-    private Long athleteId;
+    private Long traineeId;
 
     private LocalDate date;
     private LocalTime startTime;

@@ -10,6 +10,11 @@ spring:
     url: r2dbc:postgresql://localhost:5432/planner_db?stringtype=unspecified
     username: user
     password: password
+    pool:
+      max-size: 25
+      initial-size: 5
+      max-create-connection-time: 5s
+      max-idle-time: 10m
 
   flyway:
     enabled: true
@@ -62,8 +67,8 @@ app:
 telegram:
   enabled: ${TELEGRAM_ENABLED:true}
   bot-token: ${TELEGRAM_BOT_TOKEN:8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY}
-  coach-bot-token: ${TELEGRAM_BOT_TOKEN:8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c}
+  mentor-bot-token: ${TELEGRAM_BOT_TOKEN:8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c}
   bot-username: ${TELEGRAM_BOT_USERNAME:CozyPlannerBot}
-  coach-bot-username: ${COACH_TELEGRAM_BOT_USERNAME:CozyPlannerCoachBot}
+  mentor-bot-username: ${MENTOR_TELEGRAM_BOT_USERNAME:CozyPlannerCoachBot}
   webhook-url: ${TELEGRAM_WEBHOOK_URL:}
-  coach-webhook-url: ${COACH_TELEGRAM_WEBHOOK_URL:}
+  mentor-webhook-url: ${MENTOR_TELEGRAM_WEBHOOK_URL:}

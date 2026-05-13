@@ -47,7 +47,7 @@ public class MeController {
                                 .flatMap(club -> mentorRepository.findAllByClubId(club.getId())
                                         .next()
                                         .map(mentor -> {
-                                            session.getAttributes().put("coach_id", mentor.getId());
+                                            session.getAttributes().put("mentor_id", mentor.getId());
                                             Map<String, Object> r = new HashMap<>();
                                             r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
                                             r.put("club", Map.of("id", club.getId(), "name", club.getName()));
@@ -61,7 +61,7 @@ public class MeController {
                         .defaultIfEmpty(defaultWithUser(googleSub));
             }
 
-            Object traineeId = session.getAttribute("athlete_id");
+            Object traineeId = session.getAttribute("trainee_id");
             if (traineeId instanceof Number) {
                 return traineeRepository.findById(((Number) traineeId).longValue())
                         .map(trainee -> {

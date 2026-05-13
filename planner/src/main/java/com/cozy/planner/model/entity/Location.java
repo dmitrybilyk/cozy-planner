@@ -18,5 +18,5 @@ public class Location {
     private String color;
 
     @Column("mentor_id")
-    private Long coachId;
+    private Long mentorId;
 }

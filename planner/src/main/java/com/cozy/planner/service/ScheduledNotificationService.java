@@ -2,11 +2,11 @@ package com.cozy.planner.service;
 
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
-import com.cozy.planner.model.entity.Workout;
+import com.cozy.planner.model.entity.Session;
 import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
-import com.cozy.planner.repositories.WorkoutRepository;
+import com.cozy.planner.repositories.SessionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -23,7 +23,7 @@ import java.time.temporal.ChronoUnit;
 public class ScheduledNotificationService {
 
     private final TelegramService telegramService;
-    private final WorkoutRepository workoutRepository;
+    private final SessionRepository sessionRepository;
     private final MentorRepository mentorRepository;
     private final LocationRepository locationRepository;
     private final TraineeRepository traineeRepository;
@@ -32,12 +32,12 @@ public class ScheduledNotificationService {
     private String baseUrl;
 
     public ScheduledNotificationService(TelegramService telegramService, 
-                                         WorkoutRepository workoutRepository,
+                                         SessionRepository sessionRepository,
                                          MentorRepository mentorRepository,
                                          LocationRepository locationRepository,
                                          TraineeRepository traineeRepository) {
         this.telegramService = telegramService;
-        this.workoutRepository = workoutRepository;
+        this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.locationRepository = locationRepository;
         this.traineeRepository = traineeRepository;
@@ -83,8 +83,8 @@ public class ScheduledNotificationService {
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);
 
-        workoutRepository.findUpcomingWithoutReminder(today, tomorrow)
-                .flatMap(workout -> mentorRepository.findById(workout.getCoachId())
+        sessionRepository.findUpcomingWithoutReminder(today, tomorrow)
+                .flatMap(session -> mentorRepository.findById(session.getMentorId())
                         .flatMap(mentor -> {
                             if (!mentor.isSessionReminderEnabled() || !mentor.hasTelegram()) {
                                 return reactor.core.publisher.Mono.empty();
@@ -92,19 +92,19 @@ public class ScheduledNotificationService {
 
                             ZoneId mentorZone = ZoneId.of(mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
                             LocalDateTime now = LocalDateTime.now(mentorZone);
-                            LocalDateTime sessionStart = LocalDateTime.of(workout.getWorkoutDate(), workout.getStartTime());
+                            LocalDateTime sessionStart = LocalDateTime.of(session.getWorkoutDate(), session.getStartTime());
 
                             long minutesUntilSession = ChronoUnit.MINUTES.between(now, sessionStart);
                             int reminderMinutes = mentor.getSessionReminderMinutes() != null ? mentor.getSessionReminderMinutes() : 60;
 
                             int buffer = 3;
                             if (minutesUntilSession >= (reminderMinutes - buffer) && minutesUntilSession <= (reminderMinutes + buffer)) {
-                                return processSessionReminder(workout, mentor, minutesUntilSession);
+                                return processSessionReminder(session, mentor, minutesUntilSession);
                             }
 
                             if (minutesUntilSession < -1440) {
-                                workout.setReminderSent(true);
-                                return workoutRepository.save(workout).then(reactor.core.publisher.Mono.empty());
+                                session.setReminderSent(true);
+                                return sessionRepository.save(session).then(reactor.core.publisher.Mono.empty());
                             }
 
                             return reactor.core.publisher.Mono.empty();
@@ -117,21 +117,21 @@ public class ScheduledNotificationService {
                 );
     }
 
-    private reactor.core.publisher.Mono<Void> processSessionReminder(Workout workout, Mentor mentor, long minutesUntilSession) {
-        return locationRepository.findById(workout.getLocationId() != null ? workout.getLocationId() : -1L)
+    private reactor.core.publisher.Mono<Void> processSessionReminder(Session session, Mentor mentor, long minutesUntilSession) {
+        return locationRepository.findById(session.getLocationId() != null ? session.getLocationId() : -1L)
                 .switchIfEmpty(reactor.core.publisher.Mono.just(com.cozy.planner.model.entity.Location.builder().name(null).build()))
                 .flatMap(location -> {
                     String locationName = location.getName();
 
-                    String formattedDate = formatDate(workout.getWorkoutDate());
-                    String formattedTime = formatTime(workout.getStartTime(), workout.getEndTime());
+                    String formattedDate = formatDate(session.getWorkoutDate());
+                    String formattedTime = formatTime(session.getStartTime(), session.getEndTime());
 
                     log.info("Sending session reminder to mentor {} for session '{}' at {} ({} minutes)",
-                            mentor.getName(), workout.getTitle(), formattedTime, minutesUntilSession);
+                            mentor.getName(), session.getTitle(), formattedTime, minutesUntilSession);
 
                     return telegramService.sendSessionReminderToMentor(
                                     mentor,
-                                    workout.getTitle(),
+                                    session.getTitle(),
                                     formattedDate,
                                     formattedTime,
                                     locationName,
@@ -144,13 +144,13 @@ public class ScheduledNotificationService {
                                     log.warn("Failed to send session reminder to mentor {}", mentor.getName());
                                 }
                             })
-                            .then(markReminderSent(workout));
+                            .then(markReminderSent(session));
                 });
     }
 
-    private reactor.core.publisher.Mono<Void> markReminderSent(Workout workout) {
-        workout.setReminderSent(true);
-        return workoutRepository.save(workout).then();
+    private reactor.core.publisher.Mono<Void> markReminderSent(Session session) {
+        session.setReminderSent(true);
+        return sessionRepository.save(session).then();
     }
 
     private String formatDate(LocalDate date) {

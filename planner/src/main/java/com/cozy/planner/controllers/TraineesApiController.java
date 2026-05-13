@@ -4,9 +4,9 @@ import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
-import com.planner.api.AthletesApi;
-import com.planner.model.AthleteDTO;
-import com.planner.model.CreateAthleteRequest;
+import com.planner.api.TraineesApi;
+import com.planner.model.TraineeDTO;
+import com.planner.model.CreateTraineeRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,13 +18,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-public class AthletesApiController implements AthletesApi {
+public class TraineesApiController implements TraineesApi {
 
     private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final EventBroadcastService eventBroadcastService;
 
-    public AthletesApiController(TraineeRepository traineeRepository, 
+    public TraineesApiController(TraineeRepository traineeRepository, 
                                    TelegramConfig telegramConfig,
                                    EventBroadcastService eventBroadcastService) {
         this.traineeRepository = traineeRepository;
@@ -33,8 +33,8 @@ public class AthletesApiController implements AthletesApi {
     }
 
     @Override
-    public Mono<ResponseEntity<AthleteDTO>> createAthlete(Mono<CreateAthleteRequest> createAthleteRequest, ServerWebExchange exchange) {
-        return createAthleteRequest
+    public Mono<ResponseEntity<TraineeDTO>> createTrainee(Mono<CreateTraineeRequest> createTraineeRequest, ServerWebExchange exchange) {
+        return createTraineeRequest
                 .flatMap(request -> {
                     String name = request.getName();
                     if (name == null || name.isBlank()) {
@@ -43,12 +43,12 @@ public class AthletesApiController implements AthletesApi {
                     Trainee trainee = Trainee.builder()
                             .name(name.trim())
                             .description(request.getDescription())
-                            .mentorId(request.getCoachId())
+                            .mentorId(request.getMentorId())
                             .weekendReminderEnabled(false)
                             .build();
                     return traineeRepository.save(trainee);
                 })
-                .doOnSuccess(saved -> eventBroadcastService.broadcast("athlete_changed"))
+                .doOnSuccess(saved -> eventBroadcastService.broadcast("trainee_changed"))
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved)))
                 .onErrorResume(e -> {
                     if (e instanceof IllegalArgumentException || 
@@ -61,26 +61,26 @@ public class AthletesApiController implements AthletesApi {
     }
 
     @Override
-    public Mono<ResponseEntity<Void>> deleteAthlete(Long athleteId, ServerWebExchange exchange) {
-        return traineeRepository.findById(athleteId)
+    public Mono<ResponseEntity<Void>> deleteTrainee(Long traineeId, ServerWebExchange exchange) {
+        return traineeRepository.findById(traineeId)
                 .flatMap(trainee -> traineeRepository.delete(trainee)
-                        .then(Mono.fromRunnable(() -> eventBroadcastService.broadcast("athlete_changed")))
+                        .then(Mono.fromRunnable(() -> eventBroadcastService.broadcast("trainee_changed")))
                         .then(Mono.just(ResponseEntity.noContent().<Void>build())))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @Override
-    public Mono<ResponseEntity<AthleteDTO>> getAthleteById(Long athleteId, ServerWebExchange exchange) {
-        return traineeRepository.findById(athleteId)
+    public Mono<ResponseEntity<TraineeDTO>> getTraineeById(Long traineeId, ServerWebExchange exchange) {
+        return traineeRepository.findById(traineeId)
                 .map(this::mapToDto)
                 .map(ResponseEntity::ok)
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @Override
-    public Mono<ResponseEntity<AthleteDTO>> updateAthlete(Long athleteId, Mono<AthleteDTO> athleteDTO, ServerWebExchange exchange) {
-        return athleteDTO
-                .flatMap(dto -> traineeRepository.findById(athleteId)
+    public Mono<ResponseEntity<TraineeDTO>> updateTrainee(Long traineeId, Mono<TraineeDTO> traineeDTO, ServerWebExchange exchange) {
+        return traineeDTO
+                .flatMap(dto -> traineeRepository.findById(traineeId)
                         .flatMap(existing -> {
                             if (dto.getName() != null) {
                                 if (dto.getName().isBlank()) {
@@ -91,12 +91,12 @@ public class AthletesApiController implements AthletesApi {
                             if (dto.getDescription() != null) {
                                 existing.setDescription(dto.getDescription());
                             }
-                            if (dto.getCoachId() != null) {
-                                existing.setMentorId(dto.getCoachId());
+                            if (dto.getMentorId() != null) {
+                                existing.setMentorId(dto.getMentorId());
                             }
                             return traineeRepository.save(existing);
                         }))
-                .doOnSuccess(updated -> eventBroadcastService.broadcast("athlete_changed"))
+                .doOnSuccess(updated -> eventBroadcastService.broadcast("trainee_changed"))
                 .map(updated -> ResponseEntity.ok(mapToDto(updated)))
                 .defaultIfEmpty(ResponseEntity.notFound().build())
                 .onErrorResume(e -> {
@@ -109,19 +109,19 @@ public class AthletesApiController implements AthletesApi {
                 });
     }
 
-    @PostMapping("/api/v1/athletes/{athleteId}/photo")
-    public Mono<ResponseEntity<Map<String, Object>>> updatePhoto(@PathVariable Long athleteId,
-                                                                   @RequestBody Map<String, Object> body,
-                                                                   ServerWebExchange exchange) {
+    @PostMapping("/api/v1/trainees/{traineeId}/photo")
+    public Mono<ResponseEntity<Map<String, Object>>> updatePhoto(@PathVariable Long traineeId,
+                                                                    @RequestBody Map<String, Object> body,
+                                                                    ServerWebExchange exchange) {
         Object photoObj = body.get("photoBase64");
         String photoBase64 = photoObj != null ? photoObj.toString() : null;
         
-        return traineeRepository.findById(athleteId)
+        return traineeRepository.findById(traineeId)
                 .flatMap(existing -> {
                     existing.setPhotoBase64(photoBase64);
                     return traineeRepository.save(existing);
                 })
-                .doOnSuccess(saved -> eventBroadcastService.broadcast("athlete_changed"))
+                .doOnSuccess(saved -> eventBroadcastService.broadcast("trainee_changed"))
                 .map(saved -> {
                     Map<String, Object> result = new HashMap<>();
                     result.put("success", true);
@@ -131,19 +131,19 @@ public class AthletesApiController implements AthletesApi {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/api/v1/athletes/{athleteId}/weekend-reminder")
-    public Mono<ResponseEntity<Map<String, Object>>> updateWeekendReminder(@PathVariable Long athleteId,
+    @PostMapping("/api/v1/trainees/{traineeId}/weekend-reminder")
+    public Mono<ResponseEntity<Map<String, Object>>> updateWeekendReminder(@PathVariable Long traineeId,
                                                                               @RequestBody Map<String, Object> body,
                                                                               ServerWebExchange exchange) {
         Object enabledObj = body.get("enabled");
         boolean enabled = enabledObj != null && Boolean.TRUE.equals(enabledObj);
         
-        return traineeRepository.findById(athleteId)
+        return traineeRepository.findById(traineeId)
                 .flatMap(existing -> {
                     existing.setWeekendReminderEnabled(enabled);
                     return traineeRepository.save(existing);
                 })
-                .doOnSuccess(saved -> eventBroadcastService.broadcast("athlete_changed"))
+                .doOnSuccess(saved -> eventBroadcastService.broadcast("trainee_changed"))
                 .map(saved -> {
                     Map<String, Object> result = new HashMap<>();
                     result.put("success", true);
@@ -153,12 +153,12 @@ public class AthletesApiController implements AthletesApi {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    private AthleteDTO mapToDto(Trainee entity) {
-        AthleteDTO dto = new AthleteDTO();
+    private TraineeDTO mapToDto(Trainee entity) {
+        TraineeDTO dto = new TraineeDTO();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setDescription(entity.getDescription());
-        dto.setCoachId(entity.getMentorId());
+        dto.setMentorId(entity.getMentorId());
         return dto;
     }
 }

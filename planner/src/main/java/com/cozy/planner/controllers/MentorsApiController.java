@@ -5,9 +5,9 @@ import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
-import com.planner.api.CoachesApi;
-import com.planner.model.AthleteDTO;
-import com.planner.model.CoachDTO;
+import com.planner.api.MentorsApi;
+import com.planner.model.TraineeDTO;
+import com.planner.model.MentorDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,14 +22,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-public class CoachesApiController implements CoachesApi {
+public class MentorsApiController implements MentorsApi {
 
     private final MentorRepository mentorRepository;
     private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final com.cozy.planner.service.TelegramService telegramService;
 
-    public CoachesApiController(MentorRepository mentorRepository, 
+    public MentorsApiController(MentorRepository mentorRepository, 
                                   TraineeRepository traineeRepository,
                                   TelegramConfig telegramConfig,
                                   com.cozy.planner.service.TelegramService telegramService) {
@@ -40,23 +40,23 @@ public class CoachesApiController implements CoachesApi {
     }
 
     @Override
-    public Mono<ResponseEntity<Flux<CoachDTO>>> getClubCoaches(Long clubId, ServerWebExchange exchange) {
-        Flux<CoachDTO> coachFlux = mentorRepository.findAllByClubId(clubId)
-                .map(this::mapToCoachDto);
-        return Mono.just(ResponseEntity.ok(coachFlux));
+    public Mono<ResponseEntity<Flux<MentorDTO>>> getClubMentors(Long clubId, ServerWebExchange exchange) {
+        Flux<MentorDTO> mentorFlux = mentorRepository.findAllByClubId(clubId)
+                .map(this::mapToMentorDto);
+        return Mono.just(ResponseEntity.ok(mentorFlux));
     }
 
     @Override
-    public Mono<ResponseEntity<Flux<AthleteDTO>>> getCoachAthletes(Long coachId, ServerWebExchange exchange) {
-        Flux<AthleteDTO> athleteFlux = traineeRepository.findAllByMentorId(coachId)
-                .map(this::mapToAthleteDto);
-        return Mono.just(ResponseEntity.ok(athleteFlux));
+    public Mono<ResponseEntity<Flux<TraineeDTO>>> getMentorTrainees(Long mentorId, ServerWebExchange exchange) {
+        Flux<TraineeDTO> traineeFlux = traineeRepository.findAllByMentorId(mentorId)
+                .map(this::mapToTraineeDto);
+        return Mono.just(ResponseEntity.ok(traineeFlux));
     }
 
-    @GetMapping("/api/v1/coach/telegram/status")
+    @GetMapping("/api/v1/mentor/telegram/status")
     public Mono<ResponseEntity<Map<String, Object>>> getMentorTelegramStatus(ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
-            Object mentorIdObj = session.getAttribute("coach_id");
+            Object mentorIdObj = session.getAttribute("mentor_id");
             if (!(mentorIdObj instanceof Number)) {
                 Map<String, Object> result = new HashMap<>();
                 result.put("enabled", telegramService.isEnabled());
@@ -87,9 +87,9 @@ public class CoachesApiController implements CoachesApi {
                         if (telegramService.isEnabled() 
                                 && mentor.getTelegramToken() != null 
                                 && !mentor.getTelegramToken().isBlank()
-                                && telegramConfig.getCoachBotUsername() != null 
-                                && !telegramConfig.getCoachBotUsername().isBlank()) {
-                            connectLink = "https://t.me/" + telegramConfig.getCoachBotUsername() + "?start=" + mentor.getTelegramToken();
+                                && telegramConfig.getMentorBotUsername() != null 
+                                && !telegramConfig.getMentorBotUsername().isBlank()) {
+                            connectLink = "https://t.me/" + telegramConfig.getMentorBotUsername() + "?start=" + mentor.getTelegramToken();
                         } else if (telegramService.isEnabled() 
                                 && mentor.getTelegramToken() != null 
                                 && !mentor.getTelegramToken().isBlank()
@@ -104,10 +104,10 @@ public class CoachesApiController implements CoachesApi {
         });
     }
 
-    @PostMapping("/api/v1/coach/telegram/generate-token")
+    @PostMapping("/api/v1/mentor/telegram/generate-token")
     public Mono<ResponseEntity<Map<String, Object>>> generateMentorTelegramToken(ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
-            Object mentorIdObj = session.getAttribute("coach_id");
+            Object mentorIdObj = session.getAttribute("mentor_id");
             if (!(mentorIdObj instanceof Number)) {
                 Map<String, Object> result = new HashMap<>();
                 result.put("success", false);
@@ -142,8 +142,8 @@ public class CoachesApiController implements CoachesApi {
 
                         return telegramService.generateMentorTelegramToken(mentorId)
                                 .flatMap(token -> {
-                                    String botUsername = telegramConfig.isCoachBotEnabled() 
-                                            ? telegramConfig.getCoachBotUsername() 
+                                    String botUsername = telegramConfig.isMentorBotEnabled() 
+                                            ? telegramConfig.getMentorBotUsername() 
                                             : telegramConfig.getBotUsername();
                                     String connectLink = null;
                                     if (botUsername != null && !botUsername.isBlank()) {
@@ -160,8 +160,8 @@ public class CoachesApiController implements CoachesApi {
         });
     }
 
-    private CoachDTO mapToCoachDto(Mentor entity) {
-        CoachDTO dto = new CoachDTO();
+    private MentorDTO mapToMentorDto(Mentor entity) {
+        MentorDTO dto = new MentorDTO();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setSpecialization(entity.getSpecialization());
@@ -169,12 +169,12 @@ public class CoachesApiController implements CoachesApi {
         return dto;
     }
 
-    private AthleteDTO mapToAthleteDto(Trainee entity) {
-        AthleteDTO dto = new AthleteDTO();
+    private TraineeDTO mapToTraineeDto(Trainee entity) {
+        TraineeDTO dto = new TraineeDTO();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setDescription(entity.getDescription());
-        dto.setCoachId(entity.getMentorId());
+        dto.setMentorId(entity.getMentorId());
         return dto;
     }
 }

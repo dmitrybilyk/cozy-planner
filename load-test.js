@@ -23,6 +23,7 @@ export const options = {
   noConnectionReuse: true,
 };
 
+// const BASE_URL = 'https://footwork-lid-attendee.ngrok-free.dev';
 const BASE_URL = 'https://cozy-planner.duckdns.org';
 
 let ITER = 0;
@@ -91,18 +92,18 @@ function relogin() {
   }
 
   const me = JSON.parse(meRes.body);
-  const coachId = me.coach?.id || me.mentor?.id || -1;
-  log(`Relogin OK, Mentor ID: ${coachId}`);
+  const mentorId = me.mentor?.id || -1;
+  log(`Relogin OK, Mentor ID: ${mentorId}`);
 
   let locationIds = [1, 2];
-  const locRes = http.get(`${BASE_URL}/api/v1/coaches/${coachId}/locations`);
+  const locRes = http.get(`${BASE_URL}/api/v1/mentors/${mentorId}/locations`);
   if (locRes.status === 200) {
     const locs = JSON.parse(locRes.body);
     if (locs.length > 0) locationIds = locs.map(l => l.id);
   }
 
   vuState.loggedIn = true;
-  vuState.coachId = coachId;
+  vuState.mentorId = mentorId;
   vuState.locationIds = locationIds;
   return true;
 }
@@ -177,35 +178,35 @@ export default function (data) {
 
   ITER++;
   const iterLabel = `ITER=${ITER}`;
-  const coachId = vuState.coachId;
+  const mentorId = vuState.mentorId;
   const locationIds = vuState.locationIds;
-  const ids = { trainees: [], workouts: [] };
+  const ids = { trainees: [], sessions: [] };
 
-  log(`=== ${iterLabel} START === coachId=${coachId}`);
+  log(`=== ${iterLabel} START === mentorId=${mentorId}`);
 
   group('1. Fetch existing', () => {
-    const r1 = authedGet(`${BASE_URL}/api/v1/coaches/${coachId}/athletes`);
-    const ok1 = check(r1, { 'GET athletes ok': r => r.status === 200 });
+    const r1 = authedGet(`${BASE_URL}/api/v1/mentors/${mentorId}/trainees`);
+    const ok1 = check(r1, { 'GET trainees ok': r => r.status === 200 });
     errorRate.add(r1.status !== 200);
     if (ok1) {
-      const athletes = JSON.parse(r1.body);
-      log(`Existing athletes: ${athletes.length}`);
+      const trainees = JSON.parse(r1.body);
+      log(`Existing trainees: ${trainees.length}`);
     } else {
-      log(`FAILED to fetch athletes: ${r1.status}`);
+      log(`FAILED to fetch trainees: ${r1.status}`);
     }
     sleep(0.5);
 
     const today = new Date();
     const start = new Date(today); start.setDate(today.getDate() - 3);
     const end   = new Date(today); end.setDate(today.getDate() + 14);
-    const r2 = authedGet(`${BASE_URL}/api/v1/workouts?coachId=${coachId}&startDate=${fmtDate(start)}&endDate=${fmtDate(end)}`);
-    const ok2 = check(r2, { 'GET workouts ok': r => r.status === 200 });
+    const r2 = authedGet(`${BASE_URL}/api/v1/sessions?mentorId=${mentorId}&startDate=${fmtDate(start)}&endDate=${fmtDate(end)}`);
+    const ok2 = check(r2, { 'GET sessions ok': r => r.status === 200 });
     errorRate.add(r2.status !== 200);
     if (ok2) {
-      const workouts = JSON.parse(r2.body);
-      log(`Existing workouts: ${workouts.length}`);
+      const sessions = JSON.parse(r2.body);
+      log(`Existing sessions: ${sessions.length}`);
     } else {
-      log(`FAILED to fetch workouts: ${r2.status}`);
+      log(`FAILED to fetch sessions: ${r2.status} body=${r2.body ? r2.body.slice(0, 200) : '(no body)'}`);
     }
     sleep(0.5);
   });
@@ -214,8 +215,8 @@ export default function (data) {
     for (let i = 0; i < 3; i++) {
       const name = `${randItem(TRAINEE_NAMES)}-vu${__VU}-it${ITER}-${i}`;
       const start = Date.now();
-      const res = authedPost(`${BASE_URL}/api/v1/athletes`,
-        JSON.stringify({ name, description: 'load-test', coachId }),
+      const res = authedPost(`${BASE_URL}/api/v1/trainees`,
+        JSON.stringify({ name, description: 'load-test', mentorId }),
         { headers: { 'Content-Type': 'application/json' } }
       );
       traineeCreateTime.add(Date.now() - start);
@@ -226,7 +227,7 @@ export default function (data) {
         ids.trainees.push(id);
         log(`Created trainee: id=${id} name="${name}"`);
       } else {
-        log(`FAILED to create trainee: ${res.status} ${res.body.slice(0, 200)}`);
+        log(`FAILED to create trainee: ${res.status} ${res.body ? res.body.slice(0, 200) : '(no body)'}`);
       }
       sleep(0.5);
     }
@@ -236,9 +237,9 @@ export default function (data) {
   group('3. Edit first trainee', () => {
     if (ids.trainees.length > 0) {
       const id = ids.trainees[0];
-      const newName = `${randItem(TRAINEE_NAMES)}-EDITED-${__VU}`;
-      const res = authedPut(`${BASE_URL}/api/v1/athletes/${id}`,
-        JSON.stringify({ name: newName, coachId }),
+      const newName = `${randItem(TRAINEE_NAMES)}-EDITED-${__VU}-it${ITER}`;
+      const res = authedPut(`${BASE_URL}/api/v1/trainees/${id}`,
+        JSON.stringify({ name: newName, mentorId }),
         { headers: { 'Content-Type': 'application/json' } }
       );
       const ok = check(res, { 'trainee edited': r => r.status === 200 });
@@ -262,12 +263,12 @@ export default function (data) {
         date: randDate(14),
         time: t,
         endTime: randEnd(t),
-        coachId,
+        mentorId,
         locationId: randItem(locationIds),
-        athleteIds: aIds,
+        traineeIds: aIds,
       };
       const start = Date.now();
-      const res = authedPost(`${BASE_URL}/api/v1/workouts`,
+      const res = authedPost(`${BASE_URL}/api/v1/sessions`,
         JSON.stringify(body),
         { headers: { 'Content-Type': 'application/json' } }
       );
@@ -276,39 +277,39 @@ export default function (data) {
       errorRate.add(!ok);
       if (ok) {
         const id = JSON.parse(res.body).id;
-        ids.workouts.push(id);
+        ids.sessions.push(id);
         log(`Created session: id=${id} title="${title}" ${body.date} ${body.time}-${body.endTime}`);
       } else {
-        log(`FAILED to create session: ${res.status} ${res.body.slice(0, 200)}`);
+        log(`FAILED to create session: ${res.status} ${res.body ? res.body.slice(0, 200) : '(no body)'}`);
       }
       sleep(0.5);
     }
-    log(`Sessions created: ${ids.workouts.length} — visible on planner page now!`);
+    log(`Sessions created: ${ids.sessions.length} — visible on planner page now!`);
   });
 
-  if (ids.workouts.length > 0) {
-    log(`Holding ${ids.workouts.length} sessions for 8s — watch the planner page!`);
+  if (ids.sessions.length > 0) {
+    log(`Holding ${ids.sessions.length} sessions for 8s — watch the planner page!`);
     sleep(8);
   }
 
   group('5. Delete sessions', () => {
-    for (const wid of ids.workouts) {
+    for (const sid of ids.sessions) {
       const start = Date.now();
-      const res = authedDel(`${BASE_URL}/api/v1/workouts/${wid}`);
+      const res = authedDel(`${BASE_URL}/api/v1/sessions/${sid}`);
       sessionDeleteTime.add(Date.now() - start);
       const ok = check(res, { 'session deleted': r => r.status === 204 });
       errorRate.add(res.status !== 204);
-      if (ok) log(`Deleted session: id=${wid}`);
+      if (ok) log(`Deleted session: id=${sid}`);
       else log(`FAILED to delete session: ${res.status}`);
       sleep(0.3);
     }
-    if (ids.workouts.length > 0) log(`All ${ids.workouts.length} sessions deleted`);
+    if (ids.sessions.length > 0) log(`All ${ids.sessions.length} sessions deleted`);
   });
 
   group('6. Delete trainees', () => {
     for (const tid of ids.trainees) {
       const start = Date.now();
-      const res = authedDel(`${BASE_URL}/api/v1/athletes/${tid}`);
+      const res = authedDel(`${BASE_URL}/api/v1/trainees/${tid}`);
       traineeDeleteTime.add(Date.now() - start);
       const ok = check(res, { 'trainee deleted': r => r.status === 204 });
       errorRate.add(res.status !== 204);

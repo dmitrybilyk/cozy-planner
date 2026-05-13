@@ -50,7 +50,7 @@ public class AuthController {
     public Mono<String> setup(ServerWebExchange exchange) {
         return exchange.getFormData().flatMap(formData -> {
             String clubName = formData.getFirst("clubName");
-            String mentorName = formData.getFirst("coachName");
+            String mentorName = formData.getFirst("mentorName");
             return exchange.getSession().flatMap(session -> {
                 String googleSub = session.getAttribute("google_sub");
                 String email = session.getAttribute("user_email");

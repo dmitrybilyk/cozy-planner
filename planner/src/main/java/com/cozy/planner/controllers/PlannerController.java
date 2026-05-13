@@ -19,22 +19,21 @@ public class PlannerController {
 
     @GetMapping("/planner")
     public String getPlanner() {
-        return "coach-view";
+        return "mentor-view";
     }
 
     @GetMapping("/planner23")
     public String getPlanner2() {
-        return "coach-view";
+        return "mentor-view";
     }
 
-    @GetMapping("/athlete/{token}")
+    @GetMapping("/trainee/{token}")
     public Mono<String> getTraineeInvite(@PathVariable String token, ServerWebExchange exchange) {
         return exchange.getSession()
                 .flatMap(session -> traineeRepository.findByInviteToken(token)
                         .map(trainee -> {
-                            session.getAttributes().put("athlete_id", trainee.getId());
                             session.getAttributes().put("trainee_id", trainee.getId());
-                            return "athlete-availability";
+                            return "trainee-availability";
                         })
                         .defaultIfEmpty("redirect:/signin"));
     }

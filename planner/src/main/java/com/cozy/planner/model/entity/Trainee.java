@@ -51,9 +51,4 @@ public class Trainee {
         return Boolean.TRUE.equals(weekendReminderEnabled);
     }
 
-    @Deprecated
-    public Long getCoachId() { return mentorId; }
-    
-    @Deprecated
-    public void setCoachId(Long coachId) { this.mentorId = coachId; }
 }

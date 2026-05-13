@@ -15,7 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 @Data
 @Builder
-public class Workout {
+public class Session {
     @Id
     private Long id;
     private String title;
@@ -31,7 +31,7 @@ public class Workout {
     private LocalTime endTime;
 
     @Column("mentor_id")
-    private Long coachId;
+    private Long mentorId;
 
     @Column("place_id")
     private Long locationId;
@@ -41,8 +41,5 @@ public class Workout {
     private Boolean reminderSent = false;
 
     @Transient
-    private List<Long> athleteIds;
-
-    public Long getMentorId() { return coachId; }
-    public void setMentorId(Long mentorId) { this.coachId = mentorId; }
+    private List<Long> traineeIds;
 }

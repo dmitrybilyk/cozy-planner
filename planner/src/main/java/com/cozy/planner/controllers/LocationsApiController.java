@@ -32,7 +32,7 @@ public class LocationsApiController implements LocationsApi {
                             .name(request.getName())
                             .description(request.getDescription())
                             .color(request.getColor())
-                            .coachId(request.getCoachId())
+                            .mentorId(request.getMentorId())
                             .build();
                     return locationRepository.save(location);
                 })
@@ -58,8 +58,8 @@ public class LocationsApiController implements LocationsApi {
     }
 
     @Override
-    public Mono<ResponseEntity<Flux<LocationDTO>>> getCoachLocations(Long coachId, ServerWebExchange exchange) {
-        Flux<LocationDTO> locationFlux = locationRepository.findAllByCoachId(coachId)
+    public Mono<ResponseEntity<Flux<LocationDTO>>> getMentorLocations(Long mentorId, ServerWebExchange exchange) {
+        Flux<LocationDTO> locationFlux = locationRepository.findAllByMentorId(mentorId)
                 .map(this::mapToDto);
         return Mono.just(ResponseEntity.ok(locationFlux));
     }
@@ -78,8 +78,8 @@ public class LocationsApiController implements LocationsApi {
                             if (dto.getColor() != null) {
                                 existing.setColor(dto.getColor());
                             }
-                            if (dto.getCoachId() != null) {
-                                existing.setCoachId(dto.getCoachId());
+                            if (dto.getMentorId() != null) {
+                                existing.setMentorId(dto.getMentorId());
                             }
                             return locationRepository.save(existing);
                         }))
@@ -94,7 +94,7 @@ public class LocationsApiController implements LocationsApi {
         dto.setName(entity.getName());
         dto.setDescription(entity.getDescription());
         dto.setColor(entity.getColor());
-        dto.setCoachId(entity.getCoachId());
+        dto.setMentorId(entity.getMentorId());
         return dto;
     }
 }

@@ -51,7 +51,4 @@ public class Mentor {
     public boolean isSessionReminderEnabled() {
         return Boolean.TRUE.equals(sessionReminderEnabled);
     }
-
-    @Deprecated
-    public Long getCoachId() { return id; }
 }
