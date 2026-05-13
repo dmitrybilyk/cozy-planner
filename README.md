@@ -4,6 +4,8 @@ Cozy planner for every day's usage
 oraclecloud: dmitrybilyk
 ssh ubuntu@92.5.42.35
 
+cozy-planner.duckdns.org/planner
+
 e2e
 npm test                # headless                                                                                  ┃                       ┃    49,768 tokens                           
 npm run test:headed     # with browser UI
@@ -17,6 +19,16 @@ curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVl
 coach bot
 curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=https://footwork-lid-attendee.ngrok-free.dev/api/v1/telegram/webhook/coach"
 
+
+
+After deploying, tell Telegram where to send updates:                                                                                                                                  LSP                                     
+curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY/setWebhook?url=http://cozy-planner.duckdns.org:8080/api/v1/telegram/webhook"
+
+
+coach bot
+curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=http://cozy-planner.duckdns.org:8080/api/v1/telegram/webhook/coach"
+
+sudo certbot certonly --standalone -d cozy-planner.duckdns.org
 
 https://footwork-lid-attendee.ngrok-free.dev/athlete/register?token=5VW2KFIzBhFFR7FkagGtdComMvLXX7PpeF2w80pGj7g
 
