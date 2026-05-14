@@ -1,5 +1,6 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.TelegramService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -90,25 +91,16 @@ public class TelegramController {
                                 })
                                 .switchIfEmpty(Mono.defer(() -> {
                                     log.warn("Neither trainee nor mentor found with token: {}", token);
-                                    sendResponse(chatId, "❌ Невірний токен.\nЗвернись для уточнення.", botType);
+                                    sendResponse(chatId, ProfileLabels.get("sport", "telegram_invalid_token"), botType);
                                     return Mono.just(ResponseEntity.ok().build());
                                 }));
                     }));
         } else if (text.equals("/start")) {
             log.info("Received /start without token from chatId: {}", chatId);
-            sendResponse(chatId,
-                    "👋 Привіт!\n\n" +
-                    "Щоб підключитись, надішли мені посилання або команду " +
-                    "/start [токен], яку дав тренер.\n\n" +
-                    "Наприклад: `/start abc123xyz`",
-                    botType);
+            sendResponse(chatId, ProfileLabels.get("sport", "telegram_connect_prompt"), botType);
             return Mono.just(ResponseEntity.ok().build());
         } else if (text.startsWith("/")) {
-            sendResponse(chatId,
-                    "Доступні команди:\n" +
-                    "/start - Підключити акаунт\n" +
-                    "/help - Допомога",
-                    botType);
+            sendResponse(chatId, ProfileLabels.get("sport", "telegram_help"), botType);
         }
 
         return Mono.just(ResponseEntity.ok().build());

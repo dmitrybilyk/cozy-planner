@@ -1,0 +1,1 @@
+ALTER TABLE mentors ADD COLUMN profile VARCHAR(32) NOT NULL DEFAULT 'sport';

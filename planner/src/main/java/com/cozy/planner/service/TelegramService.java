@@ -154,19 +154,25 @@ public class TelegramService {
         String link = baseUrl + "/trainee/" + trainee.getInviteToken();
         log.info("Sending availability reminder to trainee: {}, link: {}", trainee.getName(), link);
         
-        StringBuilder text = new StringBuilder();
-        text.append("👋 <b>").append(escapeHtml(trainee.getName())).append("</b>!\n\n");
-        text.append("📋 Тренер просить вказати доступність на найближчі дні.\n\n");
-        
-        if (customMessage != null && !customMessage.isBlank()) {
-            text.append("💬 <b>").append(escapeHtml(customMessage)).append("</b>\n\n");
-        }
-        
-        text.append(link).append("\n\n");
-        text.append("<i>Будь ласка, заповни години, коли ти можеш зустрітися.</i>");
+        return mentorRepository.findById(trainee.getMentorId())
+                .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                .flatMap(mentor -> {
+                    String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                    
+                    StringBuilder text = new StringBuilder();
+                    text.append("👋 <b>").append(escapeHtml(trainee.getName())).append("</b>!\n\n");
+                    text.append(ProfileLabels.get(profile, "telegram_reminder_request"));
+                    
+                    if (customMessage != null && !customMessage.isBlank()) {
+                        text.append("💬 <b>").append(escapeHtml(customMessage)).append("</b>\n\n");
+                    }
+                    
+                    text.append(link).append("\n\n");
+                    text.append(ProfileLabels.get(profile, "telegram_reminder_instruction"));
 
-        Map<String, Object> keyboard = createInlineUrlButton("📅 Відкрити календар", link);
-        return sendMessage(trainee.getTelegramChatId(), text.toString(), keyboard);
+                    Map<String, Object> keyboard = createInlineUrlButton(ProfileLabels.get(profile, "telegram_open_calendar"), link);
+                    return sendMessage(trainee.getTelegramChatId(), text.toString(), keyboard);
+                });
     }
 
     private String escapeHtml(String text) {
@@ -189,14 +195,20 @@ public class TelegramService {
         String link = baseUrl + "/trainee/" + trainee.getInviteToken();
         log.info("Sending weekend reminder to trainee: {}, link: {}", trainee.getName(), link);
         
-        String text = "🌴 <b>Запит на доступність у вихідні</b>\n\n" +
-                "👋 Привіт, " + escapeHtml(trainee.getName()) + "!\n\n" +
-                "Будь ласка, заповни доступність на <b>суботу та неділю</b>!\n\n" +
-                link + "\n\n" +
-                "<i>Тренеру потрібно знати, коли ти зможеш зайнятися у вихідні.</i>";
+        return mentorRepository.findById(trainee.getMentorId())
+                .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                .flatMap(mentor -> {
+                    String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                    
+                    String text = ProfileLabels.get(profile, "telegram_weekend_title") +
+                            "👋 Привіт, " + escapeHtml(trainee.getName()) + "!\n\n" +
+                            ProfileLabels.get(profile, "telegram_weekend_body") +
+                            link + "\n\n" +
+                            ProfileLabels.get(profile, "telegram_weekend_instruction");
 
-        Map<String, Object> keyboard = createInlineUrlButton("📅 Відкрити календар", link);
-        return sendMessage(trainee.getTelegramChatId(), text, keyboard);
+                    Map<String, Object> keyboard = createInlineUrlButton(ProfileLabels.get(profile, "telegram_open_calendar"), link);
+                    return sendMessage(trainee.getTelegramChatId(), text, keyboard);
+                });
     }
 
     public Mono<Boolean> sendMentorTraineeAvailabilityUpdateNotification(Mentor mentor, Trainee trainee) {
@@ -204,9 +216,13 @@ public class TelegramService {
             return Mono.just(false);
         }
 
+        String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+
         StringBuilder text = new StringBuilder();
-        text.append("✅ <b>Оновлення доступності</b>\n\n");
-        text.append("Учень <b>").append(escapeHtml(trainee.getName())).append("</b> щойно оновив(ла) свою доступність.\n\n");
+        text.append(ProfileLabels.get(profile, "telegram_update_title"));
+        text.append(ProfileLabels.get(profile, "telegram_update_body"))
+            .append(escapeHtml(trainee.getName()))
+            .append(ProfileLabels.get(profile, "telegram_update_footer"));
         
         if (appBaseUrl != null && !appBaseUrl.isBlank() 
                 && !appBaseUrl.contains("localhost") 
@@ -215,13 +231,13 @@ public class TelegramService {
             text.append(plannerLink).append("\n\n");
         }
         
-        text.append("<i>Перевірте календар для планування.</i>");
+        text.append(ProfileLabels.get(profile, "telegram_update_hint"));
 
         if (appBaseUrl != null && !appBaseUrl.isBlank() 
                 && !appBaseUrl.contains("localhost") 
                 && !appBaseUrl.contains("127.0.0.1")) {
             String plannerLink = appBaseUrl.endsWith("/") ? appBaseUrl + "planner" : appBaseUrl + "/planner";
-            Map<String, Object> keyboard = createInlineUrlButton("📋 Відкрити планувальник", plannerLink);
+            Map<String, Object> keyboard = createInlineUrlButton(ProfileLabels.get(profile, "telegram_open_planner"), plannerLink);
             return sendMessageToMentor(mentor.getTelegramChatId(), text.toString(), keyboard);
         }
 
@@ -236,20 +252,22 @@ public class TelegramService {
                     trainee.setTelegramConnectedAt(LocalDateTime.now());
                     return traineeRepository.save(trainee);
                 })
-                .doOnSuccess(t -> {
-                    if (t != null) {
-                        log.info("Trainee {} connected Telegram: chatId={}", t.getId(), chatId);
-                        eventBroadcastService.broadcast("trainee_changed");
-                        sendWelcomeMessage(chatId, t.getName());
-                    }
-                });
+                .flatMap(trainee ->
+                    mentorRepository.findById(trainee.getMentorId())
+                            .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                            .doOnNext(mentor -> {
+                                log.info("Trainee {} connected Telegram: chatId={}", trainee.getId(), chatId);
+                                eventBroadcastService.broadcast("trainee_changed");
+                                String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                sendWelcomeMessage(chatId, trainee.getName(), profile);
+                            })
+                            .thenReturn(trainee)
+                );
     }
 
-    private void sendWelcomeMessage(String chatId, String traineeName) {
+    private void sendWelcomeMessage(String chatId, String traineeName, String profile) {
         String welcome = "✅ <b>Привіт, " + escapeHtml(traineeName) + "!</b>\n\n" +
-                "Ти успішно підключив Telegram до Cozy Planner.\n\n" +
-                "Тепер ти будеш отримувати нагадування про необхідність заповнити доступність.\n\n" +
-                "Чекаємо на твої оновлення! ✨";
+                ProfileLabels.get(profile, "welcome_trainee_message");
 
         sendMessage(chatId, welcome).subscribe();
     }
@@ -266,22 +284,19 @@ public class TelegramService {
                     mentor.setTelegramConnectedAt(LocalDateTime.now());
                     return mentorRepository.save(mentor);
                 })
-                .doOnSuccess(m -> {
+                .doOnNext(m -> {
                     if (m != null) {
                         log.info("Mentor {} connected Telegram: chatId={}", m.getId(), chatId);
                         eventBroadcastService.broadcast("mentor_changed");
-                        sendMentorWelcomeMessage(chatId, m.getName());
+                        String profile = m.getProfile() != null ? m.getProfile() : "sport";
+                        sendMentorWelcomeMessage(chatId, m.getName(), profile);
                     }
                 });
     }
 
-    private void sendMentorWelcomeMessage(String chatId, String mentorName) {
+    private void sendMentorWelcomeMessage(String chatId, String mentorName, String profile) {
         String welcome = "✅ <b>Привіт, " + escapeHtml(mentorName) + "!</b>\n\n" +
-                "Ти успішно підключив(ла) Telegram до Cozy Planner.\n\n" +
-                "🔔 Тепер ти будеш отримувати сповіщення:\n" +
-                "• Коли учень заповнить свою доступність\n" +
-                "• Про майбутні зустрічі\n\n" +
-                "Гарного дня!";
+                ProfileLabels.get(profile, "welcome_mentor_message");
 
         sendMessageToMentor(chatId, welcome).subscribe();
     }
@@ -309,24 +324,29 @@ public class TelegramService {
             return Mono.just(false);
         }
 
+        String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+
         StringBuilder text = new StringBuilder();
-        text.append("⏰ <b>Нагадування про зустріч</b>\n\n");
+        text.append(ProfileLabels.get(profile, "telegram_session_reminder_title"));
         text.append("<b>").append(escapeHtml(sessionTitle)).append("</b>\n");
         text.append("📅 ").append(sessionDate).append("\n");
-        text.append("🕐 ").append(sessionTime).append(" (через ").append(minutesBefore).append(" хвилин)\n");
+        text.append(ProfileLabels.get(profile, "telegram_session_reminder_time"))
+            .append(sessionTime)
+            .append(ProfileLabels.get(profile, "telegram_session_reminder_minutes"))
+            .append(minutesBefore).append(" хвилин)\n");
         
         if (locationName != null && !locationName.isBlank()) {
             text.append("📍 ").append(escapeHtml(locationName)).append("\n");
         }
 
         text.append("\n");
-        text.append("<i>Не забудьте про зустріч!</i>");
+        text.append(ProfileLabels.get(profile, "telegram_session_reminder_footer"));
 
         if (appBaseUrl != null && !appBaseUrl.isBlank() 
                 && !appBaseUrl.contains("localhost") 
                 && !appBaseUrl.contains("127.0.0.1")) {
             String plannerLink = appBaseUrl.endsWith("/") ? appBaseUrl + "planner" : appBaseUrl + "/planner";
-            Map<String, Object> keyboard = createInlineUrlButton("📋 Відкрити планувальник", plannerLink);
+            Map<String, Object> keyboard = createInlineUrlButton(ProfileLabels.get(profile, "telegram_open_planner"), plannerLink);
             return sendMessageToMentor(mentor.getTelegramChatId(), text.toString(), keyboard);
         }
 

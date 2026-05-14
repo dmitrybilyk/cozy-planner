@@ -44,6 +44,9 @@ public class Mentor {
     @Builder.Default
     private Integer sessionReminderMinutes = 60;
 
+    @Builder.Default
+    private String profile = "sport";
+
     public boolean hasTelegram() {
         return telegramChatId != null && !telegramChatId.isBlank();
     }

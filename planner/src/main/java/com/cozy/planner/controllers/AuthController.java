@@ -51,6 +51,11 @@ public class AuthController {
         return exchange.getFormData().flatMap(formData -> {
             String clubName = formData.getFirst("clubName");
             String mentorName = formData.getFirst("mentorName");
+            String profile = formData.getFirst("profile");
+            if (profile == null || profile.isBlank()) {
+                profile = "sport";
+            }
+            final String profileFinal = profile;
             return exchange.getSession().flatMap(session -> {
                 String googleSub = session.getAttribute("google_sub");
                 String email = session.getAttribute("user_email");
@@ -59,7 +64,7 @@ public class AuthController {
                     return Mono.just("redirect:/login");
                 }
                 return userRepository.findByGoogleSub(googleSub)
-                        .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName)
+                        .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName, profileFinal)
                                 .thenReturn("redirect:/planner"))
                         .switchIfEmpty(
                                 Mono.defer(() -> {
@@ -70,7 +75,7 @@ public class AuthController {
                                             .createdAt(LocalDateTime.now())
                                             .build();
                                     return userRepository.save(newUser)
-                                            .flatMap(user -> createClubAndMentor(user, clubName, mentorName))
+                                            .flatMap(user -> createClubAndMentor(user, clubName, mentorName, profileFinal))
                                             .thenReturn("redirect:/planner");
                                 })
                         );
@@ -78,12 +83,13 @@ public class AuthController {
         });
     }
 
-    private Mono<Void> createClubAndMentor(User user, String clubName, String mentorName) {
+    private Mono<Void> createClubAndMentor(User user, String clubName, String mentorName, String profile) {
         Club club = Club.builder().name(clubName).userId(user.getId()).build();
         return clubRepository.save(club).flatMap(savedClub -> {
             Mentor mentor = Mentor.builder()
                     .name(mentorName)
                     .clubId(savedClub.getId())
+                    .profile(profile)
                     .build();
             return mentorRepository.save(mentor).then();
         });

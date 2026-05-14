@@ -65,15 +65,15 @@
             </svg>
         </div>
         <div class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl flex-shrink-0">
-            <button @click="currentView = 'feed'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">День</button>
-            <button @click="currentView = 'agenda'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">План</button>
+            <button @click="currentView = 'feed'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'" x-text="labels.day || 'День'"></button>
+            <button @click="currentView = 'agenda'" class="px-2 sm:px-3 py-1 sm:py-1.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'" x-text="labels.plan || 'План'"></button>
         </div>
          <form method="POST" action="/logout" id="logoutForm" class="hidden"></form>
          
          <div x-show="mentorTg.enabled" class="flex items-center gap-2 mr-2">
              <template x-if="mentorTg.connected">
                  <span class="px-2 py-1 bg-green-900/30 text-green-400 rounded-full text-[9px] font-bold uppercase">
-                     ✓ TG підключено
+                     <span x-text="labels.tg_connected || '✓ TG підключено'"></span>
                      <span x-show="mentorTg.username" class="opacity-60 ml-1" x-text="'@' + mentorTg.username"></span>
                  </span>
              </template>
@@ -91,21 +91,21 @@
          <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
     </div>
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex gap-2">
-        <button @click="openSessionModal()" class="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl font-bold text-sm sm:text-base shadow-lg transition">
+        <button @click="openSessionModal()" :disabled="selectedDate < todayStr" class="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl font-bold text-sm sm:text-base shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            <span>Нова сесія</span>
+            <span x-text="labels.new_session || 'Нова сесія'"></span>
         </button>
         <button @click="showManageTrainees = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span>Учні</span>
+            <span x-text="labels.manage_trainees || 'Учні'"></span>
         </button>
         <button @click="showManageLocations = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span>Місця</span>
+            <span x-text="labels.locations || 'Місця'"></span>
         </button>
         <button @click="showAvailabilityOverview = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span>Доступність</span>
+            <span x-text="labels.availability || 'Доступність'"></span>
         </button>
     </div>
 </header>
@@ -124,7 +124,7 @@
                         <span class="text-sm font-bold text-white" x-text="day.dayNum"></span>
                     </div>
                 </div>
-                <span x-show="day.dateStr === todayStr" class="text-[7px] font-black text-white uppercase mt-1 tracking-tighter">Сьогодні</span>
+                <span x-show="day.dateStr === todayStr" class="text-[7px] font-black text-white uppercase mt-1 tracking-tighter" x-text="labels.today || 'Сьогодні'"></span>
                 <div x-show="hasSessionOn(day.dateStr)" class="w-1 h-1 bg-blue-500 rounded-full mt-0.5"></div>
             </button>
         </template>
@@ -132,7 +132,7 @@
 </div>
 
 <div x-show="currentView === 'agenda'" class="bg-[#1a1a1a] border-b border-[#333] p-4 overflow-x-auto no-scrollbar flex space-x-2">
-    <button @click="toggleTraineeFilter(null)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition" :class="selectedTraineeFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'">Всі учні</button>
+    <button @click="toggleTraineeFilter(null)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition" :class="selectedTraineeFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'" x-text="labels.all_trainees || 'Всі учні'"></button>
     <template x-for="trainee in trainees" :key="trainee.id">
         <button @click="toggleTraineeFilter(trainee.id)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition border border-[#333]" :class="selectedTraineeFilters.includes(trainee.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-[#1a1a1a] text-gray-400'" x-text="trainee.name"></button>
     </template>
@@ -142,7 +142,7 @@
     <div x-show="currentView === 'feed'">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest" x-text="formatDisplayDate(selectedDate)"></h2>
-            <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-xs sm:text-sm font-bold text-blue-400 uppercase">Сьогодні</button>
+            <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-xs sm:text-sm font-bold text-blue-400 uppercase" x-text="labels.today || 'Сьогодні'"></button>
         </div>
         <div class="space-y-4">
             <template x-for="(session, index) in filteredSessions" :key="session.id">
@@ -169,12 +169,12 @@
                                 <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
                                 <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                             </div>
-                            <button @click.stop="copySession(session)" class="mt-2 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider">Копіювати</button>
+                            <button @click.stop="copySession(session)" class="mt-2 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
                         </div>
                     </div>
                 </div>
             </template>
-            <div x-show="filteredSessions.length === 0" class="text-center py-20 text-gray-600 text-sm italic">Немає тренувань на цей день</div>
+            <div x-show="filteredSessions.length === 0" class="text-center py-20 text-gray-600 text-sm italic" x-text="labels.no_sessions || 'Немає тренувань на цей день'"></div>
         </div>
     </div>
 
@@ -183,7 +183,7 @@
             <div class="space-y-4">
                 <button @click="goToDay(dateGroup.date)" class="sticky top-[108px] sm:top-[116px] bg-[#121212] py-2 z-10 w-full text-left flex items-center justify-between">
                     <span class="text-xs font-black text-blue-400 uppercase tracking-widest" x-text="formatDisplayDate(dateGroup.date)"></span>
-                    <span x-show="dateGroup.date === todayStr" class="text-[9px] font-black text-white bg-[#333] px-2 py-0.5 rounded">СЬОГОДНІ</span>
+                    <span x-show="dateGroup.date === todayStr" class="text-[9px] font-black text-white bg-[#333] px-2 py-0.5 rounded" x-text="labels.today || 'СЬОГОДНІ'"></span>
                 </button>
                 <div class="space-y-3">
                     <template x-for="(session, index) in dateGroup.items" :key="session.id">
@@ -203,7 +203,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <button @click.stop="copySession(session)" class="ml-2 flex-shrink-0 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider">Копіювати</button>
+                            <button @click.stop="copySession(session)" class="ml-2 flex-shrink-0 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
                         </div>
                     </template>
                 </div>
@@ -260,7 +260,7 @@
             
             <template x-if="mentorTg.enabled && !mentorTg.connected">
                 <div class="space-y-3">
-                    <p class="text-gray-400 text-sm">Підключіть Telegram, щоб отримувати сповіщення про оновлення доступності учнів.</p>
+                    <p class="text-gray-400 text-sm" x-text="labels.tg_connect_prompt || 'Підключіть Telegram, щоб отримувати сповіщення про оновлення доступності учнів.'"></p>
                     
                     <button @click="generateMentorTelegramToken()" 
                             :class="mentorTg.copied ? 'bg-green-600' : (mentorTg.connectLink ? 'bg-orange-500' : 'bg-blue-600')"
@@ -297,8 +297,8 @@
 <!-- МЕНЕДЖЕР АТЛЕТІВ (ПОВНОЕКРАННИЙ) -->
 <div x-show="showManageTrainees" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
     <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
-        <button @click="showManageTrainees = false" class="text-blue-400 font-bold">Назад</button>
-        <h3 class="font-bold">Команда</h3>
+        <button @click="showManageTrainees = false" class="text-blue-400 font-bold" x-text="labels.back || 'Назад'"></button>
+        <h3 class="font-bold" x-text="labels.team || 'Команда'"></h3>
         <div class="w-10"></div>
     </header>
     <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
@@ -316,8 +316,8 @@
                 </label>
             </div>
             <div class="flex-1 space-y-3">
-                <input type="text" x-model="traineeForm.name" placeholder="ПІБ учня" class="w-full text-base">
-                <input type="text" x-model="traineeForm.description" placeholder="Примітка" class="w-full text-base">
+                <input type="text" x-model="traineeForm.name" :placeholder="labels.trainee_name_placeholder || 'ПІБ учня'" class="w-full text-base">
+                <input type="text" x-model="traineeForm.description" :placeholder="labels.trainee_description_placeholder || 'Примітка'" class="w-full text-base">
             </div>
         </div>
          <div x-show="traineeForm.photoBase64" class="text-center">
@@ -329,13 +329,13 @@
                     class="w-5 h-5 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
              <label class="text-sm text-gray-300 cursor-pointer" 
                     :class="!trainees.find(a => a.id === editingTraineeId)?.telegramConnected ? 'text-gray-500' : ''">
-                 🌴 Нагадувати про доступність по п'ятницях
+                 <span x-text="labels.remind_availability || '🌴 Нагадувати про доступність по п'ятницях'"></span>
              </label>
          </div>
-        <button @click="saveTrainee()" :disabled="!traineeForm.name || traineeForm.name.trim() === ''" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" x-text="editingTraineeId ? 'Оновити' : 'Додати учня'"></button>
+        <button @click="saveTrainee()" :disabled="!traineeForm.name || traineeForm.name.trim() === ''" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" x-text="editingTraineeId ? (labels.update_trainee || 'Оновити') : (labels.add_trainee || 'Додати учня')"></button>
     </div>
      <div class="flex-1 overflow-y-auto p-4 space-y-3">
-         <input type="text" x-model="traineeSearch" placeholder="Пошук учнів..." class="w-full text-base sticky top-0 z-10">
+         <input type="text" x-model="traineeSearch" :placeholder="labels.trainee_search || 'Пошук учнів...'" class="w-full text-base sticky top-0 z-10">
          <template x-for="trainee in filteredTrainees" :key="trainee.id">
              <div class="p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
                  <div class="flex items-center justify-between">
@@ -383,8 +383,8 @@
                                     class="w-4 h-4 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
                              <label class="text-xs text-gray-400 cursor-pointer select-none" 
                                     :class="!trainee.telegramConnected ? 'text-gray-600' : ''">
-                                 🌴 Нагадування по п'ятницях
-                             </label>
+                             <span x-text="labels.remind_availability_short || '🌴 Нагадування по п'ятницях'"></span>
+                              </label>
                          </div>
                      </div>
                      <div x-show="trainee.telegramEnabled && trainee.telegramConnected" class="flex items-center gap-2">
@@ -392,9 +392,9 @@
                                  x-bind:disabled="notifyingTrainees[trainee.id] === true"
                                  :class="notifyingTrainees[trainee.id] === true ? 'bg-gray-700 text-gray-500' : (notifySuccess[trainee.id] === true ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400')"
                                  class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer">
-                             <span x-show="notifyingTrainees[trainee.id] === true">Відправка...</span>
-                             <span x-show="notifySuccess[trainee.id] === true">✓</span>
-                             <span x-show="notifyingTrainees[trainee.id] !== true && notifySuccess[trainee.id] !== true">Запитати Доступність</span>
+                              <span x-show="notifyingTrainees[trainee.id] === true" x-text="labels.sending || 'Відправка...'"></span>
+                              <span x-show="notifySuccess[trainee.id] === true">✓</span>
+                              <span x-show="notifyingTrainees[trainee.id] !== true && notifySuccess[trainee.id] !== true" x-text="labels.notify_availability || 'Запитати Доступність'"></span>
                          </button>
                      </div>
                  </div>
@@ -407,17 +407,17 @@
 <!-- МЕНЕДЖЕР ЛОКАЦІЙ (ПОВНОЕКРАННИЙ) -->
 <div x-show="showManageLocations" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
     <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
-        <button @click="showManageLocations = false" class="text-blue-400 font-bold">Назад</button>
-        <h3 class="font-bold">Місця</h3>
+        <button @click="showManageLocations = false" class="text-blue-400 font-bold" x-text="labels.back || 'Назад'"></button>
+        <h3 class="font-bold" x-text="labels.locations || 'Місця'"></h3>
     </header>
     <div class="p-6 space-y-3 bg-[#1a1a1a] border-b border-[#333]">
-        <input type="text" x-model="locationForm.name" placeholder="Назва місця" class="w-full text-base">
-        <input type="text" x-model="locationForm.description" placeholder="Опис" class="w-full text-base">
+        <input type="text" x-model="locationForm.name" :placeholder="labels.location_name_placeholder || 'Назва місця'" class="w-full text-base">
+        <input type="text" x-model="locationForm.description" :placeholder="labels.location_description_placeholder || 'Опис'" class="w-full text-base">
         <div class="flex items-center space-x-3">
             <input type="color" x-model="locationForm.color" class="w-14 h-14 p-0.5 rounded-xl cursor-pointer">
-            <span class="text-sm text-gray-400">Колір</span>
+            <span class="text-sm text-gray-400" x-text="labels.color || 'Колір'"></span>
         </div>
-        <button @click="saveLocation()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingLocationId ? 'Оновити' : 'Додати локацію'"></button>
+        <button @click="saveLocation()" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg" x-text="editingLocationId ? (labels.update_trainee || 'Оновити') : (labels.add_location || 'Додати локацію')"></button>
     </div>
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
         <template x-for="location in locations" :key="location.id">
@@ -439,8 +439,8 @@
 <!-- ПЕРЕГЛЯД ЗАЙНЯТОСТІ АТЛЕТІВ -->
 <div x-show="showAvailabilityOverview" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
     <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
-        <button @click="showAvailabilityOverview = false" class="text-blue-400 font-bold">Назад</button>
-        <h3 class="font-bold">Зайнятість учнів</h3>
+        <button @click="showAvailabilityOverview = false" class="text-blue-400 font-bold" x-text="labels.back || 'Назад'"></button>
+        <h3 class="font-bold" x-text="labels.availability_overview || 'Зайнятість учнів'"></h3>
         <div class="w-10"></div>
     </header>
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
@@ -457,10 +457,10 @@
                         </div>
                     </div>
                 </template>
-                <div x-show="!traineeHasFutureAvailability(trainee.id)" class="text-sm text-gray-600 italic">Немає даних про доступність</div>
+                <div x-show="!traineeHasFutureAvailability(trainee.id)" class="text-sm text-gray-600 italic" x-text="labels.no_availability || 'Немає даних про доступність'"></div>
             </div>
         </template>
-        <div x-show="trainees.length === 0" class="text-center py-20 text-gray-600 text-sm">Немає учнів</div>
+        <div x-show="trainees.length === 0" class="text-center py-20 text-gray-600 text-sm" x-text="labels.no_trainees || 'Немає учнів'"></div>
     </div>
 </div>
 
@@ -468,18 +468,18 @@
 <div x-show="showModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition>
     <div class="modal-container" @click.away="showModal = false">
         <div class="p-6 border-b border-[#333] flex justify-between items-center">
-            <h3 class="text-2xl sm:text-3xl font-bold text-white" x-text="editingSessionId ? 'Редагувати' : 'Нова сесія'"></h3>
+            <h3 class="text-2xl sm:text-3xl font-bold text-white" x-text="editingSessionId ? (labels.edit || 'Редагувати') : (labels.new_session || 'Нова сесія')"></h3>
             <button x-show="editingSessionId" @click="askDeleteSession()" class="text-red-500 font-bold text-xs uppercase">Видалити</button>
         </div>
         <div class="modal-body space-y-6">
             <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold uppercase text-center">Час уже минув</div>
             <div class="space-y-4">
-                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Дата</label><input type="date" x-model="sessionForm.date" :min="todayStr" class="w-full text-base"></div>
-                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Назва</label><input type="text" x-model="sessionForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
-                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Опис</label><textarea x-model="sessionForm.description" class="w-full text-base" rows="3"></textarea></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_date || 'Дата'"></label><input type="date" x-model="sessionForm.date" :min="todayStr" class="w-full text-base"></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_name || 'Назва'"></label><input type="text" x-model="sessionForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_description || 'Опис'"></label><textarea x-model="sessionForm.description" class="w-full text-base" rows="3"></textarea></div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs sm:text-sm font-black text-gray-500 uppercase">Час</span>
+                        <span class="text-xs sm:text-sm font-black text-gray-500 uppercase" x-text="labels.session_time || 'Час'"></span>
                         <span x-show="sessionForm.startTime && sessionForm.endTime" class="text-xs font-bold text-blue-400 bg-blue-900/30 px-2.5 py-1 rounded-full" x-text="getDurationLabel()"></span>
                         <button x-show="sessionForm.startTime || sessionForm.endTime" @click="sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400 uppercase">Скинути</button>
                     </div>
@@ -494,9 +494,9 @@
                     </div>
                 </div>
                 <div>
-                    <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block">Локація</label>
+                    <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_location || 'Локація'"></label>
                     <select x-model="sessionForm.locationId" class="w-full text-base">
-                        <option :value="null">Без місця</option>
+                        <option :value="null" x-text="labels.no_location || 'Без місця'"></option>
                         <template x-for="location in locations" :key="location.id">
                             <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
                         </template>
@@ -504,10 +504,10 @@
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
-                        <p class="text-xs sm:text-sm font-black text-gray-400 uppercase">Учні</p>
-                        <span x-show="sessionForm.traineeIds.length" class="text-xs sm:text-sm font-bold text-blue-400 bg-blue-900/30 px-2.5 py-0.5 rounded-full" x-text="sessionForm.traineeIds.length + ' вибр.'"></span>
+                        <p class="text-xs sm:text-sm font-black text-gray-400 uppercase" x-text="labels.manage_trainees || 'Учні'"></p>
+                        <span x-show="sessionForm.traineeIds.length" class="text-xs sm:text-sm font-bold text-blue-400 bg-blue-900/30 px-2.5 py-0.5 rounded-full" x-text="sessionForm.traineeIds.length + ' ' + (labels.selected_count || 'вибр.')"></span>
                     </div>
-                    <input type="text" x-model="traineeSearch" placeholder="Пошук учнів..." class="w-full mb-2 text-base">
+                    <input type="text" x-model="traineeSearch" :placeholder="labels.trainee_search || 'Пошук учнів...'" class="w-full mb-2 text-base">
                     <div x-show="sessionForm.traineeIds.length" class="flex flex-wrap gap-1.5 mb-2">
                         <template x-for="aId in sessionForm.traineeIds" :key="aId">
                             <button @click="sessionForm.traineeIds = sessionForm.traineeIds.filter(id => id !== aId)" type="button"
@@ -531,14 +531,14 @@
                                 </div>
                             </div>
                         </template>
-                        <div x-show="filteredTrainees.length === 0 && traineeSearch" class="text-center py-6 text-gray-600 text-xs">Нічого не знайдено</div>
+                        <div x-show="filteredTrainees.length === 0 && traineeSearch" class="text-center py-6 text-gray-600 text-xs" x-text="labels.not_found || 'Нічого не знайдено'"></div>
                     </div>
                 </div>
             </div>
         </div>
         <div class="modal-footer flex space-x-3">
-            <button @click="showModal = false" class="flex-1 py-4 font-bold text-gray-500 uppercase text-sm">Скасувати</button>
-            <button @click="saveSession()" :disabled="sessionForm.traineeIds.length === 0 || isTimePassed() || !sessionForm.endTime || !isSessionTimeValid" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">Зберегти</button>
+            <button @click="showModal = false" class="flex-1 py-4 font-bold text-gray-500 uppercase text-sm" x-text="labels.cancel || 'Скасувати'"></button>
+            <button @click="saveSession()" :disabled="sessionForm.traineeIds.length === 0 || isTimePassed() || !sessionForm.endTime || !isSessionTimeValid" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20" x-text="labels.save || 'Зберегти'"></button>
         </div>
     </div>
 </div>
@@ -550,25 +550,25 @@
 <div x-show="notifyModal.show" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition>
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
         <div class="p-6">
-            <h4 class="text-lg font-bold text-white mb-1">📲 Запросити доступність</h4>
-            <p class="text-sm text-gray-400 mb-4" x-text="'Надішліть запит учневі: ' + notifyModal.traineeName"></p>
+            <h4 class="text-lg font-bold text-white mb-1" x-text="labels.request_availability_title || '📲 Запросити доступність'"></h4>
+            <p class="text-sm text-gray-400 mb-4"><span x-text="labels.request_availability_body || 'Надішліть запит учневі: '"></span><span x-text="notifyModal.traineeName"></span></p>
             
             <div class="mb-6">
-                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">Коментар (необов'язково):</label>
+                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block" x-text="labels.comment_optional || 'Коментар (необов'язково):'"></label>
                 <textarea x-model="notifyModal.customMessage" 
-                          placeholder="наприклад: 'на два дні', 'на наступний тиждень'"
+                          :placeholder="labels.comment_placeholder || &quot;наприклад: 'на два дні', 'на наступний тиждень'&quot;"
                           class="w-full bg-[#262626] text-white rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                           rows="3"></textarea>
             </div>
             
             <div class="flex gap-3">
                 <button @click="closeNotifyModal()" 
-                        class="flex-1 py-3 rounded-xl text-sm font-bold text-gray-400 bg-[#262626]">
-                    Скасувати
+                        class="flex-1 py-3 rounded-xl text-sm font-bold text-gray-400 bg-[#262626]"
+                        x-text="labels.cancel || 'Скасувати'">
                 </button>
                 <button @click="sendNotifyTrainee()" 
-                        class="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-blue-600">
-                    Надіслати
+                        class="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-blue-600"
+                        x-text="labels.send || 'Надіслати'">
                 </button>
             </div>
         </div>
@@ -586,7 +586,7 @@
             currentView: 'feed', showModal: false, showManageTrainees: false, showManageLocations: false, showAvailabilityOverview: false, showProfile: false,
             editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null,
             selectedDate: _today, todayStr: _today,
-            days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {},
+            days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {},
             hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
             halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
@@ -668,10 +668,12 @@
 
             handleCardClick(session, index) {
                 if (this.touchJustDragged) return;
+                if (session.date < this.todayStr) return;
                 this.editSession(session);
             },
 
             copySession(w) {
+                if (w.date < this.todayStr) return;
                 this.editingSessionId = null;
                 this.originalSessionData = null;
                 let st = w.time, et = w.endTime || this.nextSlot(w.time);
@@ -777,6 +779,7 @@
                         this.user = data.user || {};
                         this.mentorId = data.mentor?.id;
                         this.mentor.name = data.mentor?.name || 'Cozy Planner';
+                        this.labels = data.labels || {};
                         return true;
                     } else {
                         window.location.href = '/setup';
@@ -869,10 +872,20 @@
             },
 
             isTimePassed() {
-                if (this.sessionForm.startTime === null) return true;
+                if (this.sessionForm.startTime === null) return this.sessionForm.date <= this.todayStr;
                 if (this.sessionForm.date < this.todayStr) return true;
                 if (this.sessionForm.date === this.todayStr) {
                     return new Date(`${this.sessionForm.date}T${this.sessionForm.startTime}`) <= new Date();
+                }
+                return false;
+            },
+
+            isSlotPast(t) {
+                if (this.sessionForm.date < this.todayStr) return true;
+                if (this.sessionForm.date === this.todayStr) {
+                    const now = new Date();
+                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                    return this.slotToMin(t) <= currentMinutes;
                 }
                 return false;
             },
@@ -1001,12 +1014,12 @@
                         setTimeout(() => { this.notifySuccess[traineeId] = false; }, 3000);
                         this.closeNotifyModal();
                     } else if (data.reason === 'Telegram not connected') {
-                        this.notifyErrors[traineeId] = `Учень не підключив Telegram.`;
+                        this.notifyErrors[traineeId] = this.labels.error_tg_not_connected || 'Учень не підключив Telegram.';
                     } else {
-                        this.notifyErrors[traineeId] = data.reason || `Помилка відправки`;
+                        this.notifyErrors[traineeId] = data.reason || (this.labels.error_send || 'Помилка відправки');
                     }
                 } else {
-                    this.notifyErrors[traineeId] = `Помилка сервера`;
+                    this.notifyErrors[traineeId] = this.labels.error_server || 'Помилка сервера';
                 }
                 
                 this.notifyingTrainees[traineeId] = false;
@@ -1141,6 +1154,7 @@
             },
 
             pickTime(t) {
+                if (this.isSlotPast(t)) return;
                 const tm = this.slotToMin(t);
                 const sm = this.sessionForm.startTime !== null ? this.slotToMin(this.sessionForm.startTime) : -1;
                 const em = this.sessionForm.endTime !== null ? this.slotToMin(this.sessionForm.endTime) : -1;
@@ -1172,6 +1186,7 @@
             },
 
             getTimeClass(t) {
+                if (this.isSlotPast(t)) return 'bg-[#1a1a1a] text-gray-700 line-through cursor-not-allowed';
                 const tm = this.slotToMin(t);
                 const s = this.sessionForm.startTime !== null ? this.slotToMin(this.sessionForm.startTime) : -1;
                 const e = this.sessionForm.endTime !== null ? this.slotToMin(this.sessionForm.endTime) : -1;
@@ -1247,11 +1262,12 @@
                 this.traineeSearch = '';
                 this.editingSessionId = null;
                 this.originalSessionData = null;
-                this.sessionForm = { title: 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
+                this.sessionForm = { title: this.labels.session_title_default || 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
                 this.showModal = true;
             },
 
             editSession(w) {
+                if (w.date < this.todayStr) return;
                 this.traineeSearch = '';
                 this.editingSessionId = w.id;
                 this.originalSessionData = { date: w.date, time: w.time };
@@ -1262,6 +1278,7 @@
             async saveSession() {
                 const { startTime, endTime, date, title, description, traineeIds, locationId } = this.sessionForm;
                 if (!startTime || !endTime) return;
+                if (date < this.todayStr) return;
                 if (!this.isSessionTimeValid) return;
                 const newTime = startTime;
                 if (this.editingSessionId && this.originalSessionData) {
@@ -1280,7 +1297,7 @@
             },
 
             askDeleteSession() {
-                this.confirmData = { show: true, title: 'Видалити?', message: 'Дію неможливо скасувати.', onConfirm: async () => { await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' }); this.showModal = false; await this.fetchData(); } };
+                this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_session || 'Дію неможливо скасувати.', onConfirm: async () => { await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' }); this.showModal = false; await this.fetchData(); } };
             },
 
             async saveTrainee() {
@@ -1320,11 +1337,11 @@
                 this.traineeSearch = '';
                 this.editingSessionId = null;
                 this.originalSessionData = null;
-                this.sessionForm = { title: 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
+                this.sessionForm = { title: this.labels.session_title_default || 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
                 this.showModal = true;
             },
             editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null, weekendReminderEnabled: a.weekendReminderEnabled || false }; },
-            askDeleteTrainee(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
+            askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
             
              async toggleWeekendReminder(trainee) {
                  if (!trainee.telegramEnabled || !trainee.telegramConnected) return;
@@ -1384,7 +1401,7 @@
             },
 
             editLocation(l) { this.editingLocationId = l.id; this.locationForm = { name: l.name, description: l.description || '', color: l.color || '#3b82f6' }; },
-            askDeleteLocation(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Локація зникне з усіх тренувань.', onConfirm: async () => { await fetch(`/api/v1/locations/${id}`, { method: 'DELETE' }); await this.fetchLocations(); await this.fetchData(); } }; },
+            askDeleteLocation(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_location || 'Локація зникне з усіх тренувань.', onConfirm: async () => { await fetch(`/api/v1/locations/${id}`, { method: 'DELETE' }); await this.fetchLocations(); await this.fetchData(); } }; },
 
             snapToMonday(date) {
                 const d = new Date(date);
@@ -1396,15 +1413,19 @@
             generateDays() {
                 const start = this.snapToMonday(new Date());
                 start.setDate(start.getDate() - 14);
-                const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+                const fullDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
                 for (let i = 0; i < 77; i++) {
-                    this.days.push({ dateStr: localDateStr(start), dayNum: start.getDate(), weekday: days[(start.getDay() + 6) % 7], isMonday: start.getDay() === 1 });
+                    const dayIdx = (start.getDay() + 6) % 7;
+                    this.days.push({ dateStr: localDateStr(start), dayNum: start.getDate(), weekday: days[dayIdx], weekdayFull: fullDays[dayIdx], isMonday: start.getDay() === 1 });
                     start.setDate(start.getDate() + 1);
                 }
             },
             formatDisplayDate(str) {
                 const d = new Date(str); const months = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
-                return `${d.getDate()} ${months[d.getMonth()]}`;
+                const fullDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
+                const dayIdx = (d.getDay() + 6) % 7;
+                return `${fullDays[dayIdx]}, ${d.getDate()} ${months[d.getMonth()]}`;
             }
         }
     }

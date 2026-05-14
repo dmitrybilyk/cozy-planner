@@ -7,6 +7,7 @@ import com.cozy.planner.repositories.ClubRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.repositories.UserRepository;
+import com.cozy.planner.service.ProfileLabels;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
@@ -48,11 +49,13 @@ public class MeController {
                                         .next()
                                         .map(mentor -> {
                                             session.getAttributes().put("mentor_id", mentor.getId());
+                                            String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
                                             Map<String, Object> r = new HashMap<>();
                                             r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
                                             r.put("club", Map.of("id", club.getId(), "name", club.getName()));
                                             r.put("coach", Map.of("id", mentor.getId(), "name", mentor.getName()));
-                                            r.put("mentor", Map.of("id", mentor.getId(), "name", mentor.getName()));
+                                            r.put("mentor", Map.of("id", mentor.getId(), "name", mentor.getName(), "profile", profile));
+                                            r.put("labels", ProfileLabels.getLabels(profile));
                                             return r;
                                         })
                                 )
