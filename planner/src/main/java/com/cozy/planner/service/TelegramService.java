@@ -15,9 +15,12 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.security.SecureRandom;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -143,34 +146,59 @@ public class TelegramService {
     }
 
     public Mono<Boolean> sendAvailabilityReminder(Trainee trainee, String baseUrl) {
-        return sendAvailabilityReminder(trainee, baseUrl, null);
+        return sendAvailabilityReminder(trainee, baseUrl, null, null, null);
     }
 
     public Mono<Boolean> sendAvailabilityReminder(Trainee trainee, String baseUrl, String customMessage) {
+        return sendAvailabilityReminder(trainee, baseUrl, customMessage, null, null);
+    }
+
+    public Mono<Boolean> sendAvailabilityReminder(Trainee trainee, String baseUrl, String customMessage, String dayType, String targetDate) {
         if (!trainee.hasTelegram()) {
             return Mono.just(false);
         }
 
-        String link = baseUrl + "/trainee/" + trainee.getInviteToken();
-        log.info("Sending availability reminder to trainee: {}, link: {}", trainee.getName(), link);
+        StringBuilder linkBuilder = new StringBuilder();
+        linkBuilder.append(baseUrl).append("/trainee/").append(trainee.getInviteToken());
+        if (targetDate != null && !targetDate.isBlank()) {
+            linkBuilder.append("?date=").append(targetDate);
+        }
+        String link = linkBuilder.toString();
+        log.info("Sending availability reminder to trainee: {}, link: {}, dayType: {}", trainee.getName(), link, dayType);
+        
+        final String finalLink = link;
         
         return mentorRepository.findById(trainee.getMentorId())
                 .defaultIfEmpty(Mentor.builder().profile("sport").build())
                 .flatMap(mentor -> {
                     String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                    DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM (EEE)", Locale.forLanguageTag("uk"));
                     
                     StringBuilder text = new StringBuilder();
                     text.append("👋 <b>").append(escapeHtml(trainee.getName())).append("</b>!\n\n");
+                    
+                    if ("tomorrow".equals(dayType)) {
+                        text.append("📅 <b>Запит на завтра");
+                        if (targetDate != null) {
+                            text.append(" (").append(LocalDate.parse(targetDate).format(fmt)).append(")");
+                        }
+                        text.append("</b>\n\n");
+                    } else if ("weekend".equals(dayType)) {
+                        text.append("📅 <b>Запит на вихідні</b>\n\n");
+                    } else if ("specific_day".equals(dayType) && targetDate != null) {
+                        text.append("📅 <b>Запитана дата: ").append(LocalDate.parse(targetDate).format(fmt)).append("</b>\n\n");
+                    }
+                    
                     text.append(ProfileLabels.get(profile, "telegram_reminder_request"));
                     
                     if (customMessage != null && !customMessage.isBlank()) {
                         text.append("💬 <b>").append(escapeHtml(customMessage)).append("</b>\n\n");
                     }
                     
-                    text.append(link).append("\n\n");
+                    text.append(finalLink).append("\n\n");
                     text.append(ProfileLabels.get(profile, "telegram_reminder_instruction"));
 
-                    Map<String, Object> keyboard = createInlineUrlButton(ProfileLabels.get(profile, "telegram_open_calendar"), link);
+                    Map<String, Object> keyboard = createInlineUrlButton(ProfileLabels.get(profile, "telegram_open_calendar"), finalLink);
                     return sendMessage(trainee.getTelegramChatId(), text.toString(), keyboard);
                 });
     }
@@ -316,6 +344,33 @@ public class TelegramService {
                     String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
                     mentor.setTelegramToken(token);
                     return mentorRepository.save(mentor).thenReturn(token);
+                });
+    }
+
+    public Mono<Boolean> sendSessionReminderToTrainee(Trainee trainee, String sessionTitle, String sessionDate, String sessionTime, String locationName) {
+        if (!trainee.hasTelegram()) {
+            return Mono.just(false);
+        }
+
+        return mentorRepository.findById(trainee.getMentorId())
+                .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                .flatMap(mentor -> {
+                    String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+
+                    StringBuilder text = new StringBuilder();
+                    text.append("⏰ <b>Нагадування про ").append(ProfileLabels.get(profile, "session").toLowerCase()).append("</b>\n\n");
+                    text.append("<b>").append(escapeHtml(sessionTitle)).append("</b>\n");
+                    text.append("📅 ").append(sessionDate).append("\n");
+                    text.append("🕐 ").append(sessionTime).append("\n");
+
+                    if (locationName != null && !locationName.isBlank()) {
+                        text.append("📍 ").append(escapeHtml(locationName)).append("\n");
+                    }
+
+                    text.append("\n");
+                    text.append("<i>").append(ProfileLabels.get(profile, "session")).append(" розпочнеться за 1 годину. Будь ласка, не спізнюйтесь!</i>");
+
+                    return sendMessage(trainee.getTelegramChatId(), text.toString());
                 });
     }
 

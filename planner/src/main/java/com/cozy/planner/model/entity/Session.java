@@ -40,6 +40,10 @@ public class Session {
     @Builder.Default
     private Boolean reminderSent = false;
 
+    @Column("trainee_reminder_sent")
+    @Builder.Default
+    private Boolean traineeReminderSent = false;
+
     @Transient
     private List<Long> traineeIds;
 }

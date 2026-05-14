@@ -132,6 +132,13 @@
                     const ds = localDateStr(d);
                     this.days.push({ dateStr: ds, weekday: days[(d.getDay() + 6) % 7], dayNum: d.getDate() });
                 }
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const dateParam = urlParams.get('date');
+                if (dateParam && this.days.some(d => d.dateStr === dateParam)) {
+                    this.selectedDate = dateParam;
+                }
+
                 await this.loadAvailability();
                 this.connectWebSocket();
             },

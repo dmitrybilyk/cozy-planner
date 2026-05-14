@@ -133,8 +133,8 @@ public class TraineesApiController implements TraineesApi {
 
     @PostMapping("/api/v1/trainees/{traineeId}/weekend-reminder")
     public Mono<ResponseEntity<Map<String, Object>>> updateWeekendReminder(@PathVariable Long traineeId,
-                                                                              @RequestBody Map<String, Object> body,
-                                                                              ServerWebExchange exchange) {
+                                                                               @RequestBody Map<String, Object> body,
+                                                                               ServerWebExchange exchange) {
         Object enabledObj = body.get("enabled");
         boolean enabled = enabledObj != null && Boolean.TRUE.equals(enabledObj);
         
@@ -148,6 +148,28 @@ public class TraineesApiController implements TraineesApi {
                     Map<String, Object> result = new HashMap<>();
                     result.put("success", true);
                     result.put("weekendReminderEnabled", saved.isWeekendReminderEnabled());
+                    return ResponseEntity.ok(result);
+                })
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/api/v1/trainees/{traineeId}/session-reminder")
+    public Mono<ResponseEntity<Map<String, Object>>> updateSessionReminder(@PathVariable Long traineeId,
+                                                                               @RequestBody Map<String, Object> body,
+                                                                               ServerWebExchange exchange) {
+        Object enabledObj = body.get("enabled");
+        boolean enabled = enabledObj != null && Boolean.TRUE.equals(enabledObj);
+        
+        return traineeRepository.findById(traineeId)
+                .flatMap(existing -> {
+                    existing.setSessionReminderEnabled(enabled);
+                    return traineeRepository.save(existing);
+                })
+                .doOnSuccess(saved -> eventBroadcastService.broadcast("trainee_changed"))
+                .map(saved -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", true);
+                    result.put("sessionReminderEnabled", saved.isSessionReminderEnabled());
                     return ResponseEntity.ok(result);
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());

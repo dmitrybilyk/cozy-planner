@@ -11,6 +11,9 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -74,7 +77,25 @@ public class NotificationController {
             }
         }
 
+        String dayType = null;
+        if (body != null && body.containsKey("dayType")) {
+            Object dt = body.get("dayType");
+            if (dt != null && !dt.toString().isBlank()) {
+                dayType = dt.toString().trim();
+            }
+        }
+
+        String rawTargetDate = null;
+        if (body != null && body.containsKey("targetDate")) {
+            Object td = body.get("targetDate");
+            if (td != null && !td.toString().isBlank()) {
+                rawTargetDate = td.toString().trim();
+            }
+        }
+
         final String finalCustomMessage = customMessage;
+        final String finalDayType = resolveDayType(dayType);
+        final String finalTargetDate = resolveTargetDate(finalDayType, rawTargetDate);
 
         return traineeRepository.findById(traineeId)
                 .flatMap(trainee -> {
@@ -89,7 +110,7 @@ public class NotificationController {
                     }
 
                     String baseUrl = getBaseUrl(exchange);
-                    return telegramService.sendAvailabilityReminder(trainee, baseUrl, finalCustomMessage)
+                    return telegramService.sendAvailabilityReminder(trainee, baseUrl, finalCustomMessage, finalDayType, finalTargetDate)
                             .map(sent -> {
                                 result.put("success", sent);
                                 result.put("telegramConnected", true);
@@ -104,6 +125,40 @@ public class NotificationController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
+    private String resolveDayType(String dayType) {
+        if (dayType == null) return null;
+        return switch (dayType) {
+            case "tomorrow", "specific_day", "weekend" -> dayType;
+            default -> null;
+        };
+    }
+
+    private String resolveTargetDate(String dayType, String rawTargetDate) {
+        if (dayType == null) return null;
+        LocalDate today = LocalDate.now();
+        return switch (dayType) {
+            case "tomorrow" -> today.plusDays(1).toString();
+            case "specific_day" -> {
+                if (rawTargetDate != null && !rawTargetDate.isBlank()) {
+                    try {
+                        yield LocalDate.parse(rawTargetDate).toString();
+                    } catch (Exception e) {
+                        yield today.plusDays(1).toString();
+                    }
+                }
+                yield today.plusDays(1).toString();
+            }
+            case "weekend" -> {
+                LocalDate saturday = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+                if (saturday.equals(today)) {
+                    saturday = saturday.plusDays(7);
+                }
+                yield saturday.toString();
+            }
+            default -> null;
+        };
+    }
+
     private Map<String, Object> toTelegramStatus(Trainee trainee) {
         Map<String, Object> result = new HashMap<>();
         result.put("id", trainee.getId());
@@ -113,6 +168,7 @@ public class NotificationController {
         result.put("connectLink", getConnectLink(trainee.getInviteToken()));
         result.put("photoBase64", trainee.getPhotoBase64());
         result.put("weekendReminderEnabled", trainee.isWeekendReminderEnabled());
+        result.put("sessionReminderEnabled", trainee.isSessionReminderEnabled());
         return result;
     }
 

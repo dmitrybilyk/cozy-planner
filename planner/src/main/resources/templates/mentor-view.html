@@ -376,16 +376,26 @@
                           <template x-if="trainee.telegramEnabled && !trainee.telegramConnected">
                               <button @click="generateInvite(trainee.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[trainee.id] ? '✓ Скопійовано!' : '🌐 Запросити в TG'"></button>
                           </template>
-                         <div class="flex items-center gap-1.5" x-show="trainee.telegramEnabled">
-                             <input type="checkbox" x-model="trainee.weekendReminderEnabled" 
-                                    @change="toggleWeekendReminder(trainee)"
-                                    :disabled="!trainee.telegramConnected"
-                                    class="w-4 h-4 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-                             <label class="text-xs text-gray-400 cursor-pointer select-none" 
-                                    :class="!trainee.telegramConnected ? 'text-gray-600' : ''">
-                             <span x-text="labels.remind_availability_short || '🌴 Нагадування по п'ятницях'"></span>
-                              </label>
-                         </div>
+                          <div class="flex items-center gap-1.5" x-show="trainee.telegramEnabled">
+                              <input type="checkbox" x-model="trainee.weekendReminderEnabled" 
+                                     @change="toggleWeekendReminder(trainee)"
+                                     :disabled="!trainee.telegramConnected"
+                                     class="w-4 h-4 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                              <label class="text-xs text-gray-400 cursor-pointer select-none" 
+                                     :class="!trainee.telegramConnected ? 'text-gray-600' : ''">
+                              <span x-text="labels.remind_availability_short || '🌴 Нагадування по п'ятницях'"></span>
+                               </label>
+                          </div>
+                          <div class="flex items-center gap-1.5" x-show="trainee.telegramEnabled">
+                              <input type="checkbox" x-model="trainee.sessionReminderEnabled" 
+                                     @change="toggleSessionReminder(trainee)"
+                                     :disabled="!trainee.telegramConnected"
+                                     class="w-4 h-4 rounded cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
+                              <label class="text-xs text-gray-400 cursor-pointer select-none" 
+                                     :class="!trainee.telegramConnected ? 'text-gray-600' : ''">
+                                  ⏰ Нагадування за 1 год
+                               </label>
+                          </div>
                      </div>
                      <div x-show="trainee.telegramEnabled && trainee.telegramConnected" class="flex items-center gap-2">
                          <button @click="openNotifyModal(trainee)" 
@@ -553,12 +563,37 @@
             <h4 class="text-lg font-bold text-white mb-1" x-text="labels.request_availability_title || '📲 Запросити доступність'"></h4>
             <p class="text-sm text-gray-400 mb-4"><span x-text="labels.request_availability_body || 'Надішліть запит учневі: '"></span><span x-text="notifyModal.traineeName"></span></p>
             
+            <div class="mb-4">
+                <label class="text-xs font-bold text-gray-500 uppercase mb-3 block">Період:</label>
+                <div class="flex gap-2">
+                    <button @click="notifyModal.dayType = 'tomorrow'" 
+                            class="flex-1 py-3 rounded-xl text-sm font-bold transition"
+                            :class="notifyModal.dayType === 'tomorrow' ? 'bg-blue-600 text-white' : 'bg-[#262626] text-gray-400 hover:bg-[#333]'">
+                        Завтра
+                    </button>
+                    <button @click="notifyModal.dayType = 'specific_day'; notifyModal.targetDate = ''" 
+                            class="flex-1 py-3 rounded-xl text-sm font-bold transition"
+                            :class="notifyModal.dayType === 'specific_day' ? 'bg-blue-600 text-white' : 'bg-[#262626] text-gray-400 hover:bg-[#333]'">
+                        Обрати день
+                    </button>
+                    <button @click="notifyModal.dayType = 'weekend'" 
+                            class="flex-1 py-3 rounded-xl text-sm font-bold transition"
+                            :class="notifyModal.dayType === 'weekend' ? 'bg-blue-600 text-white' : 'bg-[#262626] text-gray-400 hover:bg-[#333]'">
+                        Вихідні
+                    </button>
+                </div>
+                <div x-show="notifyModal.dayType === 'specific_day'" class="mt-3">
+                    <input type="date" x-model="notifyModal.targetDate" 
+                           class="w-full bg-[#262626] text-white rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            
             <div class="mb-6">
                 <label class="text-xs font-bold text-gray-500 uppercase mb-2 block" x-text="labels.comment_optional || 'Коментар (необов'язково):'"></label>
                 <textarea x-model="notifyModal.customMessage" 
                           :placeholder="labels.comment_placeholder || &quot;наприклад: 'на два дні', 'на наступний тиждень'&quot;"
                           class="w-full bg-[#262626] text-white rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                          rows="3"></textarea>
+                          rows="2"></textarea>
             </div>
             
             <div class="flex gap-3">
@@ -595,7 +630,7 @@
             traineeForm: { name: '', description: '', photoBase64: null, weekendReminderEnabled: false },
             locationForm: { name: '', description: '', color: '#3b82f6' },
             confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
-            notifyModal: { show: false, traineeId: null, traineeName: '', customMessage: '' },
+            notifyModal: { show: false, traineeId: null, traineeName: '', customMessage: '', dayType: 'tomorrow', targetDate: '' },
             mentorTg: { enabled: false, connected: false, username: '', connectLink: '', copied: false },
             inviteUrls: {},
             notifyingTrainees: {},
@@ -931,11 +966,13 @@
                                             a.connectLink = tg.connectLink;
                                             a.photoBase64 = tg.photoBase64;
                                             a.weekendReminderEnabled = tg.weekendReminderEnabled;
+                                            a.sessionReminderEnabled = tg.sessionReminderEnabled;
                                         } else {
                                             a.telegramEnabled = true;
                                             a.telegramConnected = false;
                                             a.photoBase64 = null;
                                             a.weekendReminderEnabled = false;
+                                            a.sessionReminderEnabled = false;
                                         }
                                     }
                                 }
@@ -943,6 +980,7 @@
                                 for (const a of this.trainees) {
                                     a.telegramEnabled = false;
                                     a.weekendReminderEnabled = false;
+                                    a.sessionReminderEnabled = false;
                                 }
                             }
                         }
@@ -951,6 +989,7 @@
                         for (const a of this.trainees) {
                             a.telegramEnabled = false;
                             a.weekendReminderEnabled = false;
+                            a.sessionReminderEnabled = false;
                         }
                     }
                     
@@ -972,7 +1011,9 @@
                         show: true,
                         traineeId: trainee.id,
                         traineeName: trainee.name,
-                        customMessage: ''
+                        customMessage: '',
+                        dayType: 'tomorrow',
+                        targetDate: ''
                     };
                 }
             },
@@ -982,13 +1023,17 @@
                     show: false,
                     traineeId: null,
                     traineeName: '',
-                    customMessage: ''
+                    customMessage: '',
+                    dayType: 'tomorrow',
+                    targetDate: ''
                 };
             },
             
             async sendNotifyTrainee() {
                 const traineeId = this.notifyModal.traineeId;
                 const customMsg = this.notifyModal.customMessage;
+                const dayType = this.notifyModal.dayType || 'tomorrow';
+                const targetDate = this.notifyModal.targetDate;
                 
                 if (this.notifyingTrainees[traineeId] === true) return;
                 
@@ -996,7 +1041,10 @@
                 this.notifyErrors[traineeId] = null;
                 this.notifySuccess[traineeId] = false;
                 
-                const body = {};
+                const body = { dayType };
+                if (dayType === 'specific_day' && targetDate) {
+                    body.targetDate = targetDate;
+                }
                 if (customMsg && customMsg.trim().length > 0) {
                     body.customMessage = customMsg;
                 }
@@ -1354,8 +1402,20 @@
                      trainee.weekendReminderEnabled = !trainee.weekendReminderEnabled;
                  }
              },
+             
+             async toggleSessionReminder(trainee) {
+                 if (!trainee.telegramEnabled || !trainee.telegramConnected) return;
+                 const res = await fetch(`/api/v1/trainees/${trainee.id}/session-reminder`, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ enabled: trainee.sessionReminderEnabled })
+                 });
+                 if (!res.ok) {
+                     trainee.sessionReminderEnabled = !trainee.sessionReminderEnabled;
+                 }
+             },
             
-            handleTraineePhotoSelect(event) {
+             handleTraineePhotoSelect(event) {
                 const file = event.target.files[0];
                 if (!file) return;
                 

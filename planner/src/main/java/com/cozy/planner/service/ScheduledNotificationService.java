@@ -83,6 +83,7 @@ public class ScheduledNotificationService {
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);
 
+        // Mentor session reminders
         sessionRepository.findUpcomingWithoutReminder(today, tomorrow)
                 .flatMap(session -> mentorRepository.findById(session.getMentorId())
                         .flatMap(mentor -> {
@@ -111,9 +112,42 @@ public class ScheduledNotificationService {
                         })
                 )
                 .subscribe(
-                        success -> log.debug("Session reminder processed"),
-                        error -> log.error("Error in session reminders: {}", error.getMessage()),
-                        () -> log.debug("Session reminder check completed")
+                        success -> log.debug("Mentor session reminder processed"),
+                        error -> log.error("Error in mentor session reminders: {}", error.getMessage()),
+                        () -> log.debug("Mentor session reminder check completed")
+                );
+
+        // Trainee session reminders
+        sessionRepository.findUpcomingWithoutTraineeReminder(today, tomorrow)
+                .flatMap(session -> mentorRepository.findById(session.getMentorId())
+                        .flatMapMany(mentor -> {
+                            ZoneId mentorZone = ZoneId.of(mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
+                            LocalDateTime now = LocalDateTime.now(mentorZone);
+                            LocalDateTime sessionStart = LocalDateTime.of(session.getWorkoutDate(), session.getStartTime());
+
+                            long minutesUntilSession = ChronoUnit.MINUTES.between(now, sessionStart);
+                            int buffer = 3;
+
+                            if (minutesUntilSession >= (60 - buffer) && minutesUntilSession <= (60 + buffer)) {
+                                return sessionRepository.findTraineeIdsBySessionId(session.getId())
+                                        .flatMap(traineeId -> traineeRepository.findById(traineeId))
+                                        .filter(Trainee::isSessionReminderEnabled)
+                                        .filter(Trainee::hasTelegram)
+                                        .flatMap(trainee -> processTraineeSessionReminder(session, trainee));
+                            }
+
+                            if (minutesUntilSession < -1440) {
+                                session.setTraineeReminderSent(true);
+                                return sessionRepository.save(session).flatMapMany(saved -> reactor.core.publisher.Flux.empty());
+                            }
+
+                            return reactor.core.publisher.Flux.empty();
+                        })
+                )
+                .subscribe(
+                        success -> log.debug("Trainee session reminder processed"),
+                        error -> log.error("Error in trainee session reminders: {}", error.getMessage()),
+                        () -> log.debug("Trainee session reminder check completed")
                 );
     }
 
@@ -148,8 +182,43 @@ public class ScheduledNotificationService {
                 });
     }
 
+    private reactor.core.publisher.Mono<Void> processTraineeSessionReminder(Session session, Trainee trainee) {
+        return locationRepository.findById(session.getLocationId() != null ? session.getLocationId() : -1L)
+                .switchIfEmpty(reactor.core.publisher.Mono.just(com.cozy.planner.model.entity.Location.builder().name(null).build()))
+                .flatMap(location -> {
+                    String locationName = location.getName();
+
+                    String formattedDate = formatDate(session.getWorkoutDate());
+                    String formattedTime = formatTime(session.getStartTime(), session.getEndTime());
+
+                    log.info("Sending session reminder to trainee {} for session '{}' at {}",
+                            trainee.getName(), session.getTitle(), formattedTime);
+
+                    return telegramService.sendSessionReminderToTrainee(
+                                    trainee,
+                                    session.getTitle(),
+                                    formattedDate,
+                                    formattedTime,
+                                    locationName
+                            )
+                            .doOnNext(success -> {
+                                if (success) {
+                                    log.info("Session reminder sent to trainee {}", trainee.getName());
+                                } else {
+                                    log.warn("Failed to send session reminder to trainee {}", trainee.getName());
+                                }
+                            })
+                            .then(markTraineeReminderSent(session));
+                });
+    }
+
     private reactor.core.publisher.Mono<Void> markReminderSent(Session session) {
         session.setReminderSent(true);
+        return sessionRepository.save(session).then();
+    }
+
+    private reactor.core.publisher.Mono<Void> markTraineeReminderSent(Session session) {
+        session.setTraineeReminderSent(true);
         return sessionRepository.save(session).then();
     }
 

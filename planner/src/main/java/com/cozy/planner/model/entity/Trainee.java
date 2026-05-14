@@ -40,6 +40,10 @@ public class Trainee {
     @Builder.Default
     private Boolean weekendReminderEnabled = false;
 
+    @Column("session_reminder_enabled")
+    @Builder.Default
+    private Boolean sessionReminderEnabled = false;
+
     @Builder.Default
     private String timezone = "Europe/Kiev";
 
@@ -49,6 +53,10 @@ public class Trainee {
 
     public boolean isWeekendReminderEnabled() {
         return Boolean.TRUE.equals(weekendReminderEnabled);
+    }
+
+    public boolean isSessionReminderEnabled() {
+        return Boolean.TRUE.equals(sessionReminderEnabled);
     }
 
 }

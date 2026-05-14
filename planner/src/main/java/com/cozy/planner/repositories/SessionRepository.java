@@ -32,4 +32,7 @@ public interface SessionRepository extends ReactiveCrudRepository<Session, Long>
 
     @Query("SELECT * FROM meetings WHERE reminder_sent = FALSE AND meeting_date BETWEEN :startDate AND :endDate")
     Flux<Session> findUpcomingWithoutReminder(LocalDate startDate, LocalDate endDate);
+
+    @Query("SELECT * FROM meetings WHERE trainee_reminder_sent = FALSE AND meeting_date BETWEEN :startDate AND :endDate")
+    Flux<Session> findUpcomingWithoutTraineeReminder(LocalDate startDate, LocalDate endDate);
 }
