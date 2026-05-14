@@ -21,6 +21,9 @@ public interface SessionRepository extends ReactiveCrudRepository<Session, Long>
             "AND w.meeting_date BETWEEN :start AND :end")
     Flux<Session> findAllByMentorAndTraineeInPeriod(Long mentorId, Long traineeId, LocalDate start, LocalDate end);
 
+    @Query("SELECT w.* FROM meetings w JOIN meeting_trainees mt ON w.id = mt.meeting_id WHERE mt.trainee_id = :traineeId ORDER BY w.meeting_date DESC, w.start_time DESC")
+    Flux<Session> findAllByTraineeId(Long traineeId);
+
     @Query("SELECT trainee_id FROM meeting_trainees WHERE meeting_id = :sessionId")
     Flux<Long> findTraineeIdsBySessionId(Long sessionId);
 

@@ -300,6 +300,14 @@ public class TelegramService {
         sendMessage(chatId, welcome).subscribe();
     }
 
+    public String getBotToken() {
+        return config.getBotToken();
+    }
+
+    public String getMentorBotToken() {
+        return config.getMentorBotToken();
+    }
+
     public String getBotUsername() {
         return config.getBotUsername() != null ? config.getBotUsername() : "";
     }
@@ -372,6 +380,22 @@ public class TelegramService {
 
                     return sendMessage(trainee.getTelegramChatId(), text.toString());
                 });
+    }
+
+    public Mono<Void> answerCallbackQuery(String callbackQueryId, String botToken) {
+        if (callbackQueryId == null || callbackQueryId.isBlank() || botToken == null || botToken.isBlank()) {
+            return Mono.empty();
+        }
+        Map<String, Object> body = new HashMap<>();
+        body.put("callback_query_id", callbackQueryId);
+        String path = "/bot" + botToken + "/answerCallbackQuery";
+        return webClient.post()
+                .uri(path)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .retrieve()
+                .bodyToMono(String.class)
+                .then();
     }
 
     public Mono<Boolean> sendSessionReminderToMentor(Mentor mentor, String sessionTitle, String sessionDate, String sessionTime, String locationName, int minutesBefore) {

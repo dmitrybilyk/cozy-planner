@@ -178,6 +178,8 @@ public class SessionsApiController implements SessionsApi {
         dto.setEndTime(formatTime(entity.getEndTime()));
         dto.setMentorId(entity.getMentorId());
         dto.setLocationId(entity.getLocationId());
+        dto.setConfirmationStatus(entity.getConfirmationStatus());
+        dto.setCreatedBy(entity.getCreatedBy());
         
         if (entity.getTraineeIds() != null) {
             dto.setTraineeIds(new ArrayList<>(entity.getTraineeIds()));

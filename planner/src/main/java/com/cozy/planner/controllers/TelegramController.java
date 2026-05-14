@@ -1,5 +1,7 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.model.entity.Session;
+import com.cozy.planner.repositories.SessionRepository;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.TelegramService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -9,6 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+
+
 @RestController
 @RequestMapping("/api/v1")
 @Slf4j
@@ -16,10 +20,12 @@ public class TelegramController {
 
     private final TelegramService telegramService;
     private final ObjectMapper objectMapper;
+    private final SessionRepository sessionRepository;
 
-    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper) {
+    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository) {
         this.telegramService = telegramService;
         this.objectMapper = objectMapper;
+        this.sessionRepository = sessionRepository;
     }
 
     @PostMapping("/telegram/webhook")
@@ -56,7 +62,7 @@ public class TelegramController {
             }
 
             if (!callbackQuery.isMissingNode()) {
-                return handleCallbackQuery(callbackQuery);
+                return handleCallbackQuery(callbackQuery, botType);
             }
 
         } catch (Exception e) {
@@ -114,8 +120,80 @@ public class TelegramController {
         }
     }
 
-    private Mono<ResponseEntity<String>> handleCallbackQuery(JsonNode callbackQuery) {
+    private Mono<ResponseEntity<String>> handleCallbackQuery(JsonNode callbackQuery, BotType botType) {
+        String data = callbackQuery.path("data").asText("");
+        String chatId = callbackQuery.path("message").path("chat").path("id").asText();
+        String callbackId = callbackQuery.path("id").asText();
+
+        log.info("Received callback query: data={}, chatId={}", data, chatId);
+
+        if (data.startsWith("confirm_session:")) {
+            Long sessionId = parseSessionId(data);
+            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
+            return sessionRepository.findById(sessionId)
+                    .flatMap(session -> {
+                        session.setConfirmationStatus("CONFIRMED");
+                        return sessionRepository.save(session);
+                    })
+                    .flatMap(saved -> {
+                        String text = "✅ Сесію підтверджено!";
+                        Mono<Boolean> msg;
+                        if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+                            msg = telegramService.sendMessageToMentor(chatId, text);
+                        } else {
+                            msg = telegramService.sendMessage(chatId, text);
+                        }
+                        return msg.thenReturn(saved);
+                    })
+                    .then(ackCallback(callbackId, botType))
+                    .thenReturn(ResponseEntity.ok().build());
+        } else if (data.startsWith("reject_session:")) {
+            Long sessionId = parseSessionId(data);
+            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
+            return sessionRepository.findById(sessionId)
+                    .flatMap(session -> {
+                        session.setConfirmationStatus("REJECTED");
+                        return sessionRepository.save(session);
+                    })
+                    .flatMap(saved -> {
+                        String text = "❌ Сесію відхилено.";
+                        Mono<Boolean> msg;
+                        if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+                            msg = telegramService.sendMessageToMentor(chatId, text);
+                        } else {
+                            msg = telegramService.sendMessage(chatId, text);
+                        }
+                        return msg.thenReturn(saved);
+                    })
+                    .then(ackCallback(callbackId, botType))
+                    .thenReturn(ResponseEntity.ok().build());
+        } else if (data.equals("trainee_confirm_session")) {
+            String text = "✅ Дякую! Сесію підтверджено. Тренер отримає сповіщення.";
+            return telegramService.sendMessage(chatId, text)
+                    .then(ackCallback(callbackId, botType))
+                    .thenReturn(ResponseEntity.ok().build());
+        }
+
         return Mono.just(ResponseEntity.ok().build());
+    }
+
+    private Long parseSessionId(String data) {
+        try {
+            return Long.parseLong(data.substring(data.indexOf(':') + 1));
+        } catch (Exception e) {
+            log.warn("Failed to parse session id from callback data: {}", data);
+            return null;
+        }
+    }
+
+    private Mono<Void> ackCallback(String callbackId, BotType botType) {
+        String botToken;
+        if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+            botToken = telegramService.getMentorBotToken();
+        } else {
+            botToken = telegramService.getBotToken();
+        }
+        return telegramService.answerCallbackQuery(callbackId, botToken);
     }
 
     private enum BotType {

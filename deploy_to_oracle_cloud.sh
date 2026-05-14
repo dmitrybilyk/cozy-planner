@@ -38,10 +38,7 @@ ssh -t $REMOTE_USER@$REMOTE_HOST << EOF
   echo "🐳 Перезбірка Docker-образів та запуск..."
   # Оскільки ми використовуємо Gradle з Kotlin DSL всередині Docker,
   # параметр --build забезпечить перекомпіляцію Java/Kotlin коду.
-  docker compose up -d --build || { echo "❌ Помилка Docker Compose"; exit 1; }
-
-  # Очищення старих образів для економії місця на 1GB інстансі
-  docker image prune -f
+  docker compose up --build || { echo "❌ Помилка Docker Compose"; exit 1; }
 
   echo "✅ Деплой успішно завершено!"
 EOF

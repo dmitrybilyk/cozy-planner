@@ -157,8 +157,8 @@
                          @click="handleCardClick(session, index)"
                          :data-session-id="session.id"
                          :id="'session-card-' + session.id"
-                         class="bg-[#1c1c1c] rounded-3xl p-5 shadow-sm card-hover fade-in relative overflow-hidden"
-                         :class="[draggedIndex === index ? 'dragging' : '', isSessionNow(session) ? 'ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'border border-[#333]']"
+                         class="rounded-3xl p-5 shadow-sm card-hover fade-in relative overflow-hidden"
+                         :class="[draggedIndex === index ? 'dragging' : '', getCardBorderClass(session)]"
                          :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
                         <div x-show="isSessionNow(session)" 
                              class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
@@ -180,11 +180,25 @@
                                 <div class="flex flex-wrap gap-1 mt-2">
                                     <template x-for="aId in session.traineeIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, session.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, session.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getTraineeName(aId)"></span></span></template>
                                 </div>
+                                <div class="flex flex-wrap gap-1 mt-1">
+                                    <span x-show="session.confirmationStatus"
+                                          class="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
+                                          :class="getConfirmationBadgeClass(session.confirmationStatus)">
+                                        <span x-text="getConfirmationLabel(session.confirmationStatus)"></span>
+                                    </span>
+                                </div>
                                 <div x-show="getLocationName(session.locationId)" class="mt-1.5 flex items-center space-x-1">
                                     <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
                                     <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                                 </div>
                                 <button @click.stop="copySession(session)" class="mt-2 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
+                                <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-2">
+                                    <button @click.stop="confirmSession(session.id)" class="flex-1 py-1.5 bg-green-600/30 text-green-400 rounded-xl text-[10px] font-bold uppercase">Підтвердити</button>
+                                    <button @click.stop="rejectSession(session.id)" class="flex-1 py-1.5 bg-red-600/30 text-red-400 rounded-xl text-[10px] font-bold uppercase">Відхилити</button>
+                                </div>
+                                <div x-show="session.createdBy === 'COACH' && (session.confirmationStatus === 'NONE' || session.confirmationStatus === 'REJECTED')" class="mt-2">
+                                    <button @click.stop="requestTraineeConfirmation(session)" class="text-[10px] font-bold text-yellow-400 uppercase tracking-wider">Запитати підтвердження учня</button>
+                                </div>
                             </div>
                             <div class="flex flex-col items-center gap-1 flex-shrink-0 ml-1">
                                 <template x-for="(icon, i) in getSessionIcons(session, index)" :key="i">
@@ -215,12 +229,12 @@
                                 <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1">● NOW</span>
                                 <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
                             </div>
-                            <div @click="handleCardClick(session, index)"
-                                 :data-session-id="session.id"
-                                 :id="'agenda-card-' + session.id"
-                                 class="bg-[#1c1c1c] rounded-2xl p-4 flex items-center justify-between shadow-sm card-hover relative overflow-hidden"
-                                 :class="[isSessionNow(session) ? 'ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'border border-[#333]']"
-                                 :style="'border-left: 4px solid ' + (session.color || '#3b82f6')">
+                             <div @click="handleCardClick(session, index)"
+                                  :data-session-id="session.id"
+                                  :id="'agenda-card-' + session.id"
+                                  class="rounded-2xl p-4 shadow-sm card-hover relative overflow-hidden"
+                                  :class="[getAgendaCardClass(session)]"
+                                  :style="'border-left: 4px solid ' + (session.color || '#3b82f6')">
                                 <div x-show="isSessionNow(session)" 
                                      class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
                                 <div class="flex items-center space-x-4 min-w-0 flex-1">
@@ -232,9 +246,23 @@
                                                   class="text-[9px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● NOW</span>
                                         </div>
                                         <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="session.traineeIds.map(id => getTraineeName(id)).join(', ')"></p>
+                                        <div class="flex flex-wrap gap-1 mt-1">
+                                            <span x-show="session.confirmationStatus"
+                                                  class="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                                                  :class="getConfirmationBadgeClass(session.confirmationStatus)">
+                                                <span x-text="getConfirmationLabel(session.confirmationStatus)"></span>
+                                            </span>
+                                        </div>
                                         <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1 mt-1">
                                             <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
                                             <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
+                                        </div>
+                                        <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-2">
+                                            <button @click.stop="confirmSession(session.id)" class="flex-1 py-1 bg-green-600/30 text-green-400 rounded-lg text-[9px] font-bold uppercase">Підтвердити</button>
+                                            <button @click.stop="rejectSession(session.id)" class="flex-1 py-1 bg-red-600/30 text-red-400 rounded-lg text-[9px] font-bold uppercase">Відхилити</button>
+                                        </div>
+                                        <div x-show="session.createdBy === 'COACH' && (session.confirmationStatus === 'NONE' || session.confirmationStatus === 'REJECTED')" class="mt-1">
+                                            <button @click.stop="requestTraineeConfirmation(session)" class="text-[9px] font-bold text-yellow-400 uppercase tracking-wider">Зап. підтв.</button>
                                         </div>
                                     </div>
                                 </div>
@@ -419,9 +447,10 @@
                   <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#292929]">
                       <div class="flex items-center gap-2 flex-wrap">
                           <button @click="createSessionForTrainee(trainee)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-blue-400 uppercase tracking-wider">Створити Сесію</button>
-                          <template x-if="trainee.telegramEnabled && !trainee.telegramConnected">
-                              <button @click="generateInvite(trainee.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[trainee.id] ? '✓ Скопійовано!' : '🌐 Запросити в TG'"></button>
-                          </template>
+                           <button @click="generateTraineeLink(trainee)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-orange-400 uppercase tracking-wider" x-text="traineeLinks[trainee.id] ? '✓ Посилання скопійовано!' : '🔗 Посилання учня'"></button>
+                           <template x-if="trainee.telegramEnabled && !trainee.telegramConnected">
+                               <button @click="generateInvite(trainee.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[trainee.id] ? '✓ Скопійовано!' : '🌐 Запросити в TG'"></button>
+                           </template>
                           <div class="flex items-center gap-1.5" x-show="trainee.telegramEnabled">
                               <input type="checkbox" x-model="trainee.weekendReminderEnabled" 
                                      @change="toggleWeekendReminder(trainee)"
@@ -679,6 +708,7 @@
             notifyModal: { show: false, traineeId: null, traineeName: '', customMessage: '', dayType: 'tomorrow', targetDate: '' },
             mentorTg: { enabled: false, connected: false, username: '', connectLink: '', copied: false },
             inviteUrls: {},
+            traineeLinks: {},
             notifyingTrainees: {},
             notifyErrors: {},
             notifySuccess: {},
@@ -1017,12 +1047,14 @@
                                             a.photoBase64 = tg.photoBase64;
                                             a.weekendReminderEnabled = tg.weekendReminderEnabled;
                                             a.sessionReminderEnabled = tg.sessionReminderEnabled;
+                                            a.inviteToken = tg.inviteToken;
                                         } else {
                                             a.telegramEnabled = true;
                                             a.telegramConnected = false;
                                             a.photoBase64 = null;
                                             a.weekendReminderEnabled = false;
                                             a.sessionReminderEnabled = false;
+                                            a.inviteToken = null;
                                         }
                                     }
                                 }
@@ -1497,7 +1529,60 @@
                 this.showModal = true;
             },
             editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null, weekendReminderEnabled: a.weekendReminderEnabled || false }; },
-            askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
+             askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
+
+             generateTraineeLink(trainee) {
+                 const url = window.location.origin + '/trainee/' + (trainee.inviteToken || trainee.connectLink?.split('start=')[1]) + '/sessions';
+                 if (this.traineeLinks[trainee.id]) return;
+                 navigator.clipboard?.writeText(url);
+                 this.traineeLinks[trainee.id] = url;
+                 setTimeout(() => { delete this.traineeLinks[trainee.id]; }, 3000);
+             },
+
+             getCardBorderClass(session) {
+                 const base = this.isSessionNow(session) ? 'bg-[#1c1c1c] ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'bg-[#1c1c1c] border border-[#333]';
+                 if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500';
+                 if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/10 border-red-500/30 opacity-70';
+                 if (session.confirmationStatus === 'PENDING' && session.createdBy === 'TRAINEE') return 'bg-yellow-900/10 border-yellow-500/30';
+                 return base;
+             },
+
+             getAgendaCardClass(session) {
+                 const base = this.isSessionNow(session) ? 'bg-[#1c1c1c] ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'bg-[#1c1c1c] border border-[#333]';
+                 if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500';
+                 if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/10 border-red-500/30 opacity-70';
+                 if (session.confirmationStatus === 'PENDING' && session.createdBy === 'TRAINEE') return 'bg-yellow-900/10 border-yellow-500/30';
+                 return base;
+             },
+
+             getConfirmationBadgeClass(status) {
+                 if (status === 'CONFIRMED') return 'bg-green-900/30 text-green-400';
+                 if (status === 'REJECTED') return 'bg-red-900/30 text-red-400';
+                 if (status === 'PENDING') return 'bg-yellow-900/30 text-yellow-400';
+                 return 'bg-gray-900/30 text-gray-400';
+             },
+
+             getConfirmationLabel(status) {
+                 if (status === 'CONFIRMED') return '✅ Підтв.';
+                 if (status === 'REJECTED') return '❌ Відхилено';
+                 if (status === 'PENDING') return '⏳ Очікує';
+                 return '';
+             },
+
+             async confirmSession(sessionId) {
+                 await fetch(`/api/v1/sessions/${sessionId}/confirm`, { method: 'POST' });
+                 await this.fetchData();
+             },
+
+             async rejectSession(sessionId) {
+                 await fetch(`/api/v1/sessions/${sessionId}/reject`, { method: 'POST' });
+                 await this.fetchData();
+             },
+
+             requestTraineeConfirmation(session) {
+                 if (!confirm('Надіслати запит на підтвердження учню через Telegram?')) return;
+                 fetch(`/api/v1/sessions/${session.id}/request-trainee-confirmation`, { method: 'POST' });
+             },
             
              async toggleWeekendReminder(trainee) {
                  if (!trainee.telegramEnabled || !trainee.telegramConnected) return;

@@ -37,4 +37,15 @@ public class PlannerController {
                         })
                         .defaultIfEmpty("redirect:/signin"));
     }
+
+    @GetMapping("/trainee/{token}/sessions")
+    public Mono<String> getTraineeSessions(@PathVariable String token, ServerWebExchange exchange) {
+        return exchange.getSession()
+                .flatMap(session -> traineeRepository.findByInviteToken(token)
+                        .map(trainee -> {
+                            session.getAttributes().put("trainee_id", trainee.getId());
+                            return "trainee-sessions";
+                        })
+                        .defaultIfEmpty("redirect:/signin"));
+    }
 }

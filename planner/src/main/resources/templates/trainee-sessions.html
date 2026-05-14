@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мої сесії</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #121212; color: #ffffff; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .modal-backdrop { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
+        input, select { background: #262626 !important; color: white !important; border: 1px solid #363636 !important; border-radius: 12px !important; padding: 10px !important; }
+        .bottom-nav { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    </style>
+</head>
+<body class="antialiased" x-data="traineeSessionsApp()">
+
+<header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-16 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center gap-2">
+        <h1 class="text-lg font-bold">Мої сесії</h1>
+        <span x-show="me.telegramEnabled"
+              :class="me.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
+              class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+            <span x-text="me.telegramConnected ? '✓ TG' : '! TG'"></span>
+        </span>
+    </div>
+    <div class="flex gap-2">
+        <a href="/trainee/availability" class="text-blue-400 text-sm font-bold px-3 py-2">Доступність</a>
+        <button @click="openCreateModal()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg">+ Нова</button>
+    </div>
+</header>
+
+<main class="max-w-lg mx-auto p-4 pb-24">
+    <div x-show="saved" class="bg-green-900/20 text-green-400 p-3 rounded-xl text-sm font-bold text-center mb-4" x-text="savedMessage"></div>
+    <div x-show="error" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-sm font-bold text-center mb-4" x-text="error"></div>
+
+    <div x-show="sessions.length === 0" class="text-center py-20 text-gray-600 text-sm">
+        У тебе ще немає сесій. Натисни "+ Нова", щоб створити.
+    </div>
+
+    <div class="space-y-3">
+        <template x-for="session in sessions" :key="session.id">
+            <div class="rounded-3xl p-5 shadow-sm border relative overflow-hidden"
+                 :class="getCardClass(session)">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
+                        <p class="text-sm text-gray-500 mt-1" x-text="session.description"></p>
+                        <div class="flex items-center gap-2 mt-2 text-sm text-gray-400">
+                            <span>📅 <span x-text="session.date"></span></span>
+                            <span>🕐 <span x-text="session.time"></span><span x-show="session.endTime" x-text="' — ' + session.endTime"></span></span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="text-xs text-gray-500" x-text="session.mentorName ? '👤 ' + session.mentorName : ''"></span>
+                        </div>
+                        <div class="mt-2">
+                            <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                                  :class="getStatusClass(session.confirmationStatus)">
+                                <span x-text="getStatusLabel(session.confirmationStatus)"></span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
+                        <template x-for="icon in getSessionIcons(session)" :key="icon">
+                            <span class="text-base" x-text="icon"></span>
+                        </template>
+                    </div>
+                </div>
+                <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
+                    <button @click="confirmSession(session.id)" class="flex-1 py-2 bg-green-600 text-white rounded-xl text-xs font-bold uppercase">Підтвердити</button>
+                    <button @click="rejectSession(session.id)" class="flex-1 py-2 bg-red-600/30 text-red-400 rounded-xl text-xs font-bold uppercase">Відхилити</button>
+                </div>
+            </div>
+        </template>
+    </div>
+</main>
+
+<div x-show="showModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center modal-backdrop px-0 sm:px-4" x-cloak x-transition>
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl" @click.away="showModal = false">
+        <div class="p-6 border-b border-[#333] flex justify-between items-center">
+            <h3 class="text-xl font-bold text-white">Нова сесія</h3>
+            <button @click="showModal = false" class="text-gray-500 text-sm font-bold">Скасувати</button>
+        </div>
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Назва</label>
+                <input type="text" x-model="form.title" class="w-full text-base">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Опис</label>
+                <input type="text" x-model="form.description" class="w-full text-base">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Дата</label>
+                <input type="date" x-model="form.date" :min="todayStr" class="w-full text-base">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Час початку</label>
+                <input type="time" x-model="form.time" class="w-full text-base">
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Час закінчення</label>
+                <input type="time" x-model="form.endTime" class="w-full text-base">
+            </div>
+            <button @click="createSession()"
+                    :disabled="!form.title || !form.date || !form.time || !form.endTime"
+                    class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-30">
+                Створити
+            </button>
+        </div>
+    </div>
+</div>
+
+<nav class="bottom-nav fixed bottom-0 inset-x-0 bg-[#1a1a1a]/95 border-t border-[#333] z-40">
+    <div class="flex items-center justify-around max-w-lg mx-auto h-14">
+        <a href="/trainee/availability" class="flex flex-col items-center gap-0.5 text-gray-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[9px] font-bold uppercase">Доступність</span>
+        </a>
+        <div class="flex flex-col items-center gap-0.5 text-blue-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span class="text-[9px] font-bold uppercase">Сесії</span>
+        </div>
+    </div>
+</nav>
+
+<script th:inline="none">
+    function localDateStr(d) {
+        d = d || new Date();
+        return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+    }
+    function traineeSessionsApp() {
+        return {
+            sessions: [],
+            me: {},
+            showModal: false,
+            saved: false,
+            savedMessage: '',
+            error: '',
+            todayStr: localDateStr(),
+            form: { title: '', description: '', date: localDateStr(), time: '10:00', endTime: '11:00' },
+
+            async init() {
+                const res = await fetch('/api/v1/me');
+                if (!res.ok) { window.location.href = '/signin'; return; }
+                const me = await res.json();
+                if (!me.traineeId) { window.location.href = '/signin'; return; }
+                this.me = me;
+                await this.loadSessions();
+                this.connectWebSocket();
+            },
+
+            connectWebSocket() {
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws`;
+                const ws = new WebSocket(wsUrl);
+                ws.onmessage = (event) => {
+                    if (event.data === 'session_changed') this.loadSessions();
+                };
+                ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
+                ws.onerror = () => ws.close();
+                this.ws = ws;
+            },
+
+            async loadSessions() {
+                const res = await fetch('/api/v1/trainee/sessions');
+                if (res.ok) {
+                    this.sessions = await res.json();
+                }
+            },
+
+            openCreateModal() {
+                this.form = { title: '', description: '', date: localDateStr(), time: '10:00', endTime: '11:00' };
+                this.showModal = true;
+            },
+
+            async createSession() {
+                this.error = '';
+                const res = await fetch('/api/v1/trainee/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: this.form.title,
+                        description: this.form.description,
+                        date: this.form.date,
+                        time: this.form.time,
+                        endTime: this.form.endTime
+                    })
+                });
+                if (res.ok) {
+                    this.showModal = false;
+                    this.saved = true;
+                    this.savedMessage = 'Сесію створено! Тренер отримає сповіщення.';
+                    setTimeout(() => this.saved = false, 4000);
+                    await this.loadSessions();
+                } else {
+                    this.error = 'Помилка при створенні сесії';
+                }
+            },
+
+            async confirmSession(id) {
+                this.error = '';
+                const res = await fetch(`/api/v1/sessions/${id}/confirm`, { method: 'POST' });
+                if (res.ok) {
+                    this.saved = true;
+                    this.savedMessage = 'Сесію підтверджено!';
+                    setTimeout(() => this.saved = false, 3000);
+                    await this.loadSessions();
+                } else {
+                    this.error = 'Помилка підтвердження';
+                }
+            },
+
+            async rejectSession(id) {
+                this.error = '';
+                const res = await fetch(`/api/v1/sessions/${id}/reject`, { method: 'POST' });
+                if (res.ok) {
+                    this.saved = true;
+                    this.savedMessage = 'Сесію відхилено';
+                    setTimeout(() => this.saved = false, 3000);
+                    await this.loadSessions();
+                } else {
+                    this.error = 'Помилка';
+                }
+            },
+
+            getCardClass(session) {
+                if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500/50';
+                if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/20 border-red-500/30 opacity-60';
+                if (session.confirmationStatus === 'PENDING') return 'bg-yellow-900/10 border-yellow-500/30';
+                return 'bg-[#1c1c1c] border-[#333]';
+            },
+
+            getStatusClass(status) {
+                if (status === 'CONFIRMED') return 'bg-green-900/30 text-green-400';
+                if (status === 'REJECTED') return 'bg-red-900/30 text-red-400';
+                if (status === 'PENDING') return 'bg-yellow-900/30 text-yellow-400';
+                return 'bg-gray-900/30 text-gray-400';
+            },
+
+            getStatusLabel(status) {
+                if (status === 'CONFIRMED') return '✅ Підтверджено';
+                if (status === 'REJECTED') return '❌ Відхилено';
+                if (status === 'PENDING') return '⏳ Очікує';
+                return '—';
+            },
+
+            getSessionIcons(session) {
+                const icons = ['⚽', '🎾', '🏀', '⚾', '🏈', '🥊', '🎯', '🚴'];
+                const count = (session.traineeIds || []).length;
+                const result = [];
+                for (let i = 0; i < count; i++) {
+                    result.push(icons[(session.id * 3 + i) % icons.length]);
+                }
+                return result;
+            }
+        }
+    }
+</script>
+</body>
+</html>

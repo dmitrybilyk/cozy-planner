@@ -169,6 +169,7 @@ public class NotificationController {
         result.put("photoBase64", trainee.getPhotoBase64());
         result.put("weekendReminderEnabled", trainee.isWeekendReminderEnabled());
         result.put("sessionReminderEnabled", trainee.isSessionReminderEnabled());
+        result.put("inviteToken", trainee.getInviteToken());
         return result;
     }
 
