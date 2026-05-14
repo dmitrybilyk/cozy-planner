@@ -1,0 +1,2 @@
+ALTER TABLE meetings ADD COLUMN confirmation_status VARCHAR(20) DEFAULT 'NONE';
+ALTER TABLE meetings ADD COLUMN created_by VARCHAR(10) DEFAULT 'COACH';

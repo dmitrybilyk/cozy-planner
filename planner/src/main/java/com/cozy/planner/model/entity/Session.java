@@ -44,6 +44,14 @@ public class Session {
     @Builder.Default
     private Boolean traineeReminderSent = false;
 
+    @Column("confirmation_status")
+    @Builder.Default
+    private String confirmationStatus = "NONE";
+
+    @Column("created_by")
+    @Builder.Default
+    private String createdBy = "COACH";
+
     @Transient
     private List<Long> traineeIds;
 }
