@@ -35,4 +35,10 @@ public interface SessionRepository extends ReactiveCrudRepository<Session, Long>
 
     @Query("SELECT * FROM meetings WHERE trainee_reminder_sent = FALSE AND meeting_date BETWEEN :startDate AND :endDate")
     Flux<Session> findUpcomingWithoutTraineeReminder(LocalDate startDate, LocalDate endDate);
+
+    @Query("DELETE FROM meeting_trainees WHERE meeting_id IN (SELECT id FROM meetings WHERE mentor_id = :mentorId)")
+    Mono<Void> deleteTraineeLinksByMentorId(Long mentorId);
+
+    @Query("DELETE FROM meetings WHERE mentor_id = :mentorId")
+    Mono<Void> deleteAllByMentorId(Long mentorId);
 }

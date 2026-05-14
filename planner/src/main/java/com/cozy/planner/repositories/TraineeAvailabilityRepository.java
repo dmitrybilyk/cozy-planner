@@ -4,6 +4,7 @@ import com.cozy.planner.model.entity.TraineeAvailability;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 
@@ -14,4 +15,7 @@ public interface TraineeAvailabilityRepository extends ReactiveCrudRepository<Tr
 
     @Query("SELECT * FROM trainee_availability WHERE trainee_id = :traineeId AND date = :date ORDER BY start_time")
     Flux<TraineeAvailability> findByTraineeIdAndDate(Long traineeId, LocalDate date);
+
+    @Query("DELETE FROM trainee_availability WHERE trainee_id = :traineeId")
+    Mono<Void> deleteByTraineeId(Long traineeId);
 }

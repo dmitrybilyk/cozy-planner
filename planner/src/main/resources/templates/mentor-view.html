@@ -146,30 +146,51 @@
         </div>
         <div class="space-y-4">
             <template x-for="(session, index) in filteredSessions" :key="session.id">
-                <div draggable="true" @dragstart="dragStart($event, index)" @dragend="dragEnd" @dragover.prevent @drop="drop($event, targetIndex(session.id))"
-                     @click="handleCardClick(session, index)"
-                     :data-session-id="session.id"
-                     :id="'session-card-' + session.id"
-                     class="bg-[#1c1c1c] border border-[#333] rounded-3xl p-5 shadow-sm card-hover fade-in"
-                     :class="draggedIndex === index ? 'dragging' : ''"
-                     :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
-                    <div class="flex items-center space-x-4">
-                        <div class="flex flex-col items-center justify-center rounded-2xl px-3 py-2 min-w-[70px] border border-[#333]"
-                             :style="'background: ' + (session.color || '#3b82f6') + '33'">
-                            <span class="text-lg sm:text-xl font-black" :style="'color: ' + (session.color || '#3b82f6')" x-text="session.time"></span>
-                            <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="session.endTime"></span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
-                            <p class="text-sm text-gray-500 italic truncate" x-text="session.description"></p>
-                            <div class="flex flex-wrap gap-1 mt-2">
-                                <template x-for="aId in session.traineeIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, session.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, session.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getTraineeName(aId)"></span></span></template>
+                <div>
+                    <div x-show="showNowLineAfter(session, filteredSessions)"
+                         class="my-3 flex items-center gap-2">
+                        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                        <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1">● NOW</span>
+                        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                    </div>
+                    <div draggable="true" @dragstart="dragStart($event, index)" @dragend="dragEnd" @dragover.prevent @drop="drop($event, targetIndex(session.id))"
+                         @click="handleCardClick(session, index)"
+                         :data-session-id="session.id"
+                         :id="'session-card-' + session.id"
+                         class="bg-[#1c1c1c] rounded-3xl p-5 shadow-sm card-hover fade-in relative overflow-hidden"
+                         :class="[draggedIndex === index ? 'dragging' : '', isSessionNow(session) ? 'ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'border border-[#333]']"
+                         :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
+                        <div x-show="isSessionNow(session)" 
+                             class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative flex flex-col items-center justify-center rounded-2xl px-3 py-2 min-w-[70px] border border-[#333]"
+                                 :style="'background: ' + (session.color || '#3b82f6') + '33'">
+                                <span x-show="isSessionNow(session)" 
+                                      class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
+                                <span class="text-lg sm:text-xl font-black" :style="'color: ' + (session.color || '#3b82f6')" x-text="session.time"></span>
+                                <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="session.endTime"></span>
                             </div>
-                            <div x-show="getLocationName(session.locationId)" class="mt-1.5 flex items-center space-x-1">
-                                <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
-                                <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
+                                    <span x-show="isSessionNow(session)" 
+                                          class="text-[9px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● NOW</span>
+                                </div>
+                                <p class="text-sm text-gray-500 italic truncate" x-text="session.description"></p>
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    <template x-for="aId in session.traineeIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, session.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, session.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getTraineeName(aId)"></span></span></template>
+                                </div>
+                                <div x-show="getLocationName(session.locationId)" class="mt-1.5 flex items-center space-x-1">
+                                    <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
+                                    <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
+                                </div>
+                                <button @click.stop="copySession(session)" class="mt-2 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
                             </div>
-                            <button @click.stop="copySession(session)" class="mt-2 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
+                            <div class="flex flex-col items-center gap-1 flex-shrink-0 ml-1">
+                                <template x-for="(icon, i) in getSessionIcons(session, index)" :key="i">
+                                    <span class="text-base sm:text-lg" x-text="icon"></span>
+                                </template>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -187,23 +208,43 @@
                 </button>
                 <div class="space-y-3">
                     <template x-for="(session, index) in dateGroup.items" :key="session.id">
-                        <div @click="handleCardClick(session, index)"
-                             :data-session-id="session.id"
-                             :id="'agenda-card-' + session.id"
-                             class="bg-[#1c1c1c] border border-[#333] rounded-2xl p-4 flex items-center justify-between shadow-sm card-hover"
-                             :style="'border-left: 4px solid ' + (session.color || '#3b82f6')">
-                            <div class="flex items-center space-x-4 min-w-0 flex-1">
-                                <span class="text-sm font-black text-white flex-shrink-0" x-text="session.time"></span>
-                                <div class="min-w-0 flex-1">
-                                <p class="text-base sm:text-lg font-bold text-gray-200 truncate" x-text="session.title"></p>
-                                <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="session.traineeIds.map(id => getTraineeName(id)).join(', ')"></p>
-                                    <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1 mt-1">
-                                        <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
-                                        <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
+                        <div>
+                            <div x-show="showNowLineAfter(session, dateGroup.items)"
+                                 class="my-2 flex items-center gap-2">
+                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                                <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1">● NOW</span>
+                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                            </div>
+                            <div @click="handleCardClick(session, index)"
+                                 :data-session-id="session.id"
+                                 :id="'agenda-card-' + session.id"
+                                 class="bg-[#1c1c1c] rounded-2xl p-4 flex items-center justify-between shadow-sm card-hover relative overflow-hidden"
+                                 :class="[isSessionNow(session) ? 'ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'border border-[#333]']"
+                                 :style="'border-left: 4px solid ' + (session.color || '#3b82f6')">
+                                <div x-show="isSessionNow(session)" 
+                                     class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
+                                <div class="flex items-center space-x-4 min-w-0 flex-1">
+                                    <span class="text-sm font-black text-white flex-shrink-0" x-text="session.time"></span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-2">
+                                            <p class="text-base sm:text-lg font-bold text-gray-200 truncate" x-text="session.title"></p>
+                                            <span x-show="isSessionNow(session)" 
+                                                  class="text-[9px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● NOW</span>
+                                        </div>
+                                        <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="session.traineeIds.map(id => getTraineeName(id)).join(', ')"></p>
+                                        <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1 mt-1">
+                                            <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
+                                            <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
+                                        </div>
                                     </div>
                                 </div>
+                                <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                                    <template x-for="(icon, i) in getSessionIcons(session, index)" :key="i">
+                                        <span class="text-sm sm:text-base" x-text="icon"></span>
+                                    </template>
+                                </div>
+                                <button @click.stop="copySession(session)" class="ml-2 flex-shrink-0 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
                             </div>
-                            <button @click.stop="copySession(session)" class="ml-2 flex-shrink-0 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
                         </div>
                     </template>
                 </div>
@@ -281,7 +322,7 @@
         </div>
         
         <!-- Вихід -->
-        <div class="pt-4">
+        <div class="pt-4 space-y-3">
             <form method="POST" action="/logout" class="w-full">
                 <button type="submit" class="w-full flex items-center justify-center gap-2 bg-red-900/30 text-red-400 py-3 rounded-xl font-bold transition hover:bg-red-900/50 active:scale-[0.97]">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -290,6 +331,11 @@
                     <span>Вийти</span>
                 </button>
             </form>
+            <button @click="startFresh()" 
+                    class="w-full flex items-center justify-center gap-2 bg-orange-900/30 text-orange-400 py-3 rounded-xl font-bold transition hover:bg-orange-900/50 active:scale-[0.97]">
+                <span>🔄</span>
+                <span>Почати спочатку</span>
+            </button>
         </div>
     </div>
 </div>
@@ -621,7 +667,7 @@
             currentView: 'feed', showModal: false, showManageTrainees: false, showManageLocations: false, showAvailabilityOverview: false, showProfile: false,
             editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null,
             selectedDate: _today, todayStr: _today,
-            days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {},
+            days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport',
             hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
             halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
@@ -636,6 +682,8 @@
             notifyingTrainees: {},
             notifyErrors: {},
             notifySuccess: {},
+            _nowTimer: null,
+            nowTick: 0,
             availabilityMap: {},
             touchDrag: null,
             touchJustDragged: false,
@@ -669,6 +717,7 @@
                     this.connectWebSocket();
                     this.initTouchDrag();
                     setTimeout(() => this.scrollToToday(), 200);
+                    this._nowTimer = setInterval(() => { this.nowTick++; }, 30000);
                     console.log('init() complete!');
                 } catch (e) {
                     console.error('init() error:', e);
@@ -814,6 +863,7 @@
                         this.user = data.user || {};
                         this.mentorId = data.mentor?.id;
                         this.mentor.name = data.mentor?.name || 'Cozy Planner';
+                        this.mentorProfile = data.mentor?.profile || 'sport';
                         this.labels = data.labels || {};
                         return true;
                     } else {
@@ -1073,6 +1123,21 @@
                 this.notifyingTrainees[traineeId] = false;
             },
             
+            async startFresh() {
+                if (!confirm('🗑 Видалити всі дані та почати спочатку?\n\nУсі учні, сесії, локації та налаштування будуть безповоротно видалені.')) return;
+                if (!confirm('Ви впевнені? Цю дію неможливо скасувати.')) return;
+                try {
+                    const res = await fetch('/api/v1/account/reset', { method: 'POST' });
+                    if (res.ok) {
+                        window.location.href = '/signin';
+                    } else {
+                        alert('Помилка при видаленні даних');
+                    }
+                } catch (e) {
+                    alert('Помилка сервера');
+                }
+            },
+
             async fetchMentorTelegramStatus() {
                 try {
                     const res = await fetch('/api/v1/mentor/telegram/status');
@@ -1182,6 +1247,49 @@
             getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
             getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
             getLocationColor(id) { return this.locations.find(l => l.id === id)?.color || '#3b82f6'; },
+            getSessionIcons(session, index) {
+                const profile = this.mentorProfile || 'sport';
+                const sportIcons = ['⚽', '🎾', '🏀', '⚾', '🏈', '🥊', '🎯', '🚴', '🏋️', '🏃', '🏄', '🧗', '🎿', '🥋', '🤺', '🏇'];
+                const medicineIcons = ['💆', '🧘', '🌿', '🪷', '🔮', '🕯️', '🌺', '🍃', '💧', '🤲', '✨', '🪐', '🫧', '🌸', '🏔️', '🌊', '🔥', '🧂', '🧴', '🪨'];
+                const icons = profile === 'medicine' ? medicineIcons : sportIcons;
+                const count = (session.traineeIds || []).length;
+                const result = [];
+                for (let i = 0; i < count; i++) {
+                    const idx = (index * 3 + i) % icons.length;
+                    result.push(icons[idx]);
+                }
+                return result;
+            },
+            get nowMinutes() {
+                this.nowTick; // trigger reactivity
+                const now = new Date();
+                return now.getHours() * 60 + now.getMinutes();
+            },
+            sessionStartMin(session) {
+                const [h, m] = (session.time || '0:00').split(':').map(Number);
+                return h * 60 + (m || 0);
+            },
+            sessionEndMin(session) {
+                const [h, m] = (session.endTime || session.time || '0:00').split(':').map(Number);
+                return h * 60 + (m || 0);
+            },
+            isSessionNow(session) {
+                const now = this.nowMinutes;
+                const start = this.sessionStartMin(session);
+                const end = this.sessionEndMin(session);
+                return now >= start && now < end;
+            },
+            showNowLineAfter(session, allSessions) {
+                const now = this.nowMinutes;
+                const end = this.sessionEndMin(session);
+                const sorted = allSessions
+                    .filter(s => s.id !== session.id && s.date === session.date)
+                    .slice()
+                    .sort((a, b) => this.sessionStartMin(a) - this.sessionStartMin(b));
+                const nextSession = sorted.find(s => this.sessionStartMin(s) > this.sessionStartMin(session));
+                if (!nextSession) return false;
+                return end <= now && now < this.sessionStartMin(nextSession);
+            },
             hasSessionOn(date) { return this.sessions.some(w => w.date === date); },
             handleMouseScroll(e) { document.getElementById('calendar-container').scrollLeft += e.deltaY; },
             dragStart(event, index) { this.draggedIndex = index; },

@@ -22,4 +22,7 @@ public interface TraineeRepository extends ReactiveCrudRepository<Trainee, Long>
     
     @Query("SELECT * FROM trainees WHERE session_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
     Flux<Trainee> findAllTraineesWithSessionRemindersEnabled();
+
+    @Query("DELETE FROM trainees WHERE mentor_id = :mentorId")
+    Mono<Void> deleteAllByMentorId(Long mentorId);
 }
