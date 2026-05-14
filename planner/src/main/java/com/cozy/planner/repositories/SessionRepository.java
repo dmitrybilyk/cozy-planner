@@ -8,7 +8,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
-import java.util.List;
 
 @Repository
 public interface SessionRepository extends ReactiveCrudRepository<Session, Long> {
@@ -24,11 +23,6 @@ public interface SessionRepository extends ReactiveCrudRepository<Session, Long>
 
     @Query("SELECT trainee_id FROM meeting_trainees WHERE meeting_id = :sessionId")
     Flux<Long> findTraineeIdsBySessionId(Long sessionId);
-
-    @Query("SELECT meeting_id AS meetingId, trainee_id AS traineeId FROM meeting_trainees WHERE meeting_id IN (:ids)")
-    Flux<SessionTraineeLink> findTraineeIdsBySessionIds(List<Long> ids);
-
-    record SessionTraineeLink(Long meetingId, Long traineeId) {}
 
     @Query("DELETE FROM meeting_trainees WHERE meeting_id = :sessionId")
     Mono<Void> deleteTraineeLinks(Long sessionId);

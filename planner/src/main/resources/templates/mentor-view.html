@@ -335,7 +335,8 @@
         <button @click="saveTrainee()" :disabled="!traineeForm.name || traineeForm.name.trim() === ''" class="w-full ig-gradient text-white py-4 rounded-xl font-bold uppercase tracking-widest text-xs sm:text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" x-text="editingTraineeId ? 'Оновити' : 'Додати учня'"></button>
     </div>
      <div class="flex-1 overflow-y-auto p-4 space-y-3">
-         <template x-for="trainee in trainees" :key="trainee.id">
+         <input type="text" x-model="traineeSearch" placeholder="Пошук учнів..." class="w-full text-base sticky top-0 z-10">
+         <template x-for="trainee in filteredTrainees" :key="trainee.id">
              <div class="p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
                  <div class="flex items-center justify-between">
                      <div class="flex items-start gap-3 min-w-0 flex-1">
@@ -369,11 +370,12 @@
                          </div>
                      </div>
                  </div>
-                 <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#292929]">
-                     <div class="flex items-center gap-2 flex-wrap">
-                         <template x-if="trainee.telegramEnabled && !trainee.telegramConnected">
-                             <button @click="generateInvite(trainee.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[trainee.id] ? '✓ Скопійовано!' : '🌐 Запросити в TG'"></button>
-                         </template>
+                  <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#292929]">
+                      <div class="flex items-center gap-2 flex-wrap">
+                          <button @click="createSessionForTrainee(trainee)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-blue-400 uppercase tracking-wider">Створити Сесію</button>
+                          <template x-if="trainee.telegramEnabled && !trainee.telegramConnected">
+                              <button @click="generateInvite(trainee.id)" class="px-3 py-1.5 rounded-lg text-[11px] font-bold text-green-400 uppercase tracking-wider" x-text="inviteUrls[trainee.id] ? '✓ Скопійовано!' : '🌐 Запросити в TG'"></button>
+                          </template>
                          <div class="flex items-center gap-1.5" x-show="trainee.telegramEnabled">
                              <input type="checkbox" x-model="trainee.weekendReminderEnabled" 
                                     @change="toggleWeekendReminder(trainee)"
@@ -517,18 +519,17 @@
                     </div>
                     <div class="grid grid-cols-1 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
                         <template x-for="trainee in filteredTrainees" :key="trainee.id">
-                            <label class="flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 active:scale-[0.98] cursor-pointer"
-                                   :class="sessionForm.traineeIds.includes(trainee.id) ? 'bg-blue-900/20 border-blue-500' : 'bg-[#262626] border-transparent'">
+                            <div @click="toggleTraineeSelection(trainee.id)" class="flex items-center justify-between px-4 py-3.5 rounded-2xl border-2 transition-all duration-150 active:scale-[0.98] cursor-pointer"
+                                   :class="sessionForm.traineeIds.includes(trainee.id) ? 'bg-blue-600/20 border-blue-400' : 'bg-[#262626] border-transparent'">
                                 <div class="flex items-center gap-2 min-w-0">
                                     <span :class="isAvailable(trainee.id, sessionForm.date)?.length > 0 ? 'w-2 h-2 rounded-full bg-green-500 flex-shrink-0' : isAvailable(trainee.id, sessionForm.date) !== null ? 'w-2 h-2 rounded-full bg-red-500 flex-shrink-0' : 'w-2 h-2 rounded-full bg-gray-600 flex-shrink-0'"></span>
-                                    <span class="font-semibold text-base sm:text-lg text-gray-200 truncate" x-text="trainee.name"></span>
+                                    <span class="font-semibold text-base sm:text-lg truncate" :class="sessionForm.traineeIds.includes(trainee.id) ? 'text-blue-200' : 'text-gray-200'" x-text="trainee.name"></span>
                                 </div>
                                 <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-150"
                                      :class="sessionForm.traineeIds.includes(trainee.id) ? 'bg-blue-500 border-blue-500' : 'border-gray-600'">
                                     <svg x-show="sessionForm.traineeIds.includes(trainee.id)" class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <input type="checkbox" :value="trainee.id" x-model="sessionForm.traineeIds" class="hidden">
-                            </label>
+                            </div>
                         </template>
                         <div x-show="filteredTrainees.length === 0 && traineeSearch" class="text-center py-6 text-gray-600 text-xs">Нічого не знайдено</div>
                     </div>
@@ -1109,6 +1110,14 @@
                 return slots.map(s => s.startTime.slice(0,5) + '-' + s.endTime.slice(0,5)).join(', ');
             },
 
+            toggleTraineeSelection(id) {
+                const idx = this.sessionForm.traineeIds.indexOf(id);
+                if (idx > -1) {
+                    this.sessionForm.traineeIds = this.sessionForm.traineeIds.filter(i => i !== id);
+                } else {
+                    this.sessionForm.traineeIds = [...this.sessionForm.traineeIds, id];
+                }
+            },
             getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
             getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
             getLocationColor(id) { return this.locations.find(l => l.id === id)?.color || '#3b82f6'; },
@@ -1235,6 +1244,7 @@
             async saveRaw(w) { await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...w, mentorId: this.mentorId }) }); },
 
             openSessionModal() {
+                this.traineeSearch = '';
                 this.editingSessionId = null;
                 this.originalSessionData = null;
                 this.sessionForm = { title: 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
@@ -1242,6 +1252,7 @@
             },
 
             editSession(w) {
+                this.traineeSearch = '';
                 this.editingSessionId = w.id;
                 this.originalSessionData = { date: w.date, time: w.time };
                 this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null };
@@ -1304,6 +1315,14 @@
                 this.traineeForm = { name: '', description: '', photoBase64: null, weekendReminderEnabled: false }; this.editingTraineeId = null; await this.fetchTrainees();
             },
 
+            createSessionForTrainee(trainee) {
+                this.showManageTrainees = false;
+                this.traineeSearch = '';
+                this.editingSessionId = null;
+                this.originalSessionData = null;
+                this.sessionForm = { title: 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
+                this.showModal = true;
+            },
             editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null, weekendReminderEnabled: a.weekendReminderEnabled || false }; },
             askDeleteTrainee(id) { this.confirmData = { show: true, title: 'Видалити?', message: 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
             

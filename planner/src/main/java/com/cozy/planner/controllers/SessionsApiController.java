@@ -16,9 +16,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 public class SessionsApiController implements SessionsApi {
@@ -136,17 +134,8 @@ public class SessionsApiController implements SessionsApi {
         if (sessions.isEmpty()) {
             return Flux.fromIterable(sessions);
         }
-        List<Long> ids = sessions.stream().map(Session::getId).toList();
-        return sessionRepository.findTraineeIdsBySessionIds(ids)
-                .collectList()
-                .flatMapMany(rows -> {
-                    Map<Long, List<Long>> mapping = new HashMap<>();
-                    for (var link : rows) {
-                        mapping.computeIfAbsent(link.meetingId(), k -> new ArrayList<>()).add(link.traineeId());
-                    }
-                    return Flux.fromIterable(sessions)
-                            .doOnNext(s -> s.setTraineeIds(mapping.getOrDefault(s.getId(), List.of())));
-                });
+        return Flux.fromIterable(sessions)
+                .flatMap(session -> loadTraineeIds(session));
     }
 
     private Mono<Void> saveTraineeLinks(Long sessionId, List<Long> traineeIds) {
