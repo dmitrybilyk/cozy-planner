@@ -35,10 +35,4 @@ ssh -t $REMOTE_USER@$REMOTE_HOST << EOF
   echo "📥 Отримання оновлень (git pull)..."
   git pull || { echo "❌ Помилка git pull на сервері"; exit 1; }
 
-  echo "🐳 Перезбірка Docker-образів та запуск..."
-  # Оскільки ми використовуємо Gradle з Kotlin DSL всередині Docker,
-  # параметр --build забезпечить перекомпіляцію Java/Kotlin коду.
-  docker compose up --build || { echo "❌ Помилка Docker Compose"; exit 1; }
-
-  echo "✅ Деплой успішно завершено!"
 EOF

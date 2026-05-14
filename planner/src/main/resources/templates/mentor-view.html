@@ -629,7 +629,7 @@
 </div>
 
 <div x-show="confirmData.show" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition>
-    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-[300px] rounded-[24px] overflow-hidden shadow-2xl"><div class="p-6 text-center text-white"><h4 class="text-lg font-bold" x-text="confirmData.title"></h4><p class="text-sm text-gray-500 mt-2" x-text="confirmData.message"></p></div><div class="flex flex-col border-t border-[#333]"><button @click="confirmData.onConfirm(); confirmData.show = false" class="py-4 text-sm font-bold text-red-500 border-b border-[#333]">Видалити</button><button @click="confirmData.show = false" class="py-4 text-sm font-medium text-gray-300">Скасувати</button></div></div>
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-[300px] rounded-[24px] overflow-hidden shadow-2xl"><div class="p-6 text-center text-white"><h4 class="text-lg font-bold" x-text="confirmData.title"></h4><p class="text-sm text-gray-500 mt-2" x-text="confirmData.message"></p></div><div class="flex flex-col border-t border-[#333]"><button @click="confirmData.onConfirm(); confirmData.show = false" class="py-4 text-sm font-bold border-b border-[#333]" :class="confirmData.confirmText === 'Видалити' || !confirmData.confirmText ? 'text-red-500' : 'text-yellow-400'" x-text="confirmData.confirmText || 'Видалити'"></button><button @click="confirmData.show = false" class="py-4 text-sm font-medium text-gray-300">Скасувати</button></div></div>
 </div>
 
 <div x-show="notifyModal.show" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition>
@@ -704,7 +704,7 @@
             sessionForm: { title: 'Зустріч', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
             traineeForm: { name: '', description: '', photoBase64: null, weekendReminderEnabled: false },
             locationForm: { name: '', description: '', color: '#3b82f6' },
-            confirmData: { show: false, title: '', message: '', onConfirm: () => {} },
+            confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
             notifyModal: { show: false, traineeId: null, traineeName: '', customMessage: '', dayType: 'tomorrow', targetDate: '' },
             mentorTg: { enabled: false, connected: false, username: '', connectLink: '', copied: false },
             inviteUrls: {},
@@ -1156,7 +1156,7 @@
             },
             
             async startFresh() {
-                if (!confirm('🗑 Видалити всі дані та почати спочатку?\n\nУсі учні, сесії, локації та налаштування будуть безповоротно видалені.')) return;
+                if (!confirm('🗑 Видалити всі дані та почати спочатку? Усі учні, сесії, локації та налаштування будуть безповоротно видалені.')) return;
                 if (!confirm('Ви впевнені? Цю дію неможливо скасувати.')) return;
                 try {
                     const res = await fetch('/api/v1/account/reset', { method: 'POST' });
@@ -1531,12 +1531,26 @@
             editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null, weekendReminderEnabled: a.weekendReminderEnabled || false }; },
              askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
 
-             generateTraineeLink(trainee) {
-                 const url = window.location.origin + '/trainee/' + (trainee.inviteToken || trainee.connectLink?.split('start=')[1]) + '/sessions';
+             async generateTraineeLink(trainee) {
                  if (this.traineeLinks[trainee.id]) return;
-                 navigator.clipboard?.writeText(url);
-                 this.traineeLinks[trainee.id] = url;
-                 setTimeout(() => { delete this.traineeLinks[trainee.id]; }, 3000);
+                 let sessionsUrl = null;
+                 if (trainee.inviteUrl) {
+                     sessionsUrl = trainee.inviteUrl + '/sessions';
+                 } else if (this.inviteUrls[trainee.id]) {
+                     sessionsUrl = this.inviteUrls[trainee.id] + '/sessions';
+                 } else {
+                     const res = await fetch(`/api/v1/trainees/${trainee.id}/generate-invite`, { method: 'POST' });
+                     if (res.ok) {
+                         const data = await res.json();
+                         this.inviteUrls[trainee.id] = data.inviteUrl;
+                         sessionsUrl = data.inviteUrl + '/sessions';
+                     }
+                 }
+                 if (sessionsUrl) {
+                     await navigator.clipboard?.writeText(sessionsUrl);
+                     this.traineeLinks[trainee.id] = sessionsUrl;
+                     setTimeout(() => { delete this.traineeLinks[trainee.id]; }, 3000);
+                 }
              },
 
              getCardBorderClass(session) {
@@ -1580,8 +1594,15 @@
              },
 
              requestTraineeConfirmation(session) {
-                 if (!confirm('Надіслати запит на підтвердження учню через Telegram?')) return;
-                 fetch(`/api/v1/sessions/${session.id}/request-trainee-confirmation`, { method: 'POST' });
+                 this.confirmData = {
+                     show: true,
+                     title: 'Запитати підтвердження?',
+                     message: 'Надіслати учню запит на підтвердження сесії через Telegram?',
+                     confirmText: 'Надіслати',
+                     onConfirm: async () => {
+                         await fetch(`/api/v1/sessions/${session.id}/request-trainee-confirmation`, { method: 'POST' });
+                     }
+                 };
              },
             
              async toggleWeekendReminder(trainee) {

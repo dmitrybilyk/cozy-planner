@@ -76,6 +76,76 @@ public class SessionConfirmationController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/trainee/sessions/{sessionId}/confirm")
+    public Mono<ResponseEntity<Map<String, Object>>> traineeConfirmSession(@PathVariable Long sessionId,
+                                                                             ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            Object traineeIdObj = session.getAttribute("trainee_id");
+            if (!(traineeIdObj instanceof Number)) {
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("reason", "Not authenticated as trainee");
+                return Mono.just(ResponseEntity.badRequest().body(err));
+            }
+            return sessionRepository.findById(sessionId)
+                    .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
+                            .any(tId -> tId.equals(((Number) traineeIdObj).longValue()))
+                            .flatMap(isTrainee -> {
+                                if (!isTrainee) {
+                                    Map<String, Object> err = new HashMap<>();
+                                    err.put("success", false);
+                                    err.put("reason", "Not your session");
+                                    return Mono.just(ResponseEntity.badRequest().body(err));
+                                }
+                                s.setConfirmationStatus("CONFIRMED");
+                                return sessionRepository.save(s)
+                                        .flatMap(saved -> notifyOtherParty(saved, true))
+                                        .map(saved -> {
+                                            Map<String, Object> result = new HashMap<>();
+                                            result.put("success", true);
+                                            result.put("confirmationStatus", "CONFIRMED");
+                                            return ResponseEntity.ok(result);
+                                        });
+                            }))
+                    .defaultIfEmpty(ResponseEntity.notFound().build());
+        });
+    }
+
+    @PostMapping("/trainee/sessions/{sessionId}/reject")
+    public Mono<ResponseEntity<Map<String, Object>>> traineeRejectSession(@PathVariable Long sessionId,
+                                                                            ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            Object traineeIdObj = session.getAttribute("trainee_id");
+            if (!(traineeIdObj instanceof Number)) {
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("reason", "Not authenticated as trainee");
+                return Mono.just(ResponseEntity.badRequest().body(err));
+            }
+            return sessionRepository.findById(sessionId)
+                    .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
+                            .any(tId -> tId.equals(((Number) traineeIdObj).longValue()))
+                            .flatMap(isTrainee -> {
+                                if (!isTrainee) {
+                                    Map<String, Object> err = new HashMap<>();
+                                    err.put("success", false);
+                                    err.put("reason", "Not your session");
+                                    return Mono.just(ResponseEntity.badRequest().body(err));
+                                }
+                                s.setConfirmationStatus("REJECTED");
+                                return sessionRepository.save(s)
+                                        .flatMap(saved -> notifyOtherParty(saved, false))
+                                        .map(saved -> {
+                                            Map<String, Object> result = new HashMap<>();
+                                            result.put("success", true);
+                                            result.put("confirmationStatus", "REJECTED");
+                                            return ResponseEntity.ok(result);
+                                        });
+                            }))
+                    .defaultIfEmpty(ResponseEntity.notFound().build());
+        });
+    }
+
     @PostMapping("/sessions/{sessionId}/request-trainee-confirmation")
     public Mono<ResponseEntity<Map<String, Object>>> requestTraineeConfirmation(@PathVariable Long sessionId) {
         return sessionRepository.findById(sessionId)
@@ -108,6 +178,45 @@ public class SessionConfirmationController {
                     return ResponseEntity.ok(result);
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/trainee/sessions/{sessionId}/request-coach-confirmation")
+    public Mono<ResponseEntity<Map<String, Object>>> requestCoachConfirmation(@PathVariable Long sessionId,
+                                                                               ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            Object traineeIdObj = session.getAttribute("trainee_id");
+            if (!(traineeIdObj instanceof Number)) {
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("reason", "Not authenticated as trainee");
+                return Mono.just(ResponseEntity.badRequest().body(err));
+            }
+            Long traineeId = ((Number) traineeIdObj).longValue();
+            return sessionRepository.findById(sessionId)
+                    .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
+                            .any(tId -> tId.equals(traineeId))
+                            .flatMap(isTrainee -> {
+                                if (!isTrainee) {
+                                    Map<String, Object> err = new HashMap<>();
+                                    err.put("success", false);
+                                    err.put("reason", "Not your session");
+                                    return Mono.just(ResponseEntity.badRequest().body(err));
+                                }
+                                s.setConfirmationStatus("PENDING");
+                                return sessionRepository.save(s)
+                                        .flatMap(saved -> traineeRepository.findById(traineeId)
+                                                .flatMap(trainee -> notifyCoachAboutNewSession(saved, trainee))
+                                                .switchIfEmpty(Mono.just(saved)))
+                                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                                        .map(saved -> {
+                                            Map<String, Object> result = new HashMap<>();
+                                            result.put("success", true);
+                                            result.put("confirmationStatus", "PENDING");
+                                            return ResponseEntity.ok(result);
+                                        });
+                            }))
+                    .defaultIfEmpty(ResponseEntity.notFound().build());
+        });
     }
 
     @GetMapping("/trainee/sessions")

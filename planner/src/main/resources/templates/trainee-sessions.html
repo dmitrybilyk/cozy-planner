@@ -28,7 +28,7 @@
         </span>
     </div>
     <div class="flex gap-2">
-        <a href="/trainee/availability" class="text-blue-400 text-sm font-bold px-3 py-2">Доступність</a>
+        <a :href="availabilityLink" class="text-blue-400 text-sm font-bold px-3 py-2">Доступність</a>
         <button @click="openCreateModal()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg">+ Нова</button>
     </div>
 </header>
@@ -69,14 +69,31 @@
                         </template>
                     </div>
                 </div>
-                <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
+                <div x-show="session.createdBy === 'COACH' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
                     <button @click="confirmSession(session.id)" class="flex-1 py-2 bg-green-600 text-white rounded-xl text-xs font-bold uppercase">Підтвердити</button>
                     <button @click="rejectSession(session.id)" class="flex-1 py-2 bg-red-600/30 text-red-400 rounded-xl text-xs font-bold uppercase">Відхилити</button>
+                </div>
+                <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="mt-4 pt-3 border-t border-[#292929]">
+                    <button @click="openRequestConfirm(session)" class="w-full py-2 bg-yellow-600/30 text-yellow-400 rounded-xl text-xs font-bold uppercase">Запитати підтвердження</button>
                 </div>
             </div>
         </template>
     </div>
 </main>
+
+<div x-show="confirmModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-6 modal-backdrop" x-cloak x-transition>
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
+        <div class="p-6 text-center">
+            <div class="text-3xl mb-3">📋</div>
+            <h4 class="text-lg font-bold text-white" x-text="confirmModal.title"></h4>
+            <p class="text-sm text-gray-400 mt-2" x-text="confirmModal.message"></p>
+        </div>
+        <div class="flex border-t border-[#333]">
+            <button @click="doRequestConfirm()" class="flex-1 py-4 text-sm font-bold text-yellow-400 border-r border-[#333]">Надіслати</button>
+            <button @click="closeRequestConfirm()" class="flex-1 py-4 text-sm font-medium text-gray-300">Скасувати</button>
+        </div>
+    </div>
+</div>
 
 <div x-show="showModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center modal-backdrop px-0 sm:px-4" x-cloak x-transition>
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl" @click.away="showModal = false">
@@ -116,7 +133,7 @@
 
 <nav class="bottom-nav fixed bottom-0 inset-x-0 bg-[#1a1a1a]/95 border-t border-[#333] z-40">
     <div class="flex items-center justify-around max-w-lg mx-auto h-14">
-        <a href="/trainee/availability" class="flex flex-col items-center gap-0.5 text-gray-500">
+        <a :href="availabilityLink" class="flex flex-col items-center gap-0.5 text-gray-500">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
             <span class="text-[9px] font-bold uppercase">Доступність</span>
         </a>
@@ -142,6 +159,11 @@
             error: '',
             todayStr: localDateStr(),
             form: { title: '', description: '', date: localDateStr(), time: '10:00', endTime: '11:00' },
+            confirmModal: { show: false, sessionId: null, title: '', message: '' },
+
+            get availabilityLink() {
+                return this.me.inviteToken ? '/trainee/' + this.me.inviteToken : '#';
+            },
 
             async init() {
                 const res = await fetch('/api/v1/me');
@@ -203,7 +225,7 @@
 
             async confirmSession(id) {
                 this.error = '';
-                const res = await fetch(`/api/v1/sessions/${id}/confirm`, { method: 'POST' });
+                const res = await fetch(`/api/v1/trainee/sessions/${id}/confirm`, { method: 'POST' });
                 if (res.ok) {
                     this.saved = true;
                     this.savedMessage = 'Сесію підтверджено!';
@@ -216,7 +238,7 @@
 
             async rejectSession(id) {
                 this.error = '';
-                const res = await fetch(`/api/v1/sessions/${id}/reject`, { method: 'POST' });
+                const res = await fetch(`/api/v1/trainee/sessions/${id}/reject`, { method: 'POST' });
                 if (res.ok) {
                     this.saved = true;
                     this.savedMessage = 'Сесію відхилено';
@@ -224,6 +246,35 @@
                     await this.loadSessions();
                 } else {
                     this.error = 'Помилка';
+                }
+            },
+
+            openRequestConfirm(session) {
+                this.confirmModal = {
+                    show: true,
+                    sessionId: session.id,
+                    title: 'Запитати підтвердження?',
+                    message: 'Тренер отримає сповіщення про необхідність підтвердити сесію.'
+                };
+            },
+
+            closeRequestConfirm() {
+                this.confirmModal = { show: false, sessionId: null, title: '', message: '' };
+            },
+
+            async doRequestConfirm() {
+                const id = this.confirmModal.sessionId;
+                this.closeRequestConfirm();
+                if (!id) return;
+                this.error = '';
+                const res = await fetch(`/api/v1/trainee/sessions/${id}/request-coach-confirmation`, { method: 'POST' });
+                if (res.ok) {
+                    this.saved = true;
+                    this.savedMessage = 'Запит на підтвердження надіслано тренеру!';
+                    setTimeout(() => this.saved = false, 4000);
+                    await this.loadSessions();
+                } else {
+                    this.error = 'Помилка при надсиланні запиту';
                 }
             },
 
