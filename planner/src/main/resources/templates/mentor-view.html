@@ -91,24 +91,20 @@
          <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
     </div>
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex gap-2">
-        <button @click="openSessionModal()" :disabled="selectedDate < todayStr" class="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl font-bold text-sm sm:text-base shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100">
+        <button @click="openSessionModal()" :disabled="selectedDate < todayStr" class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100" title="Нова сесія">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-            <span x-text="labels.new_session || 'Нова сесія'"></span>
         </button>
-        <button @click="showManageTrainees = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span x-text="labels.manage_trainees || 'Учні'"></span>
+        <button @click="showManageTrainees = true" class="flex-1 flex items-center justify-center bg-[#262626] hover:bg-[#333] active:scale-[0.97] py-3 rounded-2xl transition" title="Учні">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         </button>
-        <button @click="showManageLocations = true" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span x-text="labels.locations || 'Місця'"></span>
+        <button @click="showManageLocations = true" class="flex-1 flex items-center justify-center bg-[#262626] hover:bg-[#333] active:scale-[0.97] py-3 rounded-2xl transition" title="Місця">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
         </button>
-        <a href="/coach/availability" class="flex-1 flex items-center justify-center gap-1.5 bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-200 py-3 rounded-2xl font-bold text-sm sm:text-base transition">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <span>Мій графік</span>
+        <a href="/coach/availability" class="flex-1 flex items-center justify-center bg-[#262626] hover:bg-[#333] active:scale-[0.97] py-3 rounded-2xl transition" title="Мій графік">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         </a>
-        <button @click="showAvailabilityOverview = true" class="flex items-center justify-center bg-[#262626] hover:bg-[#333] active:scale-[0.97] text-gray-400 py-3 px-3 rounded-2xl transition" title="Доступність учнів">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        <button @click="showAvailabilityOverview = true" class="flex items-center justify-center bg-[#262626] hover:bg-[#333] active:scale-[0.97] py-3 px-3 rounded-2xl transition" title="Доступність учнів">
+            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         </button>
     </div>
 </header>
@@ -919,7 +915,7 @@
 
             scrollToToday() {
                 this.selectedDate = this.todayStr;
-                this.scrollToWeekStart();
+                this.$nextTick(() => this.scrollToActive());
             },
 
             scrollToWeekStart() {
@@ -1250,14 +1246,16 @@
 
             async generateInvite(traineeId) {
                 if (this.inviteUrls[traineeId]) {
-                    await navigator.clipboard?.writeText(this.inviteUrls[traineeId]);
+                    try { await navigator.clipboard.writeText(this.inviteUrls[traineeId]); }
+                    catch(e) { prompt('Запросити в TG:', this.inviteUrls[traineeId]); }
                     return;
                 }
                 const res = await fetch(`/api/v1/trainees/${traineeId}/generate-invite`, { method: 'POST' });
                 if (res.ok) {
                     const data = await res.json();
                     this.inviteUrls[traineeId] = data.inviteUrl;
-                    await navigator.clipboard?.writeText(data.inviteUrl);
+                    try { await navigator.clipboard.writeText(data.inviteUrl); }
+                    catch(e) { prompt('Запросити в TG:', data.inviteUrl); }
                 }
             },
 
@@ -1536,22 +1534,25 @@
 
              async generateTraineeLink(trainee) {
                  if (this.traineeLinks[trainee.id]) return;
-                 let sessionsUrl = null;
+                 let url = null;
                  if (trainee.inviteUrl) {
-                     sessionsUrl = trainee.inviteUrl + '/sessions';
+                     url = trainee.inviteUrl;
                  } else if (this.inviteUrls[trainee.id]) {
-                     sessionsUrl = this.inviteUrls[trainee.id] + '/sessions';
+                     url = this.inviteUrls[trainee.id];
+                 } else if (trainee.inviteToken) {
+                     url = window.location.origin + '/trainee/' + trainee.inviteToken;
                  } else {
                      const res = await fetch(`/api/v1/trainees/${trainee.id}/generate-invite`, { method: 'POST' });
                      if (res.ok) {
                          const data = await res.json();
                          this.inviteUrls[trainee.id] = data.inviteUrl;
-                         sessionsUrl = data.inviteUrl + '/sessions';
+                         url = data.inviteUrl;
                      }
                  }
-                 if (sessionsUrl) {
-                     await navigator.clipboard?.writeText(sessionsUrl);
-                     this.traineeLinks[trainee.id] = sessionsUrl;
+                 if (url) {
+                     try { await navigator.clipboard.writeText(url); }
+                     catch(e) { prompt('Посилання учня:', url); return; }
+                     this.traineeLinks[trainee.id] = url;
                      setTimeout(() => { delete this.traineeLinks[trainee.id]; }, 3000);
                  }
              },

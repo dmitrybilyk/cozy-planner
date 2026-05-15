@@ -21,7 +21,7 @@
 <header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-16 flex items-center justify-between sticky top-0 z-40">
     <div class="flex items-center gap-2">
         <h1 class="text-lg font-bold">Мої сесії</h1>
-        <span x-show="me.telegramEnabled"
+        <span x-show="me.telegramEnabled && me.mentorTelegramConnected"
               :class="me.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
               class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
             <span x-text="me.telegramConnected ? '✓ TG' : '! TG'"></span>
@@ -78,6 +78,29 @@
                 </div>
             </div>
         </template>
+    </div>
+
+    <div x-show="mentorSlots.length > 0" class="mt-8">
+        <h2 class="text-sm font-black text-gray-500 uppercase tracking-widest mb-4">
+            📅 Графік тренера <span x-text="me.mentorName || ''"></span>
+        </h2>
+        <div class="space-y-4">
+            <template x-for="day in sortedMentorDays" :key="day.date">
+                <div>
+                    <p class="text-xs font-bold text-gray-600 mb-2" x-text="day.date"></p>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="slot in day.slots" :key="slot.id || (slot.date + slot.startTime)">
+                            <button @click="bookSlot(slot)"
+                                    class="px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 text-left"
+                                    :style="'background:' + (slot.locationColor || '#3b82f6') + '20; color:' + (slot.locationColor || '#3b82f6') + '; border:1px solid ' + (slot.locationColor || '#3b82f6') + '40'">
+                                <span x-text="slot.startTime + ' — ' + slot.endTime"></span>
+                                <span x-show="slot.locationName" class="block text-[10px] opacity-70 mt-0.5" x-text="slot.locationName"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
     </div>
 </main>
 
@@ -153,6 +176,7 @@
         return {
             sessions: [],
             me: {},
+            mentorSlots: [],
             showModal: false,
             saved: false,
             savedMessage: '',
@@ -165,6 +189,37 @@
                 return this.me.inviteToken ? '/trainee/' + this.me.inviteToken : '#';
             },
 
+            get sortedMentorDays() {
+                const grouped = {};
+                for (const slot of this.mentorSlots) {
+                    if (!grouped[slot.date]) grouped[slot.date] = [];
+                    grouped[slot.date].push(slot);
+                }
+                return Object.keys(grouped).sort().map(date => ({
+                    date,
+                    slots: grouped[date].sort((a, b) => a.startTime.localeCompare(b.startTime))
+                }));
+            },
+
+            async loadMentorAvailability() {
+                const start = localDateStr();
+                const endDate = new Date();
+                endDate.setDate(endDate.getDate() + 6);
+                const end = localDateStr(endDate);
+                try {
+                    const res = await fetch(`/api/v1/shared/${this.me.mentorShareToken}?startDate=${start}&endDate=${end}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.mentorSlots = data.slots || [];
+                    }
+                } catch(e) {}
+            },
+
+            bookSlot(slot) {
+                this.form = { title: '', description: '', date: slot.date, time: slot.startTime, endTime: slot.endTime };
+                this.showModal = true;
+            },
+
             async init() {
                 const res = await fetch('/api/v1/me');
                 if (!res.ok) { window.location.href = '/signin'; return; }
@@ -172,6 +227,7 @@
                 if (!me.traineeId) { window.location.href = '/signin'; return; }
                 this.me = me;
                 await this.loadSessions();
+                if (this.me.mentorShareToken) this.loadMentorAvailability();
                 this.connectWebSocket();
             },
 

@@ -18,7 +18,7 @@
 <header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-16 flex items-center justify-between sticky top-0 z-40">
     <div class="flex items-center gap-2">
         <h1 class="text-lg font-bold">Моя доступність</h1>
-        <span x-show="me.telegramEnabled" 
+        <span x-show="me.telegramEnabled && me.mentorTelegramConnected" 
               :class="me.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
               class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
             <span x-text="me.telegramConnected ? '✓ TG' : '! TG'"></span>
@@ -31,7 +31,7 @@
 <main class="max-w-lg mx-auto p-4 pb-24">
     <div x-show="saved" class="bg-green-900/20 text-green-400 p-3 rounded-xl text-sm font-bold text-center mb-4">Збережено!</div>
 
-    <div x-show="me.telegramEnabled && !me.telegramConnected && me.telegramConnectLink" 
+    <div x-show="me.telegramEnabled && me.mentorTelegramConnected && !me.telegramConnected && me.telegramConnectLink" 
          class="bg-yellow-900/20 border border-yellow-600/30 p-4 rounded-2xl mb-6">
         <div class="flex items-start gap-3">
             <span class="text-2xl">📲</span>
@@ -87,6 +87,19 @@
     </div>
 </main>
 
+<nav class="bottom-nav fixed bottom-0 inset-x-0 bg-[#1a1a1a]/95 border-t border-[#333] z-40">
+    <div class="flex items-center justify-around max-w-lg mx-auto h-14">
+        <div class="flex flex-col items-center gap-0.5 text-blue-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[9px] font-bold uppercase">Доступність</span>
+        </div>
+        <a :href="sessionsLink" class="flex flex-col items-center gap-0.5 text-gray-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span class="text-[9px] font-bold uppercase">Сесії</span>
+        </a>
+    </div>
+</nav>
+
 <script th:inline="none">
     function localDateStr(d) {
         d = d || new Date();
@@ -111,6 +124,10 @@
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             saved: false,
             me: {},
+
+            get sessionsLink() {
+                return this.me.inviteToken ? '/trainee/' + this.me.inviteToken + '/sessions' : '#';
+            },
 
             get currentSlots() {
                 return this.slotsByDate[this.selectedDate] || [];

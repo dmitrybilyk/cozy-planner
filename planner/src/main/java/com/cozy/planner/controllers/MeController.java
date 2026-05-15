@@ -72,32 +72,44 @@ public class MeController {
             Object traineeId = session.getAttribute("trainee_id");
             if (traineeId instanceof Number) {
                 return traineeRepository.findById(((Number) traineeId).longValue())
-                        .map(trainee -> {
+                        .flatMap(trainee -> {
                             Map<String, Object> r = new HashMap<>();
                             r.put("traineeId", trainee.getId());
                             r.put("athleteId", trainee.getId());
                             r.put("name", trainee.getName());
                             r.put("inviteToken", trainee.getInviteToken());
-                            
-                            boolean tgEnabled = telegramConfig.isEnabled() 
-                                    && telegramConfig.getBotToken() != null 
+
+                            boolean tgEnabled = telegramConfig.isEnabled()
+                                    && telegramConfig.getBotToken() != null
                                     && !telegramConfig.getBotToken().isBlank();
                             r.put("telegramEnabled", tgEnabled);
                             r.put("telegramConnected", trainee.hasTelegram());
                             r.put("telegramUsername", trainee.getTelegramUsername());
-                            
-                            if (tgEnabled && trainee.getInviteToken() != null 
+
+                            if (tgEnabled && trainee.getInviteToken() != null
                                     && !trainee.getInviteToken().isBlank()
-                                    && telegramConfig.getBotUsername() != null 
+                                    && telegramConfig.getBotUsername() != null
                                     && !telegramConfig.getBotUsername().isBlank()) {
-                                r.put("telegramConnectLink", 
-                                        "https://t.me/" + telegramConfig.getBotUsername() 
+                                r.put("telegramConnectLink",
+                                        "https://t.me/" + telegramConfig.getBotUsername()
                                         + "?start=" + trainee.getInviteToken());
                             } else {
                                 r.put("telegramConnectLink", null);
                             }
-                            
-                            return r;
+
+                            return mentorRepository.findById(trainee.getMentorId())
+                                    .map(mentor -> {
+                                        r.put("mentorName", mentor.getName());
+                                        r.put("mentorTelegramConnected", mentor.hasTelegram());
+                                        r.put("mentorShareToken", mentor.getShareToken());
+                                        return r;
+                                    })
+                                    .switchIfEmpty(Mono.fromCallable(() -> {
+                                        r.put("mentorName", null);
+                                        r.put("mentorTelegramConnected", false);
+                                        r.put("mentorShareToken", null);
+                                        return r;
+                                    }));
                         });
             }
 

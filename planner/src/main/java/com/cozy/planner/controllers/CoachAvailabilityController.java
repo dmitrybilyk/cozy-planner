@@ -281,11 +281,12 @@ public class CoachAvailabilityController {
                                                     Map<Long, Map<String, Object>> locMap, LocalDate startDate) {
         return Mono.fromCallable(() -> {
             int dayCount = 7;
-            int cellW = 90, cellH = 22;
+            int cellW = 90, cellH = 14;
             int headerH = 50, topMargin = 70, bottomMargin = 40, leftMargin = 55, rightMargin = 20;
             int timeLabelW = 45;
+            int rows = (22 - 6) * 2;
             int totalW = leftMargin + dayCount * cellW + rightMargin;
-            int totalH = topMargin + 16 * cellH + bottomMargin;
+            int totalH = topMargin + rows * cellH + bottomMargin;
 
             BufferedImage img = new BufferedImage(totalW, totalH, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = img.createGraphics();
@@ -308,14 +309,19 @@ public class CoachAvailabilityController {
                 byDate.computeIfAbsent(doy, k -> new ArrayList<>()).add(s);
             }
 
-            g.setFont(new Font("Arial", Font.BOLD, 11));
-            String[] hours = {"06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21"};
-            for (int hi = 0; hi < 16; hi++) {
+            g.setFont(new Font("Arial", Font.BOLD, 9));
+            String[] timeLabels = new String[rows];
+            for (int i = 0; i < rows; i++) {
+                int h = 6 + i / 2;
+                int m = (i % 2) * 30;
+                timeLabels[i] = String.format("%02d:%02d", h, m);
+            }
+            for (int hi = 0; hi < rows; hi++) {
                 int y = topMargin + hi * cellH;
                 g.setColor(new Color(100, 100, 100));
-                g.drawString(hours[hi] + ":00", 5, y + cellH - 6);
+                g.drawString(timeLabels[hi], 5, y + cellH - 4);
 
-                g.setColor(new Color(30, 30, 30));
+                g.setColor(hi % 2 == 0 ? new Color(40, 40, 40) : new Color(28, 28, 28));
                 g.drawLine(leftMargin, y, leftMargin + dayCount * cellW, y);
             }
 
@@ -334,14 +340,14 @@ public class CoachAvailabilityController {
                 }
 
                 g.setColor(new Color(30, 30, 30));
-                g.drawLine(x, topMargin, x, topMargin + 16 * cellH);
+                g.drawLine(x, topMargin, x, topMargin + rows * cellH);
 
                 java.util.List<MentorAvailability> daySlots = byDate.getOrDefault(di, List.of());
                 for (MentorAvailability s : daySlots) {
                     int startMin = s.getStartTime().getHour() * 60 + s.getStartTime().getMinute();
                     int endMin = s.getEndTime().getHour() * 60 + s.getEndTime().getMinute();
-                    int startRow = Math.max(0, (startMin - 360) / 60);
-                    int endRow = Math.min(16, (endMin - 360 + 59) / 60);
+                    int startRow = Math.max(0, (startMin - 360) / 30);
+                    int endRow = Math.min(rows, (endMin - 360 + 29) / 30);
 
                     Color slotColor;
                     if (s.getLocationId() != null && locMap.containsKey(s.getLocationId())) {
@@ -367,7 +373,7 @@ public class CoachAvailabilityController {
                     if (s.getLocationId() != null && locMap.containsKey(s.getLocationId())) {
                         Map<String, Object> loc = locMap.get(s.getLocationId());
                         String locName = (String) loc.getOrDefault("name", "");
-                        if (!locName.isEmpty() && slotH > 25) {
+                        if (!locName.isEmpty() && slotH > 20) {
                             g.setFont(new Font("Arial", Font.PLAIN, 8));
                             g.setColor(new Color(200, 200, 200));
                             g.drawString(locName, x + 4, slotY + 12);
@@ -377,7 +383,7 @@ public class CoachAvailabilityController {
             }
 
             g.setColor(new Color(60, 60, 60));
-            g.drawLine(leftMargin, topMargin + 16 * cellH, leftMargin + dayCount * cellW, topMargin + 16 * cellH);
+            g.drawLine(leftMargin, topMargin + rows * cellH, leftMargin + dayCount * cellW, topMargin + rows * cellH);
 
             g.setFont(new Font("Arial", Font.PLAIN, 9));
             g.setColor(new Color(120, 120, 120));
