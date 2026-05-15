@@ -47,6 +47,9 @@ public class Mentor {
     @Builder.Default
     private String profile = "sport";
 
+    @Column("share_token")
+    private String shareToken;
+
     public boolean hasTelegram() {
         return telegramChatId != null && !telegramChatId.isBlank();
     }

@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Base64;
 
 @Controller
 public class AuthController {
@@ -83,6 +85,8 @@ public class AuthController {
         });
     }
 
+    private final SecureRandom secureRandom = new SecureRandom();
+
     private Mono<Void> createClubAndMentor(User user, String clubName, String mentorName, String profile) {
         Club club = Club.builder().name(clubName).userId(user.getId()).build();
         return clubRepository.save(club).flatMap(savedClub -> {
@@ -90,8 +94,15 @@ public class AuthController {
                     .name(mentorName)
                     .clubId(savedClub.getId())
                     .profile(profile)
+                    .shareToken(generateShareToken())
                     .build();
             return mentorRepository.save(mentor).then();
         });
+    }
+
+    private String generateShareToken() {
+        byte[] bytes = new byte[24];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

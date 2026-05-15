@@ -1,6 +1,8 @@
 # cozy-planner
 Cozy planner for every day's usage
 
+./gradlew bootJar && java -jar build/libs/planner-0.0.1-SNAPSHOT.jar
+
 oraclecloud: dmitrybilyk
 ssh ubuntu@92.5.42.35
 

@@ -1,6 +1,7 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,9 +13,12 @@ import reactor.core.publisher.Mono;
 public class PlannerController {
 
     private final TraineeRepository traineeRepository;
+    private final MentorRepository mentorRepository;
 
-    public PlannerController(TraineeRepository traineeRepository) {
+    public PlannerController(TraineeRepository traineeRepository,
+                             MentorRepository mentorRepository) {
         this.traineeRepository = traineeRepository;
+        this.mentorRepository = mentorRepository;
     }
 
     @GetMapping("/planner")
@@ -25,6 +29,18 @@ public class PlannerController {
     @GetMapping("/planner23")
     public String getPlanner2() {
         return "mentor-view";
+    }
+
+    @GetMapping("/coach/availability")
+    public String getCoachAvailability() {
+        return "coach-availability";
+    }
+
+    @GetMapping("/shared/{shareToken}")
+    public Mono<String> getSharedAvailability(@PathVariable String shareToken) {
+        return mentorRepository.findByShareToken(shareToken)
+                .map(mentor -> "shared-availability")
+                .defaultIfEmpty("redirect:/signin");
     }
 
     @GetMapping("/trainee/{token}")

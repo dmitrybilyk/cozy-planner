@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Графік тренера</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #121212; color: #ffffff; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="antialiased" x-data="sharedAvailabilityApp()">
+
+<header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-14 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm" x-text="mentorName.charAt(0).toUpperCase()"></div>
+        <div>
+            <h1 class="text-base font-bold" x-text="mentorName"></h1>
+            <p class="text-[10px] text-gray-500">Графік доступності</p>
+        </div>
+    </div>
+</header>
+
+<main class="max-w-lg mx-auto p-4 pb-24">
+    <div x-show="loading" class="text-center py-16">
+        <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-gray-500 text-sm">Завантаження...</p>
+    </div>
+
+    <div x-show="!loading && !hasData" class="text-center py-16">
+        <p class="text-4xl mb-3">📅</p>
+        <p class="text-gray-400 text-lg font-bold mb-1">Немає доступних годин</p>
+        <p class="text-gray-600 text-sm">Тренер ще не налаштував свій графік на найближчі дні</p>
+    </div>
+
+    <template x-if="!loading && hasData">
+        <div>
+            <template x-for="dayData in sortedDays" :key="dayData.date">
+                <div class="mb-6 fade-in">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="text-sm font-black" :class="dayData.isToday ? 'text-blue-400' : 'text-white'" x-text="dayData.label"></span>
+                        <span class="text-xs text-gray-600" x-text="dayData.date"></span>
+                        <span x-show="dayData.isToday" class="text-[9px] font-bold uppercase bg-blue-600 text-white px-2 py-0.5 rounded-full">Сьогодні</span>
+                    </div>
+                    <div class="space-y-2">
+                        <template x-for="slot in dayData.slots" :key="slot.id || (slot.startTime + slot.endTime)">
+                            <div class="bg-green-900/15 border border-green-600/30 rounded-xl px-4 py-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-base font-bold text-green-300" x-text="slot.startTime + ' — ' + slot.endTime"></span>
+                                </div>
+                                <div x-show="slot.locationName" class="mt-2 flex items-start gap-2 text-xs text-gray-400">
+                                    <span class="w-3 h-3 rounded-full mt-0.5 flex-shrink-0" :style="'background:' + (slot.locationColor || '#888')"></span>
+                                    <div>
+                                        <p class="font-bold text-gray-300" x-text="slot.locationName"></p>
+                                        <p x-show="slot.locationDescription" class="text-gray-500" x-text="slot.locationDescription"></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </template>
+</main>
+
+<script th:inline="none">
+    function localDateStr(d) {
+        d = d || new Date();
+        return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
+    }
+    const MONTHS = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
+    const WK_DAYS_FULL = ['Неділя', 'Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота'];
+
+    function sharedAvailabilityApp() {
+        const today = localDateStr();
+        return {
+            shareToken: '',
+            mentorName: '',
+            loading: true,
+            hasData: false,
+            slotsByDate: {},
+            datesWithData: [],
+
+            get sortedDays() {
+                return this.datesWithData
+                    .filter(d => this.slotsByDate[d] && this.slotsByDate[d].length > 0)
+                    .sort()
+                    .map(d => {
+                        const dt = new Date(d + 'T12:00:00');
+                        const dayName = WK_DAYS_FULL[dt.getDay()];
+                        const dayNum = dt.getDate();
+                        const month = MONTHS[dt.getMonth()];
+                        const isToday = d === today;
+                        const isTomorrow = localDateStr(new Date(Date.now() + 86400000)) === d;
+                        let label;
+                        if (isToday) label = 'Сьогодні';
+                        else if (isTomorrow) label = 'Завтра';
+                        else label = `${dayName}, ${dayNum} ${month}`;
+                        return { date: d, slots: this.slotsByDate[d], label, isToday };
+                    });
+            },
+
+            async init() {
+                const pathParts = window.location.pathname.split('/');
+                this.shareToken = pathParts[pathParts.length - 1];
+                await this.loadData();
+            },
+
+            async loadData() {
+                try {
+                    const mentorRes = await fetch(`/api/v1/shared/${this.shareToken}/mentor`);
+                    if (!mentorRes.ok) { this.loading = false; return; }
+                    const mentorData = await mentorRes.json();
+                    this.mentorName = mentorData.name;
+
+                    const start = localDateStr();
+                    const endDate = new Date();
+                    endDate.setDate(endDate.getDate() + 30);
+                    const end = localDateStr(endDate);
+
+                    const availRes = await fetch(`/api/v1/shared/${this.shareToken}?startDate=${start}&endDate=${end}`);
+                    if (!availRes.ok) { this.loading = false; return; }
+
+                    const availData = await availRes.json();
+                    const slots = availData.slots || [];
+
+                    const grouped = {};
+                    for (const item of slots) {
+                        if (!grouped[item.date]) grouped[item.date] = [];
+                        grouped[item.date].push(item);
+                    }
+
+                    this.slotsByDate = grouped;
+                    this.datesWithData = Object.keys(grouped).filter(d => grouped[d].length > 0);
+                    this.hasData = this.datesWithData.length > 0;
+                    this.loading = false;
+                } catch (e) {
+                    console.error(e);
+                    this.loading = false;
+                }
+            }
+        }
+    }
+</script>
+</body>
+</html>

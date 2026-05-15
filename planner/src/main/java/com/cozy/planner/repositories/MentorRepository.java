@@ -15,6 +15,9 @@ public interface MentorRepository extends ReactiveCrudRepository<Mentor, Long> {
     @Query("SELECT * FROM mentors WHERE telegram_token = :token")
     Mono<Mentor> findByTelegramToken(String token);
 
+    @Query("SELECT * FROM mentors WHERE share_token = :token")
+    Mono<Mentor> findByShareToken(String token);
+
     @Query("DELETE FROM mentors WHERE id = :mentorId")
     Mono<Void> deleteAllByMentorId(Long mentorId);
 }

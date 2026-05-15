@@ -54,7 +54,12 @@ public class MeController {
                                             r.put("user", Map.of("id", user.getId(), "email", user.getEmail(), "name", user.getName()));
                                             r.put("club", Map.of("id", club.getId(), "name", club.getName()));
                                             r.put("coach", Map.of("id", mentor.getId(), "name", mentor.getName()));
-                                            r.put("mentor", Map.of("id", mentor.getId(), "name", mentor.getName(), "profile", profile));
+                                            Map<String, Object> mentorMap = new HashMap<>();
+                                            mentorMap.put("id", mentor.getId());
+                                            mentorMap.put("name", mentor.getName());
+                                            mentorMap.put("profile", profile);
+                                            mentorMap.put("shareToken", mentor.getShareToken());
+                                            r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));
                                             return r;
                                         })
