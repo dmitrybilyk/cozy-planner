@@ -60,3 +60,5 @@ CREATE TABLE session_trainees (
 -- Індекси
 CREATE INDEX idx_sessions_mentor_date ON sessions(mentor_id, session_date);
 CREATE INDEX idx_locations_mentor ON locations(mentor_id);
+
+
