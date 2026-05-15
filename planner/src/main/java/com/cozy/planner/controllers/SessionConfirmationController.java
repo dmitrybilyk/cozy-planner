@@ -50,6 +50,7 @@ public class SessionConfirmationController {
                     return sessionRepository.save(session);
                 })
                 .flatMap(saved -> notifyOtherParty(saved, true))
+                .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                 .map(saved -> {
                     Map<String, Object> result = new HashMap<>();
                     result.put("success", true);
@@ -67,6 +68,7 @@ public class SessionConfirmationController {
                     return sessionRepository.save(session);
                 })
                 .flatMap(saved -> notifyOtherParty(saved, false))
+                .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                 .map(saved -> {
                     Map<String, Object> result = new HashMap<>();
                     result.put("success", true);
@@ -100,6 +102,7 @@ public class SessionConfirmationController {
                                 s.setConfirmationStatus("CONFIRMED");
                                 return sessionRepository.save(s)
                                         .flatMap(saved -> notifyOtherParty(saved, true))
+                                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                                         .map(saved -> {
                                             Map<String, Object> result = new HashMap<>();
                                             result.put("success", true);
@@ -135,6 +138,7 @@ public class SessionConfirmationController {
                                 s.setConfirmationStatus("REJECTED");
                                 return sessionRepository.save(s)
                                         .flatMap(saved -> notifyOtherParty(saved, false))
+                                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                                         .map(saved -> {
                                             Map<String, Object> result = new HashMap<>();
                                             result.put("success", true);
