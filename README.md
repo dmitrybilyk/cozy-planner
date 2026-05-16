@@ -46,3 +46,14 @@ SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=743966281289-o803jlg
 
 # start monitoring                                                                                                                               Add Playwright tests                 ▀
      docker compose -f docker-compose/docker-compose-monitoring.yaml up -d
+
+
+docker login fra.ocir.io.ocir.io
+
+frdhgyiuxpkq/dmitry.bilyk@gmail.com/
+
+docker tag <local-image-name>:<tag> <region-key>.ocir.io/<tenancy-namespace>/<repository-name>:<tag>
+
+docker tag cozy-planner-app:latest fra.ocir.io/frdhgyiuxpkq/cozy-planner:latest
+
+docker push fra.ocir.io/frdhgyiuxpkq/cozy-planner:latest
