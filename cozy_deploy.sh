@@ -20,7 +20,7 @@ OCIR_NAMESPACE="frdhgyiuxpkq"
 OCIR_USER="dmitry.bilyk@gmail.com"
 OCIR_IMAGE_TAG="fra.ocir.io/frdhgyiuxpkq/cozy-planner:latest"
 
-echo "--- 🛠️ Локальні дії (Збірка та Пуш образу) ---"
+echo "--- 🛠️ Локальні дії (Комміт, Збірка та Пуш образу) ---"
 
 # Перехід в локальну директорію проекту
 cd "$LOCAL_PROJECT_DIR" || { echo "❌ Локальну директорію не знайдено"; exit 1; }
@@ -31,6 +31,16 @@ if [ -f "token" ]; then
 else
     echo "❌ Файл 'token' не знайдено в корені проекту!"
     exit 1
+fi
+
+echo "📦 Індексація та коміт локальних змін перед збіркою..."
+git add .
+# Перевіряємо, чи є взагалі зміни для коміту, щоб скрипт не падав, якщо нічого не змінилося
+if ! git diff-index --quiet HEAD --; then
+    git commit -m "improvements and updated image tracking"
+    echo "✅ Зміни успішно закомічені локально."
+else
+    echo "ℹ️ Немає локальних змін для коміту."
 fi
 
 echo "🐳 Перехід в папку planner та збірка Docker-образу..."
@@ -50,11 +60,7 @@ docker tag cozy-planner-app:latest $OCIR_IMAGE_TAG
 echo "📤 Пуш образу в Oracle Cloud Registry (OCIR)..."
 docker push $OCIR_IMAGE_TAG || { echo "❌ Помилка при пуші образу в OCIR"; exit 1; }
 
-echo "--- 📦 Робота з Git ---"
-echo "📦 Індексація та коміт змін..."
-git add .
-git commit -m "improvements and updated image tracking"
-
+echo "--- 📦 Робота з Git (Відправка на GitHub) ---"
 echo "📤 Відправка коду в Git-репозиторій..."
 git push || { echo "❌ Помилка при git push"; exit 1; }
 
@@ -80,7 +86,7 @@ DURATION=$(( SECONDS - START_TIME ))
 MINUTES=$(( DURATION / 60 ))
 SECONDS_LEFT=$(( DURATION % 60 ))
 
-echo "--------------------------------------------------------"
+echo "--------------------------------------------------------------------------------------------------------------------------------------------------------"
 echo "✅ Загальний деплой успішно завершено!"
 echo "⏱️ Витрачено часу: ${MINUTES}хв ${SECONDS_LEFT}с"
-echo "--------------------------------------------------------"
+echo "--------------------------------------------------------------------------------------------------------------------------------------------------------"
