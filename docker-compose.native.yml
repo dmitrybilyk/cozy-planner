@@ -20,7 +20,7 @@ services:
       - planner-net
 
   app:
-    image: cozy-planner-app:latest
+    image: fra.ocir.io/frdhgyiuxpkq/cozy-planner:latest
     container_name: planner-app
     restart: unless-stopped
     depends_on:
