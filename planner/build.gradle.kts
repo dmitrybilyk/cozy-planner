@@ -12,6 +12,7 @@ graalvmNative {
 			imageName.set("planner")
 			buildArgs.add("--no-fallback")
 			buildArgs.add("--enable-all-security-services")
+			buildArgs.add("--add-modules=java.desktop")
 			buildArgs.add("--verbose")
 		}
 	}

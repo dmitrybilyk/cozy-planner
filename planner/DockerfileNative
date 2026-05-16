@@ -15,7 +15,7 @@ RUN gradle nativeCompile -x test --no-daemon
 
 # Stage 2: Minimal runtime (distroless-like alpine)
 FROM alpine:3.21 AS runtime
-RUN apk add --no-cache libc6-compat zlib
+RUN apk add --no-cache libc6-compat zlib fontconfig ttf-dejavu
 WORKDIR /app
 COPY --from=build /app/build/native/nativeCompile/planner .
 EXPOSE 8080
