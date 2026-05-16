@@ -1,0 +1,64 @@
+services:
+#  db:
+#    image: postgres:15-alpine
+#    container_name: planner-db
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_USER: ${DB_USER:-user}
+#      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+#      POSTGRES_DB: ${DB_NAME:-planner_db}
+#    ports:
+#      - "127.0.0.1:5432:5432"
+#    volumes:
+#      - planner_postgres_data:/var/lib/postgresql/data
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-planner_db}"]
+#      interval: 5s
+#      timeout: 5s
+#      retries: 5
+#    networks:
+#      - planner-net
+
+  app:
+    image: cozy-planner-app:latest
+    container_name: planner-app
+    restart: unless-stopped
+#    depends_on:
+#      db:
+#        condition: service_healthy
+    ports:
+      - "443:8080"
+    volumes:
+      - /home/ubuntu/keystore.p12:/app/keystore.p12:ro
+    environment:
+      SERVER_SSL_KEY_STORE: /app/keystore.p12
+      SERVER_SSL_KEY_STORE_PASSWORD: ${KEYSTORE_PASSWORD:-035645}
+      SERVER_SSL_KEY_STORE_TYPE: PKCS12
+      SERVER_SSL_KEY_ALIAS: tomcat
+      SPRING_R2DBC_URL: r2dbc:postgresql://db:5432/${DB_NAME:-planner_db}?stringtype=unspecified
+      SPRING_R2DBC_USERNAME: ${DB_USER:-user}
+      SPRING_R2DBC_PASSWORD: ${DB_PASSWORD:-password}
+      SPRING_FLYWAY_URL: jdbc:postgresql://db:5432/${DB_NAME:-planner_db}?stringtype=unspecified
+      SPRING_FLYWAY_USER: ${DB_USER:-user}
+      SPRING_FLYWAY_PASSWORD: ${DB_PASSWORD:-password}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-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}
+      APP_BASE_URL: https://cozy-planner.duckdns.org
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-CozyPlannerBot}
+      MENTOR_TELEGRAM_BOT_USERNAME: ${MENTOR_TELEGRAM_BOT_USERNAME:-CozyPlannerCoachBot}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
+      MENTOR_TELEGRAM_WEBHOOK_URL: ${MENTOR_TELEGRAM_WEBHOOK_URL:-}
+      TELEGRAM_ENABLED: ${TELEGRAM_ENABLED:-true}
+      APP_FLYWAY_CLEAN_ON_START: ${FLYWAY_CLEAN_ON_START:-false}
+      SCHEDULER_WEEKEND_REMINDER_CRON: ${SCHEDULER_WEEKEND_REMINDER_CRON:-0 0 16 * * FRI}
+      SCHEDULER_SESSION_REMINDER_CRON: ${SCHEDULER_SESSION_REMINDER_CRON:-0 */5 * * * *}
+    networks:
+      - planner-net
+
+networks:
+  planner-net:
+    driver: bridge
+
+#volumes:
+#  planner_postgres_data:

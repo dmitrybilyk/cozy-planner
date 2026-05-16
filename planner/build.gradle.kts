@@ -3,17 +3,23 @@ plugins {
 	id("org.springframework.boot") version "3.5.14"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("org.openapi.generator") version "7.4.0"
+	id("org.graalvm.buildtools.native") version "0.10.6"
+}
+
+graalvmNative {
+	binaries {
+		named("main") {
+			imageName.set("planner")
+			buildArgs.add("--no-fallback")
+			buildArgs.add("--enable-all-security-services")
+			buildArgs.add("--verbose")
+		}
+	}
 }
 
 group = "com.cozy"
 version = "0.0.1-SNAPSHOT"
 description = "planner"
-
-java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
-}
 
 repositories {
 	mavenCentral()
@@ -59,7 +65,7 @@ dependencies {
 openApiGenerate {
 	generatorName.set("spring")
 	inputSpec.set("$projectDir/src/main/resources/api/planner-api.yaml")
-	outputDir.set("$buildDir/generated-sources")
+	outputDir.set(layout.buildDirectory.dir("generated-sources").get().asFile.path)
 	apiPackage.set("com.planner.api")
 	modelPackage.set("com.planner.model")
 	configOptions.set(mapOf(
@@ -76,7 +82,7 @@ openApiGenerate {
 sourceSets {
 	main {
 		java {
-			srcDir("$buildDir/generated-sources/src/main/java")
+			srcDir(layout.buildDirectory.dir("generated-sources/src/main/java"))
 		}
 	}
 }
