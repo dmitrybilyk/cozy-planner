@@ -9,6 +9,8 @@ import com.cozy.planner.repositories.MentorAvailabilityRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.SessionRepository;
 import com.cozy.planner.service.EventBroadcastService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +37,7 @@ public class CoachAvailabilityController {
     private final SessionRepository sessionRepository;
     private final LocationRepository locationRepository;
     private final EventBroadcastService eventService;
+    private static final Logger log = LoggerFactory.getLogger(CoachAvailabilityController.class);
     private final SecureRandom secureRandom = new SecureRandom();
 
     public CoachAvailabilityController(MentorRepository mentorRepository,
@@ -168,34 +171,49 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/shared/{shareToken}")
     public Mono<ResponseEntity<Map<String, Object>>> getSharedAvailability(@PathVariable String shareToken,
-                                                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                                                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+                                                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return mentorRepository.findByShareToken(shareToken)
                 .flatMap(mentor -> {
                     Set<Long> locationIds = new HashSet<>();
                     return availabilityRepository
                             .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
                             .collectList()
-                            .flatMap(slots -> {
-                                for (MentorAvailability s : slots) {
-                                    if (s.getLocationId() != null) locationIds.add(s.getLocationId());
-                                }
-                                if (locationIds.isEmpty()) {
-                                    return buildSharedResponse(mentor, slots, Map.of());
-                                }
-                                return Flux.fromIterable(locationIds)
-                                        .flatMap(id -> locationRepository.findById(id)
-                                                .map(l -> {
-                                                    Map<String, Object> locInfo = new HashMap<>();
-                                                    locInfo.put("name", l.getName());
-                                                    locInfo.put("description", l.getDescription());
-                                                    locInfo.put("color", l.getColor());
-                                                    return Map.entry(id, locInfo);
-                                                })
-                                                .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
-                                        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                        .flatMap(locMap -> buildSharedResponse(mentor, slots, locMap));
-                            });
+                            .flatMap(slots -> sessionRepository
+                                    .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
+                                    .collectList()
+                                    .flatMap(sessions -> {
+                                        List<MentorAvailability> filtered = slots.stream()
+                                                .filter(slot -> sessions.stream().noneMatch(session ->
+                                                        session.getWorkoutDate().equals(slot.getDate())
+                                                                && session.getEndTime() != null
+                                                                && slot.getEndTime() != null
+                                                                && slot.getStartTime().isBefore(session.getEndTime())
+                                                                && session.getStartTime().isBefore(slot.getEndTime())))
+                                                .toList();
+                                        for (MentorAvailability s : filtered) {
+                                            if (s.getLocationId() != null) locationIds.add(s.getLocationId());
+                                        }
+                                        if (locationIds.isEmpty()) {
+                                            return buildSharedResponse(mentor, filtered, Map.of());
+                                        }
+                                        return Flux.fromIterable(locationIds)
+                                                .flatMap(id -> locationRepository.findById(id)
+                                                        .map(l -> {
+                                                            Map<String, Object> locInfo = new HashMap<>();
+                                                            locInfo.put("name", l.getName());
+                                                            locInfo.put("description", l.getDescription());
+                                                            locInfo.put("color", l.getColor());
+                                                            return Map.entry(id, locInfo);
+                                                        })
+                                                        .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
+                                                .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                                                .flatMap(locMap -> buildSharedResponse(mentor, filtered, locMap))
+                                                .onErrorResume(e -> {
+                                                    log.error("Failed to resolve locations for shared availability", e);
+                                                    return buildSharedResponse(mentor, filtered, Map.of());
+                                                });
+                                    }));
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -238,38 +256,64 @@ public class CoachAvailabilityController {
     }
 
     @GetMapping("/api/v1/shared/{shareToken}/image")
-    public Mono<ResponseEntity<byte[]>> getSharedAvailabilityImage(@PathVariable String shareToken) {
+    public Mono<ResponseEntity<byte[]>> getSharedAvailabilityImage(@PathVariable String shareToken,
+                                                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return mentorRepository.findByShareToken(shareToken)
                 .flatMap(mentor -> {
                     LocalDate today = LocalDate.now();
-                    LocalDate endDate = today.plusDays(13);
+                    LocalDate startDate = date != null ? date : today;
+                    LocalDate endDate = date != null ? date : today.plusDays(13);
                     Set<Long> locationIds = new HashSet<>();
                     return availabilityRepository
-                            .findByMentorIdAndDateBetween(mentor.getId(), today, endDate)
+                            .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
                             .collectList()
-                            .flatMap(slots -> {
-                                for (MentorAvailability s : slots) {
-                                    if (s.getLocationId() != null) locationIds.add(s.getLocationId());
-                                }
-                                Map<Long, Map<String, Object>> locMap = new HashMap<>();
-                                if (!locationIds.isEmpty()) {
-                                    return Flux.fromIterable(locationIds)
-                                            .flatMap(id -> locationRepository.findById(id)
-                                                    .map(l -> {
-                                                        Map<String, Object> info = new HashMap<>();
-                                                        info.put("name", l.getName());
-                                                        info.put("color", l.getColor());
-                                                        return Map.entry(id, info);
+                            .flatMap(slots -> sessionRepository
+                                    .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
+                                    .collectList()
+                                    .flatMap(sessions -> {
+                                        List<MentorAvailability> filtered = slots.stream()
+                                                .filter(slot -> sessions.stream().noneMatch(session ->
+                                                        session.getWorkoutDate().equals(slot.getDate())
+                                                                && session.getEndTime() != null
+                                                                && slot.getEndTime() != null
+                                                                && slot.getStartTime().isBefore(session.getEndTime())
+                                                                && session.getStartTime().isBefore(slot.getEndTime())))
+                                                .toList();
+                                        for (MentorAvailability s : filtered) {
+                                            if (s.getLocationId() != null) locationIds.add(s.getLocationId());
+                                        }
+                                        Map<Long, Map<String, Object>> locMap = new HashMap<>();
+                                        if (!locationIds.isEmpty()) {
+                                            return Flux.fromIterable(locationIds)
+                                                    .flatMap(id -> locationRepository.findById(id)
+                                                            .map(l -> {
+                                                                Map<String, Object> info = new HashMap<>();
+                                                                info.put("name", l.getName());
+                                                                info.put("color", l.getColor());
+                                                                return Map.entry(id, info);
+                                                            })
+                                                            .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
+                                                    .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                                                    .flatMap(lm -> {
+                                                        locMap.putAll(lm);
+                                                        if (date != null) {
+                                                            return generateSingleDayImage(mentor, filtered, locMap, date);
+                                                        }
+                                                        return generateAvailabilityImage(mentor, filtered, locMap, today);
                                                     })
-                                                    .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
-                                            .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                            .flatMap(lm -> {
-                                                locMap.putAll(lm);
-                                                return generateAvailabilityImage(mentor, slots, locMap, today);
-                                            });
-                                }
-                                return generateAvailabilityImage(mentor, slots, locMap, today);
-                            });
+                                                    .onErrorResume(e -> {
+                                                        log.error("Failed to resolve locations for shared image", e);
+                                                        if (date != null) {
+                                                            return generateSingleDayImage(mentor, filtered, Map.of(), date);
+                                                        }
+                                                        return generateAvailabilityImage(mentor, filtered, Map.of(), today);
+                                                    });
+                                        }
+                                        if (date != null) {
+                                            return generateSingleDayImage(mentor, filtered, locMap, date);
+                                        }
+                                        return generateAvailabilityImage(mentor, filtered, locMap, today);
+                                    }));
                 })
                 .map(bytes -> ResponseEntity.ok()
                         .header("Content-Type", "image/png")
@@ -280,9 +324,9 @@ public class CoachAvailabilityController {
     private Mono<byte[]> generateAvailabilityImage(Mentor mentor, List<MentorAvailability> slots,
                                                     Map<Long, Map<String, Object>> locMap, LocalDate startDate) {
         return Mono.fromCallable(() -> {
-            int dayCount = 7;
-            int cellW = 90, cellH = 14;
-            int headerH = 50, topMargin = 70, bottomMargin = 40, leftMargin = 55, rightMargin = 20;
+            int dayCount = 14;
+            int cellW = 80, cellH = 14;
+            int headerH = 50, topMargin = 70, bottomMargin = 40, leftMargin = 48, rightMargin = 20;
             int timeLabelW = 45;
             int rows = (22 - 6) * 2;
             int totalW = leftMargin + dayCount * cellW + rightMargin;
@@ -352,7 +396,7 @@ public class CoachAvailabilityController {
                     Color slotColor;
                     if (s.getLocationId() != null && locMap.containsKey(s.getLocationId())) {
                         Map<String, Object> loc = locMap.get(s.getLocationId());
-                        String colorStr = (String) loc.getOrDefault("color", "#3b82f5");
+                        String colorStr = (String) loc.getOrDefault("color", "#3b82f6");
                         try {
                             slotColor = Color.decode(colorStr);
                         } catch (Exception e) {
@@ -362,7 +406,7 @@ public class CoachAvailabilityController {
                         slotColor = new Color(59, 130, 246);
                     }
 
-                    g.setColor(new Color(slotColor.getRed(), slotColor.getGreen(), slotColor.getBlue(), 100));
+                    g.setColor(slotColor);
                     int slotY = topMargin + startRow * cellH;
                     int slotH = (endRow - startRow) * cellH;
                     g.fillRoundRect(x + 2, slotY, cellW - 4, slotH, 4, 4);
@@ -388,16 +432,152 @@ public class CoachAvailabilityController {
             g.setFont(new Font("Arial", Font.PLAIN, 9));
             g.setColor(new Color(120, 120, 120));
             int legendY = totalH - 20;
+            g.setColor(new Color(59, 130, 246));
             g.fillRect(20, legendY - 5, 12, 12);
-            g.setColor(new Color(59, 130, 246, 100));
-            g.fillRect(20, legendY - 5, 12, 12);
-            g.setColor(new Color(120, 120, 120));
-            g.drawString("Доступно", 36, legendY + 4);
+            g.setColor(new Color(200, 200, 200));
+            g.drawString("Вільно", 36, legendY + 4);
 
+            int lx = 140;
+            for (Map.Entry<Long, Map<String, Object>> e : locMap.entrySet()) {
+                Map<String, Object> loc = e.getValue();
+                String name = (String) loc.getOrDefault("name", "");
+                String colorStr = (String) loc.getOrDefault("color", "#3b82f6");
+                if (name.isEmpty()) continue;
+                Color lc;
+                try { lc = Color.decode(colorStr); } catch (Exception ex) { lc = new Color(59, 130, 246); }
+                g.setColor(lc);
+                g.fillRect(lx, legendY - 5, 12, 12);
+                g.setColor(lc);
+                g.drawRect(lx, legendY - 5, 12, 12);
+                g.setColor(new Color(200, 200, 200));
+                g.drawString("Вільно на " + name, lx + 16, legendY + 4);
+                lx += g.getFontMetrics().stringWidth("Вільно на " + name) + 24;
+            }
+
+            g.dispose();
+
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "png", baos);
+            return baos.toByteArray();
+        });
+    }
+
+    private Mono<byte[]> generateSingleDayImage(Mentor mentor, List<MentorAvailability> slots,
+                                                  Map<Long, Map<String, Object>> locMap, LocalDate date) {
+        return Mono.fromCallable(() -> {
+            int cellW = 1088, cellH = 28;
+            int topMargin = 100, bottomMargin = 60, leftMargin = 60, rightMargin = 40;
+            int rows = (22 - 6) * 2;
+            int totalW = leftMargin + cellW + rightMargin;
+            int totalH = topMargin + rows * cellH + bottomMargin;
+
+            BufferedImage img = new BufferedImage(totalW, totalH, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = img.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g.setColor(new Color(18, 18, 18));
+            g.fillRect(0, 0, totalW, totalH);
+
+            String[] days = {"Пн","Вт","Ср","Чт","Пт","Сб","Нд"};
+            String[] months = {"січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"};
+            int dayIdx = (date.getDayOfWeek().getValue() + 6) % 7;
+            String dateStr = days[dayIdx] + ", " + date.getDayOfMonth() + " " + months[date.getMonthValue() - 1];
+
+            g.setColor(new Color(255, 255, 255));
+            g.setFont(new Font("Arial", Font.BOLD, 22));
+            g.drawString(mentor.getName(), 20, 40);
+
+            g.setColor(new Color(160, 160, 160));
+            g.setFont(new Font("Arial", Font.BOLD, 16));
+            g.drawString(dateStr, 20, 65);
+
+            if (date.equals(LocalDate.now())) {
+                g.setColor(new Color(59, 130, 246));
+                g.setFont(new Font("Arial", Font.BOLD, 11));
+                g.drawString("СЬОГОДНІ", 20, 82);
+            }
+
+            g.setFont(new Font("Arial", Font.BOLD, 13));
+            String[] timeLabels = new String[rows];
+            for (int i = 0; i < rows; i++) {
+                int h = 6 + i / 2;
+                int m = (i % 2) * 30;
+                timeLabels[i] = String.format("%02d:%02d", h, m);
+            }
+            for (int hi = 0; hi < rows; hi++) {
+                int y = topMargin + hi * cellH;
+                g.setColor(new Color(160, 160, 160));
+                g.drawString(timeLabels[hi], 5, y + cellH - 8);
+
+                g.setColor(hi % 2 == 0 ? new Color(40, 40, 40) : new Color(28, 28, 28));
+                g.fillRect(leftMargin, y, cellW, cellH);
+                g.setColor(new Color(50, 50, 50));
+                g.drawLine(leftMargin, y, leftMargin + cellW, y);
+            }
+
+            g.setColor(new Color(50, 50, 50));
+            g.drawLine(leftMargin + cellW, topMargin, leftMargin + cellW, topMargin + rows * cellH);
+
+            int startMin = 360;
+            for (MentorAvailability s : slots) {
+                if (!s.getDate().equals(date)) continue;
+                int sStart = s.getStartTime().getHour() * 60 + s.getStartTime().getMinute();
+                int sEnd = s.getEndTime().getHour() * 60 + s.getEndTime().getMinute();
+                int startRow = Math.max(0, (sStart - startMin) / 30);
+                int endRow = Math.min(rows, (sEnd - startMin + 29) / 30);
+
+                Color slotColor;
+                if (s.getLocationId() != null && locMap.containsKey(s.getLocationId())) {
+                    Map<String, Object> loc = locMap.get(s.getLocationId());
+                    String colorStr = (String) loc.getOrDefault("color", "#3b82f6");
+                    try { slotColor = Color.decode(colorStr); }
+                    catch (Exception e) { slotColor = new Color(59, 130, 246); }
+                } else {
+                    slotColor = new Color(59, 130, 246);
+                }
+
+                g.setColor(slotColor);
+                int slotY = topMargin + startRow * cellH;
+                int slotH = (endRow - startRow) * cellH;
+                g.fillRoundRect(leftMargin + 3, slotY + 2, cellW - 6, slotH - 2, 6, 6);
+
+                if (s.getLocationId() != null && locMap.containsKey(s.getLocationId())) {
+                    Map<String, Object> loc = locMap.get(s.getLocationId());
+                    String locName = (String) loc.getOrDefault("name", "");
+                    if (!locName.isEmpty() && slotH > 28) {
+                        g.setFont(new Font("Arial", Font.BOLD, 13));
+                        g.setColor(new Color(255, 255, 255));
+                        g.drawString(locName, leftMargin + 10, slotY + 20);
+                    }
+                }
+            }
+
+            g.setColor(new Color(60, 60, 60));
+            g.drawLine(leftMargin, topMargin + rows * cellH, leftMargin + cellW, topMargin + rows * cellH);
+
+            g.setFont(new Font("Arial", Font.PLAIN, 11));
             g.setColor(new Color(120, 120, 120));
-            g.drawRect(100, legendY - 5, 12, 12);
-            g.setColor(new Color(120, 120, 120));
-            g.drawString("Вільно", 116, legendY + 4);
+            int legendY = totalH - 28;
+            g.setColor(new Color(59, 130, 246));
+            g.fillRect(20, legendY - 5, 14, 14);
+            g.setColor(new Color(200, 200, 200));
+            g.drawString("Вільно", 40, legendY + 8);
+
+            int lx = 120;
+            for (Map.Entry<Long, Map<String, Object>> e : locMap.entrySet()) {
+                Map<String, Object> loc = e.getValue();
+                String name = (String) loc.getOrDefault("name", "");
+                String colorStr = (String) loc.getOrDefault("color", "#3b82f6");
+                if (name.isEmpty()) continue;
+                Color lc;
+                try { lc = Color.decode(colorStr); } catch (Exception ex) { lc = new Color(59, 130, 246); }
+                g.setColor(lc);
+                g.fillRect(lx, legendY - 5, 14, 14);
+                g.setColor(new Color(200, 200, 200));
+                g.drawString("Вільно на " + name, lx + 20, legendY + 8);
+                lx += g.getFontMetrics().stringWidth("Вільно на " + name) + 30;
+            }
 
             g.dispose();
 

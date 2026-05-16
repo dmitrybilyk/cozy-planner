@@ -3,7 +3,7 @@ Cozy planner for every day's usage
 
 docker compose -f docker-compose.native.yml up -d
 
-./gradlew bootJar && java -jar build/libs/planner-0.0.1-SNAPSHOT.jar
+./gradlew bootJar -x processAot && java -jar build/libs/planner-0.0.1-SNAPSHOT.jar
 
 oraclecloud: dmitrybilyk
 ssh ubuntu@92.5.42.35

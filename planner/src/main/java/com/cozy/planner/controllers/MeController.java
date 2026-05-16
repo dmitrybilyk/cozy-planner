@@ -10,6 +10,7 @@ import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.repositories.UserRepository;
 import com.cozy.planner.service.ProfileLabels;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -43,8 +44,24 @@ public class MeController {
     }
 
     @GetMapping("/api/v1/me")
-    public Mono<Map<String, Object>> me(ServerWebExchange exchange) {
+    public Mono<Map<String, Object>> me(ServerWebExchange exchange,
+                                         @RequestParam(name = "inviteToken", required = false) String inviteToken) {
         return exchange.getSession().flatMap(session -> {
+            Object traineeIdFromSession = session.getAttribute("trainee_id");
+
+            if (traineeIdFromSession == null && inviteToken != null && !inviteToken.isBlank()) {
+                return traineeRepository.findByInviteToken(inviteToken)
+                        .flatMap(trainee -> {
+                            session.getAttributes().put("trainee_id", trainee.getId());
+                            return buildTraineeResponse(trainee);
+                        })
+                        .switchIfEmpty(Mono.defer(() -> {
+                            Map<String, Object> r = new HashMap<>();
+                            r.put("traineeId", null);
+                            return Mono.just(r);
+                        }));
+            }
+
             String googleSub = session.getAttribute("google_sub");
             if (googleSub != null) {
                 return userRepository.findByGoogleSub(googleSub)
@@ -77,52 +94,7 @@ public class MeController {
             Object traineeId = session.getAttribute("trainee_id");
             if (traineeId instanceof Number) {
                 return traineeRepository.findById(((Number) traineeId).longValue())
-                        .flatMap(trainee -> {
-                            Map<String, Object> r = new HashMap<>();
-                            r.put("traineeId", trainee.getId());
-                            r.put("athleteId", trainee.getId());
-                            r.put("name", trainee.getName());
-                            r.put("inviteToken", trainee.getInviteToken());
-
-                            boolean tgEnabled = telegramConfig.isEnabled()
-                                    && telegramConfig.getBotToken() != null
-                                    && !telegramConfig.getBotToken().isBlank();
-                            r.put("telegramEnabled", tgEnabled);
-                            r.put("telegramConnected", trainee.hasTelegram());
-                            r.put("telegramUsername", trainee.getTelegramUsername());
-
-                            if (tgEnabled && trainee.getInviteToken() != null
-                                    && !trainee.getInviteToken().isBlank()
-                                    && telegramConfig.getBotUsername() != null
-                                    && !telegramConfig.getBotUsername().isBlank()) {
-                                r.put("telegramConnectLink",
-                                        "https://t.me/" + telegramConfig.getBotUsername()
-                                        + "?start=" + trainee.getInviteToken());
-                            } else {
-                                r.put("telegramConnectLink", null);
-                            }
-
-                            return mentorRepository.findById(trainee.getMentorId())
-                                    .flatMap(mentor -> {
-                                        r.put("mentorName", mentor.getName());
-                                        r.put("mentorTelegramConnected", mentor.hasTelegram());
-                                        r.put("mentorShareToken", mentor.getShareToken());
-                                        return locationRepository.findAllByMentorId(mentor.getId())
-                                                .map(loc -> Map.of("id", loc.getId(), "name", loc.getName(), "color", loc.getColor()))
-                                                .collectList()
-                                                .map(locs -> {
-                                                    r.put("locations", locs);
-                                                    return r;
-                                                });
-                                    })
-                                    .switchIfEmpty(Mono.fromCallable(() -> {
-                                        r.put("mentorName", null);
-                                        r.put("mentorTelegramConnected", false);
-                                        r.put("mentorShareToken", null);
-                                        r.put("locations", List.of());
-                                        return r;
-                                    }));
-                        });
+                        .flatMap(this::buildTraineeResponse);
             }
 
             {
@@ -152,5 +124,52 @@ public class MeController {
         r.put("coach", Map.of("id", -1, "name", "Демо"));
         r.put("mentor", Map.of("id", -1, "name", "Демо"));
         return r;
+    }
+
+    private Mono<Map<String, Object>> buildTraineeResponse(Trainee trainee) {
+        Map<String, Object> r = new HashMap<>();
+        r.put("traineeId", trainee.getId());
+        r.put("athleteId", trainee.getId());
+        r.put("name", trainee.getName());
+        r.put("inviteToken", trainee.getInviteToken());
+
+        boolean tgEnabled = telegramConfig.isEnabled()
+                && telegramConfig.getBotToken() != null
+                && !telegramConfig.getBotToken().isBlank();
+        r.put("telegramEnabled", tgEnabled);
+        r.put("telegramConnected", trainee.hasTelegram());
+        r.put("telegramUsername", trainee.getTelegramUsername());
+
+        if (tgEnabled && trainee.getInviteToken() != null
+                && !trainee.getInviteToken().isBlank()
+                && telegramConfig.getBotUsername() != null
+                && !telegramConfig.getBotUsername().isBlank()) {
+            r.put("telegramConnectLink",
+                    "https://t.me/" + telegramConfig.getBotUsername()
+                    + "?start=" + trainee.getInviteToken());
+        } else {
+            r.put("telegramConnectLink", null);
+        }
+
+        return mentorRepository.findById(trainee.getMentorId())
+                .flatMap(mentor -> {
+                    r.put("mentorName", mentor.getName());
+                    r.put("mentorTelegramConnected", mentor.hasTelegram());
+                    r.put("mentorShareToken", mentor.getShareToken());
+                    return locationRepository.findAllByMentorId(mentor.getId())
+                            .map(loc -> Map.of("id", loc.getId(), "name", loc.getName(), "color", loc.getColor()))
+                            .collectList()
+                            .map(locs -> {
+                                r.put("locations", locs);
+                                return r;
+                            });
+                })
+                .switchIfEmpty(Mono.fromCallable(() -> {
+                    r.put("mentorName", null);
+                    r.put("mentorTelegramConnected", false);
+                    r.put("mentorShareToken", null);
+                    r.put("locations", List.of());
+                    return r;
+                }));
     }
 }

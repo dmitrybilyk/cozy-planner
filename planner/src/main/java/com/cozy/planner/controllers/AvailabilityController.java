@@ -121,85 +121,79 @@ public class AvailabilityController {
                         }));
     }
 
+    @PostMapping(path = {"/api/v1/trainees/{traineeId}/availability"})
+    public Mono<ResponseEntity<Void>> setAvailabilityById(@PathVariable Long traineeId,
+                                                           @RequestBody List<SlotEntry> entries) {
+        return saveAvailabilityInternal(traineeId, entries);
+    }
+
     @PostMapping(path = {"/api/v1/trainee/availability"})
     public Mono<ResponseEntity<Void>> setAvailability(@RequestBody List<SlotEntry> entries,
                                                         ServerWebExchange exchange) {
         return getTraineeId(exchange)
-                .flatMap(traineeId -> {
-                    Set<LocalDate> uniqueDates = entries.stream()
-                            .map(SlotEntry::date)
-                            .collect(Collectors.toSet());
-                    
-                    if (uniqueDates.isEmpty()) {
-                        return Mono.just(ResponseEntity.ok().<Void>build());
-                    }
-
-                    List<TraineeAvailability> toSave = entries.stream()
-                            .map(e -> {
-                                TraineeAvailability ta = new TraineeAvailability();
-                                ta.setTraineeId(traineeId);
-                                ta.setDate(e.date);
-                                ta.setStartTime(e.startTime);
-                                ta.setEndTime(e.endTime);
-                                return ta;
-                            })
-                            .toList();
-
-                     return Flux.fromIterable(uniqueDates)
-                            .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
-                            .flatMap(availabilityRepository::delete)
-                            .thenMany(Flux.fromIterable(toSave))
-                            .flatMap(availabilityRepository::save)
-                            .then()
-                            .then(notifyMentorIfNeeded(traineeId))
-                            .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
-                            .then(Mono.just(ResponseEntity.ok().<Void>build()));
-                });
+                .flatMap(traineeId -> saveAvailabilityInternal(traineeId, entries));
     }
-    
-    private Mono<Void> notifyMentorIfNeeded(Long traineeId) {
-        return traineeRepository.findById(traineeId)
-                .flatMap(trainee -> {
-                    if (trainee.getMentorId() == null) {
-                        return Mono.empty();
-                    }
-                    return mentorRepository.findById(trainee.getMentorId())
-                            .flatMap(mentor -> {
-                                if (mentor.hasTelegram()) {
-                                    return telegramService.sendMentorTraineeAvailabilityUpdateNotification(mentor, trainee)
-                                            .then();
-                                }
-                                return Mono.empty();
-                            });
-                })
-                .onErrorResume(e -> {
-                    return Mono.empty();
-                });
+
+    @DeleteMapping(path = {"/api/v1/trainees/{traineeId}/availability"})
+    public Mono<ResponseEntity<Void>> clearAvailabilityById(@PathVariable Long traineeId,
+                                                             @RequestParam String dates) {
+        return clearAvailabilityInternal(traineeId, dates);
     }
 
     @DeleteMapping(path = {"/api/v1/trainee/availability"})
     public Mono<ResponseEntity<Void>> clearAvailability(@RequestParam String dates,
                                                            ServerWebExchange exchange) {
         return getTraineeId(exchange)
-                .flatMap(traineeId -> {
-                    List<LocalDate> dateList = Arrays.stream(dates.split(","))
-                            .map(String::trim)
-                            .filter(s -> !s.isEmpty())
-                            .map(LocalDate::parse)
-                            .toList();
-                    
-                    if (dateList.isEmpty()) {
-                        return Mono.just(ResponseEntity.ok().<Void>build());
-                    }
+                .flatMap(traineeId -> clearAvailabilityInternal(traineeId, dates));
+    }
 
-                     return Flux.fromIterable(dateList)
-                            .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
-                            .flatMap(availabilityRepository::delete)
-                            .then()
-                            .then(notifyMentorIfNeeded(traineeId))
-                            .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
-                            .then(Mono.just(ResponseEntity.ok().<Void>build()));
-                });
+    private Mono<ResponseEntity<Void>> saveAvailabilityInternal(Long traineeId, List<SlotEntry> entries) {
+        Set<LocalDate> uniqueDates = entries.stream()
+                .map(SlotEntry::date)
+                .collect(Collectors.toSet());
+
+        if (uniqueDates.isEmpty()) {
+            return Mono.just(ResponseEntity.ok().<Void>build());
+        }
+
+        List<TraineeAvailability> toSave = entries.stream()
+                .map(e -> {
+                    TraineeAvailability ta = new TraineeAvailability();
+                    ta.setTraineeId(traineeId);
+                    ta.setDate(e.date);
+                    ta.setStartTime(e.startTime);
+                    ta.setEndTime(e.endTime);
+                    return ta;
+                })
+                .toList();
+
+         return Flux.fromIterable(uniqueDates)
+                .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
+                .flatMap(availabilityRepository::delete)
+                .thenMany(Flux.fromIterable(toSave))
+                .flatMap(availabilityRepository::save)
+                .then()
+                .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
+
+    private Mono<ResponseEntity<Void>> clearAvailabilityInternal(Long traineeId, String dates) {
+        List<LocalDate> dateList = Arrays.stream(dates.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(LocalDate::parse)
+                .toList();
+
+        if (dateList.isEmpty()) {
+            return Mono.just(ResponseEntity.ok().<Void>build());
+        }
+
+         return Flux.fromIterable(dateList)
+                .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
+                .flatMap(availabilityRepository::delete)
+                .then()
+                .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
     }
 
     private Mono<Long> getMentorId(ServerWebExchange exchange) {

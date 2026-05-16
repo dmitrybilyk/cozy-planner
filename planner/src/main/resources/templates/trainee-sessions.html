@@ -42,7 +42,7 @@
         </button>
         <button @click="tab = 'schedule'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                 :class="tab === 'schedule' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
-            Графік тренера
+            Доступність тренера
         </button>
         <button @click="tab = 'availability'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                 :class="tab === 'availability' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
@@ -136,7 +136,7 @@
                             <div class="flex-1 flex">
                                 <template x-for="(c, ci) in row.cells" :key="ci">
                                     <button @click="bookSlotFromGrid(c.mm)"
-                                            class="flex-1 h-8 sm:h-9 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                            class="flex-1 h-10 sm:h-11 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
                                             :style="coachCellStyle(c.mm)">
                                     </button>
                                 </template>
@@ -146,10 +146,11 @@
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-500">
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f5"></span> Доступно</span>
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#2a2a2a"></span> Вільно</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#dc2626"></span> Зайнято</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#2a2a2a"></span> Недоступно</span>
                 <template x-for="loc in coachLocations" :key="loc.name">
-                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> <span x-text="loc.name"></span></span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
                 </template>
             </div>
         </div>
@@ -184,7 +185,7 @@
                         <div class="flex-1 flex">
                             <template x-for="(c, ci) in row.cells" :key="ci">
                                 <button @click="tap(c.mm)"
-                                        class="flex-1 h-8 sm:h-9 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                        class="flex-1 h-10 sm:h-11 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
                                         :style="cellStyle(c.mm)">
                                 </button>
                             </template>
@@ -194,9 +195,9 @@
             </div>
         </div>
         <div class="flex items-center gap-3 mt-3 text-xs text-gray-500">
-            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f5"></span> Я доступний</span>
-            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#a855f780"></span> Призначено тренування</span>
-            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#2a2a2a"></span> Я недоступний</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#dc2626"></span> Зайнято</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#2a2a2a"></span> Недоступно</span>
         </div>
     </div>
 </main>
@@ -276,12 +277,19 @@
                 <input type="text" x-model="form.title" class="w-full text-base">
             </div>
             <div>
-                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Опис</label>
-                <input type="text" x-model="form.description" class="w-full text-base">
-            </div>
-            <div>
                 <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Дата</label>
-                <input type="date" x-model="form.date" :min="todayStr" class="w-full text-base">
+                <div class="flex overflow-x-auto no-scrollbar space-x-2 pb-1">
+                    <template x-for="day in days" :key="day.dateStr">
+                        <button @click="form.date = day.dateStr"
+                                class="flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-2xl transition-all min-w-[52px]"
+                                :class="day.dateStr === form.date ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#262626] text-gray-400'">
+                            <span class="text-[8px] font-bold uppercase" x-text="day.weekday"></span>
+                            <span class="text-lg font-black leading-tight" x-text="day.dayNum"></span>
+                            <span class="text-[8px] font-bold mt-0.5" x-text="day.month"></span>
+                            <span x-show="day.isToday" class="text-[6px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
+                        </button>
+                    </template>
+                </div>
             </div>
             <div x-show="locations.length > 0">
                 <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Локація</label>
@@ -298,16 +306,16 @@
                     <span x-show="selectedModalSlots.length" class="text-xs font-bold text-blue-300" x-text="form.time + ' — ' + form.endTime"></span>
                     <span x-show="!selectedModalSlots.length" class="text-xs font-bold text-gray-500">Оберіть час</span>
                 </div>
-                <div class="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] overflow-hidden max-h-56 overflow-y-auto no-scrollbar">
+                <div class="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] overflow-hidden max-h-72 overflow-y-auto no-scrollbar">
                     <template x-for="(row, ri) in grid" :key="ri">
                         <div class="flex border-b border-[#1f1f1f] last:border-b-0">
-                            <div class="w-10 flex-shrink-0 flex items-start justify-end pr-1.5 pt-1 text-[9px] font-bold text-gray-600 select-none leading-none">
+                            <div class="w-10 flex-shrink-0 flex items-start justify-end pr-1.5 pt-1 text-[11px] font-bold text-gray-400 select-none leading-none">
                                 <span x-text="row.lbl"></span>
                             </div>
                             <div class="flex-1 flex">
                                 <template x-for="(c, ci) in row.cells" :key="ci">
                                     <button @click="pickModalTime(c.mm)" type="button"
-                                            class="flex-1 h-7 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                            class="flex-1 h-10 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
                                             :style="modalCellStyle(c.mm)">
                                     </button>
                                 </template>
@@ -329,6 +337,9 @@
     </div>
 </div>
 
+<script th:inline="javascript">
+    var embeddedTrainee = /*[[${traineeData}]]*/ null;
+</script>
 <script th:inline="none">
     function localDateStr(d) {
         d = d || new Date();
@@ -411,7 +422,7 @@
                         }
                     }
                 }
-                return Object.values(seen);
+                return Object.values(seen).sort((a, b) => a.name.localeCompare(b.name));
             },
 
             get sortedMentorDays() {
@@ -427,9 +438,12 @@
             },
 
             async init() {
-                const res = await fetch('/api/v1/me');
-                if (!res.ok) { window.location.href = '/signin'; return; }
-                const me = await res.json();
+                let me = embeddedTrainee;
+                if (!me || !me.traineeId) {
+                    const res = await fetch('/api/v1/me');
+                    if (!res.ok) { window.location.href = '/signin'; return; }
+                    me = await res.json();
+                }
                 if (!me.traineeId) { window.location.href = '/signin'; return; }
                 this.traineeId = me.traineeId;
                 this.me = me;
@@ -437,7 +451,7 @@
 
                 const now = new Date();
                 const start = snapToMonday(now);
-                for (let i = 0; i < 14; i++) {
+                for (let i = 0; i < 31; i++) {
                     const d = new Date(start);
                     d.setDate(start.getDate() + i);
                     const ds = localDateStr(d);
@@ -475,7 +489,8 @@
             },
 
             openCreateModal() {
-                this.form = { title: 'Тренування', description: '', date: today, time: '', endTime: '', locationId: '' };
+                const traineeName = this.me.name || '';
+                this.form = { title: traineeName ? 'Тренування — ' + traineeName : 'Тренування', description: '', date: today, time: '', endTime: '', locationId: '' };
                 this.formPickStart = null;
                 this.selectedModalSlots = [];
                 this.showModal = true;
@@ -561,11 +576,27 @@
             },
 
             // ---- COACH SCHEDULE ----
+            locColors: ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'],
+
+            getMentorLocationColor(locId) {
+                if (locId == null) return null;
+                const loc = (this.me.locations || []).find(l => Number(l.id) === Number(locId));
+                return loc?.color || null;
+            },
+
+            locationNameColor(name) {
+                let hash = 0;
+                for (let i = 0; i < name.length; i++) {
+                    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                return this.locColors[Math.abs(hash) % this.locColors.length];
+            },
+
             async loadMentorAvailability() {
                 this.mentorScheduleLoading = true;
                 const start = localDateStr();
                 const endDate = new Date();
-                endDate.setDate(endDate.getDate() + 6);
+                endDate.setDate(endDate.getDate() + 13);
                 const end = localDateStr(endDate);
                 try {
                     const res = await fetch(`/api/v1/shared/${this.me.mentorShareToken}?startDate=${start}&endDate=${end}`);
@@ -577,16 +608,20 @@
                             if (!g[item.date]) g[item.date] = [];
                             const [sh, sm] = item.startTime.split(':').map(Number);
                             const [eh, em] = item.endTime.split(':').map(Number);
+                            let color = item.locationColor || this.getMentorLocationColor(item.locationId);
+                            if (!color && item.locationName) color = this.locationNameColor(item.locationName);
+                            if (!color) color = '#3b82f6';
                             let t = sh * 60 + sm, end = eh * 60 + em;
                             while (t < end) {
-                                g[item.date].push({ mm: t, locId: item.locationId, locColor: item.locationColor, locName: item.locationName });
+                                g[item.date].push({ mm: t, locId: item.locationId, locColor: color, locName: item.locationName });
                                 t += 30;
                             }
                         }
                         this.coachCellsByDate = g;
                     }
-                } catch(e) {}
+                } catch(e) { console.error('loadMentorAvailability error', e); }
                 this.mentorScheduleLoading = false;
+                console.log('coachCellsByDate loaded', Object.keys(this.coachCellsByDate).length, 'dates');
             },
 
             slotSlides(startTime, endTime) {
@@ -604,9 +639,20 @@
                 this.showModal = true;
             },
 
+            traineeSessionOnDate(dateStr, mm) {
+                return this.sessions.some(s => {
+                    if (s.date !== dateStr) return false;
+                    if (s.confirmationStatus === 'REJECTED') return false;
+                    const [sh, sm] = s.time.split(':').map(Number);
+                    const [eh, em] = (s.endTime || s.time).split(':').map(Number);
+                    return mm >= sh * 60 + sm && mm < eh * 60 + em;
+                });
+            },
+
             bookSlotFromGrid(mm) {
                 const c = this.coachCellAt(mm);
                 if (!c) return;
+                if (this.traineeSessionOnDate(this.coachSelectedDate, mm)) return;
                 const slot = this.mentorSlots.find(s => {
                     if (s.date !== this.coachSelectedDate) return false;
                     const [sh, sm] = s.startTime.split(':').map(Number);
@@ -679,10 +725,10 @@
 
             cellStyle(mm) {
                 if (this.isPastMinuteOnDate(this.selectedDate, mm)) return 'background:#1a1a1a; pointer-events:none';
-                if (this.inSess(mm)) return 'background:#a855f780';
+                if (this.inSess(mm)) return 'background:#dc2626';
                 const c = this.cellAt(mm);
                 if (!c) return 'background:#2a2a2a';
-                return 'background:#3b82f5';
+                return 'background:#3b82f6';
             },
 
             inSess(mm) {
@@ -745,11 +791,11 @@
                 const del = Object.keys(this.cellsByDate).filter(d => !this.cellsByDate[d].length);
                 try {
                     if (all.length) {
-                        const res = await fetch('/api/v1/trainee/availability', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(all) });
+                        const res = await fetch(`/api/v1/trainees/${this.traineeId}/availability`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(all) });
                         if (!res.ok) throw Error('POST fail');
                     }
                     if (del.length) {
-                        const res = await fetch(`/api/v1/trainee/availability?dates=${del.join(',')}`, { method:'DELETE' });
+                        const res = await fetch(`/api/v1/trainees/${this.traineeId}/availability?dates=${del.join(',')}`, { method:'DELETE' });
                         if (!res.ok) throw Error('DEL fail');
                     }
                     this.saved = true;
@@ -809,7 +855,7 @@
                 if (this.isPastMinute(mm)) return 'background:#1a1a1a; pointer-events:none';
                 if (this.isSlotBlockedByCoachSession(mm)) return 'background:#1a1a1a; pointer-events:none';
                 if (!this.isCoachSlotOnModalDate(mm)) return 'background:#1a1a1a; pointer-events:none';
-                if (this.selectedModalSlots.includes(mm)) return 'background:#3b82f5';
+                if (this.selectedModalSlots.includes(mm)) return 'background:#3b82f6';
                 return 'background:#2a2a2a';
             },
 
@@ -851,10 +897,11 @@
 
             coachCellStyle(mm) {
                 if (this.isPastMinuteOnDate(this.coachSelectedDate, mm)) return 'background:#1a1a1a; pointer-events:none';
+                if (this.traineeSessionOnDate(this.coachSelectedDate, mm)) return 'background:#dc2626; pointer-events:none';
                 const c = this.coachCellAt(mm);
                 if (!c) return 'background:#2a2a2a';
-                if (c.locColor) return `background:${c.locColor}80`;
-                return 'background:#3b82f5';
+                if (c.locColor) return `background:${c.locColor}`;
+                return 'background:#3b82f6';
             },
 
             isPastMinuteOnDate(dateStr, mm) {
