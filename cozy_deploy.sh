@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ======================================================================================================================================================
-# FULL AUTOMATED DEPLOYMENT SCRIPT FOR COZY-PLANNER (LOCAL BUILD -> OCIR PUSH -> REMOTE RESTART via docker-compose.yml)
+# FULL AUTOMATED DEPLOYMENT SCRIPT WITH LOG MONITORING (LOCAL BUILD -> OCIR PUSH -> REMOTE RESTART)
 # ======================================================================================================================================================
 
 # Налаштування змінних
@@ -30,7 +30,6 @@ else
 fi
 
 echo "🐳 Перехід в папку planner та збірка Docker-образу..."
-# Заходимо в папку модуля, щоб контекст збірки збігався з розташуванням файлів Gradle
 cd planner || { echo "❌ Папку planner не знайдено"; exit 1; }
 
 docker build -t cozy-planner-app:latest . || { echo "❌ Помилка при збірці Docker-образу"; exit 1; }
@@ -57,7 +56,7 @@ git push || { echo "❌ Помилка при git push"; exit 1; }
 
 echo "--- ☁️ Віддалені дії (Oracle Cloud) ---"
 
-# Підключаємось по SSH, робимо pull оновленого docker-compose.yml та перезапускаємо сервіс з нового образу
+# Передаємо команди на сервер. Зверни увагу на обробку логів в кінці ланцюжка.
 ssh -t $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_PROJECT_DIR && \
 echo '📥 Отримання оновленого docker-compose.yml (git pull)...' && \
 git pull && \
@@ -67,6 +66,6 @@ echo '📥 Стягування нового образу на сервері...
 docker compose pull && \
 echo '🐳 Перезапуск контейнерів...' && \
 docker compose up -d && \
-echo '🧹 Очищення старих образів...' && \
-docker image prune -f && \
+echo '📋 Моніторинг логів до успішного старту додатку...' && \
+docker compose logs -f app | awk '/Started PlannerApplication/ {print \$0; exit} {print}' && \
 echo '✅ Деплой успішно завершено!'"
