@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # ======================================================================================================================================================
-# FULL AUTOMATED DEPLOYMENT SCRIPT WITH LOG MONITORING (LOCAL BUILD -> OCIR PUSH -> REMOTE RESTART)
+# FULL AUTOMATED DEPLOYMENT SCRIPT WITH TIMER & LOG MONITORING (LOCAL BUILD -> OCIR PUSH -> REMOTE RESTART)
 # ======================================================================================================================================================
+
+# Запуск таймера
+START_TIME=$SECONDS
 
 # Налаштування змінних
 LOCAL_PROJECT_DIR="/home/dik81/IdeaProjects/cozy-planner"
@@ -56,7 +59,6 @@ git push || { echo "❌ Помилка при git push"; exit 1; }
 
 echo "--- ☁️ Віддалені дії (Oracle Cloud) ---"
 
-# Передаємо команди на сервер. Зверни увагу на обробку логів в кінці ланцюжка.
 ssh -t $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_PROJECT_DIR && \
 echo '📥 Отримання оновленого docker-compose.yml (git pull)...' && \
 git pull && \
@@ -66,6 +68,18 @@ echo '📥 Стягування нового образу на сервері...
 docker compose pull && \
 echo '🐳 Перезапуск контейнерів...' && \
 docker compose up -d && \
+echo '🧹 Очищення старих образів...' && \
+docker image prune -f && \
 echo '📋 Моніторинг логів до успішного старту додатку...' && \
 docker compose logs -f app | awk '/Started PlannerApplication/ {print \$0; exit} {print}' && \
-echo '✅ Деплой успішно завершено!'"
+echo '✅ Деплой на сервері завершено!'"
+
+# Розрахунок витраченого часу
+DURATION=$(( SECONDS - START_TIME ))
+MINUTES=$(( DURATION / 60 ))
+SECONDS_LEFT=$(( DURATION % 60 ))
+
+echo "--------------------------------------------------------"
+echo "✅ Загальний деплой успішно завершено!"
+echo "⏱️ Витрачено часу: ${MINUTES}хв ${SECONDS_LEFT}с"
+echo "--------------------------------------------------------"
