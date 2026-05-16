@@ -1,5 +1,6 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.TraineeAvailability;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
@@ -35,18 +36,21 @@ public class AvailabilityController {
     private final MentorRepository mentorRepository;
     private final EventBroadcastService eventService;
     private final TelegramService telegramService;
+    private final TelegramConfig telegramConfig;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AvailabilityController(TraineeRepository traineeRepository,
                                    TraineeAvailabilityRepository availabilityRepository,
                                    MentorRepository mentorRepository,
                                    EventBroadcastService eventService,
-                                   TelegramService telegramService) {
+                                   TelegramService telegramService,
+                                   TelegramConfig telegramConfig) {
         this.traineeRepository = traineeRepository;
         this.availabilityRepository = availabilityRepository;
         this.mentorRepository = mentorRepository;
         this.eventService = eventService;
         this.telegramService = telegramService;
+        this.telegramConfig = telegramConfig;
     }
 
     @PostMapping(path = {"/api/v1/trainees/{traineeId}/generate-invite"})
@@ -227,6 +231,9 @@ public class AvailabilityController {
     }
 
     private String buildInviteUrl(ServerWebExchange exchange, String token) {
+        if (telegramConfig.isEnabled() && telegramConfig.getBotUsername() != null) {
+            return "https://t.me/" + telegramConfig.getBotUsername() + "?start=" + token;
+        }
         String host = exchange.getRequest().getURI().getHost();
         int port = exchange.getRequest().getURI().getPort();
         String scheme = exchange.getRequest().getURI().getScheme();

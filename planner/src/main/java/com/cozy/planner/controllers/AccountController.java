@@ -22,6 +22,7 @@ public class AccountController {
     private final SessionRepository sessionRepository;
     private final LocationRepository locationRepository;
     private final TraineeAvailabilityRepository traineeAvailabilityRepository;
+    private final MentorAvailabilityRepository mentorAvailabilityRepository;
 
     public AccountController(UserRepository userRepository,
                              ClubRepository clubRepository,
@@ -29,7 +30,8 @@ public class AccountController {
                              TraineeRepository traineeRepository,
                              SessionRepository sessionRepository,
                              LocationRepository locationRepository,
-                             TraineeAvailabilityRepository traineeAvailabilityRepository) {
+                             TraineeAvailabilityRepository traineeAvailabilityRepository,
+                             MentorAvailabilityRepository mentorAvailabilityRepository) {
         this.userRepository = userRepository;
         this.clubRepository = clubRepository;
         this.mentorRepository = mentorRepository;
@@ -37,6 +39,7 @@ public class AccountController {
         this.sessionRepository = sessionRepository;
         this.locationRepository = locationRepository;
         this.traineeAvailabilityRepository = traineeAvailabilityRepository;
+        this.mentorAvailabilityRepository = mentorAvailabilityRepository;
     }
 
     @PostMapping("/reset")
@@ -90,6 +93,7 @@ public class AccountController {
     private Mono<Void> deleteAllData(Long mentorId) {
         return traineeRepository.findAllByMentorId(mentorId)
                 .flatMap(trainee -> traineeAvailabilityRepository.deleteByTraineeId(trainee.getId()))
+                .then(mentorAvailabilityRepository.deleteByMentorId(mentorId))
                 .then(sessionRepository.deleteTraineeLinksByMentorId(mentorId))
                 .then(sessionRepository.deleteAllByMentorId(mentorId))
                 .then(locationRepository.deleteAllByMentorId(mentorId))

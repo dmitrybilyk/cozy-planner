@@ -166,8 +166,8 @@
                                  :style="'background: ' + (session.color || '#3b82f6') + '33'">
                                 <span x-show="isSessionNow(session)" 
                                       class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></span>
-                                <span class="text-lg sm:text-xl font-black" :style="'color: ' + (session.color || '#3b82f6')" x-text="session.time"></span>
-                                <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="session.endTime"></span>
+                                <span class="text-lg sm:text-xl font-black leading-none" :style="'color: ' + (session.color || '#3b82f6')" x-text="session.time + ' — ' + (session.endTime || '')"></span>
+                                <span class="text-[9px] font-bold text-gray-500 mt-0.5" x-text="sessionDuration(session)"></span>
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-2">
@@ -530,12 +530,24 @@
     <div class="flex-1 overflow-y-auto p-4 space-y-3">
         <template x-for="trainee in trainees" :key="trainee.id">
             <div class="bg-[#1c1c1c] border border-[#333] rounded-3xl p-4">
-                <div class="font-bold text-gray-100 mb-2" x-text="trainee.name"></div>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="font-bold text-gray-100" x-text="trainee.name"></div>
+                    <div x-show="trainee.telegramEnabled && trainee.telegramConnected">
+                        <button @click="openNotifyModal(trainee)"
+                                :disabled="notifyingTrainees[trainee.id] === true"
+                                :class="notifyingTrainees[trainee.id] === true ? 'bg-gray-700 text-gray-500' : (notifySuccess[trainee.id] === true ? 'bg-green-900/50 text-green-400' : 'bg-blue-900/50 text-blue-400')"
+                                class="px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer">
+                            <span x-show="notifyingTrainees[trainee.id] === true">Відправка...</span>
+                            <span x-show="notifySuccess[trainee.id] === true">✓</span>
+                            <span x-show="notifyingTrainees[trainee.id] !== true && notifySuccess[trainee.id] !== true">Запитати доступність</span>
+                        </button>
+                    </div>
+                </div>
                 <template x-for="day in futureDays" :key="day.dateStr">
-                    <div x-show="isAvailable(trainee.id, day.dateStr)?.length > 0" class="flex items-start gap-3 py-2 border-b border-[#252525] last:border-0">
+                    <div x-show="getFutureSlots(trainee.id, day.dateStr).length > 0" class="flex items-start gap-3 py-2 border-b border-[#252525] last:border-0">
                         <span class="text-xs font-bold text-gray-500 w-14 flex-shrink-0 pt-0.5" x-text="day.weekday + ' ' + day.dayNum"></span>
                         <div class="flex flex-wrap gap-1.5">
-                            <template x-for="slot in isAvailable(trainee.id, day.dateStr)" :key="slot.startTime">
+                            <template x-for="slot in getFutureSlots(trainee.id, day.dateStr)" :key="slot.startTime">
                                 <button @click="createFromAvailability(trainee.id, day.dateStr, slot.startTime, slot.endTime)" type="button" class="bg-blue-900/30 text-blue-300 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all">+ <span x-text="slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span></button>
                             </template>
                         </div>
@@ -564,16 +576,24 @@
                 <div>
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-xs sm:text-sm font-black text-gray-500 uppercase" x-text="labels.session_time || 'Час'"></span>
-                        <span x-show="sessionForm.startTime && sessionForm.endTime" class="text-xs font-bold text-blue-400 bg-blue-900/30 px-2.5 py-1 rounded-full" x-text="getDurationLabel()"></span>
-                        <button x-show="sessionForm.startTime || sessionForm.endTime" @click="sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400 uppercase">Скинути</button>
+                        <span x-show="sessionForm.startTime && sessionForm.endTime" class="text-xs font-bold text-blue-400 bg-blue-900/30 px-2.5 py-1 rounded-full" x-text="sessionForm.startTime + ' — ' + sessionForm.endTime + ' · ' + getDurationLabel()"></span>
+                        <button x-show="selectedCoachSlots.length" @click="selectedCoachSlots = []; sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400 uppercase">Скинути</button>
                     </div>
-                    <div class="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
-                        <template x-for="t in daySlots" :key="t">
-                            <button @click="pickTime(t)" type="button"
-                                    class="py-2 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95"
-                                    :class="getTimeClass(t)">
-                                <span x-text="t"></span>
-                            </button>
+                    <div class="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] overflow-hidden max-h-52 overflow-y-auto no-scrollbar">
+                        <template x-for="(row, ri) in coachGrid" :key="ri">
+                            <div class="flex border-b border-[#1f1f1f] last:border-b-0">
+                                <div class="w-10 flex-shrink-0 flex items-start justify-end pr-1.5 pt-1 text-[9px] font-bold text-gray-600 select-none leading-none">
+                                    <span x-text="row.lbl"></span>
+                                </div>
+                                <div class="flex-1 flex">
+                                    <template x-for="(c, ci) in row.cells" :key="ci">
+                                        <button @click="pickTime(c.mm)" type="button"
+                                                class="flex-1 h-7 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                                :style="coachCellStyle(c.mm)">
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
                         </template>
                     </div>
                 </div>
@@ -699,8 +719,10 @@
             hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
             halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
             daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
+            coachGrid: [],
             selectedTraineeFilters: [], traineeSearch: '',
             sessionForm: { title: 'Зустріч', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
+            selectedCoachSlots: [],
             traineeForm: { name: '', description: '', photoBase64: null, weekendReminderEnabled: false },
             locationForm: { name: '', description: '', color: '#3b82f6' },
             confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
@@ -744,6 +766,10 @@
                     console.log('fetchMentorTelegramStatus done');
                     
                     this.connectWebSocket();
+                    for (let h = 6; h < 22; h++) {
+                        const cells = [{mm:h*60},{mm:h*60+30}];
+                        this.coachGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+                    }
                     this.initTouchDrag();
                     setTimeout(() => this.scrollToToday(), 200);
                     this._nowTimer = setInterval(() => { this.nowTick++; }, 30000);
@@ -972,10 +998,7 @@
             },
 
             traineeHasFutureAvailability(id) {
-                return this.futureDays.some(d => {
-                    const slots = this.availabilityMap[id + '|' + d.dateStr];
-                    return slots && slots.length > 0;
-                });
+                return this.futureDays.some(d => this.getFutureSlots(id, d.dateStr).length > 0);
             },
 
             get filteredTrainees() {
@@ -1263,6 +1286,14 @@
                 const key = traineeId + '|' + date;
                 return this.availabilityMap[key] !== undefined ? this.availabilityMap[key] : null;
             },
+            getFutureSlots(traineeId, dateStr) {
+                const slots = this.availabilityMap[traineeId + '|' + dateStr];
+                if (!slots) return [];
+                if (dateStr !== this.todayStr) return slots;
+                const now = new Date();
+                const currentMin = now.getHours() * 60 + now.getMinutes();
+                return slots.filter(s => this.slotToMin(s.endTime) > currentMin);
+            },
 
             getAvailLabel(slots) {
                 if (!slots || slots.length === 0) return '';
@@ -1343,29 +1374,54 @@
             },
 
             pickTime(t) {
-                if (this.isSlotPast(t)) return;
-                const tm = this.slotToMin(t);
-                const sm = this.sessionForm.startTime !== null ? this.slotToMin(this.sessionForm.startTime) : -1;
-                const em = this.sessionForm.endTime !== null ? this.slotToMin(this.sessionForm.endTime) : -1;
-
-                if (sm < 0) {
-                    this.sessionForm.startTime = t;
-                    this.sessionForm.endTime = this.nextSlot(t);
-                } else if (em < 0) {
-                    if (tm > sm) {
-                        this.sessionForm.endTime = t;
-                    } else {
-                        this.sessionForm.startTime = t;
-                        this.sessionForm.endTime = this.nextSlot(t);
-                    }
-                } else if (tm > em) {
-                    this.sessionForm.endTime = t;
-                } else if (tm > sm && tm < em) {
-                    this.sessionForm.endTime = t;
-                } else {
-                    this.sessionForm.startTime = t;
-                    this.sessionForm.endTime = this.nextSlot(t);
+                if (typeof t === 'number') {
+                    const h = String(Math.floor(t / 60)).padStart(2, '0');
+                    const m = String(t % 60).padStart(2, '0');
+                    t = `${h}:${m}`;
                 }
+                if (this.isSlotPast(t)) return;
+                if (this.isSlotOnCoachSession(t)) return;
+                const tm = this.slotToMin(t);
+                const sel = this.selectedCoachSlots;
+                if (sel.length === 0) {
+                    this.selectedCoachSlots = [tm];
+                } else {
+                    const sorted = [...sel].sort((a, b) => a - b);
+                    const min = sorted[0], max = sorted[sorted.length - 1];
+                    if (tm === max + 30) {
+                        this.selectedCoachSlots = [...sorted, tm];
+                    } else if (tm === min - 30) {
+                        this.selectedCoachSlots = [tm, ...sorted];
+                    } else if (tm >= min && tm <= max) {
+                        this.selectedCoachSlots = [tm];
+                    } else {
+                        this.selectedCoachSlots = [tm];
+                    }
+                }
+                const sorted = [...this.selectedCoachSlots].sort((a, b) => a - b);
+                if (sorted.length) {
+                    const sh = String(Math.floor(sorted[0] / 60)).padStart(2, '0');
+                    const sm = String(sorted[0] % 60).padStart(2, '0');
+                    const last = sorted[sorted.length - 1] + 30;
+                    const eh = String(Math.floor(last / 60)).padStart(2, '0');
+                    const em = String(last % 60).padStart(2, '0');
+                    this.sessionForm.startTime = `${sh}:${sm}`;
+                    this.sessionForm.endTime = `${eh}:${em}`;
+                } else {
+                    this.sessionForm.startTime = null;
+                    this.sessionForm.endTime = null;
+                }
+            },
+
+            isSlotOnCoachSession(t) {
+                if (!this.sessionForm.date) return false;
+                const tm = this.slotToMin(t);
+                return this.sessions.some(s => {
+                    if (s.date !== this.sessionForm.date) return false;
+                    const [sh, sm] = s.time.split(':').map(Number);
+                    const [eh, em] = (s.endTime || s.time).split(':').map(Number);
+                    return tm >= sh * 60 + sm && tm < eh * 60 + em;
+                });
             },
 
             nextSlot(t) {
@@ -1375,18 +1431,27 @@
             },
 
             getTimeClass(t) {
-                if (this.isSlotPast(t)) return 'bg-[#1a1a1a] text-gray-700 line-through cursor-not-allowed';
+                if (this.isSlotPast(t)) return 'bg-[#1a1a1a] text-gray-700 line-through cursor-not-allowed opacity-30';
+                if (this.isSlotOnCoachSession(t)) return 'bg-[#1a1a1a] text-gray-700 line-through cursor-not-allowed opacity-30';
                 const tm = this.slotToMin(t);
-                const s = this.sessionForm.startTime !== null ? this.slotToMin(this.sessionForm.startTime) : -1;
-                const e = this.sessionForm.endTime !== null ? this.slotToMin(this.sessionForm.endTime) : -1;
-                const conflict = this.sessionForm.traineeIds.length > 0 ? this.hasSlotConflict(t) : false;
-                if (tm === s && conflict) return 'bg-blue-600 text-white shadow-lg scale-105 ring-2 ring-red-400';
-                if (tm === s) return 'bg-blue-600 text-white shadow-lg scale-105 ring-2 ring-blue-400';
-                if (tm === e && conflict) return 'bg-blue-600 text-white shadow-lg ring-2 ring-red-400';
-                if (tm === e) return 'bg-blue-600 text-white shadow-lg';
-                if (s >= 0 && e >= 0 && tm > s && tm < e) return conflict ? 'bg-red-900/30 text-red-300' : 'bg-blue-500/20 text-blue-300';
-                if (conflict) return 'bg-red-900/20 text-red-400/60 line-through';
+                const sel = this.selectedCoachSlots;
+                if (sel.includes(tm)) return 'bg-blue-600 text-white shadow-lg';
+                const sorted = [...sel].sort((a, b) => a - b);
+                if (sorted.length) {
+                    const min = sorted[0], max = sorted[sorted.length - 1];
+                    if (tm > min && tm < max) return 'bg-blue-500/20 text-blue-300';
+                }
+                if (this.sessionForm.traineeIds.length > 0 && this.hasSlotConflict(t)) return 'bg-red-900/20 text-red-400/60 line-through';
                 return 'bg-[#262626] text-gray-400 hover:bg-[#333]';
+            },
+
+            coachCellStyle(mm) {
+                const t = `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
+                if (this.isSlotPast(t)) return 'background:#1a1a1a; pointer-events:none';
+                if (this.isSlotOnCoachSession(t)) return 'background:#1a1a1a; pointer-events:none';
+                if (this.sessionForm.traineeIds.length > 0 && this.hasSlotConflict(t)) return 'background:#1a1a1a; pointer-events:none';
+                if (this.selectedCoachSlots.includes(mm)) return 'background:#3b82f5';
+                return 'background:#2a2a2a';
             },
 
             hasSlotConflict(t) {
@@ -1434,6 +1499,16 @@
                 return `${m} хв`;
             },
 
+            sessionDuration(session) {
+                if (!session || !session.time || !session.endTime) return '';
+                const diff = this.slotToMin(session.endTime) - this.slotToMin(session.time);
+                const h = Math.floor(diff / 60);
+                const m = diff % 60;
+                if (h > 0 && m > 0) return `${h} год ${m} хв`;
+                if (h > 0) return `${h} год`;
+                return `${m} хв`;
+            },
+
             async drop(event, targetIndex) {
                 if (this.draggedIndex === null || this.draggedIndex === targetIndex) return;
                 const list = this.filteredSessions; const dragged = list[this.draggedIndex]; const target = list[targetIndex];
@@ -1452,6 +1527,7 @@
                 this.editingSessionId = null;
                 this.originalSessionData = null;
                 this.sessionForm = { title: this.labels.session_title_default || 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
+                this.selectedCoachSlots = [];
                 this.showModal = true;
             },
 
@@ -1461,14 +1537,29 @@
                 this.editingSessionId = w.id;
                 this.originalSessionData = { date: w.date, time: w.time };
                 this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null };
+                if (w.time && w.endTime) {
+                    const slots = [];
+                    let t = this.slotToMin(w.time);
+                    const end = this.slotToMin(w.endTime);
+                    while (t < end) { slots.push(t); t += 30; }
+                    this.selectedCoachSlots = slots;
+                } else {
+                    this.selectedCoachSlots = [];
+                }
                 this.showModal = true;
             },
 
             createFromAvailability(traineeId, date, startTime, endTime) {
                 this.traineeSearch = '';
                 this.editingSessionId = null;
-                this.originalSessionData = null;
-                this.sessionForm = { title: this.labels.session_title_default || 'Зустріч', description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: null };
+                const trainee = this.trainees.find(t => t.id === traineeId);
+                const traineeName = trainee ? trainee.name : '';
+                this.sessionForm = { title: 'Зустріч' + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: null };
+                const slots = [];
+                let t = this.slotToMin(startTime);
+                const end = this.slotToMin(endTime);
+                while (t < end) { slots.push(t); t += 30; }
+                this.selectedCoachSlots = slots;
                 this.showModal = true;
             },
 
@@ -1535,35 +1626,37 @@
                 this.editingSessionId = null;
                 this.originalSessionData = null;
                 this.sessionForm = { title: this.labels.session_title_default || 'Зустріч', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
+                this.selectedCoachSlots = [];
                 this.showModal = true;
             },
             editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null, weekendReminderEnabled: a.weekendReminderEnabled || false }; },
              askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
 
-             async generateTraineeLink(trainee) {
-                 if (this.traineeLinks[trainee.id]) return;
-                 let url = null;
-                 if (trainee.inviteUrl) {
-                     url = trainee.inviteUrl;
-                 } else if (this.inviteUrls[trainee.id]) {
-                     url = this.inviteUrls[trainee.id];
-                 } else if (trainee.inviteToken) {
-                     url = window.location.origin + '/trainee/' + trainee.inviteToken;
-                 } else {
-                     const res = await fetch(`/api/v1/trainees/${trainee.id}/generate-invite`, { method: 'POST' });
-                     if (res.ok) {
-                         const data = await res.json();
-                         this.inviteUrls[trainee.id] = data.inviteUrl;
-                         url = data.inviteUrl;
-                     }
-                 }
-                 if (url) {
-                     try { await navigator.clipboard.writeText(url); }
-                     catch(e) { prompt('Посилання учня:', url); return; }
-                     this.traineeLinks[trainee.id] = url;
-                     setTimeout(() => { delete this.traineeLinks[trainee.id]; }, 3000);
-                 }
-             },
+              async generateTraineeLink(trainee) {
+                  if (this.traineeLinks[trainee.id]) return;
+                  let url = null;
+                  if (trainee.inviteToken) {
+                      url = window.location.origin + '/trainee/' + trainee.inviteToken;
+                  } else {
+                      const res = await fetch(`/api/v1/trainees/${trainee.id}/generate-invite`, { method: 'POST' });
+                      if (res.ok) {
+                          const data = await res.json();
+                          const match = data.inviteUrl.match(/start=([^&?#]+)/);
+                          const token = match ? match[1] : null;
+                          if (token) {
+                              url = window.location.origin + '/trainee/' + token;
+                          } else {
+                              url = data.inviteUrl;
+                          }
+                      }
+                  }
+                  if (url) {
+                      try { await navigator.clipboard.writeText(url); }
+                      catch(e) { prompt('Посилання учня:', url); return; }
+                      this.traineeLinks[trainee.id] = url;
+                      setTimeout(() => { delete this.traineeLinks[trainee.id]; }, 3000);
+                  }
+              },
 
              getCardBorderClass(session) {
                  const base = this.isSessionNow(session) ? 'bg-[#1c1c1c] ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'bg-[#1c1c1c] border border-[#333]';

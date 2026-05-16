@@ -1,8 +1,10 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.model.entity.Location;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Session;
 import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.SessionRepository;
 import com.cozy.planner.repositories.TraineeRepository;
@@ -16,6 +18,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,17 +30,20 @@ public class SessionConfirmationController {
     private final SessionRepository sessionRepository;
     private final TraineeRepository traineeRepository;
     private final MentorRepository mentorRepository;
+    private final LocationRepository locationRepository;
     private final TelegramService telegramService;
     private final EventBroadcastService eventBroadcastService;
 
     public SessionConfirmationController(SessionRepository sessionRepository,
                                           TraineeRepository traineeRepository,
                                           MentorRepository mentorRepository,
+                                          LocationRepository locationRepository,
                                           TelegramService telegramService,
                                           EventBroadcastService eventBroadcastService) {
         this.sessionRepository = sessionRepository;
         this.traineeRepository = traineeRepository;
         this.mentorRepository = mentorRepository;
+        this.locationRepository = locationRepository;
         this.telegramService = telegramService;
         this.eventBroadcastService = eventBroadcastService;
     }
@@ -232,26 +238,56 @@ public class SessionConfirmationController {
             }
             Long traineeId = ((Number) traineeIdObj).longValue();
             return sessionRepository.findAllByTraineeId(traineeId)
-                    .flatMap(s -> mentorRepository.findById(s.getMentorId())
-                            .map(Mentor::getName)
-                            .defaultIfEmpty("")
-                            .flatMap(mentorName -> sessionRepository.findTraineeIdsBySessionId(s.getId())
-                                    .collectList()
-                                    .map(tIds -> {
-                                        Map<String, Object> m = new HashMap<>();
-                                        m.put("id", s.getId());
-                                        m.put("title", s.getTitle());
-                                        m.put("description", s.getDescription());
-                                        m.put("date", s.getWorkoutDate().toString());
-                                        m.put("time", s.getStartTime().toString());
-                                        m.put("endTime", s.getEndTime() != null ? s.getEndTime().toString() : null);
-                                        m.put("confirmationStatus", s.getConfirmationStatus());
-                                        m.put("createdBy", s.getCreatedBy());
-                                        m.put("mentorName", mentorName);
-                                        m.put("color", "#3b82f6");
-                                        m.put("traineeIds", tIds);
-                                        return m;
-                                    })))
+                    .flatMap(s -> {
+                        Mono<String> mentorNameMono = mentorRepository.findById(s.getMentorId())
+                                .map(Mentor::getName)
+                                .defaultIfEmpty("");
+                        Mono<Map<String, Object>> locationMono;
+                        if (s.getLocationId() != null) {
+                            locationMono = locationRepository.findById(s.getLocationId())
+                                    .map(loc -> {
+                                        Map<String, Object> locMap = new HashMap<>();
+                                        locMap.put("id", loc.getId());
+                                        locMap.put("name", loc.getName());
+                                        locMap.put("color", loc.getColor());
+                                        return locMap;
+                                    })
+                                    .defaultIfEmpty(Map.of());
+                        } else {
+                            locationMono = Mono.just(Map.of());
+                        }
+                        Mono<Map<Long, String>> traineeNamesMono = sessionRepository.findTraineeIdsBySessionId(s.getId())
+                                .collectList()
+                                .flatMap(tIds -> {
+                                    if (tIds.isEmpty()) return Mono.just(Map.<Long, String>of());
+                                    return Flux.fromIterable(tIds)
+                                            .flatMap(id -> traineeRepository.findById(id)
+                                                    .map(t -> Map.entry(id, t.getName()))
+                                                    .defaultIfEmpty(Map.entry(id, "?")))
+                                            .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+                                });
+                        return Mono.zip(mentorNameMono, locationMono, traineeNamesMono)
+                                .map(tuple -> {
+                                    String mentorName = tuple.getT1();
+                                    Map<String, Object> location = tuple.getT2();
+                                    Map<Long, String> traineeNames = tuple.getT3();
+                                    Map<String, Object> m = new HashMap<>();
+                                    m.put("id", s.getId());
+                                    m.put("title", s.getTitle());
+                                    m.put("description", s.getDescription());
+                                    m.put("date", s.getWorkoutDate().toString());
+                                    m.put("time", s.getStartTime().toString());
+                                    m.put("endTime", s.getEndTime() != null ? s.getEndTime().toString() : null);
+                                    m.put("confirmationStatus", s.getConfirmationStatus());
+                                    m.put("createdBy", s.getCreatedBy());
+                                    m.put("mentorName", mentorName);
+                                    m.put("color", "#3b82f6");
+                                    m.put("traineeIds", new ArrayList<>(traineeNames.keySet()));
+                                    m.put("traineeNames", traineeNames);
+                                    m.put("location", location);
+                                    return m;
+                                });
+                    })
                     .collectList()
                     .map(ResponseEntity::ok);
         });
@@ -276,6 +312,11 @@ public class SessionConfirmationController {
                         String dateStr = (String) body.get("date");
                         String timeStr = (String) body.get("time");
                         String endTimeStr = (String) body.get("endTime");
+                        Long locationId = null;
+                        Object locObj = body.get("locationId");
+                        if (locObj instanceof Number) {
+                            locationId = ((Number) locObj).longValue();
+                        }
 
                         if (title == null || dateStr == null || timeStr == null) {
                             Map<String, Object> err = new HashMap<>();
@@ -291,6 +332,7 @@ public class SessionConfirmationController {
                                 .startTime(LocalTime.parse(timeStr))
                                 .endTime(endTimeStr != null ? LocalTime.parse(endTimeStr) : null)
                                 .mentorId(trainee.getMentorId())
+                                .locationId(locationId)
                                 .createdBy("TRAINEE")
                                 .confirmationStatus("PENDING")
                                 .build();

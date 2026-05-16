@@ -96,6 +96,10 @@ tasks.openApiGenerate {
 	outputs.upToDateWhen { false }
 }
 
+tasks.withType<JavaCompile> {
+	options.compilerArgs.add("-parameters")
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 }

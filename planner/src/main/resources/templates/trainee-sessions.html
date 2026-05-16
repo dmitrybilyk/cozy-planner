@@ -13,110 +13,195 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .modal-backdrop { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
         input, select { background: #262626 !important; color: white !important; border: 1px solid #363636 !important; border-radius: 12px !important; padding: 10px !important; }
-        .bottom-nav { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
     </style>
 </head>
-<body class="antialiased" x-data="traineeSessionsApp()">
+<body class="antialiased" x-data="traineeApp()">
 
-<header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-16 flex items-center justify-between sticky top-0 z-40">
+<header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-14 flex items-center justify-between sticky top-0 z-40">
+    <h1 class="text-lg font-bold" x-text="me.name || 'Мої сесії'"></h1>
     <div class="flex items-center gap-2">
-        <h1 class="text-lg font-bold">Мої сесії</h1>
-        <span class="text-sm text-gray-400 ml-1" x-text="'— ' + (me.name || '')"></span>
-    </div>
-    <div class="flex items-center gap-2">
-        <template x-if="me.telegramEnabled && !me.telegramConnected && me.telegramConnectLink">
-            <a :href="me.telegramConnectLink" target="_blank"
-               class="bg-yellow-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap">
-                📲 TG
-            </a>
+        <span x-show="me.telegramEnabled && me.mentorTelegramConnected"
+              :class="me.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
+              class="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase">
+            <span x-text="me.telegramConnected ? '✓ TG' : '! TG'"></span>
+        </span>
+        <template x-if="tab === 'availability'">
+            <button @click="saveAvailability()" class="bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg">Зберегти</button>
         </template>
-        <template x-if="me.telegramConnected">
-            <span class="text-green-400 text-[10px] font-bold">✓ TG</span>
+        <template x-if="tab === 'sessions'">
+            <button @click="openCreateModal()" class="bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg">+ Нова</button>
         </template>
-        <button @click="openCreateModal()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg">+ Нова</button>
     </div>
 </header>
+
+<div class="sticky top-14 z-30 bg-[#121212] border-b border-[#333]">
+    <div class="flex max-w-lg mx-auto">
+        <button @click="tab = 'sessions'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
+                :class="tab === 'sessions' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
+            Сесії
+        </button>
+        <button @click="tab = 'schedule'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
+                :class="tab === 'schedule' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
+            Графік тренера
+        </button>
+        <button @click="tab = 'availability'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
+                :class="tab === 'availability' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
+            Моя доступність
+        </button>
+    </div>
+</div>
 
 <main class="max-w-lg mx-auto p-4 pb-24">
     <div x-show="saved" class="bg-green-900/20 text-green-400 p-3 rounded-xl text-sm font-bold text-center mb-4" x-text="savedMessage"></div>
     <div x-show="error" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-sm font-bold text-center mb-4" x-text="error"></div>
 
-    <div x-show="sessions.length === 0" class="text-center py-20 text-gray-600 text-sm">
-        У тебе ще немає сесій. Натисни "+ Нова", щоб створити.
+    <!-- ====== SESSIONS TAB ====== -->
+    <div x-show="tab === 'sessions'">
+        <div x-show="sessions.length === 0" class="text-center py-20 text-gray-600 text-sm">
+            У тебе ще немає сесій. Натисни "+ Нова", щоб створити.
+        </div>
+        <div class="space-y-3">
+            <template x-for="(session, idx) in sortedSessions" :key="session.id">
+                <div>
+                    <div x-show="idx > 0 && isPastSession(sortedSessions[idx-1]) !== isPastSession(session) && isPastSession(session)"
+                         class="text-xs font-bold text-gray-600 uppercase tracking-wider pt-6 pb-3 text-center">— Минулі сесії —</div>
+                    <div class="rounded-3xl p-5 shadow-sm border relative overflow-hidden"
+                         :class="getCardClass(session)">
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
+                            <p class="text-sm text-gray-500 mt-1" x-text="session.description"></p>
+                            <div class="flex items-center gap-2 mt-2 text-sm text-gray-400">
+                                <span>📅 <span x-text="session.date"></span></span>
+                                <span>🕐 <span x-text="session.time"></span><span x-show="session.endTime" x-text="' — ' + session.endTime"></span></span>
+                            </div>
+                            <div class="flex items-center gap-2 mt-2">
+                                <span class="text-xs text-gray-500" x-text="session.mentorName ? '👤 ' + session.mentorName : ''"></span>
+                            </div>
+                            <div class="mt-2">
+                                <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"
+                                      :class="getStatusClass(session.confirmationStatus)">
+                                    <span x-text="getStatusLabel(session.confirmationStatus)"></span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
+                            <template x-for="icon in getSessionIcons(session)" :key="icon">
+                                <span class="text-base" x-text="icon"></span>
+                            </template>
+                        </div>
+                    </div>
+                    <div x-show="session.createdBy === 'COACH' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
+                        <button @click="confirmSession(session.id)" class="flex-1 py-2 bg-green-600 text-white rounded-xl text-xs font-bold uppercase">Підтвердити</button>
+                        <button @click="rejectSession(session.id)" class="flex-1 py-2 bg-red-600/30 text-red-400 rounded-xl text-xs font-bold uppercase">Відхилити</button>
+                    </div>
+                    <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="mt-4 pt-3 border-t border-[#292929]">
+                        <button @click="openRequestConfirm(session)" class="w-full py-2 bg-yellow-600/30 text-yellow-400 rounded-xl text-xs font-bold uppercase">Запитати підтвердження</button>
+                    </div>
+                </div>
+            </template>
+        </div>
     </div>
 
-    <div class="space-y-3">
-        <template x-for="session in sortedSessions.filter(s => s.date >= todayStr)" :key="session.id">
-            <div class="rounded-3xl p-5 shadow-sm border relative overflow-hidden"
-                 :class="getCardClass(session)">
-                <div class="flex items-start justify-between">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
-                        <p class="text-sm text-gray-500 mt-1" x-text="session.description"></p>
-                        <div class="flex items-center gap-2 mt-2 text-sm text-gray-400">
-                            <span>📅 <span x-text="session.date"></span></span>
-                            <span>🕐 <span x-text="session.time"></span><span x-show="session.endTime" x-text="' — ' + session.endTime"></span></span>
-                        </div>
-                        <div class="flex items-center gap-2 mt-2">
-                            <span class="text-xs text-gray-500" x-text="session.mentorName ? '👤 ' + session.mentorName : ''"></span>
-                        </div>
-                        <div class="mt-2">
-                            <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"
-                                  :class="getStatusClass(session.confirmationStatus)">
-                                <span x-text="getStatusLabel(session.confirmationStatus)"></span>
-                            </span>
-                        </div>
-                    </div>
-                    <div class="flex flex-col items-end gap-1 flex-shrink-0 ml-2">
-                        <template x-for="icon in getSessionIcons(session)" :key="icon">
-                            <span class="text-base" x-text="icon"></span>
-                        </template>
-                    </div>
+    <!-- ====== COACH SCHEDULE TAB ====== -->
+    <div x-show="tab === 'schedule'">
+        <div x-show="Object.keys(coachCellsByDate).length === 0 && !mentorScheduleLoading" class="text-center py-20 text-gray-600 text-sm">
+            Тренер ще не додав доступні години.
+        </div>
+        <div x-show="mentorScheduleLoading" class="text-center py-20 text-gray-500 text-sm">Завантаження...</div>
+        <div x-show="Object.keys(coachCellsByDate).length > 0">
+            <div class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
+                <template x-for="day in days" :key="day.dateStr">
+                    <button @click="coachSelectedDate = day.dateStr"
+                            class="flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-2xl transition-all min-w-[60px] relative"
+                            :class="day.dateStr === coachSelectedDate ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#262626] text-gray-400'">
+                        <span class="text-[9px] font-bold uppercase" x-text="day.weekday"></span>
+                        <span class="text-xl font-black leading-tight" x-text="day.dayNum"></span>
+                        <span class="text-[9px] font-bold mt-0.5" x-text="day.month"></span>
+                        <span x-show="day.isToday" class="text-[7px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
+                        <span x-show="coachCellsByDate[day.dateStr]?.length" class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-full"></span>
+                    </button>
+                </template>
+            </div>
+            <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
+                <div class="px-4 py-2 border-b border-[#2a2a2a] flex items-center justify-between gap-2">
+                    <span class="text-xs font-bold text-gray-500 whitespace-nowrap" x-text="coachSelectedDate"></span>
                 </div>
-                <div x-show="session.createdBy === 'COACH' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
-                    <button @click="confirmSession(session.id)" class="flex-1 py-2 bg-green-600 text-white rounded-xl text-xs font-bold uppercase">Підтвердити</button>
-                    <button @click="rejectSession(session.id)" class="flex-1 py-2 bg-red-600/30 text-red-400 rounded-xl text-xs font-bold uppercase">Відмінити</button>
-                </div>
-                <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING' && me.telegramConnected" class="mt-4 pt-3 border-t border-[#292929]">
-                    <button @click="openRequestConfirm(session)" class="w-full py-2 bg-yellow-600/30 text-yellow-400 rounded-xl text-xs font-bold uppercase">Запитати підтвердження</button>
-                </div>
-                <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
-                    <button @click="rejectSession(session.id)" class="flex-1 py-2 bg-gray-600/30 text-gray-400 rounded-xl text-xs font-bold uppercase">Відмінити</button>
+                <div class="max-h-96 overflow-y-auto no-scrollbar">
+                    <template x-for="(row, ri) in grid" :key="ri">
+                        <div class="flex border-b border-[#1f1f1f] last:border-b-0">
+                            <div class="w-12 flex-shrink-0 flex items-start justify-end pr-2 pt-1 text-[10px] font-bold text-gray-600 select-none leading-none">
+                                <span x-text="row.lbl"></span>
+                            </div>
+                            <div class="flex-1 flex">
+                                <template x-for="(c, ci) in row.cells" :key="ci">
+                                    <button @click="bookSlotFromGrid(c.mm)"
+                                            class="flex-1 h-8 sm:h-9 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                            :style="coachCellStyle(c.mm)">
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
-        </template>
-        <template x-if="hasPastSessions">
-            <div>
-                <div class="flex items-center gap-3 mt-6 mb-3 opacity-40">
-                    <div class="h-px flex-1 bg-gray-600"></div>
-                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex-shrink-0">Минулі</span>
-                    <div class="h-px flex-1 bg-gray-600"></div>
-                </div>
-                <template x-for="session in sortedSessions.filter(s => s.date < todayStr)" :key="'past-'+session.id">
-                    <div class="rounded-3xl p-5 shadow-sm border relative overflow-hidden mb-3 opacity-60"
-                         :class="getCardClass(session)">
-                        <div class="flex items-start justify-between">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-base sm:text-lg font-bold text-gray-400 truncate" x-text="session.title"></p>
-                                <div class="flex items-center gap-2 mt-2 text-sm text-gray-500">
-                                    <span>📅 <span x-text="session.date"></span></span>
-                                    <span>🕐 <span x-text="session.time"></span></span>
-                                </div>
-                                <div class="mt-2">
-                                    <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"
-                                          :class="getStatusClass(session.confirmationStatus)">
-                                        <span x-text="getStatusLabel(session.confirmationStatus)"></span>
-                                    </span>
-                                </div>
-                            </div>
+            <div class="flex flex-wrap items-center gap-3 mt-3 text-xs text-gray-500">
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f5"></span> Доступно</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#2a2a2a"></span> Вільно</span>
+                <template x-for="loc in coachLocations" :key="loc.name">
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> <span x-text="loc.name"></span></span>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== MY AVAILABILITY TAB ====== -->
+    <div x-show="tab === 'availability'">
+        <div class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
+            <template x-for="day in days" :key="day.dateStr">
+                <button @click="selectDate(day.dateStr)"
+                        class="flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-2xl transition-all min-w-[60px] relative"
+                        :class="day.dateStr === selectedDate ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#262626] text-gray-400'">
+                    <span class="text-[9px] font-bold uppercase" x-text="day.weekday"></span>
+                    <span class="text-xl font-black leading-tight" x-text="day.dayNum"></span>
+                    <span class="text-[9px] font-bold mt-0.5" x-text="day.month"></span>
+                    <span x-show="day.isToday" class="text-[7px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
+                    <span x-show="cellsByDate[day.dateStr]?.length" class="absolute bottom-0 left-0 right-0 h-0.5 bg-green-400 rounded-full"></span>
+                    <span x-show="!cellsByDate[day.dateStr]?.length && hasSessionOnDate(day.dateStr)" class="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-400 rounded-full"></span>
+                </button>
+            </template>
+        </div>
+        <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
+            <div class="px-4 py-2 border-b border-[#2a2a2a] flex items-center justify-between gap-2">
+                <span class="text-xs font-bold text-gray-500 whitespace-nowrap" x-text="selectedDate"></span>
+            </div>
+            <div class="max-h-96 overflow-y-auto no-scrollbar">
+                <template x-for="(row, ri) in grid" :key="ri">
+                    <div class="flex border-b border-[#1f1f1f] last:border-b-0">
+                        <div class="w-12 flex-shrink-0 flex items-start justify-end pr-2 pt-1 text-[10px] font-bold text-gray-600 select-none leading-none">
+                            <span x-text="row.lbl"></span>
+                        </div>
+                        <div class="flex-1 flex">
+                            <template x-for="(c, ci) in row.cells" :key="ci">
+                                <button @click="tap(c.mm)"
+                                        class="flex-1 h-8 sm:h-9 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                        :style="cellStyle(c.mm)">
+                                </button>
+                            </template>
                         </div>
                     </div>
                 </template>
             </div>
-        </template>
+        </div>
+        <div class="flex items-center gap-3 mt-3 text-xs text-gray-500">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f5"></span> Я доступний</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#a855f780"></span> Призначено тренування</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#2a2a2a"></span> Я недоступний</span>
+        </div>
     </div>
 </main>
 
+<!-- Confirm modal -->
 <div x-show="confirmModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-6 modal-backdrop" x-cloak x-transition>
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
         <div class="p-6 text-center">
@@ -131,6 +216,54 @@
     </div>
 </div>
 
+<!-- Session info modal -->
+<div x-show="sessionInfo.show" class="fixed inset-0 z-[60] flex items-center justify-center p-6 modal-backdrop" x-cloak x-transition>
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl" @click.away="sessionInfo.show = false">
+        <div class="p-6">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h4 class="text-lg font-bold text-white" x-text="sessionInfo.title"></h4>
+                    <p class="text-sm text-gray-400 mt-1" x-text="sessionInfo.description || 'Без опису'"></p>
+                </div>
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase flex-shrink-0"
+                      :class="sessionInfo.status === 'CONFIRMED' ? 'bg-green-900/30 text-green-400' : sessionInfo.status === 'REJECTED' ? 'bg-red-900/30 text-red-400' : 'bg-yellow-900/30 text-yellow-400'"
+                      x-text="sessionInfo.status === 'CONFIRMED' ? '✅ Підтверджено' : sessionInfo.status === 'REJECTED' ? '❌ Відхилено' : '⏳ Очікує'">
+                </span>
+            </div>
+            <div class="space-y-2 text-sm text-gray-400">
+                <div class="flex items-center gap-2">
+                    <span>📅</span>
+                    <span x-text="sessionInfo.date"></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>🕐</span>
+                    <span x-text="sessionInfo.time + ' — ' + sessionInfo.endTime"></span>
+                </div>
+                <div x-show="sessionInfo.mentorName" class="flex items-center gap-2">
+                    <span>👤</span>
+                    <span x-text="sessionInfo.mentorName"></span>
+                </div>
+                <div x-show="sessionInfo.locationName" class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full" :style="'background:' + (sessionInfo.locationColor || '#888')"></span>
+                    <span x-text="sessionInfo.locationName"></span>
+                </div>
+                <div x-show="sessionInfo.attendees && sessionInfo.attendees.length" class="flex items-start gap-2">
+                    <span class="mt-0.5">👥</span>
+                    <div>
+                        <template x-for="(name, i) in sessionInfo.attendees" :key="i">
+                            <span x-text="name" class="block text-gray-300"></span>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex border-t border-[#333]">
+            <button @click="sessionInfo.show = false" class="flex-1 py-4 text-sm font-bold text-gray-300">Закрити</button>
+        </div>
+    </div>
+</div>
+
+<!-- Create session modal -->
 <div x-show="showModal" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center modal-backdrop px-0 sm:px-4" x-cloak x-transition>
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl" @click.away="showModal = false">
         <div class="p-6 border-b border-[#333] flex justify-between items-center">
@@ -150,118 +283,135 @@
                 <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Дата</label>
                 <input type="date" x-model="form.date" :min="todayStr" class="w-full text-base">
             </div>
+            <div x-show="locations.length > 0">
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Локація</label>
+                <select x-model="form.locationId" class="w-full text-base">
+                    <option value="">Без локації</option>
+                    <template x-for="loc in locations" :key="loc.id">
+                        <option :value="loc.id" :style="'color:' + (loc.color || '#3b82f6')" x-text="loc.name"></option>
+                    </template>
+                </select>
+            </div>
             <div>
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs sm:text-sm font-black text-gray-500 uppercase">Час</span>
-                    <span x-show="form.startTime && form.endTime" class="text-xs font-bold text-blue-400 bg-blue-900/30 px-2.5 py-1 rounded-full">
-                        <span x-text="getDurationLabel()"></span>
-                    </span>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="text-xs font-bold text-gray-400 uppercase">Час</label>
+                    <span x-show="selectedModalSlots.length" class="text-xs font-bold text-blue-300" x-text="form.time + ' — ' + form.endTime"></span>
+                    <span x-show="!selectedModalSlots.length" class="text-xs font-bold text-gray-500">Оберіть час</span>
                 </div>
-                <div class="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
-                    <template x-for="t in filteredDaySlots" :key="t">
-                        <button @click="pickTime(t)" type="button"
-                                class="py-2 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-95"
-                                :class="getTimeClass(t)">
-                            <span x-text="t"></span>
-                        </button>
+                <div class="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] overflow-hidden max-h-56 overflow-y-auto no-scrollbar">
+                    <template x-for="(row, ri) in grid" :key="ri">
+                        <div class="flex border-b border-[#1f1f1f] last:border-b-0">
+                            <div class="w-10 flex-shrink-0 flex items-start justify-end pr-1.5 pt-1 text-[9px] font-bold text-gray-600 select-none leading-none">
+                                <span x-text="row.lbl"></span>
+                            </div>
+                            <div class="flex-1 flex">
+                                <template x-for="(c, ci) in row.cells" :key="ci">
+                                    <button @click="pickModalTime(c.mm)" type="button"
+                                            class="flex-1 h-7 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                            :style="modalCellStyle(c.mm)">
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
                     </template>
                 </div>
-                <div x-show="me.mentorShareToken && mentorSlots.length && !filteredDaySlots.length" class="text-center py-3 text-yellow-400 text-xs font-bold">
-                    Тренер не має доступних годин на цю дату
+                <div x-show="selectedModalSlots.length" class="flex gap-1 mt-2">
+                    <span class="text-[10px] font-bold text-blue-300 bg-blue-900/30 px-2 py-1 rounded-lg" x-text="form.time + ' — ' + form.endTime"></span>
+                    <button @click="selectedModalSlots = []; form.time = ''; form.endTime = ''" type="button" class="text-[10px] font-bold text-red-400 uppercase ml-auto">Скинути</button>
                 </div>
             </div>
             <button @click="createSession()"
-                    :disabled="!form.title || !form.date || !form.time || !form.endTime"
-                    class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-30 disabled:cursor-not-allowed">
+                    :disabled="!form.time || !form.endTime"
+                    class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">
                 Створити
             </button>
         </div>
     </div>
 </div>
 
-<div x-show="showCoachAvailability" class="fixed inset-0 z-40 bg-[#121212] pt-14 pb-20 overflow-y-auto" x-cloak>
-    <div class="max-w-lg mx-auto p-4">
-        <div x-show="!mentorSlots.length" class="text-center py-16 text-gray-500 text-sm">
-            Завантаження розкладу тренера...
-        </div>
-        <template x-for="day in sortedMentorDays" :key="day.date">
-            <div class="mb-6">
-                <div class="text-sm font-bold text-white mb-2" x-text="day.date"></div>
-                <div class="space-y-2">
-                    <template x-for="slot in day.slots" :key="slot.startTime">
-                        <div class="bg-green-900/15 border border-green-600/30 rounded-xl px-4 py-3">
-                            <span class="text-sm font-bold text-green-300" x-text="slot.startTime.slice(0,5) + ' — ' + slot.endTime.slice(0,5)"></span>
-                        </div>
-                    </template>
-                </div>
-            </div>
-        </template>
-    </div>
-</div>
-
-<nav class="bottom-nav fixed bottom-0 inset-x-0 bg-[#1a1a1a]/95 border-t border-[#333] z-50">
-    <div class="flex items-center justify-around max-w-lg mx-auto h-14">
-        <div @click="showCoachAvailability = false; showModal = false" class="flex flex-col items-center gap-0.5" :class="!showCoachAvailability ? 'text-blue-400' : 'text-gray-500'">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-            <span class="text-[9px] font-bold uppercase">Сесії</span>
-        </div>
-        <div @click="showCoachAvailability = true; showModal = false" class="flex flex-col items-center gap-0.5" :class="showCoachAvailability ? 'text-blue-400' : 'text-gray-500'">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M12 6v6l4 2"/><circle cx="12" cy="12" r="10" stroke-width="1.5"/></svg>
-            <span class="text-[9px] font-bold uppercase">Графік тренера</span>
-        </div>
-        <a :href="availabilityLink" class="flex flex-col items-center gap-0.5 text-gray-500">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span class="text-[9px] font-bold uppercase">Моя доступність</span>
-        </a>
-    </div>
-</nav>
-
 <script th:inline="none">
     function localDateStr(d) {
         d = d || new Date();
         return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
     }
-    function traineeSessionsApp() {
+    function snapToMonday(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        return d;
+    }
+    function traineeApp() {
+        const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+        const MON = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+        const today = localDateStr();
         return {
+            tab: 'sessions',
             sessions: [],
             me: {},
             mentorSlots: [],
+            mentorScheduleLoading: false,
             showModal: false,
             saved: false,
             savedMessage: '',
             error: '',
-            todayStr: localDateStr(),
-            form: { title: '', description: '', date: localDateStr(), time: null, endTime: null },
-            allSlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
+            todayStr: today,
+            form: { title: '', description: '', date: today, time: '10:00', endTime: '11:00', locationId: '' },
+            locations: [],
             confirmModal: { show: false, sessionId: null, title: '', message: '' },
-            showCoachAvailability: false,
+            formPickStart: null,
+            selectedModalSlots: [],
+            sessionInfo: { show: false, id: null, title: '', description: '', date: '', time: '', endTime: '', mentorName: '', status: '', createdBy: '' },
+
+            // coach schedule
+            coachSelectedDate: today,
+            coachCellsByDate: {},
+
+            // availability state
+            traineeId: null,
+            selectedDate: today,
+            days: [],
+            cellsByDate: {},
+            grid: [],
+
+            getCurCells() {
+                return this.cellsByDate[this.selectedDate] || [];
+            },
+            cellAt(mm) {
+                return this.getCurCells().find(x => x.mm === mm);
+            },
 
             get sortedSessions() {
-                const today = this.todayStr;
-                const future = this.sessions.filter(s => s.date >= today);
-                const past = this.sessions.filter(s => s.date < today);
-                future.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
-                past.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+                const now = new Date();
+                const todayStr = localDateStr(now);
+                const future = [];
+                const past = [];
+                for (const s of this.sessions) {
+                    if (s.date > todayStr || (s.date === todayStr && (!s.endTime || s.endTime > now.toTimeString().slice(0,5)))) {
+                        future.push(s);
+                    } else {
+                        past.push(s);
+                    }
+                }
+                future.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+                past.sort((a, b) => (b.date + (b.endTime || b.time)).localeCompare(a.date + (a.endTime || a.time)));
                 return [...future, ...past];
             },
 
-            get hasPastSessions() {
-                return this.sessions.some(s => s.date < this.todayStr);
+            hasSessionOnDate(dateStr) {
+                return this.sessions.some(s => s.date === dateStr && s.confirmationStatus !== 'REJECTED');
             },
 
-            get availabilityLink() {
-                return this.me.inviteToken ? '/trainee/' + this.me.inviteToken : '#';
-            },
-
-            get filteredDaySlots() {
-                if (!this.me.mentorShareToken || !this.mentorSlots.length) return this.allSlots;
-                const ranges = this.mentorSlots.filter(s => s.date === this.form.date);
-                if (!ranges.length) return this.allSlots;
-                const sm = (t) => { const [h,m]=t.split(':').map(Number); return h*60+m; };
-                return this.allSlots.filter(t => {
-                    const tm = sm(t);
-                    return ranges.some(r => tm >= sm(r.startTime) && tm < sm(r.endTime));
-                });
+            get coachLocations() {
+                const seen = {};
+                for (const date in this.coachCellsByDate) {
+                    for (const cell of this.coachCellsByDate[date]) {
+                        if (cell.locName && !seen[cell.locName]) {
+                            seen[cell.locName] = { name: cell.locName, color: cell.locColor || '#3b82f6' };
+                        }
+                    }
+                }
+                return Object.values(seen);
             },
 
             get sortedMentorDays() {
@@ -276,34 +426,32 @@
                 }));
             },
 
-            async loadMentorAvailability() {
-                const start = localDateStr();
-                const endDate = new Date();
-                endDate.setDate(endDate.getDate() + 6);
-                const end = localDateStr(endDate);
-                try {
-                    const res = await fetch(`/api/v1/shared/${this.me.mentorShareToken}?startDate=${start}&endDate=${end}`);
-                    if (res.ok) {
-                        const data = await res.json();
-                        this.mentorSlots = data.slots || [];
-                    }
-                } catch(e) {}
-            },
-
-            bookSlot(slot) {
-                this.showCoachAvailability = false;
-                this.form = { title: 'Зустріч', description: '', date: slot.date, time: slot.startTime, endTime: slot.endTime };
-                this.showModal = true;
-            },
-
             async init() {
                 const res = await fetch('/api/v1/me');
                 if (!res.ok) { window.location.href = '/signin'; return; }
                 const me = await res.json();
                 if (!me.traineeId) { window.location.href = '/signin'; return; }
+                this.traineeId = me.traineeId;
                 this.me = me;
+                this.locations = me.locations || [];
+
+                const now = new Date();
+                const start = snapToMonday(now);
+                for (let i = 0; i < 14; i++) {
+                    const d = new Date(start);
+                    d.setDate(start.getDate() + i);
+                    const ds = localDateStr(d);
+                    this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today });
+                }
+
+                for (let h = 6; h < 22; h++) {
+                    const cells = [{mm:h*60},{mm:h*60+30}];
+                    this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+                }
+
                 await this.loadSessions();
                 if (this.me.mentorShareToken) this.loadMentorAvailability();
+                await this.loadAvailability();
                 this.connectWebSocket();
             },
 
@@ -313,22 +461,23 @@
                 const ws = new WebSocket(wsUrl);
                 ws.onmessage = (event) => {
                     if (event.data === 'session_changed') this.loadSessions();
+                    if (event.data === 'availability_changed') this.loadAvailability();
                 };
                 ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
                 ws.onerror = () => ws.close();
                 this.ws = ws;
             },
 
+            // ---- SESSIONS ----
             async loadSessions() {
                 const res = await fetch('/api/v1/trainee/sessions');
-                if (res.ok) {
-                    this.sessions = await res.json();
-                }
+                if (res.ok) { this.sessions = await res.json(); }
             },
 
             openCreateModal() {
-                this.showCoachAvailability = false;
-                this.form = { title: 'Зустріч', description: '', date: localDateStr(), time: null, endTime: null };
+                this.form = { title: 'Тренування', description: '', date: today, time: '', endTime: '', locationId: '' };
+                this.formPickStart = null;
+                this.selectedModalSlots = [];
                 this.showModal = true;
             },
 
@@ -337,13 +486,7 @@
                 const res = await fetch('/api/v1/trainee/sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title: this.form.title,
-                        description: this.form.description,
-                        date: this.form.date,
-                        time: this.form.time,
-                        endTime: this.form.endTime
-                    })
+                    body: JSON.stringify({ title: this.form.title, description: this.form.description, date: this.form.date, time: this.form.time, endTime: this.form.endTime, locationId: this.form.locationId })
                 });
                 if (res.ok) {
                     this.showModal = false;
@@ -351,44 +494,25 @@
                     this.savedMessage = 'Сесію створено! Тренер отримає сповіщення.';
                     setTimeout(() => this.saved = false, 4000);
                     await this.loadSessions();
-                } else {
-                    this.error = 'Помилка при створенні сесії';
-                }
+                } else { this.error = 'Помилка при створенні сесії'; }
             },
 
             async confirmSession(id) {
                 this.error = '';
                 const res = await fetch(`/api/v1/trainee/sessions/${id}/confirm`, { method: 'POST' });
-                if (res.ok) {
-                    this.saved = true;
-                    this.savedMessage = 'Сесію підтверджено!';
-                    setTimeout(() => this.saved = false, 3000);
-                    await this.loadSessions();
-                } else {
-                    this.error = 'Помилка підтвердження';
-                }
+                if (res.ok) { this.saved = true; this.savedMessage = 'Сесію підтверджено!'; setTimeout(() => this.saved = false, 3000); await this.loadSessions(); }
+                else { this.error = 'Помилка підтвердження'; }
             },
 
             async rejectSession(id) {
                 this.error = '';
                 const res = await fetch(`/api/v1/trainee/sessions/${id}/reject`, { method: 'POST' });
-                if (res.ok) {
-                    this.saved = true;
-                    this.savedMessage = 'Сесію відхилено';
-                    setTimeout(() => this.saved = false, 3000);
-                    await this.loadSessions();
-                } else {
-                    this.error = 'Помилка';
-                }
+                if (res.ok) { this.saved = true; this.savedMessage = 'Сесію відхилено'; setTimeout(() => this.saved = false, 3000); await this.loadSessions(); }
+                else { this.error = 'Помилка'; }
             },
 
             openRequestConfirm(session) {
-                this.confirmModal = {
-                    show: true,
-                    sessionId: session.id,
-                    title: 'Запитати підтвердження?',
-                    message: 'Тренер отримає сповіщення про необхідність підтвердити сесію.'
-                };
+                this.confirmModal = { show: true, sessionId: session.id, title: 'Запитати підтвердження?', message: 'Тренер отримає сповіщення про необхідність підтвердити сесію.' };
             },
 
             closeRequestConfirm() {
@@ -401,72 +525,8 @@
                 if (!id) return;
                 this.error = '';
                 const res = await fetch(`/api/v1/trainee/sessions/${id}/request-coach-confirmation`, { method: 'POST' });
-                if (res.ok) {
-                    this.saved = true;
-                    this.savedMessage = 'Запит на підтвердження надіслано тренеру!';
-                    setTimeout(() => this.saved = false, 4000);
-                    await this.loadSessions();
-                } else {
-                    this.error = 'Помилка при надсиланні запиту';
-                }
-            },
-
-            slotToMin(t) {
-                const [h, m] = t.split(':').map(Number);
-                return h * 60 + m;
-            },
-
-            pickTime(t) {
-                const tm = this.slotToMin(t);
-                const sm = this.form.time !== null ? this.slotToMin(this.form.time) : -1;
-                const em = this.form.endTime !== null ? this.slotToMin(this.form.endTime) : -1;
-                if (sm < 0) {
-                    this.form.time = t;
-                    this.form.endTime = this.nextSlot(t);
-                } else if (em < 0) {
-                    if (tm > sm) {
-                        this.form.endTime = t;
-                    } else {
-                        this.form.time = t;
-                        this.form.endTime = this.nextSlot(t);
-                    }
-                } else if (tm > em) {
-                    this.form.endTime = t;
-                } else if (tm > sm && tm < em) {
-                    this.form.endTime = t;
-                } else {
-                    this.form.time = t;
-                    this.form.endTime = this.nextSlot(t);
-                }
-            },
-
-            nextSlot(t) {
-                const slots = this.filteredDaySlots;
-                const idx = slots.indexOf(t);
-                if (idx >= 0 && idx + 1 < slots.length) return slots[idx + 1];
-                const m = this.slotToMin(t) + 30;
-                const h = Math.floor(m / 60) % 24;
-                return `${h.toString().padStart(2, '0')}:${m % 60 === 0 ? '00' : '30'}`;
-            },
-
-            getTimeClass(t) {
-                const tm = this.slotToMin(t);
-                const s = this.form.time !== null ? this.slotToMin(this.form.time) : -1;
-                const e = this.form.endTime !== null ? this.slotToMin(this.form.endTime) : -1;
-                if (tm === s) return 'bg-blue-600 text-white shadow-lg scale-105 ring-2 ring-blue-400';
-                if (tm === e) return 'bg-blue-600 text-white shadow-lg';
-                if (s >= 0 && e >= 0 && tm > s && tm < e) return 'bg-blue-500/20 text-blue-300';
-                return 'bg-[#262626] text-gray-400 hover:bg-[#333]';
-            },
-
-            getDurationLabel() {
-                if (!this.form.time || !this.form.endTime) return '';
-                const diff = this.slotToMin(this.form.endTime) - this.slotToMin(this.form.time);
-                const h = Math.floor(diff / 60);
-                const m = diff % 60;
-                if (h > 0 && m > 0) return `${h} год ${m} хв`;
-                if (h > 0) return `${h} год`;
-                return `${m} хв`;
+                if (res.ok) { this.saved = true; this.savedMessage = 'Запит на підтвердження надіслано тренеру!'; setTimeout(() => this.saved = false, 4000); await this.loadSessions(); }
+                else { this.error = 'Помилка при надсиланні запиту'; }
             },
 
             getCardClass(session) {
@@ -485,7 +545,7 @@
 
             getStatusLabel(status) {
                 if (status === 'CONFIRMED') return '✅ Підтверджено';
-                if (status === 'REJECTED') return '❌ Відмінено';
+                if (status === 'REJECTED') return '❌ Відхилено';
                 if (status === 'PENDING') return '⏳ Очікує';
                 return '—';
             },
@@ -498,6 +558,310 @@
                     result.push(icons[(session.id * 3 + i) % icons.length]);
                 }
                 return result;
+            },
+
+            // ---- COACH SCHEDULE ----
+            async loadMentorAvailability() {
+                this.mentorScheduleLoading = true;
+                const start = localDateStr();
+                const endDate = new Date();
+                endDate.setDate(endDate.getDate() + 6);
+                const end = localDateStr(endDate);
+                try {
+                    const res = await fetch(`/api/v1/shared/${this.me.mentorShareToken}?startDate=${start}&endDate=${end}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        this.mentorSlots = data.slots || [];
+                        const g = {};
+                        for (const item of this.mentorSlots) {
+                            if (!g[item.date]) g[item.date] = [];
+                            const [sh, sm] = item.startTime.split(':').map(Number);
+                            const [eh, em] = item.endTime.split(':').map(Number);
+                            let t = sh * 60 + sm, end = eh * 60 + em;
+                            while (t < end) {
+                                g[item.date].push({ mm: t, locId: item.locationId, locColor: item.locationColor, locName: item.locationName });
+                                t += 30;
+                            }
+                        }
+                        this.coachCellsByDate = g;
+                    }
+                } catch(e) {}
+                this.mentorScheduleLoading = false;
+            },
+
+            slotSlides(startTime, endTime) {
+                const [sh, sm] = startTime.split(':').map(Number);
+                const [eh, em] = endTime.split(':').map(Number);
+                const slots = [];
+                for (let t = sh * 60 + sm; t < eh * 60 + em; t += 30) slots.push(t);
+                return slots;
+            },
+
+            bookSlot(slot) {
+                this.form = { title: 'Тренування', description: '', date: slot.date, time: slot.startTime, endTime: slot.endTime, locationId: slot.locationId || '' };
+                this.selectedModalSlots = this.slotSlides(slot.startTime, slot.endTime);
+                this.tab = 'sessions';
+                this.showModal = true;
+            },
+
+            bookSlotFromGrid(mm) {
+                const c = this.coachCellAt(mm);
+                if (!c) return;
+                const slot = this.mentorSlots.find(s => {
+                    if (s.date !== this.coachSelectedDate) return false;
+                    const [sh, sm] = s.startTime.split(':').map(Number);
+                    const [eh, em] = s.endTime.split(':').map(Number);
+                    return mm >= sh * 60 + sm && mm < eh * 60 + em;
+                });
+                let startTime, endTime, locationId;
+                if (slot) {
+                    startTime = slot.startTime;
+                    endTime = slot.endTime;
+                    locationId = slot.locationId || '';
+                } else {
+                    const h = String(Math.floor(mm / 60)).padStart(2, '0');
+                    const m = String(mm % 60).padStart(2, '0');
+                    startTime = `${h}:${m}`;
+                    endTime = `${Number(m) + 30 < 60 ? `${h}:${String(Number(m) + 30).padStart(2, '0')}` : `${String(Number(h) + 1).padStart(2, '0')}:00`}`;
+                    locationId = c.locId || '';
+                }
+                this.form = { title: 'Тренування', description: '', date: this.coachSelectedDate, time: startTime, endTime, locationId };
+                this.selectedModalSlots = this.slotSlides(startTime, endTime);
+                this.tab = 'sessions';
+                this.showModal = true;
+            },
+
+            selectDate(dateStr) {
+                this.selectedDate = dateStr;
+            },
+
+            tap(mm) {
+                if (this.isPastMinuteOnDate(this.selectedDate, mm)) return;
+                const session = this.findSessionAt(mm);
+                if (session) { this.tapSession(mm); return; }
+                const arr = [...(this.cellsByDate[this.selectedDate] || [])];
+                const idx = arr.findIndex(x => x.mm === mm);
+                if (idx >= 0) { arr.splice(idx, 1); } else { arr.push({ mm }); }
+                this.cellsByDate[this.selectedDate] = arr;
+            },
+
+            tapSession(mm) {
+                const session = this.findSessionAt(mm);
+                if (!session) return;
+                const location = session.location || {};
+                const names = session.traineeNames || {};
+                this.sessionInfo = {
+                    show: true,
+                    id: session.id,
+                    title: session.title,
+                    description: session.description,
+                    date: session.date,
+                    time: session.time,
+                    endTime: session.endTime,
+                    mentorName: session.mentorName,
+                    status: session.confirmationStatus,
+                    createdBy: session.createdBy,
+                    locationName: location.name || '',
+                    locationColor: location.color || '',
+                    attendees: Object.values(names)
+                };
+            },
+
+            findSessionAt(mm) {
+                return this.sessions.find(s => {
+                    if (s.date !== this.selectedDate) return false;
+                    if (s.confirmationStatus === 'REJECTED') return false;
+                    const [sh, sm] = s.time.split(':').map(Number);
+                    const [eh, em] = (s.endTime || s.time).split(':').map(Number);
+                    return mm >= sh * 60 + sm && mm < eh * 60 + em;
+                });
+            },
+
+            cellStyle(mm) {
+                if (this.isPastMinuteOnDate(this.selectedDate, mm)) return 'background:#1a1a1a; pointer-events:none';
+                if (this.inSess(mm)) return 'background:#a855f780';
+                const c = this.cellAt(mm);
+                if (!c) return 'background:#2a2a2a';
+                return 'background:#3b82f5';
+            },
+
+            inSess(mm) {
+                return this.sessions.some(s => {
+                    if (s.date !== this.selectedDate) return false;
+                    if (s.confirmationStatus === 'REJECTED') return false;
+                    const [sh, sm] = s.time.split(':').map(Number);
+                    const [eh, em] = (s.endTime || s.time).split(':').map(Number);
+                    return mm >= sh * 60 + sm && mm < eh * 60 + em;
+                });
+            },
+
+            title(mm) {
+                return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
+            },
+
+            minStr(m) {
+                return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+            },
+
+            async loadAvailability() {
+                if (!this.traineeId) return;
+                const start = this.days[0].dateStr;
+                const end = this.days[this.days.length - 1].dateStr;
+                const res = await fetch(`/api/v1/trainees/${this.traineeId}/availability?startDate=${start}&endDate=${end}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const g = {};
+                    for (const item of data) {
+                        if (!g[item.date]) g[item.date] = [];
+                        const [sh, sm] = item.startTime.split(':').map(Number);
+                        const [eh, em] = item.endTime.split(':').map(Number);
+                        let t = sh * 60 + sm, end = eh * 60 + em;
+                        while (t < end) {
+                            g[item.date].push({ mm: t });
+                            t += 30;
+                        }
+                    }
+                    this.cellsByDate = g;
+                }
+            },
+
+            async saveAvailability() {
+                const all = [];
+                for (const date in this.cellsByDate) {
+                    const arr = this.cellsByDate[date];
+                    if (!arr.length) continue;
+                    const sorted = [...arr].sort((a,b) => a.mm - b.mm);
+                    let cs = sorted[0].mm, ce = sorted[0].mm + 30;
+                    for (let i = 1; i < sorted.length; i++) {
+                        if (sorted[i].mm === ce) {
+                            ce = sorted[i].mm + 30;
+                        } else {
+                            all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
+                            cs = sorted[i].mm; ce = sorted[i].mm + 30;
+                        }
+                    }
+                    all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
+                }
+                const del = Object.keys(this.cellsByDate).filter(d => !this.cellsByDate[d].length);
+                try {
+                    if (all.length) {
+                        const res = await fetch('/api/v1/trainee/availability', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(all) });
+                        if (!res.ok) throw Error('POST fail');
+                    }
+                    if (del.length) {
+                        const res = await fetch(`/api/v1/trainee/availability?dates=${del.join(',')}`, { method:'DELETE' });
+                        if (!res.ok) throw Error('DEL fail');
+                    }
+                    this.saved = true;
+                    this.savedMessage = 'Збережено!';
+                    setTimeout(() => this.saved = false, 3000);
+                } catch(e) { console.error(e); }
+            },
+
+            slotToMin(t) {
+                if (!t) return 0;
+                const [h, m] = t.split(':').map(Number);
+                return h * 60 + m;
+            },
+
+            isCoachSlotOnModalDate(mm) {
+                if (Object.keys(this.coachCellsByDate).length === 0) return true;
+                const cells = this.coachCellsByDate[this.form.date];
+                if (!cells) return true;
+                return cells.some(c => c.mm === mm);
+            },
+
+            pickModalTime(mm) {
+                if (this.isPastMinute(mm)) return;
+                if (!this.isCoachSlotOnModalDate(mm)) return;
+                const sel = this.selectedModalSlots;
+                if (sel.length === 0) {
+                    this.selectedModalSlots = [mm];
+                } else {
+                    const sorted = [...sel].sort((a, b) => a - b);
+                    const min = sorted[0], max = sorted[sorted.length - 1];
+                    if (mm === max + 30) {
+                        this.selectedModalSlots = [...sorted, mm];
+                    } else if (mm === min - 30) {
+                        this.selectedModalSlots = [mm, ...sorted];
+                    } else if (mm >= min && mm <= max) {
+                        this.selectedModalSlots = [mm];
+                    } else {
+                        this.selectedModalSlots = [mm];
+                    }
+                }
+                const sorted = [...this.selectedModalSlots].sort((a, b) => a - b);
+                if (sorted.length) {
+                    const sh = String(Math.floor(sorted[0] / 60)).padStart(2, '0');
+                    const sm = String(sorted[0] % 60).padStart(2, '0');
+                    const last = sorted[sorted.length - 1] + 30;
+                    const eh = String(Math.floor(last / 60)).padStart(2, '0');
+                    const em = String(last % 60).padStart(2, '0');
+                    this.form.time = `${sh}:${sm}`;
+                    this.form.endTime = `${eh}:${em}`;
+                } else {
+                    this.form.time = '';
+                    this.form.endTime = '';
+                }
+            },
+
+            modalCellStyle(mm) {
+                if (this.isPastMinute(mm)) return 'background:#1a1a1a; pointer-events:none';
+                if (this.isSlotBlockedByCoachSession(mm)) return 'background:#1a1a1a; pointer-events:none';
+                if (!this.isCoachSlotOnModalDate(mm)) return 'background:#1a1a1a; pointer-events:none';
+                if (this.selectedModalSlots.includes(mm)) return 'background:#3b82f5';
+                return 'background:#2a2a2a';
+            },
+
+            isPastMinute(mm) {
+                if (this.form.date !== today) return false;
+                const now = new Date();
+                const currentMin = now.getHours() * 60 + now.getMinutes();
+                return mm < currentMin;
+            },
+
+            isPastSession(session) {
+                const todayStr = localDateStr();
+                if (session.date < todayStr) return true;
+                if (session.date > todayStr) return false;
+                const now = new Date();
+                const currentMin = now.getHours() * 60 + now.getMinutes();
+                const [eh, em] = (session.endTime || session.time || '0:00').split(':').map(Number);
+                return eh * 60 + em <= currentMin;
+            },
+
+            isSlotBlockedByCoachSession(mm) {
+                if (!this.form.date) return false;
+                return this.sessions.some(s => {
+                    if (s.date !== this.form.date) return false;
+                    if (s.confirmationStatus === 'REJECTED') return false;
+                    const [sh, sm] = s.time.split(':').map(Number);
+                    const [eh, em] = (s.endTime || s.time).split(':').map(Number);
+                    return mm >= sh * 60 + sm && mm < eh * 60 + em;
+                });
+            },
+
+            get coachCurCells() {
+                return this.coachCellsByDate[this.coachSelectedDate] || [];
+            },
+
+            coachCellAt(mm) {
+                return this.coachCurCells.find(x => x.mm === mm);
+            },
+
+            coachCellStyle(mm) {
+                if (this.isPastMinuteOnDate(this.coachSelectedDate, mm)) return 'background:#1a1a1a; pointer-events:none';
+                const c = this.coachCellAt(mm);
+                if (!c) return 'background:#2a2a2a';
+                if (c.locColor) return `background:${c.locColor}80`;
+                return 'background:#3b82f5';
+            },
+
+            isPastMinuteOnDate(dateStr, mm) {
+                if (dateStr !== today) return false;
+                const now = new Date();
+                const currentMin = now.getHours() * 60 + now.getMinutes();
+                return mm < currentMin;
             }
         }
     }

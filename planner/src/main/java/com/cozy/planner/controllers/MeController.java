@@ -4,6 +4,7 @@ import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.ClubRepository;
+import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.repositories.UserRepository;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,17 +25,20 @@ public class MeController {
     private final ClubRepository clubRepository;
     private final MentorRepository mentorRepository;
     private final TraineeRepository traineeRepository;
+    private final LocationRepository locationRepository;
     private final TelegramConfig telegramConfig;
 
     public MeController(UserRepository userRepository,
                          ClubRepository clubRepository,
                          MentorRepository mentorRepository,
                          TraineeRepository traineeRepository,
+                         LocationRepository locationRepository,
                          TelegramConfig telegramConfig) {
         this.userRepository = userRepository;
         this.clubRepository = clubRepository;
         this.mentorRepository = mentorRepository;
         this.traineeRepository = traineeRepository;
+        this.locationRepository = locationRepository;
         this.telegramConfig = telegramConfig;
     }
 
@@ -98,16 +103,23 @@ public class MeController {
                             }
 
                             return mentorRepository.findById(trainee.getMentorId())
-                                    .map(mentor -> {
+                                    .flatMap(mentor -> {
                                         r.put("mentorName", mentor.getName());
                                         r.put("mentorTelegramConnected", mentor.hasTelegram());
                                         r.put("mentorShareToken", mentor.getShareToken());
-                                        return r;
+                                        return locationRepository.findAllByMentorId(mentor.getId())
+                                                .map(loc -> Map.of("id", loc.getId(), "name", loc.getName(), "color", loc.getColor()))
+                                                .collectList()
+                                                .map(locs -> {
+                                                    r.put("locations", locs);
+                                                    return r;
+                                                });
                                     })
                                     .switchIfEmpty(Mono.fromCallable(() -> {
                                         r.put("mentorName", null);
                                         r.put("mentorTelegramConnected", false);
                                         r.put("mentorShareToken", null);
+                                        r.put("locations", List.of());
                                         return r;
                                     }));
                         });

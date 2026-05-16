@@ -49,7 +49,7 @@ public class PlannerController {
                 .flatMap(session -> traineeRepository.findByInviteToken(token)
                         .map(trainee -> {
                             session.getAttributes().put("trainee_id", trainee.getId());
-                            return "trainee-availability";
+                            return "trainee-sessions";
                         })
                         .defaultIfEmpty("redirect:/signin"));
     }
