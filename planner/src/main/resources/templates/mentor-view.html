@@ -190,7 +190,10 @@
                                     <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
                                     <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                                 </div>
-                                <button @click.stop="copySession(session)" class="mt-2 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
+                                <div class="flex items-center gap-3 mt-2">
+                                    <button @click.stop="copySession(session)" class="text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
+                                    <button @click.stop="exportToGCal(session)" class="text-[11px] sm:text-xs font-bold text-green-400 uppercase tracking-wider hover:text-green-300">📅 GCal</button>
+                                </div>
                                 <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-2">
                                     <button @click.stop="confirmSession(session.id)" class="flex-1 py-1.5 bg-green-600/30 text-green-400 rounded-xl text-[10px] font-bold uppercase">Підтвердити</button>
                                     <button @click.stop="rejectSession(session.id)" class="flex-1 py-1.5 bg-red-600/30 text-red-400 rounded-xl text-[10px] font-bold uppercase">Відмінити</button>
@@ -271,6 +274,7 @@
                                     </template>
                                 </div>
                                 <button @click.stop="copySession(session)" class="ml-2 flex-shrink-0 text-[11px] sm:text-xs font-bold text-blue-400 uppercase tracking-wider" x-text="labels.copy || 'Копіювати'"></button>
+                                <button @click.stop="exportToGCal(session)" class="ml-2 flex-shrink-0 text-[11px] sm:text-xs font-bold text-green-400 uppercase tracking-wider hover:text-green-300">📅 GCal</button>
                             </div>
                         </div>
                     </template>
@@ -824,6 +828,37 @@
                     locationId: w.locationId || null
                 };
                 this.showModal = true;
+            },
+
+            exportToGCal(session) {
+                const d = session.date.replace(/-/g, '');
+                const st = session.time.replace(/:/g, '') + '00';
+                const et = (session.endTime || session.time).replace(/:/g, '') + '00';
+                const loc = this.getLocationName(session.locationId) || '';
+                const names = (session.traineeIds || []).map(id => this.getTraineeName(id)).filter(Boolean).join(', ');
+                const desc = (session.description || '') + (names ? '\\nУчні: ' + names : '');
+                const ics = [
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'PRODID:-//Cozy Planner//EN',
+                    'BEGIN:VEVENT',
+                    'DTSTART:' + d + 'T' + st,
+                    'DTEND:' + d + 'T' + et,
+                    'SUMMARY:' + session.title,
+                    'DESCRIPTION:' + desc,
+                    'LOCATION:' + loc,
+                    'END:VEVENT',
+                    'END:VCALENDAR'
+                ].join('\r\n');
+                const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = (session.title || 'session').replace(/[^a-zа-яіїє0-9]/gi, '_') + '.ics';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             },
 
             initTouchDrag() {

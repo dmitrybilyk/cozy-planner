@@ -29,12 +29,13 @@
     <div class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
         <template x-for="day in days" :key="day.ds">
             <button @click="sel(day.ds)"
-                    class="flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-2xl transition-all min-w-[60px]"
+                    class="flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-2xl transition-all min-w-[60px] relative"
                     :class="day.ds === curDate ? 'bg-blue-600 text-white shadow-lg' : 'bg-[#262626] text-gray-400'">
                 <span class="text-[9px] font-bold uppercase" x-text="day.wd"></span>
                 <span class="text-xl font-black leading-tight" x-text="day.num"></span>
                 <span class="text-[9px] font-bold mt-0.5" x-text="day.mo"></span>
                 <span x-show="day.isToday" class="text-[7px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
+                <span x-show="hasDaySlots(day.ds)" class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
             </button>
         </template>
     </div>
@@ -119,6 +120,34 @@
         <p x-show="!shareUrl" class="text-sm text-gray-600">З'явиться після першого натискання на слот</p>
         <p x-show="shareUrl" class="text-xs text-gray-600 mt-2">Посилання та картинки відкриваються без входу</p>
     </div>
+
+    <!-- Session details popup on busy slot -->
+    <div x-show="busySession" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="busySession = null">
+        <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
+            <div class="p-5 border-b border-[#333] flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white truncate" x-text="busySession?.title || 'Сесія'"></h3>
+                <button @click="busySession = null" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="flex items-center gap-2 text-sm text-gray-400">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span x-text="busySession?.startTime?.slice(0,5) + ' — ' + busySession?.endTime?.slice(0,5)"></span>
+                </div>
+                <div x-show="busySession?.description" class="text-sm text-gray-300 bg-[#262626] rounded-xl p-3">
+                    <p x-text="busySession?.description"></p>
+                </div>
+                <div x-show="busySession?.confirmationStatus && busySession?.confirmationStatus !== 'NONE'" class="flex items-center gap-2 text-xs">
+                    <span class="text-gray-500">Статус:</span>
+                    <span class="font-bold"
+                          :class="busySession?.confirmationStatus === 'CONFIRMED' ? 'text-green-400' : busySession?.confirmationStatus === 'REJECTED' ? 'text-red-400' : 'text-yellow-400'"
+                          x-text="busySession?.confirmationStatus === 'CONFIRMED' ? 'Підтверджено' : busySession?.confirmationStatus === 'REJECTED' ? 'Відхилено' : 'Очікує'"></span>
+                </div>
+            </div>
+            <div class="px-5 pb-5">
+                <button @click="busySession = null" class="w-full py-3 rounded-xl text-sm font-bold text-white bg-[#333] hover:bg-[#444] transition-all">Закрити</button>
+            </div>
+        </div>
+    </div>
 </main>
 
 <script th:inline="none">
@@ -132,6 +161,7 @@ function app() {
         curDate: today, days: [], grid: [],
         cells: {}, sess: {}, locs: [], curLoc: null,
         ws: null,
+        busySession: null,
 
         init() {
             const now = new Date;
@@ -164,8 +194,19 @@ function app() {
             return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
         },
 
+        hasDaySlots(ds) { return (this.cells[ds] || []).length > 0; },
+
+        sessionAt(mm) {
+            return (this.sess[this.curDate] || []).find(s => {
+                const [sh,sm] = s.startTime.split(':').map(Number);
+                const [eh,em] = s.endTime.split(':').map(Number);
+                return mm >= sh*60+sm && mm < eh*60+em;
+            }) || null;
+        },
+
         async tap(mm) {
-            if (this.inSess(mm)) return;
+            const busy = this.sessionAt(mm);
+            if (busy) { this.busySession = busy; return; }
             const arr = this.getCurCells();
             const idx = arr.findIndex(x => x.mm === mm);
             if (idx >= 0) {

@@ -1,4 +1,4 @@
-**1. Removal of locattions is not working**
+~~**1. Removal of locattions is not working**~~
 3. on permanent link if we don't use some location or default - not to use suggestion at the bottom (everywhere)
 4. Visually to show that we have smallest time unit of 30 minutes
 5. If current time is bigger thatn 21 than to make the next day as default day on all views
@@ -13,7 +13,7 @@
 14. In План tab to have an ability to see history of sessions for last week - separate tab maybe even better. Even more better - we already showing on main screen past days and can see previous secions there
 15. If coach confirmed trainee should emmediatly see on his view and vice versa
 **16. on Доступність тренера in case slot is busy coach should be able to click on it (on busy) and see description of session**
-**17. Fix graalvm issues with AWT and others**
+~~**17. Fix graalvm issues with AWT and others**~~
 **18. Fix context words in the project**
 16. Add e2e tests
 19. After TG of trainee is connected would be good to see it without refresh for coach

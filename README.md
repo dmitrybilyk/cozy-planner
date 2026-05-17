@@ -8,6 +8,8 @@ docker compose -f docker-compose.native.yml up -d
 oraclecloud: dmitrybilyk
 ssh ubuntu@92.5.42.35
 
+gh issue create -t "fix removal of locations" -b "Removal of locations is just silently not working"
+
 cozy-planner.duckdns.org/planner
 
 e2e

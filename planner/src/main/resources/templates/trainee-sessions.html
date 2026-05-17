@@ -90,6 +90,7 @@
                                 <span class="text-base" x-text="icon"></span>
                             </template>
                         </div>
+                        <button @click.stop="exportToGCal(session)" class="mt-3 text-[11px] font-bold text-green-400 uppercase tracking-wider hover:text-green-300">📅 Експорт в Google Календар</button>
                     </div>
                     <div x-show="session.createdBy === 'COACH' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
                         <button @click="confirmSession(session.id)" class="flex-1 py-2 bg-green-600 text-white rounded-xl text-xs font-bold uppercase">Підтвердити</button>
@@ -535,6 +536,34 @@
                 const res = await fetch(`/api/v1/trainee/sessions/${id}/reject`, { method: 'POST' });
                 if (res.ok) { this.saved = true; this.savedMessage = 'Сесію відхилено'; setTimeout(() => this.saved = false, 3000); await this.loadSessions(); }
                 else { this.error = 'Помилка'; }
+            },
+
+            exportToGCal(session) {
+                const d = session.date.replace(/-/g, '');
+                const st = session.time.replace(/:/g, '') + '00';
+                const et = (session.endTime || session.time).replace(/:/g, '') + '00';
+                const mentor = session.mentorName || '';
+                const ics = [
+                    'BEGIN:VCALENDAR',
+                    'VERSION:2.0',
+                    'PRODID:-//Cozy Planner//EN',
+                    'BEGIN:VEVENT',
+                    'DTSTART:' + d + 'T' + st,
+                    'DTEND:' + d + 'T' + et,
+                    'SUMMARY:' + session.title,
+                    'DESCRIPTION:' + (session.description || '') + (mentor ? '\\nТренер: ' + mentor : ''),
+                    'END:VEVENT',
+                    'END:VCALENDAR'
+                ].join('\r\n');
+                const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = (session.title || 'session').replace(/[^a-zа-яіїє0-9]/gi, '_') + '.ics';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
             },
 
             openRequestConfirm(session) {
