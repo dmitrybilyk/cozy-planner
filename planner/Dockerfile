@@ -1,18 +1,22 @@
-# Stage 1: Build
-FROM gradle:8.5-jdk21 AS build
+# Stage 1: Build native image with GraalVM
+FROM ghcr.io/graalvm/graalvm-community:21 AS build
 
-# Копіюємо вміст папки planner
-COPY --chown=gradle:gradle . /home/gradle/src
-WORKDIR /home/gradle/src
+ENV GRADLE_VERSION=8.5
+RUN microdnf install -y unzip wget findutils && \
+    wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O /tmp/gradle.zip && \
+    unzip /tmp/gradle.zip -d /opt && \
+    ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/local/bin/gradle && \
+    rm /tmp/gradle.zip && \
+    microdnf clean all
 
-# Збираємо проект
-RUN gradle build -x test --no-daemon
-
-# Stage 2: Runtime (Легкий образ для запуску)
-FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+COPY . .
+RUN gradle nativeCompile -x test --no-daemon
 
-# Копіюємо тільки основний jar, ігноруючи plain.jar
-COPY --from=build /home/gradle/src/build/libs/*-SNAPSHOT.jar app.jar
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# Stage 2: Minimal runtime (distroless-like alpine)
+FROM alpine:3.21 AS runtime
+RUN apk add --no-cache libc6-compat zlib fontconfig ttf-dejavu
+WORKDIR /app
+COPY --from=build /app/build/native/nativeCompile/planner .
+EXPOSE 8080
+ENTRYPOINT ["./planner"]
