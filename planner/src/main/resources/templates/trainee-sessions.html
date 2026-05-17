@@ -40,10 +40,10 @@
                 :class="tab === 'sessions' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
             Сесії
         </button>
-        <button @click="tab = 'schedule'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
-                :class="tab === 'schedule' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
-            Доступність тренера
-        </button>
+        <button @click="showCoachSchedule()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
+                 :class="tab === 'schedule' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
+             Доступність тренера
+         </button>
         <button @click="tab = 'availability'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                 :class="tab === 'availability' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
             Моя доступність
@@ -467,6 +467,9 @@
                 if (this.me.mentorShareToken) this.loadMentorAvailability();
                 await this.loadAvailability();
                 this.connectWebSocket();
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) { this.loadSessions(); this.loadAvailability(); if (this.me.mentorShareToken) this.loadMentorAvailability(); }
+                });
             },
 
             connectWebSocket() {
@@ -474,8 +477,16 @@
                 const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws`;
                 const ws = new WebSocket(wsUrl);
                 ws.onmessage = (event) => {
-                    if (event.data === 'session_changed') this.loadSessions();
+                    console.log('[trainee] ws event:', event.data);
+                    if (event.data === 'session_changed') {
+                        this.loadSessions();
+                        if (this.me.mentorShareToken) this.loadMentorAvailability();
+                    }
                     if (event.data === 'availability_changed') this.loadAvailability();
+                    if (event.data === 'coach_availability_changed' || event.data === 'location_changed') {
+                        console.log('[trainee] coach_avail/location_changed, mentorShareToken:', this.me.mentorShareToken);
+                        if (this.me.mentorShareToken) this.loadMentorAvailability();
+                    }
                 };
                 ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
                 ws.onerror = () => ws.close();
@@ -598,10 +609,13 @@
                 const endDate = new Date();
                 endDate.setDate(endDate.getDate() + 13);
                 const end = localDateStr(endDate);
+                console.log('[trainee] loadMentorAvailability', start, end, 'token:', this.me.mentorShareToken);
                 try {
                     const res = await fetch(`/api/v1/shared/${this.me.mentorShareToken}?startDate=${start}&endDate=${end}`);
+                    console.log('[trainee] shared fetch status:', res.status);
                     if (res.ok) {
                         const data = await res.json();
+                        console.log('[trainee] shared data slots count:', (data.slots || []).length);
                         this.mentorSlots = data.slots || [];
                         const g = {};
                         for (const item of this.mentorSlots) {
@@ -618,10 +632,18 @@
                             }
                         }
                         this.coachCellsByDate = g;
+                        console.log('[trainee] coachCellsByDate dates:', Object.keys(this.coachCellsByDate));
+                    } else {
+                        console.error('[trainee] shared fetch not ok', await res.text());
                     }
-                } catch(e) { console.error('loadMentorAvailability error', e); }
+                } catch(e) { console.error('[trainee] loadMentorAvailability error', e); }
                 this.mentorScheduleLoading = false;
-                console.log('coachCellsByDate loaded', Object.keys(this.coachCellsByDate).length, 'dates');
+                console.log('[trainee] coachCellsByDate loaded', Object.keys(this.coachCellsByDate).length, 'dates');
+            },
+
+            showCoachSchedule() {
+                this.tab = 'schedule';
+                if (this.me.mentorShareToken) this.loadMentorAvailability();
             },
 
             slotSlides(startTime, endTime) {

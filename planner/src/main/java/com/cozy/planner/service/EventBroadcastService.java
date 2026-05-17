@@ -10,7 +10,7 @@ public class EventBroadcastService {
     private final Sinks.Many<String> eventBus;
 
     public EventBroadcastService() {
-        this.eventBus = Sinks.many().multicast().onBackpressureBuffer();
+        this.eventBus = Sinks.many().multicast().onBackpressureBuffer(256, false);
     }
 
     public Flux<String> getEventStream() {

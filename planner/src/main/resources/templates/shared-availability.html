@@ -38,7 +38,8 @@
     </div>
 
     <div x-show="!loading && hasData">
-        <div class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
+        <!-- multi-day navigation -->
+        <div x-show="!singleDay" class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
             <template x-for="day in days" :key="day.dateStr">
                 <button @click="selectedDate = day.dateStr"
                         class="flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-2xl transition-all min-w-[60px] relative"
@@ -52,7 +53,8 @@
             </template>
         </div>
 
-        <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
+        <!-- standard grid (multi-day) -->
+        <div x-show="!singleDay" class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
             <div class="px-4 py-2 border-b border-[#2a2a2a] flex items-center justify-between gap-2">
                 <span class="text-xs font-bold text-gray-500 whitespace-nowrap" x-text="selectedDate"></span>
             </div>
@@ -77,7 +79,37 @@
             </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500">
+        <!-- single-day cozy card view -->
+        <div x-show="singleDay" class="bg-[#1a1a1a] rounded-3xl border border-[#2a2a2a] overflow-hidden shadow-xl">
+            <div class="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between gap-2">
+                <div>
+                    <span class="text-sm font-bold text-gray-400" x-text="selectedDate"></span>
+                    <span class="text-xs text-gray-600 ml-2" x-text="dayName(selectedDate)"></span>
+                </div>
+                <span x-show="isTodaySelected" class="text-[10px] font-black uppercase bg-blue-600 text-white px-3 py-1 rounded-full">Сьогодні</span>
+            </div>
+            <div class="overflow-y-auto no-scrollbar">
+                <template x-for="(row, ri) in cardGrid" :key="ri">
+                    <div class="flex border-b border-[#1f1f1f] last:border-b-0">
+                        <div class="w-16 flex-shrink-0 flex items-start justify-end pr-3 pt-2.5 text-sm font-bold text-gray-500 select-none leading-none">
+                            <span x-text="row.lbl"></span>
+                        </div>
+                        <div class="flex-1 flex">
+                            <template x-for="(c, ci) in row.cells" :key="ci">
+                                <div class="flex-1 h-14 sm:h-16 border-l border-[#1f1f1f] first:border-l-0 relative"
+                                     :style="cardCellStyle(c.mm)">
+                                    <span x-show="cardCellAt(c.mm)?.locName"
+                                          class="absolute inset-0 flex items-center justify-center text-[11px] sm:text-sm font-bold text-white leading-tight text-center px-1 truncate"
+                                          style="text-shadow:0 1px 3px rgba(0,0,0,0.7)" x-text="cardCellAt(c.mm)?.locName || ''"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500" :class="singleDay ? 'text-sm' : ''">
             <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
             <template x-for="loc in locations" :key="loc.name">
                 <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
@@ -105,6 +137,9 @@
             days: [],
             cellsByDate: {},
             grid: [],
+            ws: null,
+            singleDay: false,
+            cardGrid: [],
 
             get coachCurCells() {
                 return this.cellsByDate[this.selectedDate] || [];
@@ -123,8 +158,27 @@
                 }
                 return Object.values(seen);
             },
+            get isTodaySelected() {
+                return this.selectedDate === today;
+            },
+            dayName(dateStr) {
+                const d = this.days.find(x => x.dateStr === dateStr);
+                return d ? d.weekday + ', ' + d.dayNum + ' ' + d.month : '';
+            },
             cellStyle(mm) {
                 const c = this.cellAt(mm);
+                if (!c) return 'background:#2a2a2a';
+                if (c.locColor) return `background:${c.locColor}`;
+                return 'background:#3b82f6';
+            },
+            get cardCurCells() {
+                return this.cellsByDate[this.selectedDate] || [];
+            },
+            cardCellAt(mm) {
+                return this.cardCurCells.find(x => x.mm === mm);
+            },
+            cardCellStyle(mm) {
+                const c = this.cardCellAt(mm);
                 if (!c) return 'background:#2a2a2a';
                 if (c.locColor) return `background:${c.locColor}`;
                 return 'background:#3b82f6';
@@ -133,6 +187,10 @@
             async init() {
                 const pathParts = window.location.pathname.split('/');
                 this.shareToken = pathParts[pathParts.length - 1];
+
+                const params = new URLSearchParams(window.location.search);
+                const dateParam = params.get('date');
+                if (dateParam) this.singleDay = true;
 
                 const now = new Date();
                 for (let i = 0; i < 14; i++) {
@@ -145,9 +203,35 @@
                 for (let h = 6; h < 22; h++) {
                     const cells = [{mm:h*60},{mm:h*60+30}];
                     this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+                    this.cardGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells: [{mm:h*60},{mm:h*60+30}] });
                 }
 
                 await this.loadData();
+                if (dateParam && this.days.some(d => d.dateStr === dateParam)) {
+                    this.selectedDate = dateParam;
+                } else if (this.singleDay) {
+                    this.selectedDate = today;
+                }
+                this.connectWebSocket();
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) this.loadData();
+                });
+            },
+
+            connectWebSocket() {
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws`;
+                const ws = new WebSocket(wsUrl);
+                ws.onmessage = (event) => {
+                    console.log('[shared] ws event:', event.data);
+                    if (event.data === 'coach_availability_changed' || event.data === 'location_changed' || event.data === 'session_changed') {
+                        console.log('[shared] reloading data');
+                        this.loadData();
+                    }
+                };
+                ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
+                ws.onerror = () => ws.close();
+                this.ws = ws;
             },
 
             async loadData() {

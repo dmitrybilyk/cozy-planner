@@ -183,19 +183,12 @@ public class CoachAvailabilityController {
                                     .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
                                     .collectList()
                                     .flatMap(sessions -> {
-                                        List<MentorAvailability> filtered = slots.stream()
-                                                .filter(slot -> sessions.stream().noneMatch(session ->
-                                                        session.getWorkoutDate().equals(slot.getDate())
-                                                                && session.getEndTime() != null
-                                                                && slot.getEndTime() != null
-                                                                && slot.getStartTime().isBefore(session.getEndTime())
-                                                                && session.getStartTime().isBefore(slot.getEndTime())))
-                                                .toList();
-                                        for (MentorAvailability s : filtered) {
+                                        List<MentorAvailability> freeSlots = splitBySessions(slots, sessions);
+                                        for (MentorAvailability s : freeSlots) {
                                             if (s.getLocationId() != null) locationIds.add(s.getLocationId());
                                         }
                                         if (locationIds.isEmpty()) {
-                                            return buildSharedResponse(mentor, filtered, Map.of());
+                                            return buildSharedResponse(mentor, freeSlots, Map.of());
                                         }
                                         return Flux.fromIterable(locationIds)
                                                 .flatMap(id -> locationRepository.findById(id)
@@ -208,10 +201,10 @@ public class CoachAvailabilityController {
                                                         })
                                                         .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
                                                 .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                                .flatMap(locMap -> buildSharedResponse(mentor, filtered, locMap))
+                                                .flatMap(locMap -> buildSharedResponse(mentor, freeSlots, locMap))
                                                 .onErrorResume(e -> {
                                                     log.error("Failed to resolve locations for shared availability", e);
-                                                    return buildSharedResponse(mentor, filtered, Map.of());
+                                                    return buildSharedResponse(mentor, freeSlots, Map.of());
                                                 });
                                     }));
                 })
@@ -257,7 +250,7 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/shared/{shareToken}/image")
     public Mono<ResponseEntity<byte[]>> getSharedAvailabilityImage(@PathVariable String shareToken,
-                                                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                                                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return mentorRepository.findByShareToken(shareToken)
                 .flatMap(mentor -> {
                     LocalDate today = LocalDate.now();
@@ -271,15 +264,8 @@ public class CoachAvailabilityController {
                                     .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
                                     .collectList()
                                     .flatMap(sessions -> {
-                                        List<MentorAvailability> filtered = slots.stream()
-                                                .filter(slot -> sessions.stream().noneMatch(session ->
-                                                        session.getWorkoutDate().equals(slot.getDate())
-                                                                && session.getEndTime() != null
-                                                                && slot.getEndTime() != null
-                                                                && slot.getStartTime().isBefore(session.getEndTime())
-                                                                && session.getStartTime().isBefore(slot.getEndTime())))
-                                                .toList();
-                                        for (MentorAvailability s : filtered) {
+                                        List<MentorAvailability> freeSlots = splitBySessions(slots, sessions);
+                                        for (MentorAvailability s : freeSlots) {
                                             if (s.getLocationId() != null) locationIds.add(s.getLocationId());
                                         }
                                         Map<Long, Map<String, Object>> locMap = new HashMap<>();
@@ -297,22 +283,22 @@ public class CoachAvailabilityController {
                                                     .flatMap(lm -> {
                                                         locMap.putAll(lm);
                                                         if (date != null) {
-                                                            return generateSingleDayImage(mentor, filtered, locMap, date);
+                                                            return generateSingleDayImage(mentor, freeSlots, locMap, date);
                                                         }
-                                                        return generateAvailabilityImage(mentor, filtered, locMap, today);
+                                                        return generateAvailabilityImage(mentor, freeSlots, locMap, today);
                                                     })
                                                     .onErrorResume(e -> {
                                                         log.error("Failed to resolve locations for shared image", e);
                                                         if (date != null) {
-                                                            return generateSingleDayImage(mentor, filtered, Map.of(), date);
+                                                            return generateSingleDayImage(mentor, freeSlots, Map.of(), date);
                                                         }
-                                                        return generateAvailabilityImage(mentor, filtered, Map.of(), today);
+                                                        return generateAvailabilityImage(mentor, freeSlots, Map.of(), today);
                                                     });
                                         }
                                         if (date != null) {
-                                            return generateSingleDayImage(mentor, filtered, locMap, date);
+                                            return generateSingleDayImage(mentor, freeSlots, locMap, date);
                                         }
-                                        return generateAvailabilityImage(mentor, filtered, locMap, today);
+                                        return generateAvailabilityImage(mentor, freeSlots, locMap, today);
                                     }));
                 })
                 .map(bytes -> ResponseEntity.ok()
@@ -585,6 +571,50 @@ public class CoachAvailabilityController {
             javax.imageio.ImageIO.write(img, "png", baos);
             return baos.toByteArray();
         });
+    }
+
+    private List<MentorAvailability> splitBySessions(List<MentorAvailability> slots, List<Session> sessions) {
+        if (sessions.isEmpty()) return slots;
+        List<MentorAvailability> result = new ArrayList<>();
+        for (MentorAvailability slot : slots) {
+            List<Session> overlapping = sessions.stream()
+                    .filter(s -> s.getWorkoutDate().equals(slot.getDate())
+                            && s.getEndTime() != null
+                            && slot.getEndTime() != null
+                            && slot.getStartTime().isBefore(s.getEndTime())
+                            && s.getStartTime().isBefore(slot.getEndTime()))
+                    .sorted(Comparator.comparing(Session::getStartTime))
+                    .toList();
+            if (overlapping.isEmpty()) {
+                result.add(slot);
+                continue;
+            }
+            LocalTime cur = slot.getStartTime();
+            for (Session session : overlapping) {
+                if (cur.isBefore(session.getStartTime())) {
+                    MentorAvailability free = new MentorAvailability();
+                    free.setMentorId(slot.getMentorId());
+                    free.setDate(slot.getDate());
+                    free.setStartTime(cur);
+                    free.setEndTime(session.getStartTime());
+                    free.setLocationId(slot.getLocationId());
+                    result.add(free);
+                }
+                if (session.getEndTime().isAfter(cur)) {
+                    cur = session.getEndTime();
+                }
+            }
+            if (cur.isBefore(slot.getEndTime())) {
+                MentorAvailability free = new MentorAvailability();
+                free.setMentorId(slot.getMentorId());
+                free.setDate(slot.getDate());
+                free.setStartTime(cur);
+                free.setEndTime(slot.getEndTime());
+                free.setLocationId(slot.getLocationId());
+                result.add(free);
+            }
+        }
+        return result;
     }
 
     private String generateToken() {

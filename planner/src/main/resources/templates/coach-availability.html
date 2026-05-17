@@ -22,14 +22,9 @@
         </a>
         <h1 class="text-lg font-bold">Доступність тренера</h1>
     </div>
-    <button @click="save()" :disabled="saving" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-lg disabled:opacity-50">
-        <span x-show="!saving">Зберегти</span>
-        <span x-show="saving">...</span>
-    </button>
 </header>
 
 <main class="max-w-lg mx-auto p-4 pb-28">
-    <div x-show="saved" class="bg-green-900/20 text-green-400 p-3 rounded-xl text-sm font-bold text-center mb-4">Збережено!</div>
 
     <div class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
         <template x-for="day in days" :key="day.ds">
@@ -86,28 +81,43 @@
     </div>
 
     <div class="mt-6 bg-[#1e1e1e] border border-[#333] p-4 rounded-2xl">
-        <div class="flex items-center justify-between mb-2">
-            <p class="text-sm font-bold text-gray-500 uppercase">Посилання на розклад</p>
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-sm font-bold text-gray-500 uppercase">Поширити розклад</p>
             <button @click="mkToken()" x-show="!shareUrl" class="text-blue-400 text-xs font-bold">Створити</button>
         </div>
-        <div x-show="shareUrl" class="space-y-2">
-            <div class="flex items-center gap-2">
-                <input type="text" :value="shareUrl" readonly @click="$el.select()" class="flex-1 bg-[#2a2a2a] text-gray-300 text-sm px-3 py-2 rounded-xl border border-[#444] focus:outline-none">
-                <button @click="copyLink()" class="bg-[#333] hover:bg-[#444] text-white px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95">
-                    <span x-text="copied ? 'Скопійовано!' : 'Копіювати'"></span>
-                </button>
+        <div x-show="shareUrl" class="space-y-3">
+            <div>
+                <label class="text-[10px] font-bold text-gray-600 uppercase mb-1.5 block">Весь розклад</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="shareUrl" readonly @click="$el.select()" class="flex-1 bg-[#2a2a2a] text-gray-300 text-sm px-3 py-2 rounded-xl border border-[#444] focus:outline-none">
+                    <button @click="copyLink()" class="bg-[#333] hover:bg-[#444] text-white px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95">
+                        <span x-text="copied ? '✓' : 'Копіювати'"></span>
+                    </button>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <button @click="copyImageWeek()" class="flex-1 bg-[#262626] hover:bg-[#333] text-gray-300 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border border-[#444]">
-                    <span x-text="imgCopiedWeek ? 'Скопійовано!' : '📅 Копіювати розклад на тиждень'"></span>
-                </button>
-                <button @click="copyImageDay()" class="flex-1 bg-[#262626] hover:bg-[#333] text-gray-300 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 border border-[#444]">
-                    <span x-text="imgCopiedDay ? 'Скопійовано!' : '📋 Копіювати розклад на день'"></span>
-                </button>
+            <div>
+                <label class="text-[10px] font-bold text-gray-600 uppercase mb-1.5 block">Сьогодні</label>
+                <div class="flex items-center gap-2">
+                    <input type="text" :value="shareUrl + '?date=' + curDate" readonly @click="$el.select()" class="flex-1 bg-[#2a2a2a] text-gray-300 text-sm px-3 py-2 rounded-xl border border-[#444] focus:outline-none">
+                    <button @click="copyTodayLink()" class="bg-[#333] hover:bg-[#444] text-white px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95">
+                        <span x-text="todayCopied ? '✓' : 'Копіювати'"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="pt-2 border-t border-[#2a2a2a]">
+                <label class="text-[10px] font-bold text-gray-600 uppercase mb-2 block">Картинки (без входу)</label>
+                <div class="flex items-center gap-2">
+                    <button @click="copyImageWeek()" class="flex-1 bg-[#262626] hover:bg-[#333] text-gray-300 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 border border-[#444]">
+                        <span x-text="imgCopiedWeek ? '✓ Скопійовано' : '📅 Весь розклад'"></span>
+                    </button>
+                    <button @click="copyImageDay()" class="flex-1 bg-[#262626] hover:bg-[#333] text-gray-300 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 border border-[#444]">
+                        <span x-text="imgCopiedDay ? '✓ Скопійовано' : '📋 Сьогодні'"></span>
+                    </button>
+                </div>
             </div>
         </div>
-        <p x-show="!shareUrl" class="text-base text-gray-600">Після збереження створиться</p>
-        <p x-show="shareUrl" class="text-base text-gray-600 mt-1">Картинки відкриваються без входу — можна надіслати в чат</p>
+        <p x-show="!shareUrl" class="text-sm text-gray-600">З'явиться після першого натискання на слот</p>
+        <p x-show="shareUrl" class="text-xs text-gray-600 mt-2">Посилання та картинки відкриваються без входу</p>
     </div>
 </main>
 
@@ -118,10 +128,10 @@ function app() {
     const today = (d=>`${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`)(new Date);
 
     return {
-        mentorId: null, shareToken: null, shareUrl: '', copied: false, imgCopiedWeek: false, imgCopiedDay: false,
+        mentorId: null, shareToken: null, shareUrl: '', copied: false, todayCopied: false, imgCopiedWeek: false, imgCopiedDay: false,
         curDate: today, days: [], grid: [],
         cells: {}, sess: {}, locs: [], curLoc: null,
-        saved: false, saving: false,
+        ws: null,
 
         init() {
             const now = new Date;
@@ -135,6 +145,7 @@ function app() {
                 this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
             }
             this.load();
+            this.connectWebSocket();
         },
 
         getCurCells() { return this.cells[this.curDate] || []; },
@@ -153,7 +164,7 @@ function app() {
             return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
         },
 
-        tap(mm) {
+        async tap(mm) {
             if (this.inSess(mm)) return;
             const arr = this.getCurCells();
             const idx = arr.findIndex(x => x.mm === mm);
@@ -163,6 +174,40 @@ function app() {
                 arr.push({ mm, locId: this.curLoc ? Number(this.curLoc) : null });
             }
             this.cells[this.curDate] = [...arr];
+            await this.quickSaveDate(this.curDate);
+        },
+
+        async quickSaveDate(date) {
+            this._quickSaveCount = (this._quickSaveCount || 0) + 1;
+            const arr = this.cells[date] || [];
+            console.log(`[coach] quickSaveDate ${date} cells=${arr.length}`);
+            try {
+                if (!arr.length) {
+                    const r = await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
+                    if (!r.ok) console.error(`[coach] DELETE fail ${date} status=${r.status}`);
+                    else console.log(`[coach] DELETE ok ${date}`);
+                    return;
+                }
+                const sorted = [...arr].sort((a,b) => a.mm - b.mm);
+                const merged = [];
+                let cs = sorted[0].mm, ce = sorted[0].mm + 30, cl = sorted[0].locId;
+                for (let i = 1; i < sorted.length; i++) {
+                    if (sorted[i].mm === ce && sorted[i].locId === cl) {
+                        ce = sorted[i].mm + 30;
+                    } else {
+                        merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
+                        cs = sorted[i].mm; ce = sorted[i].mm + 30; cl = sorted[i].locId;
+                    }
+                }
+                merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
+                const r = await fetch('/api/v1/coach/availability', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(merged) });
+                if (!r.ok) console.error(`[coach] POST fail status=${r.status}`, merged);
+                else {
+                    console.log(`[coach] POST ok ${date} merged=${merged.length}`);
+                    if (!this.shareToken) await this.mkToken();
+                }
+            } catch(e) { console.error('[coach] quickSaveDate error', e); }
+            finally { this._quickSaveCount--; }
         },
 
         cellStyle(mm) {
@@ -220,42 +265,27 @@ function app() {
             }
         },
 
-        async save() {
-            this.saving = true;
-            const all = [];
-            for (const date in this.cells) {
-                const arr = this.cells[date];
-                if (!arr.length) continue;
-                const sorted = [...arr].sort((a,b) => a.mm - b.mm);
-                let cs = sorted[0].mm, ce = sorted[0].mm + 30, cl = sorted[0].locId;
-                for (let i = 1; i < sorted.length; i++) {
-                    if (sorted[i].mm === ce && sorted[i].locId === cl) {
-                        ce = sorted[i].mm + 30;
-                    } else {
-                        all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
-                        cs = sorted[i].mm; ce = sorted[i].mm + 30; cl = sorted[i].locId;
-                    }
-                }
-                all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
-            }
-            const del = Object.keys(this.cells).filter(d => !this.cells[d].length);
-
-            try {
-                if (all.length) {
-                    const r = await fetch('/api/v1/coach/availability', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(all) });
-                    if (!r.ok) throw Error('POST fail');
-                }
-                if (del.length) {
-                    const r = await fetch(`/api/v1/coach/availability?dates=${del.join(',')}`, { method:'DELETE' });
-                    if (!r.ok) throw Error('DEL fail');
-                }
-                if (!this.shareToken) await this.mkToken();
-                this.saved = true; setTimeout(() => this.saved = false, 3000);
-            } catch(e) { console.error(e); }
-            finally { this.saving = false; }
-        },
-
         minStr(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; },
+
+        connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws`;
+            const ws = new WebSocket(wsUrl);
+            ws.onmessage = (event) => {
+                console.log('[coach] ws event:', event.data, 'quickSaveCount:', this._quickSaveCount);
+                if (event.data === 'coach_availability_changed' && !this._quickSaveCount) {
+                    console.log('[coach] reloading from ws');
+                    this.load();
+                }
+                if (event.data === 'session_changed' || event.data === 'location_changed') {
+                    console.log('[coach] reloading from ws (session/location)');
+                    this.load();
+                }
+            };
+            ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
+            ws.onerror = () => ws.close();
+            this.ws = ws;
+        },
 
         async mkToken() {
             if (this.shareToken) return;
@@ -266,6 +296,11 @@ function app() {
         async copyLink() {
             try { await navigator.clipboard.writeText(this.shareUrl); this.copied = true; setTimeout(() => this.copied = false, 2000); }
             catch(e) { prompt('Скопіюйте:', this.shareUrl); }
+        },
+        async copyTodayLink() {
+            const url = this.shareUrl + '?date=' + this.curDate;
+            try { await navigator.clipboard.writeText(url); this.todayCopied = true; setTimeout(() => this.todayCopied = false, 2000); }
+            catch(e) { prompt('Скопіюйте:', url); }
         },
         async copyImageWeek() {
             if (!this.shareToken) await this.mkToken();
