@@ -12,10 +12,13 @@ RUN microdnf install -y unzip wget findutils && \
 WORKDIR /app
 COPY . .
 RUN gradle nativeCompile -x test --no-daemon
+# Copy just the actual file libz (resolve symlink) for runtime
+RUN cp -L /usr/lib64/libz.so.1 /tmp/libz.so.1
 
 # Stage 2: Distroless runtime with glibc
 FROM gcr.io/distroless/cc-debian12 AS runtime
 WORKDIR /app
 COPY --from=build /app/build/native/nativeCompile/planner .
+COPY --from=build /tmp/libz.so.1 /lib/x86_64-linux-gnu/
 EXPOSE 8080
 ENTRYPOINT ["./planner"]
