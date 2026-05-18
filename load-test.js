@@ -58,6 +58,8 @@ function randTime() {
   return `${h.toString().padStart(2,'0')}:${Math.random()<0.5?'00':'30'}`;
 }
 
+function humanSleep() { sleep(1 + Math.random()); }
+
 function randEnd(t) {
   const [h, m] = t.split(':').map(Number);
   const total = h*60 + m + 60 + Math.floor(Math.random()*3)*30;
@@ -194,7 +196,7 @@ export default function (data) {
     } else {
       log(`FAILED to fetch trainees: ${r1.status}`);
     }
-    sleep(0.5);
+    humanSleep();
 
     const today = new Date();
     const start = new Date(today); start.setDate(today.getDate() - 3);
@@ -208,7 +210,7 @@ export default function (data) {
     } else {
       log(`FAILED to fetch sessions: ${r2.status} body=${r2.body ? r2.body.slice(0, 200) : '(no body)'}`);
     }
-    sleep(0.5);
+    humanSleep();
   });
 
   group('2. Create trainees', () => {
@@ -229,7 +231,7 @@ export default function (data) {
       } else {
         log(`FAILED to create trainee: ${res.status} ${res.body ? res.body.slice(0, 200) : '(no body)'}`);
       }
-      sleep(0.5);
+      humanSleep();
     }
     log(`Trainees created: ${ids.trainees.length}`);
   });
@@ -282,7 +284,7 @@ export default function (data) {
       } else {
         log(`FAILED to create session: ${res.status} ${res.body ? res.body.slice(0, 200) : '(no body)'}`);
       }
-      sleep(0.5);
+      humanSleep();
     }
     log(`Sessions created: ${ids.sessions.length} — visible on planner page now!`);
   });
@@ -301,7 +303,7 @@ export default function (data) {
       errorRate.add(res.status !== 204);
       if (ok) log(`Deleted session: id=${sid}`);
       else log(`FAILED to delete session: ${res.status}`);
-      sleep(0.3);
+      humanSleep();
     }
     if (ids.sessions.length > 0) log(`All ${ids.sessions.length} sessions deleted`);
   });
@@ -315,7 +317,7 @@ export default function (data) {
       errorRate.add(res.status !== 204);
       if (ok) log(`Deleted trainee: id=${tid}`);
       else log(`FAILED to delete trainee: ${res.status}`);
-      sleep(0.3);
+      humanSleep();
     }
     if (ids.trainees.length > 0) log(`All ${ids.trainees.length} trainees deleted`);
   });

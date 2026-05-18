@@ -29,3 +29,5 @@ _***20. Notifications:***_
 
 1. Past session are loaded just when you click on that day
 2. need search on trainees availability
+3. add masking when load is happening. especially on initial app load
+4. 

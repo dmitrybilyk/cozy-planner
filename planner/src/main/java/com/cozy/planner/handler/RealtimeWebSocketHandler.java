@@ -5,10 +5,15 @@ import com.cozy.planner.service.WebSocketSessionManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketSession;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.time.Duration;
 
 @Component
 public class RealtimeWebSocketHandler implements WebSocketHandler {
+
+    private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(15);
 
     private final WebSocketSessionManager sessionManager;
     private final EventBroadcastService eventBroadcastService;
@@ -30,6 +35,14 @@ public class RealtimeWebSocketHandler implements WebSocketHandler {
                 .doFinally(s -> sessionManager.unregisterSession(session))
                 .then();
 
-        return session.send(outgoing).and(incoming);
+        var heartbeat = Flux.interval(HEARTBEAT_INTERVAL)
+                .flatMap(tick ->
+                        session.ping(session.bufferFactory().wrap(new byte[0]))
+                                .onErrorResume(e -> Mono.empty()))
+                .then();
+
+        var sessionFlow = session.send(outgoing).and(incoming);
+
+        return Mono.firstWithSignal(sessionFlow, heartbeat);
     }
 }
