@@ -12,7 +12,7 @@ export const options = {
   scenarios: {
     continuous: {
       executor: 'constant-vus',
-      vus: 3,
+      vus: 30,
       duration: '24h',
     },
   },

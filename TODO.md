@@ -23,4 +23,9 @@ _***20. Notifications:***_
 - Optional (default false) notification to remind to trainee every Monday about his availability
 - Coach creates the session - all trainees connected to TG receive notification with the ability to confirm (better if via telegram button). If some trainee is not connected to TG then coach will be notificed about the need to ask trainee directly in private chat
 - Notifiacation when coach wants to know trainee's availablity and clicks button (with the ability to select options - for tomrorow, for weekend, for particular date) - trainee gets notificatoin in TG, goes by link or he already knows his page and sets availability. When he saves his availability, coach gets notification and goes to 'Trainees availability page' and can create sessions from there.
-- Trainee can creaet session himself, he can see coach's availability at any moment for today at least and can create session, Coach gets notification and can confirm or reject. In case of confirmation or rejection coach or trainee(s) get notifications. 
+- Trainee can creaet session himself, he can see coach's availability at any moment for 
+- today at least and can create session, Coach gets notification and can confirm or reject. 
+- In case of confirmation or rejection coach or trainee(s) get notifications. 
+
+1. Past session are loaded just when you click on that day
+2. need search on trainees availability
