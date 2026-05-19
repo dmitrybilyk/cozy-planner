@@ -1,0 +1,18 @@
+.ig-gradient {
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+}
+.ig-gradient-text {
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.ig-ring {
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    padding: 2px;
+    border-radius: 50%;
+    display: inline-flex;
+}
+.profile-btn { transition: all 0.15s ease; }
+.profile-btn:active { transform: scale(0.97); }
+.profile-btn.selected { border-color: #3b82f6; background: rgba(59,130,246,0.15); }

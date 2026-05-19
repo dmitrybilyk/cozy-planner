@@ -1,0 +1,11 @@
+[x-cloak] { display: none !important; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #121212;
+    color: #ffffff;
+    overscroll-behavior-y: contain;
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+input, select, textarea { background: #262626 !important; color: white !important; border: 1px solid #363636 !important; border-radius: 12px !important; padding: 10px !important; }
+.modal-backdrop { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }

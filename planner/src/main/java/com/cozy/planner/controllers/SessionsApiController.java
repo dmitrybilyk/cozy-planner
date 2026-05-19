@@ -6,8 +6,11 @@ import com.cozy.planner.service.EventBroadcastService;
 import com.planner.api.SessionsApi;
 import com.planner.model.CreateSessionRequest;
 import com.planner.model.SessionDTO;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
@@ -16,7 +19,9 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class SessionsApiController implements SessionsApi {
@@ -128,6 +133,22 @@ public class SessionsApiController implements SessionsApi {
                 .flatMapMany(sessions -> loadTraineeIdsBatch(sessions).map(this::mapToDto));
         
         return Mono.just(ResponseEntity.ok(dtoFlux));
+    }
+
+    @GetMapping("/api/v1/sessions/counts")
+    public Mono<ResponseEntity<Map<String, Long>>> getSessionCounts(
+            @RequestParam Long mentorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return sessionRepository.findDatesByMentorAndPeriod(mentorId, startDate, endDate)
+                .collectList()
+                .map(dates -> {
+                    Map<String, Long> counts = new HashMap<>();
+                    for (LocalDate date : dates) {
+                        counts.merge(date.toString(), 1L, Long::sum);
+                    }
+                    return ResponseEntity.ok(counts);
+                });
     }
 
     private Flux<Session> loadTraineeIdsBatch(List<Session> sessions) {

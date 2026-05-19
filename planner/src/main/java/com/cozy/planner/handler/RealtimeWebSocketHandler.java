@@ -37,7 +37,7 @@ public class RealtimeWebSocketHandler implements WebSocketHandler {
 
         var heartbeat = Flux.interval(HEARTBEAT_INTERVAL)
                 .flatMap(tick ->
-                        session.ping(session.bufferFactory().wrap(new byte[0]))
+                        session.send(Mono.just(session.pingMessage(bf -> bf.wrap(new byte[0]))))
                                 .onErrorResume(e -> Mono.empty()))
                 .then();
 

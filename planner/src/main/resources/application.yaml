@@ -1,6 +1,9 @@
 spring:
   application:
     name: planner
+  devtools:
+    restart:
+      enabled: false
   task:
     scheduling:
       pool:
