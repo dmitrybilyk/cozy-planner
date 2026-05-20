@@ -24,7 +24,7 @@
         <template x-if="me.telegramConnected">
             <span class="text-green-400 text-[10px] font-bold">✓ TG</span>
         </template>
-        <button @click="saveAvailability()" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-bold text-sm shadow-lg">Зберегти</button>
+
     </div>
 </header>
 
@@ -37,7 +37,7 @@
         <template x-for="day in days" :key="day.dateStr">
             <button @click="selectDate(day.dateStr)"
                     class="flex-shrink-0 flex flex-col items-center px-4 py-3 rounded-2xl transition-all"
-                    :class="selectedDate === day.dateStr ? 'bg-blue-600 text-white' : 'bg-[#262626] text-gray-400'">
+                    :class="selectedDate === day.dateStr ? 'bg-blue-600 text-white' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
                 <span class="text-[10px] font-bold uppercase" x-text="day.weekday"></span>
                 <span class="text-lg font-black" x-text="day.dayNum"></span>
             </button>
@@ -73,6 +73,25 @@
         </div>
     </div>
 </main>
+
+    <div x-show="hasUnsavedChanges && !saving"
+         class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-bounce"
+         x-cloak x-transition>
+        <button @click="saveAll()"
+                class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3.5 rounded-2xl font-bold text-sm shadow-2xl shadow-blue-600/30 transition-all active:scale-95 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+            Зберегти
+        </button>
+    </div>
+
+    <div x-show="saving"
+         class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50"
+         x-cloak x-transition>
+        <div class="bg-blue-600 text-white px-8 py-3.5 rounded-2xl font-bold text-sm shadow-2xl shadow-blue-600/30 flex items-center gap-2">
+            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Збереження...
+        </div>
+    </div>
 
 <nav class="bottom-nav fixed bottom-0 inset-x-0 bg-[#1a1a1a]/95 border-t border-[#333] z-40">
     <div class="flex items-center justify-around max-w-lg mx-auto h-14">

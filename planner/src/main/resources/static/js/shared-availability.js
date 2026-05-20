@@ -15,10 +15,13 @@ function sharedAvailabilityApp() {
         selectedDate: today,
         days: [],
         cellsByDate: {},
+        dayOffs: [],
         grid: [],
         ws: null,
         singleDay: false,
         cardGrid: [],
+
+        isDayOff(dateStr) { return this.dayOffs.includes(dateStr); },
 
         get coachCurCells() {
             return this.cellsByDate[this.selectedDate] || [];
@@ -76,7 +79,7 @@ function sharedAvailabilityApp() {
                 const d = new Date(now);
                 d.setDate(now.getDate() + i);
                 const ds = localDateStr(d);
-                this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today });
+                this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
 
             for (let h = 6; h < 22; h++) {
@@ -115,19 +118,21 @@ function sharedAvailabilityApp() {
 
         async loadData() {
             try {
-                const mentorRes = await fetch(`/api/v1/shared/${this.shareToken}/mentor`);
+                const start = this.days[0].dateStr;
+                const end = this.days[this.days.length - 1].dateStr;
+
+                const mentorRes = await fetch(`/api/v1/shared/${this.shareToken}/mentor?startDate=${start}&endDate=${end}`);
                 if (!mentorRes.ok) { this.loading = false; return; }
                 const mentorData = await mentorRes.json();
                 this.mentorName = mentorData.name;
-
-                const start = this.days[0].dateStr;
-                const end = this.days[this.days.length - 1].dateStr;
+                this.dayOffs = mentorData.dayOffDates || [];
 
                 const availRes = await fetch(`/api/v1/shared/${this.shareToken}?startDate=${start}&endDate=${end}`);
                 if (!availRes.ok) { this.loading = false; return; }
 
                 const availData = await availRes.json();
                 const slots = availData.slots || [];
+                this.dayOffs = this.dayOffs.length ? this.dayOffs : (availData.dayOffDates || []);
 
                 const g = {};
                 for (const item of slots) {

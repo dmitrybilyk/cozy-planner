@@ -58,10 +58,23 @@ public class PushService {
     }
 
     public Mono<Void> sendNotification(PushSubscription sub, String title, String message) {
+        return sendNotification(sub, title, message, null, null);
+    }
+
+    public Mono<Void> sendNotification(PushSubscription sub, String title, String message, Long sessionId, String actionType) {
         if (!initialized) return Mono.empty();
         return Mono.fromRunnable(() -> {
             try {
-                byte[] payload = ("{\"title\":\"" + esc(title) + "\",\"message\":\"" + esc(message) + "\"}").getBytes("UTF-8");
+                StringBuilder json = new StringBuilder();
+                json.append("{\"title\":\"").append(esc(title)).append("\",\"message\":\"").append(esc(message)).append("\"");
+                if (sessionId != null) {
+                    json.append(",\"sessionId\":").append(sessionId);
+                }
+                if (actionType != null) {
+                    json.append(",\"actionType\":\"").append(esc(actionType)).append("\"");
+                }
+                json.append("}");
+                byte[] payload = json.toString().getBytes("UTF-8");
                 byte[] salt = new byte[SALT_LEN];
                 SecureRandom.getInstanceStrong().nextBytes(salt);
 
@@ -236,13 +249,21 @@ public class PushService {
     }
 
     public Flux<Void> sendToTrainee(Long traineeId, String title, String message) {
+        return sendToTrainee(traineeId, title, message, null, null);
+    }
+
+    public Flux<Void> sendToTrainee(Long traineeId, String title, String message, Long sessionId, String actionType) {
         return pushSubscriptionRepository.findAllByTraineeId(traineeId)
-                .flatMap(sub -> sendNotification(sub, title, message));
+                .flatMap(sub -> sendNotification(sub, title, message, sessionId, actionType));
     }
 
     public Flux<Void> sendToMentor(Long mentorId, String title, String message) {
+        return sendToMentor(mentorId, title, message, null, null);
+    }
+
+    public Flux<Void> sendToMentor(Long mentorId, String title, String message, Long sessionId, String actionType) {
         return pushSubscriptionRepository.findAllByMentorId(mentorId)
-                .flatMap(sub -> sendNotification(sub, title, message));
+                .flatMap(sub -> sendNotification(sub, title, message, sessionId, actionType));
     }
 
     public String getVapidPublicKeyRawB64() {

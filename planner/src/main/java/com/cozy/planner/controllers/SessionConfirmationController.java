@@ -180,27 +180,32 @@ public class SessionConfirmationController {
                             String profile = getProfile(mentor);
                             String sessionLabel = ProfileLabels.get(profile, "session");
                             String mentorLabel = ProfileLabels.get(profile, "mentor");
+                            String nTitle = mentorLabel + " створив " + sessionLabel.toLowerCase();
+                            String nMessage = saved.getTitle() + " — " + saved.getWorkoutDate() + " " + saved.getStartTime();
                             return sessionRepository.findTraineeIdsBySessionId(saved.getId())
-                                    .next()
-                                    .flatMap(traineeId -> traineeRepository.findById(traineeId))
-                                    .flatMap(trainee -> {
-                                        String nTitle = mentorLabel + " створив " + sessionLabel.toLowerCase();
-                                        String nMessage = saved.getTitle() + " — " + saved.getWorkoutDate() + " " + saved.getStartTime();
-                                        return createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, "SESSION_CREATED", saved.getId())
-                                                .then(Mono.defer(() -> {
-                                                    if (trainee.hasTelegram()) {
-                                                        String tmpl = String.format(
-                                                                ProfileLabels.get(profile, "telegram_session_confirmation_request"),
-                                                                saved.getWorkoutDate().toString(),
-                                                                saved.getStartTime().toString(),
-                                                                saved.getEndTime() != null ? saved.getEndTime().toString() : "",
-                                                                saved.getTitle() != null ? saved.getTitle() : "");
-                                                        Map<String, Object> keyboard = createConfirmButton();
-                                                        return telegramService.sendMessage(trainee.getTelegramChatId(), tmpl, keyboard);
-                                                    }
-                                                    return Mono.just(true);
-                                                })).thenReturn(saved);
-                                    });
+                                    .collectList()
+                                    .flatMapMany(traineeIds -> {
+                                        if (traineeIds.isEmpty()) return Flux.just(saved);
+                                        return Flux.fromIterable(traineeIds)
+                                                .flatMap(traineeId -> traineeRepository.findById(traineeId))
+                                                .flatMap(trainee -> {
+                                                    return createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, "SESSION_CREATED", saved.getId(), "trainee_confirm_session")
+                                                            .then(Mono.defer(() -> {
+                                                                if (trainee.hasTelegram()) {
+                                                                    String tmpl = String.format(
+                                                                            ProfileLabels.get(profile, "telegram_session_confirmation_request"),
+                                                                            saved.getWorkoutDate().toString(),
+                                                                            saved.getStartTime().toString(),
+                                                                            saved.getEndTime() != null ? saved.getEndTime().toString() : "",
+                                                                            saved.getTitle() != null ? saved.getTitle() : "");
+                                                                    Map<String, Object> keyboard = createTraineeConfirmRejectKeyboard(saved.getId());
+                                                                    return telegramService.sendMessage(trainee.getTelegramChatId(), tmpl, keyboard);
+                                                                }
+                                                                return Mono.just(true);
+                                                            })).thenReturn(saved);
+                                                });
+                                    })
+                                    .then(Mono.just(saved));
                         })
                 )
                 .map(saved -> {
@@ -386,7 +391,7 @@ public class SessionConfirmationController {
                     String profile = getProfile(mentor);
                     String nTitle = trainee.getName() + " створив " + ProfileLabels.get(profile, "session").toLowerCase();
                     String nMessage = session.getTitle() + " — " + session.getWorkoutDate() + " " + session.getStartTime();
-                    createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, "SESSION_CREATED", session.getId()).subscribe();
+                    createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, "SESSION_CREATED", session.getId(), "coach_confirm_session").subscribe();
 
                     if (!mentor.hasTelegram()) return Mono.just(session);
                     String message = String.format(
@@ -481,17 +486,25 @@ public class SessionConfirmationController {
         return keyboard;
     }
 
-    private Map<String, Object> createConfirmButton() {
-        Map<String, Object> btn = new HashMap<>();
-        btn.put("text", "✅ Підтвердити");
-        btn.put("callback_data", "trainee_confirm_session");
+    private Map<String, Object> createTraineeConfirmRejectKeyboard(Long sessionId) {
+        Map<String, Object> confirmBtn = new HashMap<>();
+        confirmBtn.put("text", "✅ Підтвердити");
+        confirmBtn.put("callback_data", "trainee_confirm_session:" + sessionId);
+
+        Map<String, Object> rejectBtn = new HashMap<>();
+        rejectBtn.put("text", "❌ Відхилити");
+        rejectBtn.put("callback_data", "trainee_reject_session:" + sessionId);
 
         Map<String, Object> keyboard = new HashMap<>();
-        keyboard.put("inline_keyboard", List.of(List.of(btn)));
+        keyboard.put("inline_keyboard", List.of(List.of(confirmBtn, rejectBtn)));
         return keyboard;
     }
 
     private Mono<Void> createAndBroadcastNotification(Long traineeId, Long mentorId, String title, String message, String type, Long sessionId) {
+        return createAndBroadcastNotification(traineeId, mentorId, title, message, type, sessionId, null);
+    }
+
+    private Mono<Void> createAndBroadcastNotification(Long traineeId, Long mentorId, String title, String message, String type, Long sessionId, String actionType) {
         Notification n = Notification.builder()
                 .traineeId(traineeId)
                 .mentorId(mentorId)
@@ -515,9 +528,12 @@ public class SessionConfirmationController {
                     evt.put("sessionId", saved.getSessionId());
                     evt.put("isRead", saved.getIsRead());
                     evt.put("createdAt", saved.getCreatedAt() != null ? saved.getCreatedAt().toString() : null);
+                    if (actionType != null) {
+                        evt.put("actionType", actionType);
+                    }
                     eventBroadcastService.broadcastJson(evt);
-                    if (traineeId != null) pushService.sendToTrainee(traineeId, title, message).subscribe();
-                    if (mentorId != null) pushService.sendToMentor(mentorId, title, message).subscribe();
+                    if (traineeId != null) pushService.sendToTrainee(traineeId, title, message, sessionId, actionType).subscribe();
+                    if (mentorId != null) pushService.sendToMentor(mentorId, title, message, sessionId, actionType).subscribe();
                     return Mono.empty();
                 });
     }

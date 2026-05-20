@@ -4,9 +4,11 @@ import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
+import com.cozy.planner.service.TelegramService;
 import com.planner.api.TraineesApi;
 import com.planner.model.TraineeDTO;
 import com.planner.model.CreateTraineeRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,13 +25,19 @@ public class TraineesApiController implements TraineesApi {
     private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final EventBroadcastService eventBroadcastService;
+    private final TelegramService telegramService;
+
+    @Value("${app.base-url:}")
+    private String appBaseUrl;
 
     public TraineesApiController(TraineeRepository traineeRepository, 
                                    TelegramConfig telegramConfig,
-                                   EventBroadcastService eventBroadcastService) {
+                                   EventBroadcastService eventBroadcastService,
+                                   TelegramService telegramService) {
         this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.eventBroadcastService = eventBroadcastService;
+        this.telegramService = telegramService;
     }
 
     @Override
@@ -155,8 +163,8 @@ public class TraineesApiController implements TraineesApi {
 
     @PostMapping("/api/v1/trainees/{traineeId}/session-reminder")
     public Mono<ResponseEntity<Map<String, Object>>> updateSessionReminder(@PathVariable Long traineeId,
-                                                                               @RequestBody Map<String, Object> body,
-                                                                               ServerWebExchange exchange) {
+                                                                                @RequestBody Map<String, Object> body,
+                                                                                ServerWebExchange exchange) {
         Object enabledObj = body.get("enabled");
         boolean enabled = enabledObj != null && Boolean.TRUE.equals(enabledObj);
         
@@ -171,6 +179,40 @@ public class TraineesApiController implements TraineesApi {
                     result.put("success", true);
                     result.put("sessionReminderEnabled", saved.isSessionReminderEnabled());
                     return ResponseEntity.ok(result);
+                })
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/api/v1/trainees/{traineeId}/notify-availability")
+    public Mono<ResponseEntity<Map<String, Object>>> notifyAvailability(@PathVariable Long traineeId,
+                                                                             @RequestBody Map<String, Object> body,
+                                                                             ServerWebExchange exchange) {
+        return traineeRepository.findById(traineeId)
+                .flatMap(trainee -> {
+                    String dayType = body.containsKey("dayType") ? body.get("dayType").toString() : "tomorrow";
+                    String targetDate = body.containsKey("targetDate") ? body.get("targetDate").toString() : null;
+                    String customMessage = body.containsKey("customMessage") ? body.get("customMessage").toString() : null;
+
+                    String baseUrl = appBaseUrl;
+                    if (baseUrl == null || baseUrl.isBlank()) {
+                        baseUrl = exchange.getRequest().getURI().getScheme() + "://" + exchange.getRequest().getURI().getHost();
+                        int port = exchange.getRequest().getURI().getPort();
+                        if (port > 0 && port != 80 && port != 443) {
+                            baseUrl += ":" + port;
+                        }
+                    }
+
+                    return telegramService.sendAvailabilityReminder(trainee, baseUrl, customMessage, dayType, targetDate)
+                            .map(success -> {
+                                Map<String, Object> result = new HashMap<>();
+                                if (success) {
+                                    result.put("success", true);
+                                } else {
+                                    result.put("success", false);
+                                    result.put("reason", "Telegram not connected");
+                                }
+                                return ResponseEntity.ok(result);
+                            });
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }

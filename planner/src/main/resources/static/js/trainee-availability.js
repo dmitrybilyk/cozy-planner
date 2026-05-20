@@ -20,8 +20,12 @@ function availabilityApp() {
         pickStart: null,
         daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         saved: false,
+        saving: false,
+        _dirtyDates: new Set(),
         me: {},
         sessions: [],
+
+        get hasUnsavedChanges() { return this._dirtyDates.size > 0; },
 
         get sessionsLink() {
             return this.me.inviteToken ? '/trainee/' + this.me.inviteToken + '/sessions' : '#';
@@ -57,7 +61,7 @@ function availabilityApp() {
                 const d = new Date(start);
                 d.setDate(start.getDate() + i);
                 const ds = localDateStr(d);
-                this.days.push({ dateStr: ds, weekday: days[(d.getDay() + 6) % 7], dayNum: d.getDate() });
+                this.days.push({ dateStr: ds, weekday: days[(d.getDay() + 6) % 7], dayNum: d.getDate(), isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -77,6 +81,7 @@ function availabilityApp() {
             const ws = new WebSocket(wsUrl);
             
             ws.onmessage = (event) => {
+                if (this.saving) return;
                 if (event.data === 'availability_changed') {
                     this.loadAvailability();
                 }
@@ -120,6 +125,7 @@ function availabilityApp() {
                 slots.sort((a, b) => this.slotToMin(a.startTime) - this.slotToMin(b.startTime));
                 this.slotsByDate[this.selectedDate] = slots;
                 this.pickStart = null;
+                this._dirtyDates.add(this.selectedDate);
             }
         },
 
@@ -144,6 +150,7 @@ function availabilityApp() {
             const slots = this.slotsByDate[this.selectedDate] || [];
             slots.splice(i, 1);
             this.slotsByDate[this.selectedDate] = slots;
+            this._dirtyDates.add(this.selectedDate);
         },
 
         async loadSessions() {
@@ -178,43 +185,44 @@ function availabilityApp() {
                 }
                 this.slotsByDate = grouped;
             }
+            this._dirtyDates.clear();
         },
 
-        async saveAvailability() {
-            const allEntries = [];
-            const datesToDelete = [];
-
-            for (const date in this.slotsByDate) {
-                const slots = this.slotsByDate[date];
-                if (slots.length === 0) {
-                    datesToDelete.push(date);
-                } else {
-                    for (const s of slots) {
-                        allEntries.push({ date, startTime: s.startTime, endTime: s.endTime });
+        async saveAll() {
+            if (this.saving) return;
+            this.saving = true;
+            try {
+                const entries = [];
+                const deletes = [];
+                for (const date of this._dirtyDates) {
+                    const slots = this.slotsByDate[date] || [];
+                    if (slots.length === 0) {
+                        deletes.push(date);
+                    } else {
+                        for (const s of slots) {
+                            entries.push({ date, startTime: s.startTime, endTime: s.endTime });
+                        }
                     }
                 }
-            }
-
-            try {
-                if (allEntries.length > 0) {
+                if (entries.length > 0) {
                     const res = await fetch('/api/v1/trainee/availability', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(allEntries)
+                        body: JSON.stringify(entries)
                     });
                     if (!res.ok) throw new Error('POST failed');
                 }
-                
-                if (datesToDelete.length > 0) {
-                    const datesParam = datesToDelete.join(',');
-                    const res = await fetch(`/api/v1/trainee/availability?dates=${datesParam}`, { method: 'DELETE' });
+                if (deletes.length > 0) {
+                    const res = await fetch(`/api/v1/trainee/availability?dates=${deletes.join(',')}`, { method: 'DELETE' });
                     if (!res.ok) throw new Error('DELETE failed');
                 }
-                
+                this._dirtyDates.clear();
                 this.saved = true;
                 setTimeout(() => this.saved = false, 3000);
             } catch (e) {
                 console.error('Save failed:', e);
+            } finally {
+                this.saving = false;
             }
         }
     }

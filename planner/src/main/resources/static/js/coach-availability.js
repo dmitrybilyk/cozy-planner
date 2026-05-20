@@ -10,13 +10,21 @@ function app() {
         ws: null,
         busySession: null,
         mentorProfile: 'sport',
+        dayOffs: [],
+        saving: false,
+
+        get isDayOff() { return this.dayOffs.includes(this.curDate); },
+        _dirtyDates: new Set(),
+        _dirtyDayOffs: [],
+
+        get hasUnsavedChanges() { return this._dirtyDates.size > 0 || this._dirtyDayOffs.length > 0; },
 
         init() {
             const now = new Date;
             for (let i = 0; i < 14; i++) {
                 const d = new Date(now); d.setDate(now.getDate() + i);
                 const ds = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
-                this.days.push({ ds, wd: WD[(d.getDay()+6)%7], num: d.getDate(), mo: MON[d.getMonth()], isToday: ds === today });
+                this.days.push({ ds, wd: WD[(d.getDay()+6)%7], num: d.getDate(), mo: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
             for (let h = 6; h < 22; h++) {
                 const cells = [{mm:h*60},{mm:h*60+30}];
@@ -68,43 +76,11 @@ function app() {
                 arr.push({ mm, locId: this.curLoc ? Number(this.curLoc) : null });
             }
             this.cells[this.curDate] = [...arr];
-            await this.quickSaveDate(this.curDate);
-        },
-
-        async quickSaveDate(date) {
-            this._quickSaveCount = (this._quickSaveCount || 0) + 1;
-            const arr = this.cells[date] || [];
-            console.log(`[coach] quickSaveDate ${date} cells=${arr.length}`);
-            try {
-                if (!arr.length) {
-                    const r = await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
-                    if (!r.ok) console.error(`[coach] DELETE fail ${date} status=${r.status}`);
-                    else console.log(`[coach] DELETE ok ${date}`);
-                    return;
-                }
-                const sorted = [...arr].sort((a,b) => a.mm - b.mm);
-                const merged = [];
-                let cs = sorted[0].mm, ce = sorted[0].mm + 30, cl = sorted[0].locId;
-                for (let i = 1; i < sorted.length; i++) {
-                    if (sorted[i].mm === ce && sorted[i].locId === cl) {
-                        ce = sorted[i].mm + 30;
-                    } else {
-                        merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
-                        cs = sorted[i].mm; ce = sorted[i].mm + 30; cl = sorted[i].locId;
-                    }
-                }
-                merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
-                const r = await fetch('/api/v1/coach/availability', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(merged) });
-                if (!r.ok) console.error(`[coach] POST fail status=${r.status}`, merged);
-                else {
-                    console.log(`[coach] POST ok ${date} merged=${merged.length}`);
-                    if (!this.shareToken) await this.mkToken();
-                }
-            } catch(e) { console.error('[coach] quickSaveDate error', e); }
-            finally { this._quickSaveCount--; }
+            this._dirtyDates.add(this.curDate);
         },
 
         cellStyle(mm) {
+            if (this.isDayOff) return 'background:#2a1a1a';
             if (this.inSess(mm)) return 'background:#dc2626';
             const c = this.cellAt(mm);
             if (!c) return 'background:#2a2a2a';
@@ -117,6 +93,85 @@ function app() {
 
         sel(d) { this.curDate = d; },
 
+        toggleDayOff() {
+            const wasDayOff = this.isDayOff;
+            if (wasDayOff) {
+                this.dayOffs = this.dayOffs.filter(d => d !== this.curDate);
+                this._dirtyDayOffs.push({ date: this.curDate, action: 'remove' });
+            } else {
+                this.dayOffs.push(this.curDate);
+                this.cells[this.curDate] = [];
+                this._dirtyDayOffs.push({ date: this.curDate, action: 'add' });
+            }
+            this._dirtyDates.delete(this.curDate);
+        },
+
+        fillAllDay() {
+            const cur = this.getCurCells();
+            const total = (22 - 6) * 2;
+            const filled = cur.length === total && cur.every(c => {
+                const mm = c.mm;
+                const h = Math.floor(mm / 60);
+                const m = mm % 60;
+                return h >= 6 && h < 22 && (m === 0 || m === 30);
+            });
+            if (filled) {
+                this.cells[this.curDate] = [];
+                this._dirtyDates.add(this.curDate);
+            } else {
+                const arr = [];
+                for (let h = 6; h < 22; h++) {
+                    for (let m = 0; m < 60; m += 30) {
+                        arr.push({ mm: h * 60 + m, locId: this.curLoc ? Number(this.curLoc) : null });
+                    }
+                }
+                this.cells[this.curDate] = arr;
+                this._dirtyDates.add(this.curDate);
+            }
+        },
+
+        async saveAll() {
+            if (this.saving) return;
+            this.saving = true;
+            try {
+                for (const { date } of this._dirtyDayOffs) {
+                    await fetch('/api/v1/coach/day-off', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ date })
+                    });
+                }
+                for (const date of this._dirtyDates) {
+                    const arr = this.cells[date] || [];
+                    if (!arr.length) {
+                        await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
+                    } else {
+                        const sorted = [...arr].sort((a,b) => a.mm - b.mm);
+                        const merged = [];
+                        let cs = sorted[0].mm, ce = sorted[0].mm + 30, cl = sorted[0].locId;
+                        for (let i = 1; i < sorted.length; i++) {
+                            if (sorted[i].mm === ce && sorted[i].locId === cl) {
+                                ce = sorted[i].mm + 30;
+                            } else {
+                                merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
+                                cs = sorted[i].mm; ce = sorted[i].mm + 30; cl = sorted[i].locId;
+                            }
+                        }
+                        merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
+                        await fetch('/api/v1/coach/availability', {
+                            method:'POST',
+                            headers:{'Content-Type':'application/json'},
+                            body:JSON.stringify(merged)
+                        });
+                    }
+                }
+                this._dirtyDates.clear();
+                this._dirtyDayOffs = [];
+                if (!this.shareToken) await this.mkToken();
+            } catch(e) { console.error('[coach] saveAll error', e); }
+            finally { this.saving = false; }
+        },
+
         async load() {
             const r = await fetch('/api/v1/me');
             if (!r.ok) { window.location.href = '/signin'; return; }
@@ -128,12 +183,14 @@ function app() {
             if (this.shareToken) this.shareUrl = window.location.origin + '/shared/' + this.shareToken;
 
             const sd = this.days[0].ds, ed = this.days[this.days.length-1].ds;
-            const [lr, ar, sr] = await Promise.all([
+            const [lr, ar, sr, dr] = await Promise.all([
                 fetch(`/api/v1/mentors/${this.mentorId}/locations`),
                 fetch(`/api/v1/coach/availability?startDate=${sd}&endDate=${ed}`),
-                fetch(`/api/v1/coach/sessions?startDate=${sd}&endDate=${ed}`)
+                fetch(`/api/v1/coach/sessions?startDate=${sd}&endDate=${ed}`),
+                fetch(`/api/v1/coach/day-off?startDate=${sd}&endDate=${ed}`)
             ]);
             if (lr.ok) this.locs = await lr.json();
+            if (dr.ok) this.dayOffs = await dr.json();
 
             if (ar.ok) {
                 const g = {};
@@ -158,6 +215,8 @@ function app() {
                 }
                 this.sess = g;
             }
+            this._dirtyDates.clear();
+            this._dirtyDayOffs = [];
         },
 
         minStr(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; },
@@ -167,13 +226,9 @@ function app() {
             const wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws`;
             const ws = new WebSocket(wsUrl);
             ws.onmessage = (event) => {
-                console.log('[coach] ws event:', event.data, 'quickSaveCount:', this._quickSaveCount);
-                if (event.data === 'coach_availability_changed' && !this._quickSaveCount) {
-                    console.log('[coach] reloading from ws');
-                    this.load();
-                }
-                if (event.data === 'session_changed' || event.data === 'location_changed') {
-                    console.log('[coach] reloading from ws (session/location)');
+                if (this.saving) return;
+                if (event.data === 'coach_availability_changed' || event.data === 'session_changed' || event.data === 'location_changed') {
+                    console.log('[coach] reloading from ws:', event.data);
                     this.load();
                 }
             };

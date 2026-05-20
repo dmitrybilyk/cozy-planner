@@ -9,5 +9,5 @@
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
     </root>
-    <logger name="com.cozy.planner" level="DEBUG"/>
+    <logger name="com.cozy.planner" level="INFO"/>
 </configuration>

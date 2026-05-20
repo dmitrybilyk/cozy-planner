@@ -121,8 +121,9 @@ public class SessionsApiController implements SessionsApi {
                                                                     evt.put("sessionId", savedN.getSessionId());
                                                                     evt.put("isRead", savedN.getIsRead());
                                                                     evt.put("createdAt", savedN.getCreatedAt() != null ? savedN.getCreatedAt().toString() : null);
+                                                                     evt.put("actionType", "trainee_confirm_session");
                                                                      eventBroadcastService.broadcastJson(evt);
-                                                                     pushService.sendToTrainee(tId, nTitle, nMessage).subscribe();
+                                                                     pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
                                                                      return Mono.just(savedN);
                                                                 });
                                                     })
@@ -137,6 +138,7 @@ public class SessionsApiController implements SessionsApi {
     }
 
     private Mono<SessionDTO> updateSession(Session existing, CreateSessionRequest request) {
+        existing.setConfirmationStatus("NONE");
         if (request.getTitle() != null) {
             existing.setTitle(request.getTitle());
         }
@@ -164,6 +166,7 @@ public class SessionsApiController implements SessionsApi {
                         return sessionRepository.deleteTraineeLinks(saved.getId())
                                 .then(saveTraineeLinks(saved.getId(), traineeIds))
                                 .then(loadTraineeIds(saved))
+                                .flatMap(s -> notifyTraineesOnSessionChange(s, traineeIds))
                                 .doOnSuccess(w -> eventBroadcastService.broadcast("session_changed"))
                                 .map(this::mapToDto);
                     }
@@ -171,6 +174,50 @@ public class SessionsApiController implements SessionsApi {
                             .doOnSuccess(w -> eventBroadcastService.broadcast("session_changed"))
                             .map(this::mapToDto);
                 });
+    }
+
+    private Mono<Session> notifyTraineesOnSessionChange(Session s, List<Long> tIds) {
+        if (tIds == null || tIds.isEmpty()) return Mono.just(s);
+        return mentorRepository.findById(s.getMentorId())
+                .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                .flatMapMany(mentor -> {
+                    String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                    String sessionLabel = ProfileLabels.get(profile, "session").toLowerCase();
+                    String mentorLabel = ProfileLabels.get(profile, "mentor");
+                    String nTitle = mentorLabel + " оновив " + sessionLabel;
+                    String nMessage = s.getTitle() + " — " + (s.getWorkoutDate() != null ? s.getWorkoutDate().toString() : "") + " " + (s.getStartTime() != null ? s.getStartTime().toString() : "");
+                    return Flux.fromIterable(tIds)
+                            .flatMap(tId -> {
+                                Notification n = Notification.builder()
+                                        .traineeId(tId)
+                                        .title(nTitle)
+                                        .message(nMessage)
+                                        .type("SESSION_UPDATED")
+                                        .sessionId(s.getId())
+                                        .isRead(false)
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+                                return notificationRepository.save(n)
+                                        .flatMap(savedN -> {
+                                            Map<String, Object> evt = new HashMap<>();
+                                            evt.put("type", "notification");
+                                            evt.put("id", savedN.getId());
+                                            evt.put("traineeId", savedN.getTraineeId());
+                                            evt.put("title", savedN.getTitle());
+                                            evt.put("message", savedN.getMessage());
+                                            evt.put("notificationType", savedN.getType());
+                                            evt.put("sessionId", savedN.getSessionId());
+                                            evt.put("isRead", savedN.getIsRead());
+                                            evt.put("createdAt", savedN.getCreatedAt() != null ? savedN.getCreatedAt().toString() : null);
+                                            evt.put("actionType", "trainee_confirm_session");
+                                            eventBroadcastService.broadcastJson(evt);
+                                            pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
+                                            return Mono.just(savedN);
+                                        });
+                            })
+                            .then();
+                })
+                .then(Mono.just(s));
     }
 
     @Override

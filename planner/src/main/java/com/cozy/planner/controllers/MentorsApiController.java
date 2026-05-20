@@ -205,6 +205,7 @@ public class MentorsApiController implements MentorsApi {
         return Mono.just(ResponseEntity.ok(result));
     }
 
+    @PutMapping("/api/v1/mentor/profile")
     public Mono<ResponseEntity<Map<String, Object>>> updateProfile(@RequestBody Map<String, String> body,
                                                                    ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {

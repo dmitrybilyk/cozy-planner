@@ -5,6 +5,7 @@ import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Session;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.SessionRepository;
+import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.TelegramService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,13 +29,15 @@ public class TelegramController {
     private final SessionRepository sessionRepository;
     private final MentorRepository mentorRepository;
     private final TelegramConfig telegramConfig;
+    private final EventBroadcastService eventBroadcastService;
 
-    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository, MentorRepository mentorRepository, TelegramConfig telegramConfig) {
+    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository, MentorRepository mentorRepository, TelegramConfig telegramConfig, EventBroadcastService eventBroadcastService) {
         this.telegramService = telegramService;
         this.objectMapper = objectMapper;
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.telegramConfig = telegramConfig;
+        this.eventBroadcastService = eventBroadcastService;
     }
 
     @GetMapping("/telegram/config")
@@ -152,6 +155,7 @@ public class TelegramController {
                         session.setConfirmationStatus("CONFIRMED");
                         return sessionRepository.save(session);
                     })
+                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                     .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
                             .defaultIfEmpty(Mentor.builder().profile("sport").build())
                             .flatMap(mentor -> {
@@ -175,6 +179,7 @@ public class TelegramController {
                         session.setConfirmationStatus("REJECTED");
                         return sessionRepository.save(session);
                     })
+                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                     .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
                             .defaultIfEmpty(Mentor.builder().profile("sport").build())
                             .flatMap(mentor -> {
@@ -190,9 +195,76 @@ public class TelegramController {
                             }))
                     .then(ackCallback(callbackId, botType))
                     .thenReturn(ResponseEntity.ok().build());
-        } else if (data.equals("trainee_confirm_session")) {
-            String text = "✅ Дякую! Сесію підтверджено. Тренер отримає сповіщення.";
-            return telegramService.sendMessage(chatId, text)
+        } else if (data.startsWith("trainee_confirm_session:")) {
+            Long sessionId = parseSessionId(data);
+            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
+            return sessionRepository.findById(sessionId)
+                    .flatMap(session -> {
+                        session.setConfirmationStatus("CONFIRMED");
+                        return sessionRepository.save(session);
+                    })
+                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                    .flatMap(saved -> {
+                        String text = "✅ Дякую! Сесію підтверджено. Тренер отримає сповіщення.";
+                        return telegramService.sendMessage(chatId, text)
+                                .thenReturn(saved);
+                    })
+                    .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
+                            .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                            .flatMap(mentor -> {
+                                String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                String mentorText = String.format(
+                                        ProfileLabels.get(profile, "telegram_session_decision_trainee"),
+                                        "✅ <b>Підтверджено</b>",
+                                        ProfileLabels.get(profile, "telegram_session_confirmed_action"),
+                                        saved.getTitle() != null ? saved.getTitle() : "",
+                                        saved.getWorkoutDate().toString(),
+                                        saved.getStartTime().toString(),
+                                        saved.getEndTime() != null ? saved.getEndTime().toString() : "");
+                                if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+                                    return telegramService.sendMessageToMentor(chatId, mentorText);
+                                }
+                                if (mentor.hasTelegram()) {
+                                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), mentorText);
+                                }
+                                return Mono.just(true);
+                            }))
+                    .then(ackCallback(callbackId, botType))
+                    .thenReturn(ResponseEntity.ok().build());
+        } else if (data.startsWith("trainee_reject_session:")) {
+            Long sessionId = parseSessionId(data);
+            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
+            return sessionRepository.findById(sessionId)
+                    .flatMap(session -> {
+                        session.setConfirmationStatus("REJECTED");
+                        return sessionRepository.save(session);
+                    })
+                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                    .flatMap(saved -> {
+                        String text = "❌ Сесію відхилено. Тренер отримає сповіщення.";
+                        return telegramService.sendMessage(chatId, text)
+                                .thenReturn(saved);
+                    })
+                    .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
+                            .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                            .flatMap(mentor -> {
+                                String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                String mentorText = String.format(
+                                        ProfileLabels.get(profile, "telegram_session_decision_trainee"),
+                                        "❌ <b>Відхилено</b>",
+                                        ProfileLabels.get(profile, "telegram_session_rejected_action"),
+                                        saved.getTitle() != null ? saved.getTitle() : "",
+                                        saved.getWorkoutDate().toString(),
+                                        saved.getStartTime().toString(),
+                                        saved.getEndTime() != null ? saved.getEndTime().toString() : "");
+                                if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+                                    return telegramService.sendMessageToMentor(chatId, mentorText);
+                                }
+                                if (mentor.hasTelegram()) {
+                                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), mentorText);
+                                }
+                                return Mono.just(true);
+                            }))
                     .then(ackCallback(callbackId, botType))
                     .thenReturn(ResponseEntity.ok().build());
         }

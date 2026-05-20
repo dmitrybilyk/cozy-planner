@@ -3,9 +3,11 @@ package com.cozy.planner.controllers;
 import com.cozy.planner.model.entity.Location;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.MentorAvailability;
+import com.cozy.planner.model.entity.MentorDayOff;
 import com.cozy.planner.model.entity.Session;
 import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.MentorAvailabilityRepository;
+import com.cozy.planner.repositories.MentorDayOffRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.SessionRepository;
 import com.cozy.planner.service.EventBroadcastService;
@@ -29,6 +31,7 @@ public class CoachAvailabilityController {
 
     private final MentorRepository mentorRepository;
     private final MentorAvailabilityRepository availabilityRepository;
+    private final MentorDayOffRepository dayOffRepository;
     private final SessionRepository sessionRepository;
     private final LocationRepository locationRepository;
     private final EventBroadcastService eventService;
@@ -37,11 +40,13 @@ public class CoachAvailabilityController {
 
     public CoachAvailabilityController(MentorRepository mentorRepository,
                                        MentorAvailabilityRepository availabilityRepository,
+                                       MentorDayOffRepository dayOffRepository,
                                        SessionRepository sessionRepository,
                                        LocationRepository locationRepository,
                                        EventBroadcastService eventService) {
         this.mentorRepository = mentorRepository;
         this.availabilityRepository = availabilityRepository;
+        this.dayOffRepository = dayOffRepository;
         this.sessionRepository = sessionRepository;
         this.locationRepository = locationRepository;
         this.eventService = eventService;
@@ -122,6 +127,46 @@ public class CoachAvailabilityController {
         });
     }
 
+    @GetMapping("/api/v1/coach/day-off")
+    public Flux<LocalDate> getDayOffs(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            ServerWebExchange exchange) {
+        return getMentorId(exchange)
+                .flatMapMany(mentorId -> dayOffRepository.findByMentorIdAndDateBetween(mentorId, startDate, endDate)
+                        .map(MentorDayOff::getDate));
+    }
+
+    @PostMapping("/api/v1/coach/day-off")
+    public Mono<ResponseEntity<Map<String, Object>>> toggleDayOff(@RequestBody Map<String, Object> body,
+                                                                   ServerWebExchange exchange) {
+        return getMentorId(exchange).flatMap(mentorId -> {
+            String dateStr = body.get("date").toString();
+            LocalDate date = LocalDate.parse(dateStr);
+            return dayOffRepository.findByMentorIdAndDate(mentorId, date)
+                    .flatMap(existing -> dayOffRepository.deleteByMentorIdAndDate(mentorId, date)
+                            .then(Mono.fromRunnable(() -> eventService.broadcast("coach_availability_changed")))
+                            .then(Mono.fromCallable(() -> {
+                                Map<String, Object> r = new HashMap<>();
+                                r.put("dayOff", false);
+                                return ResponseEntity.ok(r);
+                            })))
+                    .switchIfEmpty(Mono.defer(() -> {
+                        MentorDayOff dayOff = MentorDayOff.builder()
+                                .mentorId(mentorId)
+                                .date(date)
+                                .build();
+                        return dayOffRepository.save(dayOff)
+                                .then(Mono.fromRunnable(() -> eventService.broadcast("coach_availability_changed")))
+                                .then(Mono.fromCallable(() -> {
+                                    Map<String, Object> r = new HashMap<>();
+                                    r.put("dayOff", true);
+                                    return ResponseEntity.ok(r);
+                                }));
+                                            }));
+                            });
+    }
+
     @GetMapping("/api/v1/coach/sessions")
     public Flux<Map<String, Object>> getCoachSessions(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -171,49 +216,55 @@ public class CoachAvailabilityController {
         return mentorRepository.findByShareToken(shareToken)
                 .flatMap(mentor -> {
                     Set<Long> locationIds = new HashSet<>();
-                    return availabilityRepository
-                            .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
+                    return dayOffRepository.findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
+                            .map(MentorDayOff::getDate)
                             .collectList()
-                            .flatMap(slots -> sessionRepository
-                                    .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
+                            .flatMap(dayOffDates -> availabilityRepository
+                                    .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
                                     .collectList()
-                                    .flatMap(sessions -> {
-                                        List<MentorAvailability> freeSlots = splitBySessions(slots, sessions);
-                                        for (MentorAvailability s : freeSlots) {
-                                            if (s.getLocationId() != null) locationIds.add(s.getLocationId());
-                                        }
-                                        if (locationIds.isEmpty()) {
-                                            return buildSharedResponse(mentor, freeSlots, Map.of());
-                                        }
-                                        return Flux.fromIterable(locationIds)
-                                                .flatMap(id -> locationRepository.findById(id)
-                                                        .map(l -> {
-                                                            Map<String, Object> locInfo = new HashMap<>();
-                                                            locInfo.put("name", l.getName());
-                                                            locInfo.put("description", l.getDescription());
-                                                            locInfo.put("color", l.getColor());
-                                                            return Map.entry(id, locInfo);
-                                                        })
-                                                        .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
-                                                .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                                .flatMap(locMap -> buildSharedResponse(mentor, freeSlots, locMap))
-                                                .onErrorResume(e -> {
-                                                    log.error("Failed to resolve locations for shared availability", e);
-                                                    return buildSharedResponse(mentor, freeSlots, Map.of());
-                                                });
-                                    }));
+                                    .flatMap(slots -> sessionRepository
+                                            .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
+                                            .collectList()
+                                            .flatMap(sessions -> {
+                                                List<MentorAvailability> freeSlots = splitBySessions(slots, sessions);
+                                                for (MentorAvailability s : freeSlots) {
+                                                    if (s.getLocationId() != null) locationIds.add(s.getLocationId());
+                                                }
+                                                if (locationIds.isEmpty()) {
+                                                    return buildSharedResponse(mentor, freeSlots, Map.of(), dayOffDates);
+                                                }
+                                                return Flux.fromIterable(locationIds)
+                                                        .flatMap(id -> locationRepository.findById(id)
+                                                                .map(l -> {
+                                                                    Map<String, Object> locInfo = new HashMap<>();
+                                                                    locInfo.put("name", l.getName());
+                                                                    locInfo.put("description", l.getDescription());
+                                                                    locInfo.put("color", l.getColor());
+                                                                    return Map.entry(id, locInfo);
+                                                                })
+                                                                .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
+                                                        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                                                        .flatMap(locMap -> buildSharedResponse(mentor, freeSlots, locMap, dayOffDates))
+                                                        .onErrorResume(e -> {
+                                                            log.error("Failed to resolve locations for shared availability", e);
+                                                            return buildSharedResponse(mentor, freeSlots, Map.of(), dayOffDates);
+                                                        });
+                                            }))
+                            );
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @SuppressWarnings("unchecked")
     private Mono<ResponseEntity<Map<String, Object>>> buildSharedResponse(Mentor mentor,
-                                                                           List<MentorAvailability> slots,
-                                                                           Map<Long, Map<String, Object>> locMap) {
+                                                                            List<MentorAvailability> slots,
+                                                                            Map<Long, Map<String, Object>> locMap,
+                                                                            List<LocalDate> dayOffDates) {
         Map<String, Object> body = new HashMap<>();
         body.put("mentorId", mentor.getId());
         body.put("mentorName", mentor.getName());
         body.put("profile", mentor.getProfile());
+        body.put("dayOffDates", dayOffDates.stream().map(LocalDate::toString).toList());
         body.put("slots", slots.stream().map(s -> {
             Map<String, Object> slot = new HashMap<>();
             slot.put("id", s.getId());
@@ -231,14 +282,26 @@ public class CoachAvailabilityController {
     }
 
     @GetMapping("/api/v1/shared/{shareToken}/mentor")
-    public Mono<ResponseEntity<Map<String, Object>>> getSharedMentorInfo(@PathVariable String shareToken) {
+    public Mono<ResponseEntity<Map<String, Object>>> getSharedMentorInfo(@PathVariable String shareToken,
+                                                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return mentorRepository.findByShareToken(shareToken)
-                .map(mentor -> {
+                .flatMap(mentor -> {
                     Map<String, Object> body = new HashMap<>();
                     body.put("id", mentor.getId());
                     body.put("name", mentor.getName());
                     body.put("profile", mentor.getProfile());
-                    return ResponseEntity.ok(body);
+                    if (startDate != null && endDate != null) {
+                        return dayOffRepository.findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
+                                .map(MentorDayOff::getDate)
+                                .map(LocalDate::toString)
+                                .collectList()
+                                .map(dayOffs -> {
+                                    body.put("dayOffDates", dayOffs);
+                                    return ResponseEntity.ok(body);
+                                });
+                    }
+                    return Mono.just(ResponseEntity.ok(body));
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -252,49 +315,53 @@ public class CoachAvailabilityController {
                     LocalDate startDate = date != null ? date : today;
                     LocalDate endDate = date != null ? date : today.plusDays(13);
                     Set<Long> locationIds = new HashSet<>();
-                    return availabilityRepository
-                            .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
+                    return dayOffRepository.findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
+                            .map(MentorDayOff::getDate)
                             .collectList()
-                            .flatMap(slots -> sessionRepository
-                                    .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
+                            .flatMap(dayOffDates -> availabilityRepository
+                                    .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
                                     .collectList()
-                                    .flatMap(sessions -> {
-                                        List<MentorAvailability> freeSlots = splitBySessions(slots, sessions);
-                                        for (MentorAvailability s : freeSlots) {
-                                            if (s.getLocationId() != null) locationIds.add(s.getLocationId());
-                                        }
-                                        Map<Long, Map<String, Object>> locMap = new HashMap<>();
-                                        if (!locationIds.isEmpty()) {
-                                            return Flux.fromIterable(locationIds)
-                                                    .flatMap(id -> locationRepository.findById(id)
-                                                            .map(l -> {
-                                                                Map<String, Object> info = new HashMap<>();
-                                                                info.put("name", l.getName());
-                                                                info.put("color", l.getColor());
-                                                                return Map.entry(id, info);
+                                    .flatMap(slots -> sessionRepository
+                                            .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
+                                            .collectList()
+                                            .flatMap(sessions -> {
+                                                List<MentorAvailability> freeSlots = splitBySessions(slots, sessions);
+                                                for (MentorAvailability s : freeSlots) {
+                                                    if (s.getLocationId() != null) locationIds.add(s.getLocationId());
+                                                }
+                                                Map<Long, Map<String, Object>> locMap = new HashMap<>();
+                                                if (!locationIds.isEmpty()) {
+                                                    return Flux.fromIterable(locationIds)
+                                                            .flatMap(id -> locationRepository.findById(id)
+                                                                    .map(l -> {
+                                                                        Map<String, Object> info = new HashMap<>();
+                                                                        info.put("name", l.getName());
+                                                                        info.put("color", l.getColor());
+                                                                        return Map.entry(id, info);
+                                                                    })
+                                                                    .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
+                                                            .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                                                            .flatMap(lm -> {
+                                                                locMap.putAll(lm);
+                                                                if (date != null) {
+                                                                    return generateSingleDayImage(mentor, freeSlots, locMap, date, dayOffDates);
+                                                                }
+                                                                return generateAvailabilityImage(mentor, freeSlots, locMap, today, dayOffDates);
                                                             })
-                                                            .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
-                                                    .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                                    .flatMap(lm -> {
-                                                        locMap.putAll(lm);
-                                                        if (date != null) {
-                                                            return generateSingleDayImage(mentor, freeSlots, locMap, date);
-                                                        }
-                                                        return generateAvailabilityImage(mentor, freeSlots, locMap, today);
-                                                    })
-                                                    .onErrorResume(e -> {
-                                                        log.error("Failed to resolve locations for shared image", e);
-                                                        if (date != null) {
-                                                            return generateSingleDayImage(mentor, freeSlots, Map.of(), date);
-                                                        }
-                                                        return generateAvailabilityImage(mentor, freeSlots, Map.of(), today);
-                                                    });
-                                        }
-                                        if (date != null) {
-                                            return generateSingleDayImage(mentor, freeSlots, locMap, date);
-                                        }
-                                        return generateAvailabilityImage(mentor, freeSlots, locMap, today);
-                                    }));
+                                                            .onErrorResume(e -> {
+                                                                log.error("Failed to resolve locations for shared image", e);
+                                                                if (date != null) {
+                                                                    return generateSingleDayImage(mentor, freeSlots, Map.of(), date, dayOffDates);
+                                                                }
+                                                                return generateAvailabilityImage(mentor, freeSlots, Map.of(), today, dayOffDates);
+                            });
+                                                }
+                                                if (date != null) {
+                                                    return generateSingleDayImage(mentor, freeSlots, locMap, date, dayOffDates);
+                                                }
+                                                return generateAvailabilityImage(mentor, freeSlots, locMap, today, dayOffDates);
+                                            }))
+                            );
                 })
                 .map(bytes -> ResponseEntity.ok()
                         .header("Content-Type", "image/svg+xml")
@@ -303,7 +370,8 @@ public class CoachAvailabilityController {
     }
 
     private Mono<byte[]> generateAvailabilityImage(Mentor mentor, List<MentorAvailability> slots,
-                                                    Map<Long, Map<String, Object>> locMap, LocalDate startDate) {
+                                                     Map<Long, Map<String, Object>> locMap, LocalDate startDate,
+                                                     List<LocalDate> dayOffDates) {
         return Mono.fromCallable(() -> {
             int dayCount = 14;
             int cellW = 80, cellH = 14;
@@ -354,6 +422,12 @@ public class CoachAvailabilityController {
 
                 svg.append("<line x1=\"").append(x).append("\" y1=\"").append(topMargin).append("\" x2=\"").append(x).append("\" y2=\"").append(topMargin + rows * cellH).append("\" stroke=\"#1e1e1e\"/>\n");
 
+                boolean isDayOff = dayOffDates.contains(d);
+                if (isDayOff) {
+                    svg.append("<rect x=\"").append(x + 2).append("\" y=\"").append(topMargin).append("\" width=\"").append(cellW - 4).append("\" height=\"").append(rows * cellH).append("\" rx=\"4\" ry=\"4\" fill=\"#2a1a1a\" opacity=\"0.6\"/>\n");
+                    svg.append("<text x=\"").append(x + cellW / 2).append("\" y=\"").append(topMargin + rows * cellH / 2).append("\" fill=\"#ef4444\" font-family=\"Arial,sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\">ВИХІДНИЙ</text>\n");
+                }
+
                 List<MentorAvailability> daySlots = byDate.getOrDefault(di, List.of());
                 for (MentorAvailability s : daySlots) {
                     int startMin = s.getStartTime().getHour() * 60 + s.getStartTime().getMinute();
@@ -401,7 +475,8 @@ public class CoachAvailabilityController {
     }
 
     private Mono<byte[]> generateSingleDayImage(Mentor mentor, List<MentorAvailability> slots,
-                                                  Map<Long, Map<String, Object>> locMap, LocalDate date) {
+                                                   Map<Long, Map<String, Object>> locMap, LocalDate date,
+                                                   List<LocalDate> dayOffDates) {
         return Mono.fromCallable(() -> {
             int cellW = 1088, cellH = 28;
             int topMargin = 100, bottomMargin = 60, leftMargin = 60, rightMargin = 40;
@@ -442,6 +517,12 @@ public class CoachAvailabilityController {
             }
 
             svg.append("<line x1=\"").append(leftMargin + cellW).append("\" y1=\"").append(topMargin).append("\" x2=\"").append(leftMargin + cellW).append("\" y2=\"").append(topMargin + rows * cellH).append("\" stroke=\"#323232\"/>\n");
+
+            boolean isDayOff = dayOffDates.contains(date);
+            if (isDayOff) {
+                svg.append("<rect x=\"").append(leftMargin + 3).append("\" y=\"").append(topMargin + 2).append("\" width=\"").append(cellW - 6).append("\" height=\"").append(rows * cellH - 4).append("\" rx=\"10\" ry=\"10\" fill=\"#2a1a1a\" opacity=\"0.5\"/>\n");
+                svg.append("<text x=\"").append(leftMargin + cellW / 2).append("\" y=\"").append(topMargin + rows * cellH / 2).append("\" fill=\"#ef4444\" font-family=\"Arial,sans-serif\" font-size=\"24\" font-weight=\"bold\" text-anchor=\"middle\">ВИХІДНИЙ</text>\n");
+            }
 
             for (MentorAvailability s : slots) {
                 if (!s.getDate().equals(date)) continue;

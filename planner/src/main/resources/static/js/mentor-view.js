@@ -11,13 +11,14 @@ function calendarApp() {
     const _today = localDateStr();
     return {
         currentView: 'feed', showModal: false, showManageTrainees: false, showManageLocations: false, showAvailabilityOverview: false, showProfile: false,
-        editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null,
+        editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false,
         selectedDate: _today, todayStr: _today,
         days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport',
         hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
         halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         coachGrid: [],
+        coachAvailByDate: {},
         selectedTraineeFilters: [], traineeSearch: '',
         sessionForm: { title: '', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
         selectedCoachSlots: [],
@@ -65,11 +66,26 @@ function calendarApp() {
         },
         showBrowserNotification(msg) {
             if (Notification.permission === 'granted') {
-                new Notification(msg.title || 'Сповіщення', {
+                const options = {
                     body: msg.message || '',
                     tag: 'cozy-notification',
                     icon: '/favicon.svg'
-                });
+                };
+                if (msg.actionType && msg.sessionId) {
+                    options.tag = 'cozy-actionable-' + msg.sessionId;
+                    options.data = { sessionId: msg.sessionId, actionType: msg.actionType };
+                    options.actions = [
+                        { action: 'confirm', title: '✅ Підтвердити' },
+                        { action: 'reject', title: '❌ Відхилити' }
+                    ];
+                }
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.showNotification(msg.title || 'Сповіщення', options);
+                    });
+                } else {
+                    new Notification(msg.title || 'Сповіщення', options);
+                }
             }
             this.playNotificationSound();
         },
@@ -294,6 +310,35 @@ function calendarApp() {
                 }
                 this.coachGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
             }
+            this.loadCoachAvail(dateStr);
+        },
+
+        async loadCoachAvail(dateStr) {
+            if (!dateStr) return;
+            try {
+                const r = await fetch(`/api/v1/coach/availability?startDate=${dateStr}&endDate=${dateStr}`);
+                if (!r.ok) return;
+                const data = (await r.json()).filter(x => x.date === dateStr);
+                const cells = {};
+                for (const item of data) {
+                    const [sh, sm] = item.startTime.split(':').map(Number);
+                    const [eh, em] = item.endTime.split(':').map(Number);
+                    let t = sh * 60 + sm, end = eh * 60 + em;
+                    while (t < end) {
+                        cells[t] = item.locationId || null;
+                        t += 30;
+                    }
+                }
+                this.coachAvailByDate[dateStr] = cells;
+            } catch (e) {
+                console.error('loadCoachAvail failed', e);
+            }
+        },
+
+        getCoachAvailLocId(date, mm) {
+            const cells = this.coachAvailByDate[date];
+            if (!cells) return null;
+            return cells[mm] || null;
         },
         initTouchDrag() {
             const container = document.querySelector('main') || document.body;
@@ -521,6 +566,9 @@ function calendarApp() {
                 for (let i = 0; i < 3; i++) {
                     this.loadedDates[addDays(today, i)] = true;
                 }
+            }
+            if (this.selectedDate && !this.loadedDates[this.selectedDate]) {
+                await this.loadDaySessions(this.selectedDate);
             }
         },
 
@@ -962,6 +1010,10 @@ function calendarApp() {
                 const em = String(last % 60).padStart(2, '0');
                 this.sessionForm.startTime = `${sh}:${sm}`;
                 this.sessionForm.endTime = `${eh}:${em}`;
+                const locId = this.getCoachAvailLocId(this.sessionForm.date, sorted[0]);
+                if (locId != null) {
+                    this.sessionForm.locationId = locId;
+                }
             } else {
                 this.sessionForm.startTime = null;
                 this.sessionForm.endTime = null;
@@ -1005,6 +1057,10 @@ function calendarApp() {
             const t = `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
             if (this.isSlotPast(t)) return 'background:#1a1a1a; pointer-events:none';
             if (this.selectedCoachSlots.includes(mm)) return 'background:#3b82f5';
+            if (this.selectedCoachSlots.length > 1) {
+                const sorted = [...this.selectedCoachSlots].sort((a,b) => a-b);
+                if (mm > sorted[0] && mm < sorted[sorted.length-1]) return 'background:rgba(59,130,245,0.25)';
+            }
             if (this.isSlotOnCoachSession(t)) return 'background:#1a1a1a; pointer-events:none';
             if (this.sessionForm.traineeIds.length > 0 && this.hasSlotConflict(t)) return 'background:#1a1a1a; pointer-events:none';
             return 'background:#2a2a2a';
@@ -1181,7 +1237,17 @@ function calendarApp() {
                 });
             }
             
-            this.traineeForm = { name: '', description: '', photoBase64: null }; this.editingTraineeId = null; await this.fetchTrainees();
+            this.traineeForm = { name: '', description: '', photoBase64: null }; this.editingTraineeId = null; this.showCreateForm = false; await this.fetchTrainees();
+        },
+
+        openCreateTraineeForm() {
+            if (this.showCreateForm && !this.editingTraineeId) {
+                this.showCreateForm = false;
+                return;
+            }
+            this.traineeForm = { name: '', description: '', photoBase64: null };
+            this.editingTraineeId = null;
+            this.showCreateForm = true;
         },
 
         getTraineeNamesText(ids) {
@@ -1201,7 +1267,7 @@ function calendarApp() {
             this.selectedCoachSlots = [];
             this.showModal = true;
         },
-        editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null }; },
+        editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null }; this.showCreateForm = false; },
          askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
 
           async generateTraineeLink(trainee) {
@@ -1265,12 +1331,20 @@ function calendarApp() {
              await this.fetchData();
          },
 
-         async rejectSession(sessionId) {
-             await fetch(`/api/v1/sessions/${sessionId}/reject`, { method: 'POST' });
-             await this.fetchData();
-         },
+          async rejectSession(sessionId) {
+              await fetch(`/api/v1/sessions/${sessionId}/reject`, { method: 'POST' });
+              await this.fetchData();
+          },
 
-         requestTraineeConfirmation(session) {
+          handleConfirmAction(session) {
+              if (session.createdBy === 'COACH' && session.confirmationStatus === 'NONE') {
+                  this.requestTraineeConfirmation(session);
+              } else if (session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING') {
+                  this.confirmSession(session.id);
+              }
+          },
+
+          requestTraineeConfirmation(session) {
              this.confirmData = {
                  show: true,
                  title: 'Запитати підтвердження?',
@@ -1370,7 +1444,7 @@ function calendarApp() {
             for (let i = 0; i < 77; i++) {
                 const dayIdx = (start.getDay() + 6) % 7;
                 const ds = localDateStr(start);
-                this.days.push({ dateStr: ds, dayNum: start.getDate(), weekday: days[dayIdx], weekdayFull: fullDays[dayIdx], isMonday: start.getDay() === 1, shortMonth: shortMonths[start.getMonth()], isToday: ds === this.todayStr });
+                this.days.push({ dateStr: ds, dayNum: start.getDate(), weekday: days[dayIdx], weekdayFull: fullDays[dayIdx], isMonday: start.getDay() === 1, shortMonth: shortMonths[start.getMonth()], isToday: ds === this.todayStr, isWeekend: start.getDay() === 0 || start.getDay() === 6 });
                 start.setDate(start.getDate() + 1);
             }
         },

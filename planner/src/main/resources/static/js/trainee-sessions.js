@@ -24,7 +24,13 @@ function traineeApp() {
         me: {},
         mentorSlots: [],
         mentorScheduleLoading: false,
+        coachDayOffs: [],
         showModal: false,
+        saving: false,
+        _dirtyDates: new Set(),
+
+        get hasUnsavedChanges() { return this._dirtyDates.size > 0; },
+
         saved: false,
         savedMessage: '',
         error: '',
@@ -143,7 +149,7 @@ function traineeApp() {
                 const d = new Date(start);
                 d.setDate(start.getDate() + i);
                 const ds = localDateStr(d);
-                this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today });
+                this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
 
             for (let h = 6; h < 22; h++) {
@@ -181,10 +187,15 @@ function traineeApp() {
                     return;
                 }
                 if (event.data === 'session_changed') {
+                    if (this.saving) return;
                     this.loadSessions();
                     if (this.me.mentorShareToken) this.loadMentorAvailability();
                 }
-                if (event.data === 'availability_changed') this.loadAvailability();
+                if (event.data === 'availability_changed') {
+                    if (this.saving) return;
+                    this.loadAvailability();
+                }
+                if (event.data === 'trainee_changed') this.refreshMe();
                 if (event.data === 'coach_availability_changed' || event.data === 'location_changed') {
                     console.log('[trainee] coach_avail/location_changed, mentorShareToken:', this.me.mentorShareToken);
                     if (this.me.mentorShareToken) this.loadMentorAvailability();
@@ -216,11 +227,26 @@ function traineeApp() {
         },
         showBrowserNotification(msg) {
             if (Notification.permission === 'granted') {
-                new Notification(msg.title || 'Сповіщення', {
+                const options = {
                     body: msg.message || '',
                     tag: 'cozy-notification',
                     icon: '/favicon.svg'
-                });
+                };
+                if (msg.actionType && msg.sessionId) {
+                    options.tag = 'cozy-actionable-' + msg.sessionId;
+                    options.data = { sessionId: msg.sessionId, actionType: msg.actionType };
+                    options.actions = [
+                        { action: 'confirm', title: '✅ Підтвердити' },
+                        { action: 'reject', title: '❌ Відхилити' }
+                    ];
+                }
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.showNotification(msg.title || 'Сповіщення', options);
+                    });
+                } else {
+                    new Notification(msg.title || 'Сповіщення', options);
+                }
             }
             this.playNotificationSound();
         },
@@ -326,6 +352,12 @@ function traineeApp() {
             } else { this.error = 'Помилка при створенні сесії'; }
         },
 
+        handleTraineeConfirmAction(session) {
+            if (session.createdBy === 'COACH' && session.confirmationStatus === 'PENDING') {
+                this.confirmSession(session.id);
+            }
+        },
+
         async confirmSession(id) {
             this.error = '';
             const res = await fetch(`/api/v1/trainee/sessions/${id}/confirm`, { method: 'POST' });
@@ -357,6 +389,14 @@ function traineeApp() {
 
         closeRequestConfirm() {
             this.confirmModal = { show: false, sessionId: null, title: '', message: '' };
+        },
+
+        async refreshMe() {
+            const res = await fetch('/api/v1/me');
+            if (res.ok) {
+                const me = await res.json();
+                this.me = me;
+            }
         },
 
         async doRequestConfirm() {
@@ -422,12 +462,13 @@ function traineeApp() {
             try {
                 const res = await fetch(`/api/v1/shared/${this.me.mentorShareToken}?startDate=${start}&endDate=${end}`);
                 console.log('[trainee] shared fetch status:', res.status);
-                if (res.ok) {
-                    const data = await res.json();
-                    console.log('[trainee] shared data slots count:', (data.slots || []).length);
-                    this.mentorSlots = data.slots || [];
-                    const g = {};
-                    for (const item of this.mentorSlots) {
+                    if (res.ok) {
+                        const data = await res.json();
+                        console.log('[trainee] shared data slots count:', (data.slots || []).length);
+                        this.mentorSlots = data.slots || [];
+                        this.coachDayOffs = data.dayOffDates || [];
+                        const g = {};
+                        for (const item of this.mentorSlots) {
                         if (!g[item.date]) g[item.date] = [];
                         const [sh, sm] = item.startTime.split(':').map(Number);
                         const [eh, em] = item.endTime.split(':').map(Number);
@@ -520,6 +561,7 @@ function traineeApp() {
             const idx = arr.findIndex(x => x.mm === mm);
             if (idx >= 0) { arr.splice(idx, 1); } else { arr.push({ mm }); }
             this.cellsByDate[this.selectedDate] = arr;
+            this._dirtyDates.add(this.selectedDate);
         },
 
         tapSession(mm) {
@@ -599,28 +641,31 @@ function traineeApp() {
                     }
                 }
                 this.cellsByDate = g;
+                this._dirtyDates.clear();
             }
         },
 
-        async saveAvailability() {
-            const all = [];
-            for (const date in this.cellsByDate) {
-                const arr = this.cellsByDate[date];
-                if (!arr.length) continue;
-                const sorted = [...arr].sort((a,b) => a.mm - b.mm);
-                let cs = sorted[0].mm, ce = sorted[0].mm + 30;
-                for (let i = 1; i < sorted.length; i++) {
-                    if (sorted[i].mm === ce) {
-                        ce = sorted[i].mm + 30;
-                    } else {
-                        all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
-                        cs = sorted[i].mm; ce = sorted[i].mm + 30;
-                    }
-                }
-                all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
-            }
-            const del = Object.keys(this.cellsByDate).filter(d => !this.cellsByDate[d].length);
+        async saveAll() {
+            if (this.saving) return;
+            this.saving = true;
             try {
+                const all = [];
+                for (const date of this._dirtyDates) {
+                    const arr = this.cellsByDate[date] || [];
+                    if (!arr.length) continue;
+                    const sorted = [...arr].sort((a,b) => a.mm - b.mm);
+                    let cs = sorted[0].mm, ce = sorted[0].mm + 30;
+                    for (let i = 1; i < sorted.length; i++) {
+                        if (sorted[i].mm === ce) {
+                            ce = sorted[i].mm + 30;
+                        } else {
+                            all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
+                            cs = sorted[i].mm; ce = sorted[i].mm + 30;
+                        }
+                    }
+                    all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
+                }
+                const del = [...this._dirtyDates].filter(d => !this.cellsByDate[d]?.length);
                 if (all.length) {
                     const res = await fetch(`/api/v1/trainees/${this.traineeId}/availability`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(all) });
                     if (!res.ok) throw Error('POST fail');
@@ -629,10 +674,12 @@ function traineeApp() {
                     const res = await fetch(`/api/v1/trainees/${this.traineeId}/availability?dates=${del.join(',')}`, { method:'DELETE' });
                     if (!res.ok) throw Error('DEL fail');
                 }
+                this._dirtyDates.clear();
                 this.saved = true;
                 this.savedMessage = 'Збережено!';
                 setTimeout(() => this.saved = false, 3000);
             } catch(e) { console.error(e); }
+            finally { this.saving = false; }
         },
 
         slotToMin(t) {
@@ -676,6 +723,11 @@ function traineeApp() {
                 const em = String(last % 60).padStart(2, '0');
                 this.form.time = `${sh}:${sm}`;
                 this.form.endTime = `${eh}:${em}`;
+                const cells = this.coachCellsByDate[this.form.date] || [];
+                const c = cells.find(x => x.mm === sorted[0]);
+                if (c && c.locId != null) {
+                    this.form.locationId = c.locId;
+                }
             } else {
                 this.form.time = '';
                 this.form.endTime = '';
