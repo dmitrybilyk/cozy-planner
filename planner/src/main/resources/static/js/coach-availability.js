@@ -9,6 +9,7 @@ function app() {
         cells: {}, sess: {}, locs: [], curLoc: null,
         ws: null,
         busySession: null,
+        mentorProfile: 'sport',
 
         init() {
             const now = new Date;
@@ -39,6 +40,11 @@ function app() {
 
         title(mm) {
             return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
+        },
+
+        get mentorTitle() {
+            const titles = { sport:'Доступність тренера', studying:'Доступність вчителя', psychology:'Доступність психолога', other:'Доступність ментора' };
+            return titles[this.mentorProfile] || titles.sport;
         },
 
         hasDaySlots(ds) { return (this.cells[ds] || []).length > 0; },
@@ -117,6 +123,7 @@ function app() {
             const me = await r.json();
             if (!me.mentor || me.mentor.id < 0) { window.location.href = '/signin'; return; }
             this.mentorId = me.mentor.id;
+            this.mentorProfile = me.mentor.profile || 'sport';
             this.shareToken = me.mentor.shareToken;
             if (this.shareToken) this.shareUrl = window.location.origin + '/shared/' + this.shareToken;
 

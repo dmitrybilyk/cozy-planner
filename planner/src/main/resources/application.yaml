@@ -42,6 +42,8 @@ spring:
     default-property-inclusion: non_null
   thymeleaf:
     cache: false
+  codec:
+    max-in-memory-size: 10MB
 
 server:
   address: 0.0.0.0

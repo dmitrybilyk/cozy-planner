@@ -1,8 +1,16 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.model.entity.Mentor;
+import com.cozy.planner.model.entity.Notification;
 import com.cozy.planner.model.entity.Session;
+import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.MentorRepository;
+import com.cozy.planner.repositories.NotificationRepository;
 import com.cozy.planner.repositories.SessionRepository;
+import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
+import com.cozy.planner.service.ProfileLabels;
+import com.cozy.planner.service.PushService;
 import com.planner.api.SessionsApi;
 import com.planner.model.CreateSessionRequest;
 import com.planner.model.SessionDTO;
@@ -17,6 +25,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,11 +36,24 @@ import java.util.Map;
 public class SessionsApiController implements SessionsApi {
 
     private final SessionRepository sessionRepository;
+    private final MentorRepository mentorRepository;
+    private final TraineeRepository traineeRepository;
+    private final NotificationRepository notificationRepository;
     private final EventBroadcastService eventBroadcastService;
+    private final PushService pushService;
 
-    public SessionsApiController(SessionRepository sessionRepository, EventBroadcastService eventBroadcastService) {
+    public SessionsApiController(SessionRepository sessionRepository,
+                                  MentorRepository mentorRepository,
+                                  TraineeRepository traineeRepository,
+                                  NotificationRepository notificationRepository,
+                                  EventBroadcastService eventBroadcastService,
+                                  PushService pushService) {
         this.sessionRepository = sessionRepository;
+        this.mentorRepository = mentorRepository;
+        this.traineeRepository = traineeRepository;
+        this.notificationRepository = notificationRepository;
         this.eventBroadcastService = eventBroadcastService;
+        this.pushService = pushService;
     }
 
     @Override
@@ -65,6 +87,51 @@ public class SessionsApiController implements SessionsApi {
         return sessionRepository.save(session)
                 .flatMap(saved -> saveTraineeLinks(saved.getId(), request.getTraineeIds())
                         .then(loadTraineeIds(saved))
+                        .flatMap(s -> {
+                            List<Long> tIds = request.getTraineeIds();
+                            if (tIds != null && !tIds.isEmpty()) {
+                                return mentorRepository.findById(s.getMentorId())
+                                        .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                                        .flatMapMany(mentor -> {
+                                            String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                            String sessionLabel = ProfileLabels.get(profile, "session").toLowerCase();
+                                            String mentorLabel = ProfileLabels.get(profile, "mentor");
+                                            String nTitle = mentorLabel + " створив " + sessionLabel;
+                                            String nMessage = s.getTitle() + " — " + s.getWorkoutDate() + " " + s.getStartTime();
+                                            return Flux.fromIterable(tIds)
+                                                    .flatMap(tId -> {
+                                                        Notification n = Notification.builder()
+                                                                .traineeId(tId)
+                                                                .title(nTitle)
+                                                                .message(nMessage)
+                                                                .type("SESSION_CREATED")
+                                                                .sessionId(s.getId())
+                                                                .isRead(false)
+                                                                .createdAt(LocalDateTime.now())
+                                                                .build();
+                                                        return notificationRepository.save(n)
+                                                                .flatMap(savedN -> {
+                                                                    Map<String, Object> evt = new HashMap<>();
+                                                                    evt.put("type", "notification");
+                                                                    evt.put("id", savedN.getId());
+                                                                    evt.put("traineeId", savedN.getTraineeId());
+                                                                    evt.put("title", savedN.getTitle());
+                                                                    evt.put("message", savedN.getMessage());
+                                                                    evt.put("notificationType", savedN.getType());
+                                                                    evt.put("sessionId", savedN.getSessionId());
+                                                                    evt.put("isRead", savedN.getIsRead());
+                                                                    evt.put("createdAt", savedN.getCreatedAt() != null ? savedN.getCreatedAt().toString() : null);
+                                                                     eventBroadcastService.broadcastJson(evt);
+                                                                     pushService.sendToTrainee(tId, nTitle, nMessage).subscribe();
+                                                                     return Mono.just(savedN);
+                                                                });
+                                                    })
+                                                    .then();
+                                        })
+                                        .then(Mono.just(s));
+                            }
+                            return Mono.just(s);
+                        })
                         .doOnSuccess(w -> eventBroadcastService.broadcast("session_changed"))
                         .map(this::mapToDto));
     }

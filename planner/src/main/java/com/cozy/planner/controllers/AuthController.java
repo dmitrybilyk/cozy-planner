@@ -32,11 +32,15 @@ public class AuthController {
     }
 
     @GetMapping("/setup")
-    public Mono<String> setupPage(ServerWebExchange exchange) {
+    public Mono<String> setupPage(ServerWebExchange exchange, org.springframework.ui.Model model) {
         return exchange.getSession().flatMap(session -> {
             String googleSub = session.getAttribute("google_sub");
             if (googleSub == null) {
                 return Mono.just("redirect:/login");
+            }
+            String name = session.getAttribute("user_name");
+            if (name != null) {
+                model.addAttribute("googleName", name);
             }
             return userRepository.findByGoogleSub(googleSub)
                     .flatMap(user -> clubRepository.findByUserId(user.getId())

@@ -1,19 +1,13 @@
 package com.cozy.planner.controllers;
 
-import com.cozy.planner.config.TelegramConfig;
-import com.cozy.planner.model.entity.Trainee;
-import com.cozy.planner.repositories.TraineeRepository;
-import com.cozy.planner.service.TelegramService;
-import org.springframework.beans.factory.annotation.Value;
+import com.cozy.planner.model.entity.Notification;
+import com.cozy.planner.repositories.NotificationRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,191 +15,100 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 public class NotificationController {
 
-    private final TelegramService telegramService;
-    private final TraineeRepository traineeRepository;
-    private final TelegramConfig telegramConfig;
+    private final NotificationRepository notificationRepository;
 
-    @Value("${app.base-url:}")
-    private String configuredBaseUrl;
-
-    public NotificationController(TelegramService telegramService, TraineeRepository traineeRepository, TelegramConfig telegramConfig) {
-        this.telegramService = telegramService;
-        this.traineeRepository = traineeRepository;
-        this.telegramConfig = telegramConfig;
+    public NotificationController(NotificationRepository notificationRepository) {
+        this.notificationRepository = notificationRepository;
     }
 
-    @GetMapping("/telegram/config")
-    public ResponseEntity<Map<String, Object>> getConfig() {
-        Map<String, Object> result = new HashMap<>();
-        result.put("enabled", telegramService.isEnabled());
-        result.put("botUsername", telegramConfig.getBotUsername());
-        return ResponseEntity.ok().body(result);
-    }
+    @GetMapping("/notifications")
+    public Mono<ResponseEntity<?>> getNotifications(ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            Object traineeId = session.getAttribute("trainee_id");
+            Object mentorId = session.getAttribute("mentor_id");
+            Object userId = session.getAttribute("google_sub");
 
-    @GetMapping(path = {"/mentors/{mentorId}/trainees-telegram"})
-    public Flux<Map<String, Object>> getTraineesWithTelegram(@PathVariable Long mentorId) {
-        return traineeRepository.findAllByMentorId(mentorId)
-                .map(this::toTelegramStatus);
-    }
-
-    @GetMapping(path = {"/trainees/{traineeId}/telegram-status"})
-    public Mono<ResponseEntity<Map<String, Object>>> getTelegramStatus(@PathVariable Long traineeId) {
-        return traineeRepository.findById(traineeId)
-                .map(this::toTelegramStatus)
-                .map(ResponseEntity::ok)
-                .defaultIfEmpty(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping(path = {"/trainees/{traineeId}/notify-availability"})
-    public Mono<ResponseEntity<Map<String, Object>>> notifyTrainee(
-            @PathVariable Long traineeId,
-            @RequestBody(required = false) Map<String, Object> body,
-            ServerWebExchange exchange) {
-
-        if (!telegramService.isEnabled()) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", false);
-            result.put("reason", "Telegram not configured");
-            return Mono.just(ResponseEntity.badRequest().body(result));
-        }
-
-        String customMessage = null;
-        if (body != null && body.containsKey("customMessage")) {
-            Object msg = body.get("customMessage");
-            if (msg != null && !msg.toString().isBlank()) {
-                customMessage = msg.toString().trim();
+            if (traineeId instanceof Number) {
+                return notificationRepository.findAllByTraineeIdOrderByCreatedAtDesc(((Number) traineeId).longValue())
+                        .collectList()
+                        .map(ResponseEntity::ok);
             }
-        }
-
-        String dayType = null;
-        if (body != null && body.containsKey("dayType")) {
-            Object dt = body.get("dayType");
-            if (dt != null && !dt.toString().isBlank()) {
-                dayType = dt.toString().trim();
+            if (mentorId instanceof Number) {
+                return notificationRepository.findAllByMentorIdOrderByCreatedAtDesc(((Number) mentorId).longValue())
+                        .collectList()
+                        .map(ResponseEntity::ok);
             }
-        }
-
-        String rawTargetDate = null;
-        if (body != null && body.containsKey("targetDate")) {
-            Object td = body.get("targetDate");
-            if (td != null && !td.toString().isBlank()) {
-                rawTargetDate = td.toString().trim();
+            if (userId != null) {
+                return Mono.just(ResponseEntity.ok(java.util.List.of()));
             }
-        }
+            return Mono.just(ResponseEntity.ok(java.util.List.of()));
+        });
+    }
 
-        final String finalCustomMessage = customMessage;
-        final String finalDayType = resolveDayType(dayType);
-        final String finalTargetDate = resolveTargetDate(finalDayType, rawTargetDate);
+    @GetMapping("/notifications/unread-count")
+    public Mono<ResponseEntity<Map<String, Object>>> getUnreadCount(ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            Object traineeId = session.getAttribute("trainee_id");
+            Object mentorId = session.getAttribute("mentor_id");
 
-        return traineeRepository.findById(traineeId)
-                .flatMap(trainee -> {
-                    Map<String, Object> result = new HashMap<>();
-                    
-                    if (!trainee.hasTelegram()) {
-                        result.put("success", false);
-                        result.put("reason", "Telegram not connected");
-                        result.put("telegramConnected", false);
-                        result.put("connectLink", getConnectLink(trainee.getInviteToken()));
-                        return Mono.just(ResponseEntity.ok().body(result));
-                    }
+            Mono<Long> countMono;
+            if (traineeId instanceof Number) {
+                countMono = notificationRepository.countByTraineeIdAndIsReadFalse(((Number) traineeId).longValue());
+            } else if (mentorId instanceof Number) {
+                countMono = notificationRepository.countByMentorIdAndIsReadFalse(((Number) mentorId).longValue());
+            } else {
+                countMono = Mono.just(0L);
+            }
 
-                    String baseUrl = getBaseUrl(exchange);
-                    return telegramService.sendAvailabilityReminder(trainee, baseUrl, finalCustomMessage, finalDayType, finalTargetDate)
-                            .map(sent -> {
-                                result.put("success", sent);
-                                result.put("telegramConnected", true);
-                                if (sent) {
-                                    result.put("message", "Notification sent to " + trainee.getName());
-                                } else {
-                                    result.put("reason", "Failed to send (chat may be blocked)");
-                                }
-                                return ResponseEntity.ok(result);
-                            });
+            return countMono.map(count -> {
+                Map<String, Object> r = new HashMap<>();
+                r.put("count", count);
+                return ResponseEntity.ok(r);
+            });
+        });
+    }
+
+    @PostMapping("/notifications/{id}/read")
+    public Mono<ResponseEntity<Map<String, Object>>> markAsRead(@PathVariable Long id) {
+        return notificationRepository.findById(id)
+                .flatMap(n -> {
+                    n.setIsRead(true);
+                    return notificationRepository.save(n);
+                })
+                .map(n -> {
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("success", true);
+                    return ResponseEntity.ok(r);
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
-    private String resolveDayType(String dayType) {
-        if (dayType == null) return null;
-        return switch (dayType) {
-            case "tomorrow", "specific_day", "weekend" -> dayType;
-            default -> null;
-        };
-    }
+    @PostMapping("/notifications/read-all")
+    public Mono<ResponseEntity<Map<String, Object>>> markAllAsRead(ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            Object traineeId = session.getAttribute("trainee_id");
+            Object mentorId = session.getAttribute("mentor_id");
 
-    private String resolveTargetDate(String dayType, String rawTargetDate) {
-        if (dayType == null) return null;
-        LocalDate today = LocalDate.now();
-        return switch (dayType) {
-            case "tomorrow" -> today.plusDays(1).toString();
-            case "specific_day" -> {
-                if (rawTargetDate != null && !rawTargetDate.isBlank()) {
-                    try {
-                        yield LocalDate.parse(rawTargetDate).toString();
-                    } catch (Exception e) {
-                        yield today.plusDays(1).toString();
-                    }
-                }
-                yield today.plusDays(1).toString();
+            Flux<com.cozy.planner.model.entity.Notification> notifications;
+            if (traineeId instanceof Number) {
+                notifications = notificationRepository.findAllByTraineeIdOrderByCreatedAtDesc(((Number) traineeId).longValue());
+            } else if (mentorId instanceof Number) {
+                notifications = notificationRepository.findAllByMentorIdOrderByCreatedAtDesc(((Number) mentorId).longValue());
+            } else {
+                notifications = Flux.empty();
             }
-            case "weekend" -> {
-                LocalDate saturday = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
-                if (saturday.equals(today)) {
-                    saturday = saturday.plusDays(7);
-                }
-                yield saturday.toString();
-            }
-            default -> null;
-        };
-    }
 
-    private Map<String, Object> toTelegramStatus(Trainee trainee) {
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", trainee.getId());
-        result.put("telegramEnabled", telegramService.isEnabled());
-        result.put("telegramConnected", trainee.hasTelegram());
-        result.put("telegramUsername", trainee.getTelegramUsername());
-        result.put("connectLink", getConnectLink(trainee.getInviteToken()));
-        result.put("photoBase64", trainee.getPhotoBase64());
-        result.put("weekendReminderEnabled", trainee.isWeekendReminderEnabled());
-        result.put("sessionReminderEnabled", trainee.isSessionReminderEnabled());
-        result.put("inviteToken", trainee.getInviteToken());
-        return result;
-    }
-
-    private String getConnectLink(String inviteToken) {
-        if (!telegramService.isEnabled()) return null;
-        if (inviteToken == null || inviteToken.isBlank()) return null;
-        String botUsername = telegramConfig.getBotUsername();
-        if (botUsername == null || botUsername.isBlank()) return null;
-        return "https://t.me/" + botUsername + "?start=" + inviteToken;
-    }
-
-    private String getBaseUrl(ServerWebExchange exchange) {
-        if (configuredBaseUrl != null && !configuredBaseUrl.isBlank() 
-                && !configuredBaseUrl.contains("localhost") 
-                && !configuredBaseUrl.contains("127.0.0.1")) {
-            return configuredBaseUrl;
-        }
-
-        var request = exchange.getRequest();
-        var headers = request.getHeaders();
-
-        String forwardedProto = headers.getFirst("X-Forwarded-Proto");
-        String forwardedHost = headers.getFirst("X-Forwarded-Host");
-
-        if (forwardedHost != null) {
-            String proto = (forwardedProto != null) ? forwardedProto : "http";
-            return proto + "://" + forwardedHost;
-        }
-
-        String scheme = request.getURI().getScheme();
-        int port = request.getURI().getPort();
-        String host = request.getURI().getHost();
-
-        if (port > 0 && ((scheme.equals("http") && port != 80) || (scheme.equals("https") && port != 443))) {
-            return scheme + "://" + host + ":" + port;
-        }
-        return scheme + "://" + host;
+            return notifications
+                    .filter(n -> !n.getIsRead())
+                    .flatMap(n -> {
+                        n.setIsRead(true);
+                        return notificationRepository.save(n);
+                    })
+                    .then(Mono.fromCallable(() -> {
+                        Map<String, Object> r = new HashMap<>();
+                        r.put("success", true);
+                        return ResponseEntity.ok(r);
+                    }));
+        });
     }
 }

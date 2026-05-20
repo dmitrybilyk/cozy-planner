@@ -1,0 +1,1 @@
+ALTER TABLE mentors ALTER COLUMN photo_url TYPE TEXT;

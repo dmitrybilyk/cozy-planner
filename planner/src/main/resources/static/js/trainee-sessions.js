@@ -36,6 +36,10 @@ function traineeApp() {
         formPickStart: null,
         selectedModalSlots: [],
         sessionInfo: { show: false, id: null, title: '', description: '', date: '', time: '', endTime: '', mentorName: '', status: '', createdBy: '' },
+        tabLabels: {},
+        pageTitle: 'Мої сесії',
+        notifications: [],
+        unreadCount: 0,
 
         // coach schedule
         coachSelectedDate: today,
@@ -76,6 +80,12 @@ function traineeApp() {
             return [...future, ...past];
         },
 
+        get hasMoreSessions() {
+            const todayStr = localDateStr(new Date());
+            const cutoff = addDays(todayStr, 3);
+            return this.sessions.some(s => s.date > cutoff);
+        },
+
         hasSessionOnDate(dateStr) {
             return this.sessions.some(s => s.date === dateStr && s.confirmationStatus !== 'REJECTED');
         },
@@ -105,6 +115,7 @@ function traineeApp() {
         },
 
         async init() {
+            this.initAudioContext();
             let me = embeddedTrainee;
             if (!me || !me.traineeId) {
                 const res = await fetch('/api/v1/me');
@@ -115,6 +126,16 @@ function traineeApp() {
             this.traineeId = me.traineeId;
             this.me = me;
             this.locations = me.locations || [];
+
+            const profile = me.mentorProfile || 'sport';
+            const tabLabelSets = {
+                sport: { sessions: 'Тренування', schedule: 'Доступність тренера', availability: 'Моя доступність', no_sessions: 'У тебе ще немає тренувань.', past_sessions: '— Минулі тренування —' },
+                studying: { sessions: 'Уроки', schedule: 'Доступність репетитора', availability: 'Моя доступність', no_sessions: 'У тебе ще немає уроків.', past_sessions: '— Минулі уроки —' },
+                psychology: { sessions: 'Сесії', schedule: 'Доступність терапевта', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' },
+                other: { sessions: 'Сесії', schedule: 'Доступність виконавця', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' }
+            };
+            this.tabLabels = tabLabelSets[profile] || tabLabelSets.sport;
+            this.pageTitle = 'Мої ' + this.tabLabels.sessions.toLowerCase();
 
             const now = new Date();
             const start = snapToMonday(now);
@@ -133,9 +154,13 @@ function traineeApp() {
             await this.loadSessions();
             if (this.me.mentorShareToken) this.loadMentorAvailability();
             await this.loadAvailability();
+            await this.loadNotifications();
             this.connectWebSocket();
+            this.requestNotificationPermission();
+            this.registerPush();
+            setInterval(() => this.loadNotifications(), 30000);
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) { this.loadSessions(); this.loadAvailability(); if (this.me.mentorShareToken) this.loadMentorAvailability(); }
+                if (!document.hidden) { this.loadSessions(); this.loadAvailability(); if (this.me.mentorShareToken) this.loadMentorAvailability(); this.loadNotifications(); }
             });
         },
 
@@ -145,6 +170,16 @@ function traineeApp() {
             const ws = new WebSocket(wsUrl);
             ws.onmessage = (event) => {
                 console.log('[trainee] ws event:', event.data);
+                if (event.data.startsWith('{')) {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'notification') {
+                            this.showBrowserNotification(msg);
+                            this.loadNotifications();
+                        }
+                    } catch (e) {}
+                    return;
+                }
                 if (event.data === 'session_changed') {
                     this.loadSessions();
                     if (this.me.mentorShareToken) this.loadMentorAvailability();
@@ -155,12 +190,113 @@ function traineeApp() {
                     if (this.me.mentorShareToken) this.loadMentorAvailability();
                 }
             };
+            ws.onopen = () => {
+                this.loadNotifications();
+            };
             ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
             ws.onerror = () => ws.close();
             this.ws = ws;
         },
 
-        // ---- SESSIONS ----
+        // ---- NOTIFICATIONS ----
+        async loadNotifications() {
+            const res = await fetch('/api/v1/notifications');
+            if (res.ok) {
+                this.notifications = await res.json();
+                this.unreadCount = this.notifications.filter(n => !n.isRead).length;
+            }
+        },
+        async markNotificationRead(id) {
+            await fetch('/api/v1/notifications/' + id + '/read', { method: 'POST' });
+            await this.loadNotifications();
+        },
+        async markAllNotificationsRead() {
+            await fetch('/api/v1/notifications/read-all', { method: 'POST' });
+            await this.loadNotifications();
+        },
+        showBrowserNotification(msg) {
+            if (Notification.permission === 'granted') {
+                new Notification(msg.title || 'Сповіщення', {
+                    body: msg.message || '',
+                    tag: 'cozy-notification',
+                    icon: '/favicon.svg'
+                });
+            }
+            this.playNotificationSound();
+        },
+        playNotificationSound() {
+            try {
+                const ctx = this.audioCtx;
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 880;
+                gain.gain.value = 0.3;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                osc.stop(ctx.currentTime + 0.25);
+                setTimeout(() => {
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(ctx.destination);
+                    osc2.frequency.value = 1100;
+                    gain2.gain.value = 0.2;
+                    osc2.start();
+                    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5 + 0.2);
+                    osc2.stop(ctx.currentTime + 0.5 + 0.2);
+                }, 350);
+            } catch (e) {}
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        },
+        requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        },
+        async registerPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            try {
+                const vapidRes = await fetch('/api/v1/push/vapid-key');
+                if (!vapidRes.ok) return;
+                const {vapidKey} = await vapidRes.json();
+                if (!vapidKey) return;
+                const reg = await navigator.serviceWorker.register('/sw.js');
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this.base64UrlToUint8Array(vapidKey)
+                });
+                const getKey = (name) => {
+                    const k = sub.getKey(name);
+                    if (!k) return null;
+                    const bytes = String.fromCharCode(...new Uint8Array(k));
+                    return btoa(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                };
+                await fetch('/api/v1/push/subscribe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        endpoint: sub.endpoint,
+                        authKey: getKey('auth'),
+                        p256dhKey: getKey('p256dh')
+                    })
+                });
+            } catch (e) { console.log('push registration:', e); }
+        },
+        base64UrlToUint8Array(base64url) {
+            const pad = base64url.length % 4 === 3 ? '=' : base64url.length % 4 === 2 ? '==' : '';
+            const raw = atob(base64url + pad);
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            return arr;
+        },
+        initAudioContext() {
+            try {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {}
+        },
         async loadSessions() {
             const res = await fetch('/api/v1/trainee/sessions');
             if (res.ok) { this.sessions = await res.json(); }
@@ -168,7 +304,7 @@ function traineeApp() {
 
         openCreateModal() {
             const traineeName = this.me.name || '';
-            this.form = { title: traineeName ? 'Тренування — ' + traineeName : 'Тренування', description: '', date: today, time: '', endTime: '', locationId: '' };
+            this.form = { title: traineeName ? 'Сесія — ' + traineeName : 'Сесія', description: '', date: today, time: '', endTime: '', locationId: '' };
             this.formPickStart = null;
             this.selectedModalSlots = [];
             this.showModal = true;
@@ -184,7 +320,7 @@ function traineeApp() {
             if (res.ok) {
                 this.showModal = false;
                 this.saved = true;
-                this.savedMessage = 'Сесію створено! Тренер отримає сповіщення.';
+                this.savedMessage = 'Сесію створено! ' + (this.me.mentorName || 'Тренер') + ' отримає сповіщення.';
                 setTimeout(() => this.saved = false, 4000);
                 await this.loadSessions();
             } else { this.error = 'Помилка при створенні сесії'; }
@@ -208,32 +344,15 @@ function traineeApp() {
             const d = session.date.replace(/-/g, '');
             const st = session.time.replace(/:/g, '') + '00';
             const et = (session.endTime || session.time).replace(/:/g, '') + '00';
-            const mentor = session.mentorName || '';
-            const ics = [
-                'BEGIN:VCALENDAR',
-                'VERSION:2.0',
-                'PRODID:-//Cozy Planner//EN',
-                'BEGIN:VEVENT',
-                'DTSTART:' + d + 'T' + st,
-                'DTEND:' + d + 'T' + et,
-                'SUMMARY:' + session.title,
-                'DESCRIPTION:' + (session.description || '') + (mentor ? '\\nТренер: ' + mentor : ''),
-                'END:VEVENT',
-                'END:VCALENDAR'
-            ].join('\r\n');
-            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = (session.title || 'session').replace(/[^a-zа-яіїє0-9]/gi, '_') + '.ics';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            const text = encodeURIComponent(session.title || '');
+            const dates = d + 'T' + st + '/' + d + 'T' + et;
+            const details = encodeURIComponent(session.description || '');
+            const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + text + '&dates=' + dates + '&details=' + details;
+            window.open(url, '_blank');
         },
 
         openRequestConfirm(session) {
-            this.confirmModal = { show: true, sessionId: session.id, title: 'Запитати підтвердження?', message: 'Тренер отримає сповіщення про необхідність підтвердити сесію.' };
+            this.confirmModal = { show: true, sessionId: session.id, title: 'Запитати підтвердження?', message: (this.me.mentorName || 'Тренер') + ' отримає сповіщення про необхідність підтвердити сесію.' };
         },
 
         closeRequestConfirm() {
@@ -246,7 +365,7 @@ function traineeApp() {
             if (!id) return;
             this.error = '';
             const res = await fetch(`/api/v1/trainee/sessions/${id}/request-coach-confirmation`, { method: 'POST' });
-            if (res.ok) { this.saved = true; this.savedMessage = 'Запит на підтвердження надіслано тренеру!'; setTimeout(() => this.saved = false, 4000); await this.loadSessions(); }
+            if (res.ok) { this.saved = true; this.savedMessage = 'Запит на підтвердження надіслано ' + (this.me.mentorName || 'тренеру') + '!'; setTimeout(() => this.saved = false, 4000); await this.loadSessions(); }
             else { this.error = 'Помилка при надсиланні запиту'; }
         },
 
@@ -272,13 +391,8 @@ function traineeApp() {
         },
 
         getSessionIcons(session) {
-            const icons = ['⚽', '🎾', '🏀', '⚾', '🏈', '🥊', '🎯', '🚴'];
             const count = (session.traineeIds || []).length;
-            const result = [];
-            for (let i = 0; i < count; i++) {
-                result.push(icons[(session.id * 3 + i) % icons.length]);
-            }
-            return result;
+            return Array(count).fill('😊');
         },
 
         // ---- COACH SCHEDULE ----
@@ -350,7 +464,7 @@ function traineeApp() {
         },
 
         bookSlot(slot) {
-            this.form = { title: 'Тренування', description: '', date: slot.date, time: slot.startTime, endTime: slot.endTime, locationId: slot.locationId || '' };
+            this.form = { title: 'Сесія', description: '', date: slot.date, time: slot.startTime, endTime: slot.endTime, locationId: slot.locationId || '' };
             this.selectedModalSlots = this.slotSlides(slot.startTime, slot.endTime);
             this.tab = 'sessions';
             this.showModal = true;
@@ -388,7 +502,7 @@ function traineeApp() {
                 endTime = `${Number(m) + 30 < 60 ? `${h}:${String(Number(m) + 30).padStart(2, '0')}` : `${String(Number(h) + 1).padStart(2, '0')}:00`}`;
                 locationId = c.locId || '';
             }
-            this.form = { title: 'Тренування', description: '', date: this.coachSelectedDate, time: startTime, endTime, locationId };
+            this.form = { title: 'Сесія', description: '', date: this.coachSelectedDate, time: startTime, endTime, locationId };
             this.selectedModalSlots = this.slotSlides(startTime, endTime);
             this.tab = 'sessions';
             this.showModal = true;

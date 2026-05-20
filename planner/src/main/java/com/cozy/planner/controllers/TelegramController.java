@@ -1,6 +1,9 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.config.TelegramConfig;
+import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Session;
+import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.SessionRepository;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.TelegramService;
@@ -10,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+
+import java.util.Map;
 
 
 
@@ -21,11 +26,23 @@ public class TelegramController {
     private final TelegramService telegramService;
     private final ObjectMapper objectMapper;
     private final SessionRepository sessionRepository;
+    private final MentorRepository mentorRepository;
+    private final TelegramConfig telegramConfig;
 
-    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository) {
+    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository, MentorRepository mentorRepository, TelegramConfig telegramConfig) {
         this.telegramService = telegramService;
         this.objectMapper = objectMapper;
         this.sessionRepository = sessionRepository;
+        this.mentorRepository = mentorRepository;
+        this.telegramConfig = telegramConfig;
+    }
+
+    @GetMapping("/telegram/config")
+    public Mono<Map<String, Object>> getConfig() {
+        boolean enabled = telegramConfig.isEnabled()
+                && telegramConfig.getBotToken() != null
+                && !telegramConfig.getBotToken().isBlank();
+        return Mono.just(Map.of("enabled", enabled));
     }
 
     @PostMapping("/telegram/webhook")
@@ -135,16 +152,19 @@ public class TelegramController {
                         session.setConfirmationStatus("CONFIRMED");
                         return sessionRepository.save(session);
                     })
-                    .flatMap(saved -> {
-                        String text = "✅ Сесію підтверджено!";
-                        Mono<Boolean> msg;
-                        if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
-                            msg = telegramService.sendMessageToMentor(chatId, text);
-                        } else {
-                            msg = telegramService.sendMessage(chatId, text);
-                        }
-                        return msg.thenReturn(saved);
-                    })
+                    .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
+                            .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                            .flatMap(mentor -> {
+                                String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                String text = ProfileLabels.get(profile, "telegram_callback_confirmed");
+                                Mono<Boolean> msg;
+                                if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+                                    msg = telegramService.sendMessageToMentor(chatId, text);
+                                } else {
+                                    msg = telegramService.sendMessage(chatId, text);
+                                }
+                                return msg.thenReturn(saved);
+                            }))
                     .then(ackCallback(callbackId, botType))
                     .thenReturn(ResponseEntity.ok().build());
         } else if (data.startsWith("reject_session:")) {
@@ -155,16 +175,19 @@ public class TelegramController {
                         session.setConfirmationStatus("REJECTED");
                         return sessionRepository.save(session);
                     })
-                    .flatMap(saved -> {
-                        String text = "❌ Сесію відхилено.";
-                        Mono<Boolean> msg;
-                        if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
-                            msg = telegramService.sendMessageToMentor(chatId, text);
-                        } else {
-                            msg = telegramService.sendMessage(chatId, text);
-                        }
-                        return msg.thenReturn(saved);
-                    })
+                    .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
+                            .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                            .flatMap(mentor -> {
+                                String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                String text = ProfileLabels.get(profile, "telegram_callback_rejected");
+                                Mono<Boolean> msg;
+                                if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+                                    msg = telegramService.sendMessageToMentor(chatId, text);
+                                } else {
+                                    msg = telegramService.sendMessage(chatId, text);
+                                }
+                                return msg.thenReturn(saved);
+                            }))
                     .then(ackCallback(callbackId, botType))
                     .thenReturn(ResponseEntity.ok().build());
         } else if (data.equals("trainee_confirm_session")) {

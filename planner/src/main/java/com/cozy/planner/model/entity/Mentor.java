@@ -50,6 +50,15 @@ public class Mentor {
     @Column("share_token")
     private String shareToken;
 
+    @Column("photo_url")
+    private String photoUrl;
+
+    @Column("work_start")
+    private String workStart;
+
+    @Column("work_end")
+    private String workEnd;
+
     public boolean hasTelegram() {
         return telegramChatId != null && !telegramChatId.isBlank();
     }

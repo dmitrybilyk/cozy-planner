@@ -9,11 +9,9 @@ import com.planner.api.MentorsApi;
 import com.planner.model.TraineeDTO;
 import com.planner.model.MentorDTO;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -176,5 +174,61 @@ public class MentorsApiController implements MentorsApi {
         dto.setDescription(entity.getDescription());
         dto.setMentorId(entity.getMentorId());
         return dto;
+    }
+
+    @GetMapping("/api/v1/mentors/{mentorId}/trainees-telegram")
+    public Mono<ResponseEntity<Flux<Map<String, Object>>>> getTraineesTelegramStatus(@PathVariable Long mentorId) {
+        Flux<Map<String, Object>> result = traineeRepository.findAllByMentorId(mentorId)
+                .map(trainee -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", trainee.getId());
+                    m.put("name", trainee.getName());
+                    boolean hasTg = trainee.hasTelegram();
+                    m.put("telegramEnabled", telegramService.isEnabled());
+                    m.put("telegramConnected", hasTg);
+                    m.put("telegramUsername", trainee.getTelegramUsername());
+                    m.put("photoBase64", trainee.getPhotoBase64());
+                    m.put("weekendReminderEnabled", trainee.isWeekendReminderEnabled());
+                    m.put("sessionReminderEnabled", trainee.isSessionReminderEnabled());
+                    m.put("inviteToken", trainee.getInviteToken());
+
+                    String connectLink = null;
+                    if (telegramService.isEnabled() && trainee.getInviteToken() != null && !trainee.getInviteToken().isBlank()) {
+                        String botUsername = telegramConfig.getBotUsername();
+                        if (botUsername != null && !botUsername.isBlank()) {
+                            connectLink = "https://t.me/" + botUsername + "?start=" + trainee.getInviteToken();
+                        }
+                    }
+                    m.put("connectLink", connectLink);
+                    return m;
+                });
+        return Mono.just(ResponseEntity.ok(result));
+    }
+
+    public Mono<ResponseEntity<Map<String, Object>>> updateProfile(@RequestBody Map<String, String> body,
+                                                                   ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            Object mentorIdObj = session.getAttribute("mentor_id");
+            if (!(mentorIdObj instanceof Number)) {
+                Map<String, Object> err = new HashMap<>();
+                err.put("success", false);
+                err.put("reason", "Not authenticated");
+                return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(err));
+            }
+            Long mentorId = ((Number) mentorIdObj).longValue();
+            return mentorRepository.findById(mentorId)
+                    .flatMap(mentor -> {
+                        if (body.containsKey("photoUrl")) mentor.setPhotoUrl(body.get("photoUrl"));
+                        if (body.containsKey("workStart")) mentor.setWorkStart(body.get("workStart"));
+                        if (body.containsKey("workEnd")) mentor.setWorkEnd(body.get("workEnd"));
+                        return mentorRepository.save(mentor)
+                                .then(Mono.fromCallable(() -> {
+                                    Map<String, Object> r = new HashMap<>();
+                                    r.put("success", true);
+                                    return ResponseEntity.ok(r);
+                                }));
+                    })
+                    .defaultIfEmpty(ResponseEntity.notFound().<Map<String, Object>>build());
+        });
     }
 }

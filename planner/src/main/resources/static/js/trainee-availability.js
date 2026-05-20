@@ -27,6 +27,18 @@ function availabilityApp() {
             return this.me.inviteToken ? '/trainee/' + this.me.inviteToken + '/sessions' : '#';
         },
 
+        get sessionsTabLabel() {
+            const profile = this.me.mentorProfile || 'sport';
+            const labels = { sport: 'Тренування', studying: 'Уроки', psychology: 'Сесії', other: 'Сесії' };
+            return labels[profile] || 'Сесії';
+        },
+
+        get mentorDative() {
+            const profile = this.me.mentorProfile || 'sport';
+            const labels = { sport: 'тренеру', studying: 'репетитору', psychology: 'терапевту', other: 'виконавцю' };
+            return labels[profile] || 'тренеру';
+        },
+
         get currentSlots() {
             return this.slotsByDate[this.selectedDate] || [];
         },

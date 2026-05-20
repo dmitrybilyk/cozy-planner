@@ -19,7 +19,7 @@ function calendarApp() {
         daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         coachGrid: [],
         selectedTraineeFilters: [], traineeSearch: '',
-        sessionForm: { title: 'Тренування', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
+        sessionForm: { title: '', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
         selectedCoachSlots: [],
         traineeForm: { name: '', description: '', photoBase64: null },
         locationForm: { name: '', description: '', color: '#3b82f6' },
@@ -41,9 +41,114 @@ function calendarApp() {
         touchDrag: null,
         touchJustDragged: false,
         _touchDragCleanup: null,
+        showNotifications: false,
+        workStart: '09:00',
+        workEnd: '21:00',
+        photoUrl: null,
+        notifications: [],
+        unreadCount: 0,
 
+        async loadNotifications() {
+            const res = await fetch('/api/v1/notifications');
+            if (res.ok) {
+                this.notifications = await res.json();
+                this.unreadCount = this.notifications.filter(n => !n.isRead).length;
+            }
+        },
+        async markNotificationRead(id) {
+            await fetch('/api/v1/notifications/' + id + '/read', { method: 'POST' });
+            await this.loadNotifications();
+        },
+        async markAllNotificationsRead() {
+            await fetch('/api/v1/notifications/read-all', { method: 'POST' });
+            await this.loadNotifications();
+        },
+        showBrowserNotification(msg) {
+            if (Notification.permission === 'granted') {
+                new Notification(msg.title || 'Сповіщення', {
+                    body: msg.message || '',
+                    tag: 'cozy-notification',
+                    icon: '/favicon.svg'
+                });
+            }
+            this.playNotificationSound();
+        },
+        playNotificationSound() {
+            try {
+                const ctx = this.audioCtx;
+                if (ctx.state === 'suspended') ctx.resume();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 880;
+                gain.gain.value = 0.3;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                osc.stop(ctx.currentTime + 0.25);
+                setTimeout(() => {
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.connect(gain2);
+                    gain2.connect(ctx.destination);
+                    osc2.frequency.value = 1100;
+                    gain2.gain.value = 0.2;
+                    osc2.start();
+                    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5 + 0.2);
+                    osc2.stop(ctx.currentTime + 0.5 + 0.2);
+                }, 350);
+            } catch (e) {}
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+        },
+        requestNotificationPermission() {
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        },
+        async registerPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            try {
+                const vapidRes = await fetch('/api/v1/push/vapid-key');
+                if (!vapidRes.ok) return;
+                const {vapidKey} = await vapidRes.json();
+                if (!vapidKey) return;
+                const reg = await navigator.serviceWorker.register('/sw.js');
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this.base64UrlToUint8Array(vapidKey)
+                });
+                const getKey = (name) => {
+                    const k = sub.getKey(name);
+                    if (!k) return null;
+                    const bytes = String.fromCharCode(...new Uint8Array(k));
+                    return btoa(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                };
+                await fetch('/api/v1/push/subscribe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        endpoint: sub.endpoint,
+                        authKey: getKey('auth'),
+                        p256dhKey: getKey('p256dh')
+                    })
+                });
+            } catch (e) { console.log('push registration:', e); }
+        },
+        base64UrlToUint8Array(base64url) {
+            const pad = base64url.length % 4 === 3 ? '=' : base64url.length % 4 === 2 ? '==' : '';
+            const raw = atob(base64url + pad);
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            return arr;
+        },
+        initAudioContext() {
+            try {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {}
+        },
         async init() {
             console.log('init() starting...');
+            this.initAudioContext();
             try {
                 const me = await this.fetchMe();
                 console.log('fetchMe result:', me, 'mentorId:', this.mentorId);
@@ -69,12 +174,16 @@ function calendarApp() {
                 
                 await this.fetchMentorTelegramStatus();
                 console.log('fetchMentorTelegramStatus done');
-                
+
+                await this.loadNotifications();
+                this.requestNotificationPermission();
                 this.connectWebSocket();
-                for (let h = 6; h < 22; h++) {
-                    const cells = [{mm:h*60},{mm:h*60+30}];
-                    this.coachGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
-                }
+                this.registerPush();
+                setInterval(() => this.loadNotifications(), 30000);
+                this.buildCoachGrid();
+                this.$watch('sessionForm.date', (value) => {
+                    if (value) this.buildCoachGrid(value);
+                });
                 this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
                 this._nowTimer = setInterval(() => { this.nowTick++; }, 30000);
@@ -90,6 +199,16 @@ function calendarApp() {
             const ws = new WebSocket(wsUrl);
             
             ws.onmessage = (event) => {
+                if (event.data.startsWith('{')) {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'notification') {
+                            this.showBrowserNotification(msg);
+                            this.loadNotifications();
+                        }
+                    } catch (e) {}
+                    return;
+                }
                 switch(event.data) {
                     case 'session_changed': this.fetchSessionCounts(); this.fetchData(); break;
                     case 'trainee_changed': this.fetchTrainees(); this.fetchSessionCounts(); this.fetchData(); break;
@@ -99,14 +218,15 @@ function calendarApp() {
                 }
             };
             
+            ws.onopen = () => {
+                this.loadNotifications();
+            };
             ws.onclose = () => {
                 setTimeout(() => this.connectWebSocket(), 3000);
             };
-            
             ws.onerror = () => {
                 ws.close();
             };
-            
             this.ws = ws;
         },
 
@@ -144,33 +264,37 @@ function calendarApp() {
             const d = session.date.replace(/-/g, '');
             const st = session.time.replace(/:/g, '') + '00';
             const et = (session.endTime || session.time).replace(/:/g, '') + '00';
-            const loc = this.getLocationName(session.locationId) || '';
+            const text = encodeURIComponent(session.title || '');
+            const dates = d + 'T' + st + '/' + d + 'T' + et;
+            const loc = encodeURIComponent(this.getLocationName(session.locationId) || '');
             const names = (session.traineeIds || []).map(id => this.getTraineeName(id)).filter(Boolean).join(', ');
-            const desc = (session.description || '') + (names ? '\\nУчні: ' + names : '');
-            const ics = [
-                'BEGIN:VCALENDAR',
-                'VERSION:2.0',
-                'PRODID:-//Cozy Planner//EN',
-                'BEGIN:VEVENT',
-                'DTSTART:' + d + 'T' + st,
-                'DTEND:' + d + 'T' + et,
-                'SUMMARY:' + session.title,
-                'DESCRIPTION:' + desc,
-                'LOCATION:' + loc,
-                'END:VEVENT',
-                'END:VCALENDAR'
-            ].join('\r\n');
-            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = (session.title || 'session').replace(/[^a-zа-яіїє0-9]/gi, '_') + '.ics';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            const details = encodeURIComponent((session.description || '') + (names ? '\\n' + names : ''));
+            const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + text + '&dates=' + dates + '&details=' + details + '&location=' + loc;
+            window.open(url, '_blank');
         },
 
+        buildCoachGrid(dateStr) {
+            this.coachGrid = [];
+            const startH = parseInt(this.workStart?.split(':')[0] || '9');
+            const endH = parseInt(this.workEnd?.split(':')[0] || '21');
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const today = this.todayStr;
+            for (let h = startH; h < endH; h++) {
+                const cells = [];
+                for (const offset of [0, 30]) {
+                    const mm = h * 60 + offset;
+                    let isPast = false;
+                    if (dateStr && dateStr < today) {
+                        isPast = true;
+                    } else if (dateStr === today) {
+                        isPast = mm <= currentMinutes;
+                    }
+                    cells.push({ mm, isPast });
+                }
+                this.coachGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+            }
+        },
         initTouchDrag() {
             const container = document.querySelector('main') || document.body;
             if (!container) return;
@@ -255,6 +379,9 @@ function calendarApp() {
                     this.mentorId = data.mentor?.id;
                     this.mentor.name = data.mentor?.name || 'Cozy Planner';
                     this.mentorProfile = data.mentor?.profile || 'sport';
+                    this.workStart = data.mentor?.workStart || '09:00';
+                    this.workEnd = data.mentor?.workEnd || '21:00';
+                    this.photoUrl = data.mentor?.photoUrl || null;
                     this.labels = data.labels || {};
                     return true;
                 } else {
@@ -618,6 +745,29 @@ function calendarApp() {
                 console.error('Failed to fetch mentor telegram status:', e);
             }
         },
+        uploadPhoto(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const dataUrl = e.target.result;
+                const res = await fetch('/api/v1/mentor/profile', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({photoUrl: dataUrl})
+                });
+                if (res.ok) this.photoUrl = dataUrl;
+            };
+            reader.readAsDataURL(file);
+        },
+        async saveWorkHours() {
+            await fetch('/api/v1/mentor/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({workStart: this.workStart, workEnd: this.workEnd})
+            });
+            this.buildCoachGrid();
+        },
         
         async generateMentorTelegramToken() {
             if (this.mentorTg.connectLink && this.mentorTg.connectLink.length > 0) {
@@ -723,17 +873,8 @@ function calendarApp() {
         getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
         getLocationColor(id) { return this.locations.find(l => l.id === id)?.color || '#3b82f6'; },
         getSessionIcons(session, index) {
-            const profile = this.mentorProfile || 'sport';
-            const sportIcons = ['⚽', '🎾', '🏀', '⚾', '🏈', '🥊', '🎯', '🚴', '🏋️', '🏃', '🏄', '🧗', '🎿', '🥋', '🤺', '🏇'];
-            const medicineIcons = ['💆', '🧘', '🌿', '🪷', '🔮', '🕯️', '🌺', '🍃', '💧', '🤲', '✨', '🪐', '🫧', '🌸', '🏔️', '🌊', '🔥', '🧂', '🧴', '🪨'];
-            const icons = profile === 'medicine' ? medicineIcons : sportIcons;
             const count = (session.traineeIds || []).length;
-            const result = [];
-            for (let i = 0; i < count; i++) {
-                const idx = (index * 3 + i) % icons.length;
-                result.push(icons[idx]);
-            }
-            return result;
+            return Array(count).fill('😊');
         },
         get nowMinutes() {
             this.nowTick; // trigger reactivity
@@ -941,8 +1082,20 @@ function calendarApp() {
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.originalSessionData = null;
-            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
+            const workEnd = this.workEnd || '22:00';
+            const [weh, wem] = workEnd.split(':').map(Number);
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const workEndMinutes = weh * 60 + wem;
+            let defaultDate = this.selectedDate;
+            if (currentMinutes >= workEndMinutes) {
+                const tomorrow = new Date(now);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                defaultDate = tomorrow.toISOString().slice(0, 10);
+            }
+            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
             this.selectedCoachSlots = [];
+            this.buildCoachGrid(defaultDate);
             this.showModal = true;
         },
 
@@ -961,6 +1114,7 @@ function calendarApp() {
             } else {
                 this.selectedCoachSlots = [];
             }
+            this.buildCoachGrid(w.date);
             this.showModal = true;
         },
 
@@ -971,7 +1125,7 @@ function calendarApp() {
             this.$nextTick(() => {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
-                this.sessionForm = { title: 'Тренування' + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: null };
+                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: null };
                 const slots = [];
                 let t = this.slotToMin(startTime);
                 const end = this.slotToMin(endTime);
@@ -1043,7 +1197,7 @@ function calendarApp() {
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.originalSessionData = null;
-            this.sessionForm = { title: 'Тренування — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
+            this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
             this.selectedCoachSlots = [];
             this.showModal = true;
         },

@@ -81,6 +81,9 @@ public class MeController {
                                             mentorMap.put("name", mentor.getName());
                                             mentorMap.put("profile", profile);
                                             mentorMap.put("shareToken", mentor.getShareToken());
+                                            mentorMap.put("workStart", mentor.getWorkStart());
+                                            mentorMap.put("workEnd", mentor.getWorkEnd());
+                                            mentorMap.put("photoUrl", mentor.getPhotoUrl());
                                             r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));
                                             return r;
@@ -154,8 +157,10 @@ public class MeController {
         return mentorRepository.findById(trainee.getMentorId())
                 .flatMap(mentor -> {
                     r.put("mentorName", mentor.getName());
+                    r.put("mentorPhotoUrl", mentor.getPhotoUrl());
                     r.put("mentorTelegramConnected", mentor.hasTelegram());
                     r.put("mentorShareToken", mentor.getShareToken());
+                    r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
                     return locationRepository.findAllByMentorId(mentor.getId())
                             .map(loc -> Map.of("id", loc.getId(), "name", loc.getName(), "color", loc.getColor()))
                             .collectList()
@@ -166,8 +171,10 @@ public class MeController {
                 })
                 .switchIfEmpty(Mono.fromCallable(() -> {
                     r.put("mentorName", null);
+                    r.put("mentorPhotoUrl", null);
                     r.put("mentorTelegramConnected", false);
                     r.put("mentorShareToken", null);
+                    r.put("mentorProfile", "sport");
                     r.put("locations", List.of());
                     return r;
                 }));

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Мої сесії</title>
+    <title x-text="pageTitle || 'Мої сесії'"></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="/css/shared.css">
@@ -12,7 +12,7 @@
 <body class="antialiased" x-data="traineeApp()">
 
 <header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-14 flex items-center justify-between sticky top-0 z-40">
-    <h1 class="text-lg font-bold" x-text="me.name || 'Мої сесії'"></h1>
+    <h1 class="text-lg font-bold" x-text="me.name || pageTitle || 'Мої сесії'">Мої сесії</h1>
     <div class="flex items-center gap-2">
         <span x-show="me.telegramEnabled && me.mentorTelegramConnected"
               :class="me.telegramConnected ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'"
@@ -23,7 +23,7 @@
             <button @click="saveAvailability()" class="bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg">Зберегти</button>
         </template>
         <template x-if="tab === 'sessions'">
-            <button @click="openCreateModal()" class="bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg">+ Нова</button>
+            <button @click="openCreateModal()" class="bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg">+ Створити</button>
         </template>
     </div>
 </header>
@@ -32,15 +32,20 @@
     <div class="flex max-w-lg mx-auto">
         <button @click="tab = 'sessions'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                 :class="tab === 'sessions' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
-            Сесії
+            <span x-text="tabLabels.sessions || 'Сесії'">Сесії</span>
         </button>
         <button @click="showCoachSchedule()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                  :class="tab === 'schedule' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
-             Доступність тренера
+             <span x-text="tabLabels.schedule || 'Доступність тренера'">Доступність тренера</span>
          </button>
         <button @click="tab = 'availability'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                 :class="tab === 'availability' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
-            Моя доступність
+            <span x-text="tabLabels.availability || 'Моя доступність'">Моя доступність</span>
+        </button>
+        <button @click="tab = 'notifications'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 relative"
+                :class="tab === 'notifications' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
+            🔔
+            <span x-show="unreadCount > 0" class="absolute -top-0.5 right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-1 leading-none" x-text="unreadCount"></span>
         </button>
     </div>
 </div>
@@ -52,19 +57,19 @@
     <!-- ====== SESSIONS TAB ====== -->
     <div x-show="tab === 'sessions'">
         <div x-show="sessions.length === 0" class="text-center py-20 text-gray-600 text-sm">
-            У тебе ще немає сесій. Натисни "+ Нова", щоб створити.
+            <span x-text="tabLabels.no_sessions || 'У тебе ще немає сесій.'">У тебе ще немає сесій.</span> Натисни "+ Нова", щоб створити.
         </div>
         <div class="space-y-3">
             <template x-for="(session, idx) in sortedSessions" :key="session.id">
                 <div>
                     <div x-show="idx > 0 && isPastSession(sortedSessions[idx-1]) !== isPastSession(session) && isPastSession(session)"
-                         class="text-xs font-bold text-gray-600 uppercase tracking-wider pt-6 pb-3 text-center">— Минулі сесії —</div>
+                         class="text-xs font-bold text-gray-600 uppercase tracking-wider pt-6 pb-3 text-center"><span x-text="tabLabels.past_sessions || '— Минулі сесії —'">— Минулі сесії —</span></div>
                     <div class="rounded-3xl p-5 shadow-sm border relative overflow-hidden"
                          :class="getCardClass(session)">
                     <div class="flex items-start justify-between">
                         <div class="flex-1 min-w-0">
                             <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
-                            <p class="text-sm text-gray-500 mt-1" x-text="session.description"></p>
+                            <p class="text-sm text-gray-500 mt-1 truncate" x-text="session.description" :title="session.description"></p>
                             <div class="flex items-center gap-2 mt-2 text-sm text-gray-400">
                                 <span>📅 <span x-text="session.date"></span></span>
                                 <span>🕐 <span x-text="session.time"></span><span x-show="session.endTime" x-text="' — ' + session.endTime"></span></span>
@@ -72,7 +77,7 @@
                             <div class="flex items-center gap-2 mt-2">
                                 <span class="text-xs text-gray-500" x-text="session.mentorName ? '👤 ' + session.mentorName : ''"></span>
                             </div>
-                            <div class="mt-2">
+                            <div x-show="session.confirmationStatus === 'PENDING'" class="mt-2">
                                 <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"
                                       :class="getStatusClass(session.confirmationStatus)">
                                     <span x-text="getStatusLabel(session.confirmationStatus)"></span>
@@ -84,7 +89,7 @@
                                 <span class="text-base" x-text="icon"></span>
                             </template>
                         </div>
-                        <button @click.stop="exportToGCal(session)" class="mt-3 text-[11px] font-bold text-green-400 uppercase tracking-wider hover:text-green-300">📅 Експорт в Google Календар</button>
+                        <button @click.stop="exportToGCal(session)" class="mt-3 text-[11px] font-bold text-green-400 uppercase tracking-wider hover:text-green-300">📅 Календар</button>
                     </div>
                     <div x-show="session.createdBy === 'COACH' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-4 pt-3 border-t border-[#292929]">
                         <button @click="confirmSession(session.id)" class="flex-1 py-2 bg-green-600 text-white rounded-xl text-xs font-bold uppercase">Підтвердити</button>
@@ -96,7 +101,7 @@
                 </div>
             </template>
         </div>
-        <div x-show="!showAllFuture" class="text-center py-6">
+        <div x-show="!showAllFuture && hasMoreSessions" class="text-center py-6">
             <button @click="showAllFuture = true"
                     class="px-8 py-3 bg-[#262626] hover:bg-[#333] rounded-2xl text-sm font-bold text-gray-300 transition">
                 Завантажити ще
@@ -111,6 +116,17 @@
         </div>
         <div x-show="mentorScheduleLoading" class="text-center py-20 text-gray-500 text-sm">Завантаження...</div>
         <div x-show="Object.keys(coachCellsByDate).length > 0">
+            <div class="flex items-center gap-3 mb-4 px-1">
+                <template x-if="me.mentorPhotoUrl">
+                    <img :src="me.mentorPhotoUrl" class="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/30">
+                </template>
+                <template x-if="!me.mentorPhotoUrl">
+                    <div class="w-10 h-10 rounded-full bg-[#262626] flex items-center justify-center text-gray-400 text-sm font-bold ring-2 ring-blue-500/30">
+                        <span x-text="(me.mentorName || 'Т')[0].toUpperCase()"></span>
+                    </div>
+                </template>
+                <span class="text-sm font-bold text-gray-300" x-text="me.mentorName || 'Тренер'"></span>
+            </div>
             <div class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
                 <template x-for="day in days" :key="day.dateStr">
                     <button @click="coachSelectedDate = day.dateStr"
@@ -135,10 +151,11 @@
                                 <span x-text="row.lbl"></span>
                             </div>
                             <div class="flex-1 flex">
-                                <template x-for="(c, ci) in row.cells" :key="ci">
-                                    <button @click="bookSlotFromGrid(c.mm)"
-                                            class="flex-1 h-10 sm:h-11 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
-                                            :style="coachCellStyle(c.mm)">
+                                    <template x-for="(c, ci) in row.cells" :key="ci">
+                                        <button @click="bookSlotFromGrid(c.mm)"
+                                                class="flex-1 h-10 sm:h-11 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95"
+                                                :style="coachCellStyle(c.mm)"
+                                                x-show="!isPastMinuteOnDate(coachSelectedDate, c.mm)">
                                     </button>
                                 </template>
                             </div>
@@ -154,6 +171,34 @@
                     <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
                 </template>
             </div>
+        </div>
+    </div>
+
+    <!-- ====== NOTIFICATIONS TAB ====== -->
+    <div x-show="tab === 'notifications'">
+        <div x-show="notifications.length === 0" class="text-center py-20 text-gray-600 text-sm">Немає сповіщень.</div>
+        <template x-if="unreadCount > 0">
+            <div class="text-right mb-2">
+                <button @click="markAllNotificationsRead()" class="text-[11px] font-bold text-blue-400 uppercase">Прочитати всі</button>
+            </div>
+        </template>
+        <div class="space-y-2">
+            <template x-for="n in notifications" :key="n.id">
+                <div @click="markNotificationRead(n.id)"
+                     class="rounded-2xl p-4 border cursor-pointer transition-all"
+                     :class="n.isRead ? 'bg-[#222] border-[#333] opacity-50' : 'bg-[#262626] border-blue-500/40'">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-bold text-white" x-text="n.title"></p>
+                            <p class="text-xs text-gray-300 mt-1" x-text="n.message"></p>
+                            <p class="text-[10px] text-gray-400 mt-1" x-text="n.createdAt ? n.createdAt.slice(0, 16).replace('T', ' ') : ''"></p>
+                        </div>
+                        <template x-if="!n.isRead">
+                            <span class="w-2.5 h-2.5 rounded-full bg-blue-400 flex-shrink-0 mt-1.5"></span>
+                        </template>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 

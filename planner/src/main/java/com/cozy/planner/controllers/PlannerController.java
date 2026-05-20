@@ -145,10 +145,12 @@ public class PlannerController {
             r.put("mentorName", mentor.getName());
             r.put("mentorTelegramConnected", mentor.hasTelegram());
             r.put("mentorShareToken", mentor.getShareToken());
+            r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
         } else {
             r.put("mentorName", null);
             r.put("mentorTelegramConnected", false);
             r.put("mentorShareToken", null);
+            r.put("mentorProfile", "sport");
         }
         r.put("locations", locations);
         return r;

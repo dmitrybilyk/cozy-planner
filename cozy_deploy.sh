@@ -10,9 +10,9 @@ START_TIME=$SECONDS
 # Налаштування змінних
 #Standing
 #LOCAL_PROJECT_DIR="/home/dik81/IdeaProjects/cozy-planner"
-#LOCAL_PROJECT_DIR="/home/dmytro/dev/projects/cozy-planner"
+LOCAL_PROJECT_DIR="/home/dmytro/dev/projects/cozy-planner"
 #old
-LOCAL_PROJECT_DIR="/home/dmytro/IdeaProjects/cozy-planner"
+#LOCAL_PROJECT_DIR="/home/dmytro/IdeaProjects/cozy-planner"
 REMOTE_USER="ubuntu"
 REMOTE_HOST="92.5.42.35"
 REMOTE_PROJECT_DIR="cozy-planner"
