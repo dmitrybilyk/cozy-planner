@@ -36,7 +36,6 @@ function traineeApp() {
         error: '',
         todayStr: today,
         showAllFuture: false,
-        showAllPast: false,
         form: { title: '', description: '', date: today, time: '10:00', endTime: '11:00', locationId: '' },
         locations: [],
         confirmModal: { show: false, sessionId: null, title: '', message: '' },
@@ -51,7 +50,8 @@ function traineeApp() {
         // coach schedule
         coachSelectedDate: today,
         coachCellsByDate: {},
-        mentorWorkStart: '06:00', mentorWorkEnd: '22:00',
+        mentorWorkStart: '06:00',
+        mentorWorkEnd: '21:00',
 
         // availability state
         traineeId: null,
@@ -65,6 +65,14 @@ function traineeApp() {
         },
         cellAt(mm) {
             return this.getCurCells().find(x => x.mm === mm);
+        },
+        buildWorkGrid() {
+            this.grid = [];
+            const ws = parseInt((this.mentorWorkStart || '06:00').split(':')[0]);
+            const we = parseInt((this.mentorWorkEnd || '21:00').split(':')[0]);
+            for (let h = ws; h < we; h++) {
+                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells: [{ mm: h*60 }, { mm: h*60+30 }] });
+            }
         },
 
         get sortedSessions() {
@@ -81,32 +89,17 @@ function traineeApp() {
             }
             future.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
             past.sort((a, b) => (b.date + (b.endTime || b.time)).localeCompare(a.date + (a.endTime || a.time)));
-            const result = [];
             if (!this.showAllFuture) {
-                const futureCutoff = addDays(todayStr, 3);
-                result.push(...future.filter(s => s.date <= futureCutoff));
-            } else {
-                result.push(...future);
+                const cutoff = addDays(todayStr, 3);
+                return [...future.filter(s => s.date <= cutoff), ...past];
             }
-            if (!this.showAllPast) {
-                const pastCutoff = addDays(todayStr, -3);
-                result.push(...past.filter(s => s.date >= pastCutoff));
-            } else {
-                result.push(...past);
-            }
-            return result;
+            return [...future, ...past];
         },
 
-        get hasMoreFutureSessions() {
+        get hasMoreSessions() {
             const todayStr = localDateStr(new Date());
             const cutoff = addDays(todayStr, 3);
             return this.sessions.some(s => s.date > cutoff);
-        },
-
-        get hasMorePastSessions() {
-            const todayStr = localDateStr(new Date());
-            const cutoff = addDays(todayStr, -3);
-            return this.sessions.some(s => s.date < cutoff);
         },
 
         hasSessionOnDate(dateStr) {
@@ -137,16 +130,6 @@ function traineeApp() {
             }));
         },
 
-        buildGrid() {
-            const startH = parseInt(this.mentorWorkStart.split(':')[0]);
-            const endH = parseInt(this.mentorWorkEnd.split(':')[0]);
-            this.grid = [];
-            for (let h = startH; h < endH; h++) {
-                const cells = [{mm:h*60},{mm:h*60+30}];
-                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
-            }
-        },
-
         async init() {
             this.initAudioContext();
             let me = embeddedTrainee;
@@ -159,8 +142,6 @@ function traineeApp() {
             this.traineeId = me.traineeId;
             this.me = me;
             this.locations = me.locations || [];
-            this.mentorWorkStart = me.mentorWorkStart || '06:00';
-            this.mentorWorkEnd = me.mentorWorkEnd || '22:00';
 
             const profile = me.mentorProfile || 'sport';
             const tabLabelSets = {
@@ -181,7 +162,7 @@ function traineeApp() {
                 this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
 
-            this.buildGrid();
+            this.buildWorkGrid();
 
             await this.loadSessions();
             if (this.me.mentorShareToken) this.loadMentorAvailability();
@@ -356,17 +337,7 @@ function traineeApp() {
 
         openCreateModal() {
             const traineeName = this.me.name || '';
-            let defaultDate = today;
-            if (this.coachDayOffs.includes(defaultDate)) {
-                const d = new Date();
-                let tries = 0;
-                while (this.coachDayOffs.includes(defaultDate) && tries < 14) {
-                    d.setDate(d.getDate() + 1);
-                    defaultDate = localDateStr(d);
-                    tries++;
-                }
-            }
-            this.form = { title: traineeName ? 'Сесія — ' + traineeName : 'Сесія', description: '', date: defaultDate, time: '', endTime: '', locationId: '' };
+            this.form = { title: traineeName ? 'Сесія — ' + traineeName : 'Сесія', description: '', date: today, time: '', endTime: '', locationId: '' };
             this.formPickStart = null;
             this.selectedModalSlots = [];
             this.showModal = true;
@@ -385,10 +356,7 @@ function traineeApp() {
                 this.savedMessage = 'Сесію створено! ' + (this.me.mentorName || 'Тренер') + ' отримає сповіщення.';
                 setTimeout(() => this.saved = false, 4000);
                 await this.loadSessions();
-            } else {
-                try { const data = await res.json(); this.error = data.reason || 'Помилка при створенні сесії'; }
-                catch(e) { this.error = 'Помилка при створенні сесії'; }
-            }
+            } else { this.error = 'Помилка при створенні сесії'; }
         },
 
         handleTraineeConfirmAction(session) {
@@ -462,11 +430,6 @@ function traineeApp() {
             return 'bg-gray-900/30 text-gray-400';
         },
 
-        isTraineeConfirmed(traineeId, confirmedIdsStr) {
-            if (!confirmedIdsStr) return false;
-            return confirmedIdsStr.split(',').map(s => s.trim()).filter(Boolean).includes(String(traineeId));
-        },
-
         getStatusLabel(status) {
             if (status === 'CONFIRMED') return '✅ Підтверджено';
             if (status === 'REJECTED') return '❌ Відхилено';
@@ -511,9 +474,9 @@ function traineeApp() {
                         console.log('[trainee] shared data slots count:', (data.slots || []).length);
                         this.mentorSlots = data.slots || [];
                         this.coachDayOffs = data.dayOffDates || [];
-                        this.mentorWorkStart = data.workStart || '06:00';
-                        this.mentorWorkEnd = data.workEnd || '22:00';
-                        this.buildGrid();
+                        if (data.workStart) this.mentorWorkStart = data.workStart;
+                        if (data.workEnd) this.mentorWorkEnd = data.workEnd;
+                        this.buildWorkGrid();
                         const g = {};
                         for (const item of this.mentorSlots) {
                         if (!g[item.date]) g[item.date] = [];
@@ -540,7 +503,6 @@ function traineeApp() {
 
         showCoachSchedule() {
             this.tab = 'schedule';
-            this.buildGrid();
             if (this.me.mentorShareToken) this.loadMentorAvailability();
         },
 
@@ -553,10 +515,6 @@ function traineeApp() {
         },
 
         bookSlot(slot) {
-            if (this.coachDayOffs.includes(slot.date)) {
-                this.error = 'Не можна створити сесію — у тренера вихідний цього дня.';
-                return;
-            }
             this.form = { title: 'Сесія', description: '', date: slot.date, time: slot.startTime, endTime: slot.endTime, locationId: slot.locationId || '' };
             this.selectedModalSlots = this.slotSlides(slot.startTime, slot.endTime);
             this.tab = 'sessions';
@@ -574,7 +532,6 @@ function traineeApp() {
         },
 
         bookSlotFromGrid(mm) {
-            if (this.coachDayOffs.includes(this.coachSelectedDate)) return;
             const c = this.coachCellAt(mm);
             if (!c) return;
             if (this.traineeSessionOnDate(this.coachSelectedDate, mm)) return;

@@ -38,7 +38,7 @@
             <template x-for="day in days" :key="day.dateStr">
                 <button @click="selectedDate = day.dateStr"
                         class="flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-2xl transition-all min-w-[60px] relative"
-                        :class="day.dateStr === selectedDate ? 'bg-blue-600 text-white shadow-lg' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
+                        :class="day.dateStr === selectedDate ? 'bg-blue-600 text-white shadow-lg' : (day.isWeekend || isDayOff(day.dateStr) ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
                     <span class="text-[9px] font-bold uppercase" x-text="day.weekday"></span>
                     <span class="text-xl font-black leading-tight" x-text="day.dayNum"></span>
                     <span class="text-[9px] font-bold mt-0.5" x-text="day.month"></span>

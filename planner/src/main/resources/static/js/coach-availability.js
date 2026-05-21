@@ -4,14 +4,15 @@ function app() {
     const today = (d=>`${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`)(new Date);
 
     return {
-        mentorId: null, shareToken: null, shareUrl: '', copied: false, todayCopied: false, imgCopiedWeek: false, imgCopiedDay: false,
+        mentorId: null, shareToken: null, shareUrl: '', copied: false, copiedToday: false, imgCopiedWeek: false, imgCopiedDay: false,
         curDate: today, days: [], grid: [],
         cells: {}, sess: {}, locs: [], curLoc: null,
         ws: null,
         busySession: null,
         mentorProfile: 'sport',
+        workStart: '09:00',
+        workEnd: '21:00',
         dayOffs: [],
-        workStart: '06:00', workEnd: '22:00',
         saving: false,
 
         get isDayOff() { return this.dayOffs.includes(this.curDate); },
@@ -27,7 +28,6 @@ function app() {
                 const ds = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
                 this.days.push({ ds, wd: WD[(d.getDay()+6)%7], num: d.getDate(), mo: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
-            this.buildGrid();
             this.load();
             this.connectWebSocket();
         },
@@ -35,13 +35,16 @@ function app() {
         getCurCells() { return this.cells[this.curDate] || []; },
 
         buildGrid() {
-            const startH = parseInt(this.workStart.split(':')[0]);
-            const endH = parseInt(this.workEnd.split(':')[0]);
-            this.grid = [];
-            for (let h = startH; h < endH; h++) {
-                const cells = [{mm:h*60},{mm:h*60+30}];
-                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+            const [sh, sm] = this.workStart.split(':').map(Number);
+            const [eh, em] = this.workEnd.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+            const arr = [];
+            for (let m = startMin; m < endMin; m += 60) {
+                const cells = [{ mm: m }, { mm: m + 30 }];
+                arr.push({ lbl: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, cells });
             }
+            this.grid = arr;
         },
 
         cellAt(mm) { return this.getCurCells().find(x => x.mm === mm); },
@@ -115,25 +118,22 @@ function app() {
         },
 
         fillAllDay() {
+            const [sh, sm] = this.workStart.split(':').map(Number);
+            const [eh, em] = this.workEnd.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+            const total = (endMin - startMin) / 30;
             const cur = this.getCurCells();
-            const startH = parseInt(this.workStart.split(':')[0]);
-            const endH = parseInt(this.workEnd.split(':')[0]);
-            const total = (endH - startH) * 2;
             const filled = cur.length === total && cur.every(c => {
-                const mm = c.mm;
-                const h = Math.floor(mm / 60);
-                const m = mm % 60;
-                return h >= startH && h < endH && (m === 0 || m === 30);
+                return c.mm >= startMin && c.mm < endMin;
             });
             if (filled) {
                 this.cells[this.curDate] = [];
                 this._dirtyDates.add(this.curDate);
             } else {
                 const arr = [];
-                for (let h = startH; h < endH; h++) {
-                    for (let m = 0; m < 60; m += 30) {
-                        arr.push({ mm: h * 60 + m, locId: this.curLoc ? Number(this.curLoc) : null });
-                    }
+                for (let m = startMin; m < endMin; m += 30) {
+                    arr.push({ mm: m, locId: this.curLoc ? Number(this.curLoc) : null });
                 }
                 this.cells[this.curDate] = arr;
                 this._dirtyDates.add(this.curDate);
@@ -189,10 +189,11 @@ function app() {
             if (!me.mentor || me.mentor.id < 0) { window.location.href = '/signin'; return; }
             this.mentorId = me.mentor.id;
             this.mentorProfile = me.mentor.profile || 'sport';
+            this.workStart = me.mentor.workStart || '09:00';
+            this.workEnd = me.mentor.workEnd || '21:00';
             this.shareToken = me.mentor.shareToken;
-            this.workStart = me.mentor.workStart || '06:00';
-            this.workEnd = me.mentor.workEnd || '22:00';
             if (this.shareToken) this.shareUrl = window.location.origin + '/shared/' + this.shareToken;
+            this.buildGrid();
 
             const sd = this.days[0].ds, ed = this.days[this.days.length-1].ds;
             const [lr, ar, sr, dr] = await Promise.all([
@@ -201,7 +202,7 @@ function app() {
                 fetch(`/api/v1/coach/sessions?startDate=${sd}&endDate=${ed}`),
                 fetch(`/api/v1/coach/day-off?startDate=${sd}&endDate=${ed}`)
             ]);
-            if (lr.ok) this.locs = await lr.json();
+            if (lr.ok) { this.locs = await lr.json(); if (this.locs.length === 1) this.curLoc = this.locs[0].id; }
             if (dr.ok) this.dayOffs = await dr.json();
 
             if (ar.ok) {
@@ -227,10 +228,8 @@ function app() {
                 }
                 this.sess = g;
             }
-            this.buildGrid();
             this._dirtyDates.clear();
             this._dirtyDayOffs = [];
-            if (!this.shareToken) this.mkToken();
         },
 
         minStr(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; },
@@ -257,18 +256,18 @@ function app() {
             if (r.ok) { const d = await r.json(); this.shareToken = d.shareToken; this.shareUrl = window.location.origin + '/shared/' + this.shareToken; }
         },
 
+        async copyTodayLink() {
+            if (!this.shareToken) await this.mkToken();
+            if (!this.shareUrl) return;
+            const url = this.shareUrl + '?date=' + this.curDate;
+            try { await navigator.clipboard.writeText(url); this.copiedToday = true; setTimeout(() => this.copiedToday = false, 2000); }
+            catch(e) { prompt('Скопіюйте:', url); }
+        },
         async copyLink() {
             if (!this.shareToken) await this.mkToken();
             if (!this.shareUrl) return;
             try { await navigator.clipboard.writeText(this.shareUrl); this.copied = true; setTimeout(() => this.copied = false, 2000); }
             catch(e) { prompt('Скопіюйте:', this.shareUrl); }
-        },
-        async copyTodayLink() {
-            if (!this.shareToken) await this.mkToken();
-            if (!this.shareUrl) return;
-            const url = this.shareUrl + '?date=' + this.curDate;
-            try { await navigator.clipboard.writeText(url); this.todayCopied = true; setTimeout(() => this.todayCopied = false, 2000); }
-            catch(e) { prompt('Скопіюйте:', url); }
         },
         async copyImageWeek() {
             if (!this.shareToken) await this.mkToken();

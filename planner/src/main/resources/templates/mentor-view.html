@@ -34,8 +34,13 @@
             </svg>
         </div>
         <div class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl flex-shrink-0">
-            <button @click="currentView = 'feed'" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'" x-text="labels.day || 'День'"></button>
-            <button @click="currentView = 'agenda'" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-black uppercase tracking-wider rounded-lg transition" :class="currentView === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'" x-text="labels.plan || 'План'"></button>
+            <button @click="currentView = 'feed'" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition flex items-center gap-1" :class="currentView === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider" x-text="labels.today_short || 'День'"></span>
+            </button>
+            <button @click="showAgenda = true; loadFutureSessions()" class="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-black uppercase tracking-wider rounded-lg transition text-gray-500 hover:bg-[#333] hover:text-gray-300">
+                <span>План</span>
+            </button>
         </div>
          <form method="POST" action="/logout" id="logoutForm" class="hidden"></form>
          
@@ -60,7 +65,7 @@
          <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
     </div>
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex gap-2">
-        <button @click="openSessionModal()" :disabled="selectedDate < todayStr || isDayOff(selectedDate)" class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100" :title="labels.new_session || 'Нова сесія'">
+        <button @click="openSessionModal()" :disabled="selectedDate < todayStr" class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100" :title="labels.new_session || 'Нова сесія'">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </button>
         <button @click="showManageTrainees = true" class="flex-1 flex items-center justify-center bg-[#262626] hover:bg-[#333] active:scale-[0.97] py-3 rounded-2xl transition" :title="labels.manage_trainees || 'Учні'">
@@ -89,14 +94,19 @@
 </div>
 
 <div x-show="currentView === 'feed'" class="bg-[#1a1a1a] border-b border-[#333]">
-    <div id="calendar-container" class="flex overflow-x-auto no-scrollbar p-4 space-x-5 scroll-smooth" @wheel.passive="handleMouseScroll($event)">
-         <template x-for="day in days" :key="day.dateStr">
-            <button @click="selectedDate = day.dateStr; $nextTick(() => scrollToActive()); if (!loadedDates[day.dateStr]) loadDaySessions(day.dateStr)"
+    <div class="flex items-center px-4 pt-4 pb-4 gap-2">
+        <button @click="showHistory = true; loadPastSessions()" class="flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-[#333] hover:bg-[#444] transition-all" title="Історія">
+            <span class="text-lg">📋</span>
+            <span class="text-[6px] font-black text-gray-400 uppercase mt-0.5">Історія</span>
+        </button>
+        <div id="calendar-container" class="flex-1 flex overflow-x-auto no-scrollbar space-x-5 scroll-smooth" @wheel.passive="handleMouseScroll($event)">
+         <template x-for="day in visibleDays" :key="day.dateStr">
+            <button @click="selectDay(day.dateStr)"
                     :id="'date-btn-' + day.dateStr"
                     class="flex-shrink-0 flex flex-col items-center min-w-[64px]"
                     :class="day.isMonday ? 'week-start' : ''">
                 <div class="w-14 h-14 rounded-xl p-[2px] flex items-center justify-center transition-all relative"
-                     :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : (isDayOff(day.dateStr) ? 'bg-[#5a1a1a] ring-1 ring-red-500/30' : day.isWeekend ? 'bg-[#5a2525]' : 'bg-[#333]'), day.dateStr === todayStr ? 'today-marker' : '']">
+                     :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : (day.isWeekend || isDayOff(day.dateStr) ? 'bg-[#5a2525]' : 'bg-[#333]'), day.dateStr === todayStr ? 'today-marker' : '']">
                     <div class="w-full h-full rounded-xl bg-black flex flex-col items-center justify-center border-2 border-black">
                         <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
                         <span class="text-sm font-bold text-white" x-text="day.dayNum"></span>
@@ -104,17 +114,10 @@
                 </div>
                 <span x-show="day.dateStr === todayStr" class="text-[7px] font-black text-white uppercase mt-1 tracking-tighter" x-text="labels.today || 'Сьогодні'"></span>
                 <div x-show="isDayOff(day.dateStr)" class="text-[7px] font-black text-red-400 uppercase mt-0.5">✕</div>
-                <div x-show="hasSessionOn(day.dateStr) && !isDayOff(day.dateStr)" class="w-1 h-1 bg-blue-500 rounded-full mt-0.5"></div>
+                <div x-show="sessionCountOn(day.dateStr) > 0 && !isDayOff(day.dateStr)" class="mt-0.5 text-[8px] font-bold text-blue-400" x-text="sessionCountOn(day.dateStr)"></div>
             </button>
         </template>
     </div>
-</div>
-
-<div x-show="currentView === 'agenda'" class="bg-[#1a1a1a] border-b border-[#333] p-4 overflow-x-auto no-scrollbar flex space-x-2">
-    <button @click="toggleTraineeFilter(null)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition" :class="selectedTraineeFilters.length === 0 ? 'bg-white text-black' : 'bg-[#262626] text-gray-400'" x-text="labels.all_trainees || 'Всі учні'"></button>
-    <template x-for="trainee in trainees" :key="trainee.id">
-        <button @click="toggleTraineeFilter(trainee.id)" class="px-5 py-2.5 rounded-full text-sm sm:text-base font-bold whitespace-nowrap transition border border-[#333]" :class="selectedTraineeFilters.includes(trainee.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-[#1a1a1a] text-gray-400'" x-text="trainee.name"></button>
-    </template>
 </div>
 
 <div x-show="showNotifications" class="fixed inset-0 z-50 flex justify-end" @click.away="showNotifications = false" x-cloak x-transition>
@@ -190,7 +193,7 @@
                                 </div>
                                 <p class="text-sm text-gray-500 italic truncate" x-text="session.description"></p>
                                 <div class="flex flex-wrap gap-1 mt-2">
-                                    <template x-for="aId in session.traineeIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, session.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, session.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getTraineeName(aId)"></span><span x-show="isTraineeConfirmed(aId, session.confirmedTraineeIds)" class="text-green-400 text-[10px]">✓</span></span></template>
+                                    <template x-for="aId in session.traineeIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, session.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, session.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getTraineeName(aId)"></span></span></template>
                                 </div>
                                 <div x-show="session.confirmationStatus === 'PENDING'" class="flex flex-wrap gap-1 mt-1">
                                     <span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
@@ -247,87 +250,51 @@
             <div x-show="filteredSessions.length === 0" class="text-center py-20 text-gray-600 text-sm italic" x-text="labels.no_sessions || 'Немає тренувань на цей день'"></div>
         </div>
     </div>
+</main>
 
-    <div x-show="currentView === 'agenda'" class="space-y-10">
-        <template x-for="dateGroup in agendaGroups" :key="dateGroup.date">
-            <div class="space-y-4">
-                <button @click="goToDay(dateGroup.date)" class="sticky top-[108px] sm:top-[116px] bg-[#121212] py-2 z-10 w-full text-left flex items-center justify-between">
+<!-- ІСТОРІЯ -->
+<div x-show="showHistory" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
+    <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
+        <button @click="showHistory = false" class="text-blue-400 font-bold">Назад</button>
+        <h3 class="font-bold text-sm">📋 Історія</h3>
+        <div class="w-10"></div>
+    </header>
+    <div class="flex-1 overflow-y-auto p-4 space-y-6">
+        <template x-for="dateGroup in pastSessionsGroups" :key="dateGroup.date">
+            <div class="space-y-3">
+                <div class="sticky top-0 bg-[#121212] py-2 z-10">
                     <span class="text-xs font-black text-blue-400 uppercase tracking-widest" x-text="formatDisplayDate(dateGroup.date)"></span>
-                    <span x-show="dateGroup.date === todayStr" class="text-[9px] font-black text-white bg-[#333] px-2 py-0.5 rounded" x-text="labels.today || 'СЬОГОДНІ'"></span>
-                </button>
-                <div x-show="dateGroup.items.length === 0" class="text-center py-6 text-gray-600 text-sm italic">Немає тренувань</div>
+                </div>
                 <div class="space-y-3">
                     <template x-for="(session, index) in dateGroup.items" :key="session.id">
-                        <div>
-                            <div x-show="showNowLineAfter(session, dateGroup.items)"
-                                 class="my-2 flex items-center gap-2">
-                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
-                                <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1">● NOW</span>
-                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
-                            </div>
-                             <div @click="handleCardClick(session, index)"
-                                  :data-session-id="session.id"
-                                  :id="'agenda-card-' + session.id"
-                                  class="rounded-2xl p-4 shadow-sm card-hover relative overflow-hidden"
-                                  :class="[getAgendaCardClass(session)]"
-                                  :style="'border-left: 4px solid ' + (session.color || '#3b82f6')">
-                                <div x-show="isSessionNow(session)" 
-                                     class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
-                                <div class="flex items-center space-x-4 min-w-0 flex-1">
-                                    <span class="text-sm font-black text-white flex-shrink-0" x-text="session.time"></span>
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex items-center gap-2">
-                                            <p class="text-base sm:text-lg font-bold text-gray-200 truncate" x-text="session.title"></p>
-                                            <span x-show="isSessionNow(session)" 
-                                                  class="text-[9px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● NOW</span>
-                                        </div>
-                                        <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="session.traineeIds.map(id => getTraineeName(id)).join(', ')"></p>
-                                        <div class="flex flex-wrap gap-1 mt-1">
-                                            <span x-show="session.confirmationStatus"
-                                                  class="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full"
-                                                  :class="getConfirmationBadgeClass(session.confirmationStatus)">
-                                                <span x-text="getConfirmationLabel(session.confirmationStatus)"></span>
-                                            </span>
-                                        </div>
-                                        <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1 mt-1">
-                                            <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
-                                            <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
-                                        </div>
-                                        <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2 mt-2">
-                                            <button @click.stop="confirmSession(session.id)" class="flex-1 py-1 bg-green-600/30 text-green-400 rounded-lg text-[9px] font-bold uppercase">Підтвердити</button>
-                                            <button @click.stop="rejectSession(session.id)" class="flex-1 py-1 bg-red-600/30 text-red-400 rounded-lg text-[9px] font-bold uppercase">Відмінити</button>
-                                        </div>
-                                        <div x-show="session.createdBy === 'COACH' && (session.confirmationStatus === 'NONE' || session.confirmationStatus === 'REJECTED')" class="mt-1">
-                                            <button @click.stop="requestTraineeConfirmation(session)" class="text-[9px] font-bold text-yellow-400 uppercase tracking-wider">Зап. підтв.</button>
-                                        </div>
+                        <div @click="copyFromHistory(session)"
+                             :data-session-id="session.id"
+                             class="rounded-2xl p-4 shadow-sm card-hover relative overflow-hidden opacity-70 hover:opacity-100 transition-opacity cursor-pointer"
+                             :class="getAgendaCardClass(session)"
+                             :style="'border-left: 4px solid ' + (session.color || '#3b82f6')">
+                            <div class="flex items-center space-x-4 min-w-0 flex-1">
+                                <span class="text-sm font-black text-white flex-shrink-0" x-text="session.time"></span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-base sm:text-lg font-bold text-gray-300 truncate" x-text="session.title"></p>
+                                    </div>
+                                    <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="session.traineeIds.map(id => getTraineeName(id)).join(', ')"></p>
+                                    <div class="flex flex-wrap gap-1 mt-1">
+                                        <span x-show="session.confirmationStatus"
+                                              class="inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                                              :class="getConfirmationBadgeClass(session.confirmationStatus)">
+                                            <span x-text="getConfirmationLabel(session.confirmationStatus)"></span>
+                                        </span>
+                                    </div>
+                                    <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1 mt-1">
+                                        <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
+                                        <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-1 ml-2 flex-shrink-0">
-                                    <template x-for="(icon, i) in getSessionIcons(session, index)" :key="i">
-                                        <span class="text-sm sm:text-base" x-text="icon"></span>
-                                    </template>
-                                    <button @click.stop="handleConfirmAction(session)"
-                                            x-show="session.createdBy === 'COACH' && session.confirmationStatus === 'NONE'"
-                                            class="text-gray-500 hover:text-gray-300 transition" title="Запитати підтвердження">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/></svg>
-                                    </button>
-                                    <span x-show="session.confirmationStatus === 'PENDING'"
-                                          class="text-yellow-500" title="Очікує підтвердження">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    </span>
-                                    <span x-show="session.confirmationStatus === 'CONFIRMED'"
-                                          class="text-green-500" title="Підтверджено">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    </span>
-                                    <span x-show="session.confirmationStatus === 'REJECTED'"
-                                          class="text-red-500" title="Відхилено">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    </span>
-                                </div>
-                                <button @click.stop="copySession(session)" class="ml-2 flex-shrink-0 text-blue-400 hover:text-blue-300 transition" title="Копіювати">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                </button>
-                                <button @click.stop="exportToGCal(session)" class="ml-2 flex-shrink-0" title="Google Календар">
+                            </div>
+                            <div class="flex items-center gap-1 ml-2 flex-shrink-0 mt-2">
+                                <span class="text-[9px] text-gray-600 font-medium">Копіювати →</span>
+                                <button @click.stop="exportToGCal(session)" class="ml-1" title="Google Календар">
                                     <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
                                 </button>
                             </div>
@@ -336,15 +303,80 @@
                 </div>
             </div>
         </template>
-        <div x-show="hasMoreDays" class="text-center py-4">
+        <div x-show="pastSessionsGroups.length === 0 && !loadingMorePast" class="text-center py-20 text-gray-600 text-sm italic">Немає минулих тренувань</div>
+        <div x-show="loadingMorePast" class="flex justify-center py-4">
+            <div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <div x-show="hasMorePastSessions" class="text-center py-4">
+            <button @click="loadMorePastSessions()" :disabled="loadingMorePast"
+                    class="px-8 py-3 bg-[#262626] hover:bg-[#333] rounded-2xl text-sm font-bold text-gray-300 transition disabled:opacity-40">
+                <span x-show="!loadingMorePast">Завантажити ще</span>
+                <span x-show="loadingMorePast">Завантаження…</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- НАСТУПНІ ДНІ -->
+<div x-show="showAgenda" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
+    <header class="px-4 h-16 flex items-center justify-between border-b border-[#333]">
+        <button @click="showAgenda = false" class="text-blue-400 font-bold">Назад</button>
+        <h3 class="font-bold text-sm">📅 Наступні дні</h3>
+        <div class="w-10"></div>
+    </header>
+    <div class="flex-1 overflow-y-auto p-4 space-y-6">
+        <div x-show="!agendaReady" class="flex flex-col items-center justify-center py-20">
+            <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <span class="text-sm text-gray-500">Завантаження…</span>
+        </div>
+        <template x-for="dateGroup in agendaGroups" :key="dateGroup.date">
+            <div class="space-y-3">
+                <div class="sticky top-0 bg-[#121212] py-2 z-10">
+                    <span class="text-xs font-black text-blue-400 uppercase tracking-widest" x-text="formatDisplayDate(dateGroup.date)"></span>
+                </div>
+                <div class="space-y-3">
+                    <template x-for="(session, index) in dateGroup.items" :key="session.id">
+                        <div @click="handleCardClick(session, index)"
+                             :data-session-id="session.id"
+                             :id="'agenda-card-' + session.id"
+                             class="rounded-2xl p-4 shadow-sm card-hover relative overflow-hidden"
+                             :class="getAgendaCardClass(session)"
+                             :style="'border-left: 4px solid ' + (session.color || '#3b82f6')">
+                            <div class="flex items-center space-x-4 min-w-0 flex-1">
+                                <span class="text-sm font-black text-white flex-shrink-0" x-text="session.time"></span>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-base sm:text-lg font-bold text-gray-200 truncate" x-text="session.title"></p>
+                                    <p class="text-xs sm:text-sm text-gray-500 truncate" x-text="session.traineeIds.map(id => getTraineeName(id)).join(', ')"></p>
+                                    <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1 mt-1">
+                                        <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
+                                        <span class="text-[9px] text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
+                                    </div>
+                                    <div class="flex items-center gap-3 mt-2">
+                                        <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition" title="Копіювати">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                        </button>
+                                        <button @click.stop="exportToGCal(session)" title="Google Календар">
+                                            <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                <div x-show="dateGroup.items.length === 0" class="text-center py-6 text-gray-600 text-sm italic">Немає тренувань</div>
+            </div>
+        </template>
+        <div x-show="agendaReady && hasMoreDays" class="text-center py-4">
             <button @click="loadNextDays(7)" :disabled="loadingMore"
                     class="px-8 py-3 bg-[#262626] hover:bg-[#333] rounded-2xl text-sm font-bold text-gray-300 transition disabled:opacity-40">
                 <span x-show="!loadingMore">Завантажити ще</span>
                 <span x-show="loadingMore">Завантаження…</span>
             </button>
         </div>
+        <div x-show="agendaReady && agendaGroups.length === 0 && !loadingMore" class="text-center py-20 text-gray-600 text-sm italic">Немає тренувань</div>
     </div>
-</main>
+</div>
 
 <!-- ПРОФІЛЬ ТРЕНЕРА -->
 <div x-show="showProfile" class="fixed inset-0 z-[60] bg-[#121212] flex flex-col" x-cloak x-transition>
@@ -635,15 +667,10 @@
                 </div>
                 <template x-for="day in futureDays" :key="day.dateStr">
                     <div x-show="getFutureSlots(trainee.id, day.dateStr).length > 0" class="flex items-start gap-3 py-2 border-b border-[#252525] last:border-0">
-                        <span class="text-xs font-bold w-14 flex-shrink-0 pt-0.5" :class="isDayOff(day.dateStr) ? 'text-red-400' : (day.isWeekend ? 'text-red-400' : 'text-gray-500')" x-text="day.weekday + ' ' + day.dayNum"></span>
+                        <span class="text-xs font-bold w-14 flex-shrink-0 pt-0.5" :class="day.isWeekend ? 'text-red-400' : 'text-gray-500'" x-text="day.weekday + ' ' + day.dayNum"></span>
                         <div class="flex flex-wrap gap-1.5">
                             <template x-for="slot in getFutureSlots(trainee.id, day.dateStr)" :key="slot.startTime">
-                                <button @click="isDayOff(day.dateStr) ? null : createFromAvailability(trainee.id, day.dateStr, slot.startTime, slot.endTime)"
-                                        type="button"
-                                        :class="isDayOff(day.dateStr) ? 'bg-[#3a1a1a] text-red-400 border border-red-500/30 cursor-not-allowed opacity-60' : 'bg-blue-900/30 text-blue-300 border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all'"
-                                        class="text-xs font-bold px-2.5 py-1 rounded-full">
-                                    <span x-text="isDayOff(day.dateStr) ? '✕ ' + slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5) : '+ ' + slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span>
-                                </button>
+                                <button @click="createFromAvailability(trainee.id, day.dateStr, slot.startTime, slot.endTime)" type="button" class="bg-blue-900/30 text-blue-300 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all">+ <span x-text="slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span></button>
                             </template>
                         </div>
                     </div>
@@ -665,7 +692,7 @@
         <div class="modal-body space-y-6">
             <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold uppercase text-center">Час уже минув</div>
             <div class="space-y-4">
-                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_date || 'Дата'"></label><div class="flex overflow-x-auto no-scrollbar space-x-2 pb-1"><template x-for="day in futureDays" :key="day.dateStr"><button @click="if (!isDayOff(day.dateStr)) sessionForm.date = day.dateStr" class="flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-2xl transition-all min-w-[52px]" :class="sessionForm.date === day.dateStr ? 'bg-blue-600 text-white shadow-lg' : (isDayOff(day.dateStr) ? 'bg-[#5a1a1a] text-red-400 ring-1 ring-red-500/40 cursor-not-allowed opacity-60' : day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')"><span class="text-[8px] font-bold uppercase" x-text="isDayOff(day.dateStr) ? '✕' : day.weekday"></span><span class="text-lg font-black leading-tight" x-text="day.dayNum"></span><span class="text-[8px] font-bold mt-0.5" x-text="isDayOff(day.dateStr) ? 'Вих.' : (day.shortMonth || '')"></span><span x-show="day.dateStr === todayStr" class="text-[6px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span></button></template></div><div x-show="isDayOff(sessionForm.date)" class="mt-2 bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold text-center">✕ Це вихідний день тренера. Виберіть іншу дату.</div></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_date || 'Дата'"></label><div class="flex overflow-x-auto no-scrollbar space-x-2 pb-1"><template x-for="day in futureDays" :key="day.dateStr"><button @click="sessionForm.date = day.dateStr" class="flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-2xl transition-all min-w-[52px]" :class="day.dateStr === sessionForm.date ? 'bg-blue-600 text-white shadow-lg' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')"><span class="text-[8px] font-bold uppercase" x-text="day.weekday"></span><span class="text-lg font-black leading-tight" x-text="day.dayNum"></span><span class="text-[8px] font-bold mt-0.5" x-text="day.shortMonth || ''"></span><span x-show="day.dateStr === todayStr" class="text-[6px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span></button></template></div></div>
                 <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_name || 'Назва'"></label><input type="text" x-model="sessionForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
@@ -674,11 +701,8 @@
                         <button x-show="selectedCoachSlots.length" @click="selectedCoachSlots = []; sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400 uppercase">Скинути</button>
                     </div>
                     <div class="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] overflow-hidden max-h-72 overflow-y-auto no-scrollbar">
-                        <div x-show="isDayOff(sessionForm.date)" class="flex items-center justify-center h-32 text-red-400 text-sm font-bold text-center px-4">
-                            ✕ Вихідний день тренера. Оберіть іншу дату для створення сесії.
-                        </div>
                         <template x-for="(row, ri) in coachGrid" :key="ri">
-                            <div x-show="!isDayOff(sessionForm.date)" class="flex border-b border-[#1f1f1f] last:border-b-0">
+                            <div class="flex border-b border-[#1f1f1f] last:border-b-0">
                                 <div class="w-12 sm:w-14 flex-shrink-0 flex items-start justify-end pr-2 pt-1.5 text-xs sm:text-sm font-bold text-gray-400 select-none leading-none">
                                     <span x-text="row.lbl"></span>
                                 </div>
@@ -781,7 +805,7 @@
             </div>
             
             <div class="mb-6">
-                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block" x-text="labels.comment_optional || 'Коментар (необов\\'язково):'"></label>
+                <label class="text-xs font-bold text-gray-500 uppercase mb-2 block" x-text="labels.comment_optional || `Коментар (необов'язково):`"></label>
                 <textarea x-model="notifyModal.customMessage" 
                           :placeholder="labels.comment_placeholder || &quot;наприклад: 'на два дні', 'на наступний тиждень'&quot;"
                           class="w-full bg-[#262626] text-white rounded-xl p-4 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
