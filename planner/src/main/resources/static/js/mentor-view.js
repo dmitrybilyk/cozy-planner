@@ -1002,7 +1002,7 @@ function calendarApp() {
         async copyTodayLink() {
             if (!this.shareToken) await this.mkShareToken();
             if (!this.shareUrl) return;
-            const url = this.shareUrl + '?date=' + this.selectedDate;
+            const url = this.shareUrl + '?date=' + this.todayStr;
             try { await navigator.clipboard.writeText(url); this.copiedToday = true; setTimeout(() => this.copiedToday = false, 2000); }
             catch(e) { prompt('Скопіюйте:', url); }
         },
@@ -1016,7 +1016,7 @@ function calendarApp() {
         async copyImageDay() {
             if (!this.shareToken) await this.mkShareToken();
             if (!this.shareToken) return;
-            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.selectedDate;
+            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.todayStr;
             try { await navigator.clipboard.writeText(imgUrl); this.imgCopiedDay = true; setTimeout(() => this.imgCopiedDay = false, 3000); }
             catch(e) { prompt('Скопіюйте посилання на картинку:', imgUrl); }
         },

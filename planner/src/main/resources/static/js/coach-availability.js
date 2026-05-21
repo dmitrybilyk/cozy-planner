@@ -259,7 +259,7 @@ function app() {
         async copyTodayLink() {
             if (!this.shareToken) await this.mkToken();
             if (!this.shareUrl) return;
-            const url = this.shareUrl + '?date=' + this.curDate;
+            const url = this.shareUrl + '?date=' + this.todayStr;
             try { await navigator.clipboard.writeText(url); this.copiedToday = true; setTimeout(() => this.copiedToday = false, 2000); }
             catch(e) { prompt('Скопіюйте:', url); }
         },
@@ -279,7 +279,7 @@ function app() {
         async copyImageDay() {
             if (!this.shareToken) await this.mkToken();
             if (!this.shareToken) return;
-            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.curDate;
+            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.todayStr;
             try { await navigator.clipboard.writeText(imgUrl); this.imgCopiedDay = true; setTimeout(() => this.imgCopiedDay = false, 3000); }
             catch(e) { prompt('Скопіюйте посилання на картинку:', imgUrl); }
         }
