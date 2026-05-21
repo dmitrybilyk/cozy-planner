@@ -2,13 +2,6 @@ function localDateStr(d) {
     d = d || new Date();
     return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
 }
-function snapToMonday(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setDate(diff);
-    return d;
-}
 function addDays(dateStr, n) {
     const d = new Date(dateStr + 'T12:00:00');
     d.setDate(d.getDate() + n);
@@ -154,10 +147,9 @@ function traineeApp() {
             this.pageTitle = 'Мої ' + this.tabLabels.sessions.toLowerCase();
 
             const now = new Date();
-            const start = snapToMonday(now);
             for (let i = 0; i < 31; i++) {
-                const d = new Date(start);
-                d.setDate(start.getDate() + i);
+                const d = new Date(now);
+                d.setDate(now.getDate() + i);
                 const ds = localDateStr(d);
                 this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
@@ -356,7 +348,7 @@ function traineeApp() {
                 this.savedMessage = 'Сесію створено! ' + (this.me.mentorName || 'Тренер') + ' отримає сповіщення.';
                 setTimeout(() => this.saved = false, 4000);
                 await this.loadSessions();
-            } else { this.error = 'Помилка при створенні сесії'; }
+            } else { const err = await res.json().catch(() => ({reason: 'Помилка при створенні сесії'})); this.error = err.reason || 'Помилка при створенні сесії'; }
         },
 
         handleTraineeConfirmAction(session) {

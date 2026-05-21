@@ -24,6 +24,8 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -365,12 +367,16 @@ public class SessionConfirmationController {
         });
     }
 
+    private static final Logger traineeLog = LoggerFactory.getLogger(SessionConfirmationController.class);
+
     @PostMapping("/trainee/sessions")
     public Mono<ResponseEntity<Map<String, Object>>> createTraineeSession(@RequestBody Map<String, Object> body,
                                                                            ServerWebExchange exchange) {
+        traineeLog.warn("createTraineeSession: body={}", body);
         return exchange.getSession().flatMap(session -> {
             Object traineeIdObj = session.getAttribute("trainee_id");
             if (!(traineeIdObj instanceof Number)) {
+                traineeLog.warn("createTraineeSession: not authenticated as trainee, attributes={}", session.getAttributes(), new RuntimeException("debug"));
                 Map<String, Object> err = new HashMap<>();
                 err.put("success", false);
                 err.put("reason", "Not authenticated as trainee");
@@ -393,32 +399,50 @@ public class SessionConfirmationController {
                         }
 
                         if (title == null || dateStr == null || timeStr == null) {
+                            traineeLog.warn("createTraineeSession: missing required fields, title={}, date={}, time={}, body={}", title, dateStr, timeStr, body, new RuntimeException("debug"));
                             Map<String, Object> err = new HashMap<>();
                             err.put("success", false);
                             err.put("reason", "Missing required fields");
                             return Mono.just(ResponseEntity.badRequest().body(err));
                         }
 
-                        LocalDate sessionDate = LocalDate.parse(dateStr);
-                        LocalTime sessionStart = LocalTime.parse(timeStr);
-                        LocalTime sessionEnd = endTimeStr != null ? LocalTime.parse(endTimeStr) : null;
+                        LocalDate sessionDate;
+                        LocalTime sessionStart;
+                        LocalTime sessionEnd;
+                        try {
+                            sessionDate = LocalDate.parse(dateStr);
+                            sessionStart = LocalTime.parse(timeStr);
+                            sessionEnd = endTimeStr != null ? LocalTime.parse(endTimeStr) : null;
+                        } catch (Exception e) {
+                            traineeLog.warn("createTraineeSession: invalid date/time format, date={}, time={}, endTime={}", dateStr, timeStr, endTimeStr, e);
+                            Map<String, Object> err = new HashMap<>();
+                            err.put("success", false);
+                            err.put("reason", "Невірний формат дати або часу");
+                            return Mono.just(ResponseEntity.badRequest().body(err));
+                        }
 
                         Long mentorId = trainee.getMentorId();
+                        if (mentorId == null) {
+                            traineeLog.warn("createTraineeSession: trainee has no mentor, traineeId={}", traineeId, new RuntimeException("debug"));
+                            Map<String, Object> err = new HashMap<>();
+                            err.put("success", false);
+                            err.put("reason", "У вас немає тренера");
+                            return Mono.just(ResponseEntity.badRequest().body(err));
+                        }
+
                         return mentorDayOffRepository.findByMentorIdAndDate(mentorId, sessionDate)
                                 .map(dayOff -> true)
                                 .defaultIfEmpty(false)
                                 .flatMap(isDayOff -> {
                                     if (isDayOff) {
+                                        traineeLog.warn("createTraineeSession: mentor day off for mentorId={}, date={}", mentorId, sessionDate, new RuntimeException("debug"));
                                         Map<String, Object> err = new HashMap<>();
                                         err.put("success", false);
                                         err.put("reason", "Цей день є вихідним для тренера");
                                         return Mono.just(ResponseEntity.badRequest().body(err));
                                     }
                                     return validateTraineeWorkHours(mentorId, sessionStart, sessionEnd)
-                                            .flatMap(errResponse -> {
-                                                if (errResponse != null) {
-                                                    return Mono.just(errResponse);
-                                                }
+                                            .switchIfEmpty(Mono.defer(() -> {
                                                 Session newSession = Session.builder()
                                                         .title(title)
                                                         .description(description)
@@ -446,10 +470,30 @@ public class SessionConfirmationController {
                                                             result.put("confirmationStatus", "PENDING");
                                                             return ResponseEntity.ok(result);
                                                         });
-                                            });
+                                            }))
+                                            .flatMap(errResponse -> Mono.just(errResponse));
                                 });
                     })
-                    .defaultIfEmpty(ResponseEntity.badRequest().build());
+                    .switchIfEmpty(Mono.defer(() -> {
+                        traineeLog.warn("createTraineeSession: trainee not found for id={}", traineeId, new RuntimeException("debug"));
+                        Map<String, Object> err = new HashMap<>();
+                        err.put("success", false);
+                        err.put("reason", "Трейні не знайдено");
+                        return Mono.just(ResponseEntity.badRequest().body(err));
+                    }))
+                    .onErrorResume(e -> {
+                        traineeLog.error("createTraineeSession: unexpected error for traineeId={}", traineeId, e);
+                        Map<String, Object> err = new HashMap<>();
+                        err.put("success", false);
+                        err.put("reason", "Внутрішня помилка сервера");
+                        return Mono.just(ResponseEntity.badRequest().body(err));
+                    });
+        }).onErrorResume(e -> {
+            traineeLog.error("createTraineeSession: session error", e);
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("reason", "Внутрішня помилка сервера");
+            return Mono.just(ResponseEntity.badRequest().body(err));
         });
     }
 
@@ -470,11 +514,14 @@ public class SessionConfirmationController {
                         Map<String, Object> err = new HashMap<>();
                         err.put("success", false);
                         err.put("reason", "Час сесії має бути в межах робочих годин тренера (" + workStart + " — " + workEnd + ")");
+                        traineeLog.warn("createTraineeSession: work hours validation failed for mentorId={}, session({}-{}), workHours({}-{})", mentorId, startTime, endTime, workStart, workEnd, new RuntimeException("debug"));
                         return Mono.just(ResponseEntity.badRequest().body(err));
                     }
                     return Mono.empty();
                 })
-                .switchIfEmpty(Mono.empty());
+                .switchIfEmpty(Mono.fromRunnable(() ->
+                    traineeLog.warn("createTraineeSession: mentor not found for work hours check, mentorId={}", mentorId, new RuntimeException("debug"))
+                ));
     }
 
     private Mono<Session> notifyCoachAboutNewSession(Session session, Trainee trainee) {

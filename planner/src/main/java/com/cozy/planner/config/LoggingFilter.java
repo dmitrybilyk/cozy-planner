@@ -33,7 +33,7 @@ public class LoggingFilter implements WebFilter {
                     }
                 })
                 .doOnError(error -> {
-                    log.error("{} {} failed: {}", method, full, error.getMessage());
+                    log.error("{} {} failed: {}", method, full, error.getMessage(), error);
                 });
     }
 }
