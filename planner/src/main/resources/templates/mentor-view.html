@@ -60,7 +60,7 @@
          <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
     </div>
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex gap-2">
-        <button @click="openSessionModal()" :disabled="selectedDate < todayStr" class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100" :title="labels.new_session || 'Нова сесія'">
+        <button @click="openSessionModal()" :disabled="selectedDate < todayStr || isDayOff(selectedDate)" class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100" :title="labels.new_session || 'Нова сесія'">
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </button>
         <button @click="showManageTrainees = true" class="flex-1 flex items-center justify-center bg-[#262626] hover:bg-[#333] active:scale-[0.97] py-3 rounded-2xl transition" :title="labels.manage_trainees || 'Учні'">
@@ -96,14 +96,15 @@
                     class="flex-shrink-0 flex flex-col items-center min-w-[64px]"
                     :class="day.isMonday ? 'week-start' : ''">
                 <div class="w-14 h-14 rounded-xl p-[2px] flex items-center justify-center transition-all relative"
-                     :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : (day.isWeekend ? 'bg-[#5a2525]' : 'bg-[#333]'), day.dateStr === todayStr ? 'today-marker' : '']">
+                     :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : (isDayOff(day.dateStr) ? 'bg-[#5a1a1a] ring-1 ring-red-500/30' : day.isWeekend ? 'bg-[#5a2525]' : 'bg-[#333]'), day.dateStr === todayStr ? 'today-marker' : '']">
                     <div class="w-full h-full rounded-xl bg-black flex flex-col items-center justify-center border-2 border-black">
                         <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
                         <span class="text-sm font-bold text-white" x-text="day.dayNum"></span>
                     </div>
                 </div>
                 <span x-show="day.dateStr === todayStr" class="text-[7px] font-black text-white uppercase mt-1 tracking-tighter" x-text="labels.today || 'Сьогодні'"></span>
-                <div x-show="hasSessionOn(day.dateStr)" class="w-1 h-1 bg-blue-500 rounded-full mt-0.5"></div>
+                <div x-show="isDayOff(day.dateStr)" class="text-[7px] font-black text-red-400 uppercase mt-0.5">✕</div>
+                <div x-show="hasSessionOn(day.dateStr) && !isDayOff(day.dateStr)" class="w-1 h-1 bg-blue-500 rounded-full mt-0.5"></div>
             </button>
         </template>
     </div>
@@ -189,7 +190,7 @@
                                 </div>
                                 <p class="text-sm text-gray-500 italic truncate" x-text="session.description"></p>
                                 <div class="flex flex-wrap gap-1 mt-2">
-                                    <template x-for="aId in session.traineeIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, session.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, session.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getTraineeName(aId)"></span></span></template>
+                                    <template x-for="aId in session.traineeIds"><span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300"><span :class="isAvailable(aId, session.date)?.length > 0 ? 'w-1.5 h-1.5 rounded-full bg-green-500' : isAvailable(aId, session.date) !== null ? 'w-1.5 h-1.5 rounded-full bg-red-500' : 'w-1.5 h-1.5 rounded-full bg-gray-600'" x-text="''"></span><span x-text="getTraineeName(aId)"></span><span x-show="isTraineeConfirmed(aId, session.confirmedTraineeIds)" class="text-green-400 text-[10px]">✓</span></span></template>
                                 </div>
                                 <div x-show="session.confirmationStatus === 'PENDING'" class="flex flex-wrap gap-1 mt-1">
                                     <span class="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full"
@@ -634,10 +635,15 @@
                 </div>
                 <template x-for="day in futureDays" :key="day.dateStr">
                     <div x-show="getFutureSlots(trainee.id, day.dateStr).length > 0" class="flex items-start gap-3 py-2 border-b border-[#252525] last:border-0">
-                        <span class="text-xs font-bold w-14 flex-shrink-0 pt-0.5" :class="day.isWeekend ? 'text-red-400' : 'text-gray-500'" x-text="day.weekday + ' ' + day.dayNum"></span>
+                        <span class="text-xs font-bold w-14 flex-shrink-0 pt-0.5" :class="isDayOff(day.dateStr) ? 'text-red-400' : (day.isWeekend ? 'text-red-400' : 'text-gray-500')" x-text="day.weekday + ' ' + day.dayNum"></span>
                         <div class="flex flex-wrap gap-1.5">
                             <template x-for="slot in getFutureSlots(trainee.id, day.dateStr)" :key="slot.startTime">
-                                <button @click="createFromAvailability(trainee.id, day.dateStr, slot.startTime, slot.endTime)" type="button" class="bg-blue-900/30 text-blue-300 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all">+ <span x-text="slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span></button>
+                                <button @click="isDayOff(day.dateStr) ? null : createFromAvailability(trainee.id, day.dateStr, slot.startTime, slot.endTime)"
+                                        type="button"
+                                        :class="isDayOff(day.dateStr) ? 'bg-[#3a1a1a] text-red-400 border border-red-500/30 cursor-not-allowed opacity-60' : 'bg-blue-900/30 text-blue-300 border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all'"
+                                        class="text-xs font-bold px-2.5 py-1 rounded-full">
+                                    <span x-text="isDayOff(day.dateStr) ? '✕ ' + slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5) : '+ ' + slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span>
+                                </button>
                             </template>
                         </div>
                     </div>
@@ -659,7 +665,7 @@
         <div class="modal-body space-y-6">
             <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold uppercase text-center">Час уже минув</div>
             <div class="space-y-4">
-                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_date || 'Дата'"></label><div class="flex overflow-x-auto no-scrollbar space-x-2 pb-1"><template x-for="day in futureDays" :key="day.dateStr"><button @click="sessionForm.date = day.dateStr" class="flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-2xl transition-all min-w-[52px]" :class="day.dateStr === sessionForm.date ? 'bg-blue-600 text-white shadow-lg' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')"><span class="text-[8px] font-bold uppercase" x-text="day.weekday"></span><span class="text-lg font-black leading-tight" x-text="day.dayNum"></span><span class="text-[8px] font-bold mt-0.5" x-text="day.shortMonth || ''"></span><span x-show="day.dateStr === todayStr" class="text-[6px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span></button></template></div></div>
+                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_date || 'Дата'"></label><div class="flex overflow-x-auto no-scrollbar space-x-2 pb-1"><template x-for="day in futureDays" :key="day.dateStr"><button @click="if (!isDayOff(day.dateStr)) sessionForm.date = day.dateStr" class="flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-2xl transition-all min-w-[52px]" :class="sessionForm.date === day.dateStr ? 'bg-blue-600 text-white shadow-lg' : (isDayOff(day.dateStr) ? 'bg-[#5a1a1a] text-red-400 ring-1 ring-red-500/40 cursor-not-allowed opacity-60' : day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')"><span class="text-[8px] font-bold uppercase" x-text="isDayOff(day.dateStr) ? '✕' : day.weekday"></span><span class="text-lg font-black leading-tight" x-text="day.dayNum"></span><span class="text-[8px] font-bold mt-0.5" x-text="isDayOff(day.dateStr) ? 'Вих.' : (day.shortMonth || '')"></span><span x-show="day.dateStr === todayStr" class="text-[6px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span></button></template></div><div x-show="isDayOff(sessionForm.date)" class="mt-2 bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold text-center">✕ Це вихідний день тренера. Виберіть іншу дату.</div></div>
                 <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_name || 'Назва'"></label><input type="text" x-model="sessionForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
@@ -668,8 +674,11 @@
                         <button x-show="selectedCoachSlots.length" @click="selectedCoachSlots = []; sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400 uppercase">Скинути</button>
                     </div>
                     <div class="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] overflow-hidden max-h-72 overflow-y-auto no-scrollbar">
+                        <div x-show="isDayOff(sessionForm.date)" class="flex items-center justify-center h-32 text-red-400 text-sm font-bold text-center px-4">
+                            ✕ Вихідний день тренера. Оберіть іншу дату для створення сесії.
+                        </div>
                         <template x-for="(row, ri) in coachGrid" :key="ri">
-                            <div class="flex border-b border-[#1f1f1f] last:border-b-0">
+                            <div x-show="!isDayOff(sessionForm.date)" class="flex border-b border-[#1f1f1f] last:border-b-0">
                                 <div class="w-12 sm:w-14 flex-shrink-0 flex items-start justify-end pr-2 pt-1.5 text-xs sm:text-sm font-bold text-gray-400 select-none leading-none">
                                     <span x-text="row.lbl"></span>
                                 </div>

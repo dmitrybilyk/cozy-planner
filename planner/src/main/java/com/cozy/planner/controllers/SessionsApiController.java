@@ -1,9 +1,11 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.model.entity.Mentor;
+import com.cozy.planner.model.entity.MentorDayOff;
 import com.cozy.planner.model.entity.Notification;
 import com.cozy.planner.model.entity.Session;
 import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.MentorDayOffRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.NotificationRepository;
 import com.cozy.planner.repositories.SessionRepository;
@@ -11,12 +13,14 @@ import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
+import com.cozy.planner.service.TelegramService;
 import com.planner.api.SessionsApi;
 import com.planner.model.CreateSessionRequest;
 import com.planner.model.SessionDTO;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,50 +45,66 @@ public class SessionsApiController implements SessionsApi {
     private final NotificationRepository notificationRepository;
     private final EventBroadcastService eventBroadcastService;
     private final PushService pushService;
+    private final TelegramService telegramService;
+    private final MentorDayOffRepository mentorDayOffRepository;
 
     public SessionsApiController(SessionRepository sessionRepository,
                                   MentorRepository mentorRepository,
                                   TraineeRepository traineeRepository,
                                   NotificationRepository notificationRepository,
                                   EventBroadcastService eventBroadcastService,
-                                  PushService pushService) {
+                                  PushService pushService,
+                                  TelegramService telegramService,
+                                  MentorDayOffRepository mentorDayOffRepository) {
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.traineeRepository = traineeRepository;
         this.notificationRepository = notificationRepository;
         this.eventBroadcastService = eventBroadcastService;
         this.pushService = pushService;
+        this.telegramService = telegramService;
+        this.mentorDayOffRepository = mentorDayOffRepository;
     }
 
     @Override
     public Mono<ResponseEntity<SessionDTO>> createSession(Mono<CreateSessionRequest> createSessionRequest, ServerWebExchange exchange) {
+        String baseUrl = baseUrl(exchange);
         return createSessionRequest
                 .flatMap(request -> {
                     Long sessionId = request.getId();
                     
                     if (sessionId != null && sessionId > 0) {
                         return sessionRepository.findById(sessionId)
-                                .flatMap(existing -> updateSession(existing, request))
-                                .switchIfEmpty(Mono.defer(() -> createNewSession(request)));
+                                .flatMap(existing -> updateSession(existing, request, baseUrl))
+                                .switchIfEmpty(Mono.defer(() -> createNewSession(request, baseUrl)));
                     } else {
-                        return createNewSession(request);
+                        return createNewSession(request, baseUrl);
                     }
                 })
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
 
-    private Mono<SessionDTO> createNewSession(CreateSessionRequest request) {
-        Session session = Session.builder()
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .workoutDate(request.getDate())
-                .startTime(parseTime(request.getTime()))
-                .endTime(parseTime(request.getEndTime()))
-                .mentorId(request.getMentorId())
-                .locationId(request.getLocationId())
-                .build();
+    private String baseUrl(ServerWebExchange exchange) {
+        String host = exchange.getRequest().getURI().getHost();
+        int port = exchange.getRequest().getURI().getPort();
+        String scheme = exchange.getRequest().getURI().getScheme();
+        return scheme + "://" + host + (port > 0 ? ":" + port : "");
+    }
 
-        return sessionRepository.save(session)
+    private Mono<SessionDTO> createNewSession(CreateSessionRequest request, String baseUrl) {
+        return validateSession(request.getMentorId(), request.getDate(), parseTime(request.getTime()), parseTime(request.getEndTime()))
+                .then(Mono.defer(() -> {
+                    Session session = Session.builder()
+                            .title(request.getTitle())
+                            .description(request.getDescription())
+                            .workoutDate(request.getDate())
+                            .startTime(parseTime(request.getTime()))
+                            .endTime(parseTime(request.getEndTime()))
+                            .mentorId(request.getMentorId())
+                            .locationId(request.getLocationId())
+                            .build();
+                    return sessionRepository.save(session);
+                }))
                 .flatMap(saved -> saveTraineeLinks(saved.getId(), request.getTraineeIds())
                         .then(loadTraineeIds(saved))
                         .flatMap(s -> {
@@ -121,11 +141,30 @@ public class SessionsApiController implements SessionsApi {
                                                                     evt.put("sessionId", savedN.getSessionId());
                                                                     evt.put("isRead", savedN.getIsRead());
                                                                     evt.put("createdAt", savedN.getCreatedAt() != null ? savedN.getCreatedAt().toString() : null);
-                                                                     evt.put("actionType", "trainee_confirm_session");
-                                                                     eventBroadcastService.broadcastJson(evt);
-                                                                     pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
-                                                                     return Mono.just(savedN);
-                                                                });
+                                                                      evt.put("actionType", "trainee_confirm_session");
+                                                                      eventBroadcastService.broadcastJson(evt);
+                                                                      pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
+                                                                      return traineeRepository.findById(tId)
+                                                                              .filter(t -> t.hasTelegram())
+                                                                              .flatMap(t -> {
+                                                                                  String tmpl = String.format(
+                                                                                          ProfileLabels.get(profile, "telegram_session_confirmation_request"),
+                                                                                          s.getWorkoutDate().toString(),
+                                                                                          s.getStartTime().toString(),
+                                                                                          s.getEndTime() != null ? s.getEndTime().toString() : "",
+                                                                                          s.getTitle() != null ? s.getTitle() : "");
+                                                                                  Map<String, Object> confirmBtn = new HashMap<>();
+                                                                                  confirmBtn.put("text", "✅ Підтвердити");
+                                                                                  confirmBtn.put("callback_data", "trainee_confirm_session:" + s.getId());
+                                                                                  Map<String, Object> rejectBtn = new HashMap<>();
+                                                                                  rejectBtn.put("text", "❌ Відхилити");
+                                                                                  rejectBtn.put("callback_data", "trainee_reject_session:" + s.getId());
+                                                                                  Map<String, Object> keyboard = new HashMap<>();
+                                                                                  keyboard.put("inline_keyboard", List.of(List.of(confirmBtn, rejectBtn)));
+                                                                                  return telegramService.sendMessage(t.getTelegramChatId(), tmpl, keyboard);
+                                                                              })
+                                                                              .thenReturn(savedN);
+                                                                 });
                                                     })
                                                     .then();
                                         })
@@ -137,7 +176,7 @@ public class SessionsApiController implements SessionsApi {
                         .map(this::mapToDto));
     }
 
-    private Mono<SessionDTO> updateSession(Session existing, CreateSessionRequest request) {
+    private Mono<SessionDTO> updateSession(Session existing, CreateSessionRequest request, String baseUrl) {
         existing.setConfirmationStatus("NONE");
         if (request.getTitle() != null) {
             existing.setTitle(request.getTitle());
@@ -145,6 +184,9 @@ public class SessionsApiController implements SessionsApi {
         if (request.getDescription() != null) {
             existing.setDescription(request.getDescription());
         }
+        LocalDate newDate = request.getDate() != null ? request.getDate() : existing.getWorkoutDate();
+        LocalTime newStartTime = request.getTime() != null ? parseTime(request.getTime()) : existing.getStartTime();
+        LocalTime newEndTime = request.getEndTime() != null ? parseTime(request.getEndTime()) : existing.getEndTime();
         if (request.getDate() != null) {
             existing.setWorkoutDate(request.getDate());
         }
@@ -160,7 +202,8 @@ public class SessionsApiController implements SessionsApi {
 
         List<Long> traineeIds = request.getTraineeIds();
 
-        return sessionRepository.save(existing)
+        return validateSession(existing.getMentorId(), newDate, newStartTime, newEndTime)
+                .then(sessionRepository.save(existing))
                 .flatMap(saved -> {
                     if (traineeIds != null) {
                         return sessionRepository.deleteTraineeLinks(saved.getId())
@@ -212,7 +255,26 @@ public class SessionsApiController implements SessionsApi {
                                             evt.put("actionType", "trainee_confirm_session");
                                             eventBroadcastService.broadcastJson(evt);
                                             pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
-                                            return Mono.just(savedN);
+                                            return traineeRepository.findById(tId)
+                                                    .filter(t -> t.hasTelegram())
+                                                    .flatMap(t -> {
+                                                        String tmpl = String.format(
+                                                                ProfileLabels.get(profile, "telegram_session_confirmation_request"),
+                                                                s.getWorkoutDate().toString(),
+                                                                s.getStartTime().toString(),
+                                                                s.getEndTime() != null ? s.getEndTime().toString() : "",
+                                                                s.getTitle() != null ? s.getTitle() : "");
+                                                        Map<String, Object> confirmBtn = new HashMap<>();
+                                                        confirmBtn.put("text", "✅ Підтвердити");
+                                                        confirmBtn.put("callback_data", "trainee_confirm_session:" + s.getId());
+                                                        Map<String, Object> rejectBtn = new HashMap<>();
+                                                        rejectBtn.put("text", "❌ Відхилити");
+                                                        rejectBtn.put("callback_data", "trainee_reject_session:" + s.getId());
+                                                        Map<String, Object> keyboard = new HashMap<>();
+                                                        keyboard.put("inline_keyboard", List.of(List.of(confirmBtn, rejectBtn)));
+                                                        return telegramService.sendMessage(t.getTelegramChatId(), tmpl, keyboard);
+                                                    })
+                                                    .thenReturn(savedN);
                                         });
                             })
                             .then();
@@ -289,6 +351,38 @@ public class SessionsApiController implements SessionsApi {
                 .thenReturn(session);
     }
 
+    private Mono<Void> validateSession(Long mentorId, LocalDate date, LocalTime startTime, LocalTime endTime) {
+        if (mentorId == null || date == null) {
+            return Mono.empty();
+        }
+        return mentorDayOffRepository.findByMentorIdAndDate(mentorId, date)
+                .flatMap(dayOff -> Mono.<Void>error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Цей день є вихідним для тренера")))
+                .switchIfEmpty(Mono.defer(() -> validateWorkHours(mentorId, startTime, endTime)))
+                .then();
+    }
+
+    private Mono<Void> validateWorkHours(Long mentorId, LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            return Mono.empty();
+        }
+        return mentorRepository.findById(mentorId)
+                .flatMap(mentor -> {
+                    String workStart = mentor.getWorkStart();
+                    String workEnd = mentor.getWorkEnd();
+                    if (workStart == null || workEnd == null) {
+                        return Mono.<Void>empty();
+                    }
+                    LocalTime ws = LocalTime.parse(workStart);
+                    LocalTime we = LocalTime.parse(workEnd);
+                    if (startTime.isBefore(ws) || endTime.isAfter(we)) {
+                        return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Час сесії має бути в межах робочих годин (" + workStart + " — " + workEnd + ")"));
+                    }
+                    return Mono.<Void>empty();
+                })
+                .switchIfEmpty(Mono.<Void>empty());
+    }
+
     private LocalTime parseTime(String timeStr) {
         if (timeStr == null || timeStr.isBlank()) {
             return null;
@@ -319,6 +413,7 @@ public class SessionsApiController implements SessionsApi {
         if (entity.getTraineeIds() != null) {
             dto.setTraineeIds(new ArrayList<>(entity.getTraineeIds()));
         }
+        dto.setConfirmedTraineeIds(entity.getConfirmedTraineeIds());
         
         return dto;
     }

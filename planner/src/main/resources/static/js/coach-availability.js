@@ -11,6 +11,7 @@ function app() {
         busySession: null,
         mentorProfile: 'sport',
         dayOffs: [],
+        workStart: '06:00', workEnd: '22:00',
         saving: false,
 
         get isDayOff() { return this.dayOffs.includes(this.curDate); },
@@ -26,15 +27,22 @@ function app() {
                 const ds = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
                 this.days.push({ ds, wd: WD[(d.getDay()+6)%7], num: d.getDate(), mo: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
-            for (let h = 6; h < 22; h++) {
-                const cells = [{mm:h*60},{mm:h*60+30}];
-                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
-            }
+            this.buildGrid();
             this.load();
             this.connectWebSocket();
         },
 
         getCurCells() { return this.cells[this.curDate] || []; },
+
+        buildGrid() {
+            const startH = parseInt(this.workStart.split(':')[0]);
+            const endH = parseInt(this.workEnd.split(':')[0]);
+            this.grid = [];
+            for (let h = startH; h < endH; h++) {
+                const cells = [{mm:h*60},{mm:h*60+30}];
+                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+            }
+        },
 
         cellAt(mm) { return this.getCurCells().find(x => x.mm === mm); },
 
@@ -108,19 +116,21 @@ function app() {
 
         fillAllDay() {
             const cur = this.getCurCells();
-            const total = (22 - 6) * 2;
+            const startH = parseInt(this.workStart.split(':')[0]);
+            const endH = parseInt(this.workEnd.split(':')[0]);
+            const total = (endH - startH) * 2;
             const filled = cur.length === total && cur.every(c => {
                 const mm = c.mm;
                 const h = Math.floor(mm / 60);
                 const m = mm % 60;
-                return h >= 6 && h < 22 && (m === 0 || m === 30);
+                return h >= startH && h < endH && (m === 0 || m === 30);
             });
             if (filled) {
                 this.cells[this.curDate] = [];
                 this._dirtyDates.add(this.curDate);
             } else {
                 const arr = [];
-                for (let h = 6; h < 22; h++) {
+                for (let h = startH; h < endH; h++) {
                     for (let m = 0; m < 60; m += 30) {
                         arr.push({ mm: h * 60 + m, locId: this.curLoc ? Number(this.curLoc) : null });
                     }
@@ -180,6 +190,8 @@ function app() {
             this.mentorId = me.mentor.id;
             this.mentorProfile = me.mentor.profile || 'sport';
             this.shareToken = me.mentor.shareToken;
+            this.workStart = me.mentor.workStart || '06:00';
+            this.workEnd = me.mentor.workEnd || '22:00';
             if (this.shareToken) this.shareUrl = window.location.origin + '/shared/' + this.shareToken;
 
             const sd = this.days[0].ds, ed = this.days[this.days.length-1].ds;
@@ -215,8 +227,10 @@ function app() {
                 }
                 this.sess = g;
             }
+            this.buildGrid();
             this._dirtyDates.clear();
             this._dirtyDayOffs = [];
+            if (!this.shareToken) this.mkToken();
         },
 
         minStr(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; },
@@ -244,10 +258,14 @@ function app() {
         },
 
         async copyLink() {
+            if (!this.shareToken) await this.mkToken();
+            if (!this.shareUrl) return;
             try { await navigator.clipboard.writeText(this.shareUrl); this.copied = true; setTimeout(() => this.copied = false, 2000); }
             catch(e) { prompt('Скопіюйте:', this.shareUrl); }
         },
         async copyTodayLink() {
+            if (!this.shareToken) await this.mkToken();
+            if (!this.shareUrl) return;
             const url = this.shareUrl + '?date=' + this.curDate;
             try { await navigator.clipboard.writeText(url); this.todayCopied = true; setTimeout(() => this.todayCopied = false, 2000); }
             catch(e) { prompt('Скопіюйте:', url); }

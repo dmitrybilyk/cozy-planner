@@ -468,6 +468,8 @@ components:
           type: string
         createdBy:
           type: string
+        confirmedTraineeIds:
+          type: string
 
     LocationDTO:
       type: object

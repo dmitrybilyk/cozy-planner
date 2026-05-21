@@ -1,9 +1,11 @@
 package com.cozy.planner.controllers;
 
 import com.cozy.planner.config.TelegramConfig;
+import com.cozy.planner.model.entity.Notification;
 import com.cozy.planner.model.entity.TraineeAvailability;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
+import com.cozy.planner.repositories.NotificationRepository;
 import com.cozy.planner.repositories.TraineeAvailabilityRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
@@ -19,6 +21,7 @@ import reactor.core.publisher.Mono;
 
 import java.security.SecureRandom;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Base64;
@@ -35,6 +38,7 @@ public class AvailabilityController {
     private final TraineeAvailabilityRepository availabilityRepository;
     private final MentorRepository mentorRepository;
     private final EventBroadcastService eventService;
+    private final NotificationRepository notificationRepository;
     private final TelegramService telegramService;
     private final TelegramConfig telegramConfig;
     private final SecureRandom secureRandom = new SecureRandom();
@@ -43,12 +47,14 @@ public class AvailabilityController {
                                    TraineeAvailabilityRepository availabilityRepository,
                                    MentorRepository mentorRepository,
                                    EventBroadcastService eventService,
+                                   NotificationRepository notificationRepository,
                                    TelegramService telegramService,
                                    TelegramConfig telegramConfig) {
         this.traineeRepository = traineeRepository;
         this.availabilityRepository = availabilityRepository;
         this.mentorRepository = mentorRepository;
         this.eventService = eventService;
+        this.notificationRepository = notificationRepository;
         this.telegramService = telegramService;
         this.telegramConfig = telegramConfig;
     }
@@ -123,31 +129,40 @@ public class AvailabilityController {
 
     @PostMapping(path = {"/api/v1/trainees/{traineeId}/availability"})
     public Mono<ResponseEntity<Void>> setAvailabilityById(@PathVariable Long traineeId,
-                                                           @RequestBody List<SlotEntry> entries) {
-        return saveAvailabilityInternal(traineeId, entries);
+                                                           @RequestBody List<SlotEntry> entries,
+                                                           ServerWebExchange exchange) {
+        return saveAvailabilityInternal(traineeId, entries, baseUrl(exchange));
     }
 
     @PostMapping(path = {"/api/v1/trainee/availability"})
     public Mono<ResponseEntity<Void>> setAvailability(@RequestBody List<SlotEntry> entries,
                                                         ServerWebExchange exchange) {
         return getTraineeId(exchange)
-                .flatMap(traineeId -> saveAvailabilityInternal(traineeId, entries));
+                .flatMap(traineeId -> saveAvailabilityInternal(traineeId, entries, baseUrl(exchange)));
     }
 
     @DeleteMapping(path = {"/api/v1/trainees/{traineeId}/availability"})
     public Mono<ResponseEntity<Void>> clearAvailabilityById(@PathVariable Long traineeId,
-                                                             @RequestParam String dates) {
-        return clearAvailabilityInternal(traineeId, dates);
+                                                             @RequestParam String dates,
+                                                             ServerWebExchange exchange) {
+        return clearAvailabilityInternal(traineeId, dates, baseUrl(exchange));
     }
 
     @DeleteMapping(path = {"/api/v1/trainee/availability"})
     public Mono<ResponseEntity<Void>> clearAvailability(@RequestParam String dates,
                                                            ServerWebExchange exchange) {
         return getTraineeId(exchange)
-                .flatMap(traineeId -> clearAvailabilityInternal(traineeId, dates));
+                .flatMap(traineeId -> clearAvailabilityInternal(traineeId, dates, baseUrl(exchange)));
     }
 
-    private Mono<ResponseEntity<Void>> saveAvailabilityInternal(Long traineeId, List<SlotEntry> entries) {
+    private String baseUrl(ServerWebExchange exchange) {
+        String host = exchange.getRequest().getURI().getHost();
+        int port = exchange.getRequest().getURI().getPort();
+        String scheme = exchange.getRequest().getURI().getScheme();
+        return scheme + "://" + host + (port > 0 ? ":" + port : "");
+    }
+
+    private Mono<ResponseEntity<Void>> saveAvailabilityInternal(Long traineeId, List<SlotEntry> entries, String baseUrl) {
         Set<LocalDate> uniqueDates = entries.stream()
                 .map(SlotEntry::date)
                 .collect(Collectors.toSet());
@@ -167,17 +182,20 @@ public class AvailabilityController {
                 })
                 .toList();
 
-         return Flux.fromIterable(uniqueDates)
-                .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
-                .flatMap(availabilityRepository::delete)
-                .thenMany(Flux.fromIterable(toSave))
-                .flatMap(availabilityRepository::save)
-                .then()
-                .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
-                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+         return traineeRepository.findById(traineeId)
+                .defaultIfEmpty(Trainee.builder().mentorId(-1L).name("невідомий").build())
+                .flatMap(trainee -> Flux.fromIterable(uniqueDates)
+                        .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
+                        .flatMap(availabilityRepository::delete)
+                        .thenMany(Flux.fromIterable(toSave))
+                        .flatMap(availabilityRepository::save)
+                        .then()
+                        .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
+                        .then(createAvailabilityNotification(trainee.getMentorId(), trainee.getName(), baseUrl))
+                        .then(Mono.just(ResponseEntity.ok().<Void>build())));
     }
 
-    private Mono<ResponseEntity<Void>> clearAvailabilityInternal(Long traineeId, String dates) {
+    private Mono<ResponseEntity<Void>> clearAvailabilityInternal(Long traineeId, String dates, String baseUrl) {
         List<LocalDate> dateList = Arrays.stream(dates.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
@@ -188,12 +206,50 @@ public class AvailabilityController {
             return Mono.just(ResponseEntity.ok().<Void>build());
         }
 
-         return Flux.fromIterable(dateList)
-                .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
-                .flatMap(availabilityRepository::delete)
-                .then()
-                .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
-                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+         return traineeRepository.findById(traineeId)
+                .defaultIfEmpty(Trainee.builder().mentorId(-1L).name("невідомий").build())
+                .flatMap(trainee -> Flux.fromIterable(dateList)
+                        .flatMap(date -> availabilityRepository.findByTraineeIdAndDate(traineeId, date))
+                        .flatMap(availabilityRepository::delete)
+                        .then()
+                        .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
+                        .then(createAvailabilityNotification(trainee.getMentorId(), trainee.getName(), baseUrl))
+                        .then(Mono.just(ResponseEntity.ok().<Void>build())));
+    }
+
+    private Mono<Void> createAvailabilityNotification(Long mentorId, String traineeName, String baseUrl) {
+        if (mentorId == null || mentorId < 0) return Mono.empty();
+        String title = "Нова доступність";
+        String message = traineeName + " оновив свою доступність";
+        Notification n = Notification.builder()
+                .mentorId(mentorId)
+                .title(title)
+                .message(message)
+                .type("AVAILABILITY_CHANGED")
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+        return notificationRepository.save(n)
+                .flatMap(saved -> {
+                    Map<String, Object> evt = new HashMap<>();
+                    evt.put("type", "notification");
+                    evt.put("id", saved.getId());
+                    evt.put("mentorId", saved.getMentorId());
+                    evt.put("title", saved.getTitle());
+                    evt.put("message", saved.getMessage());
+                    evt.put("notificationType", saved.getType());
+                    evt.put("isRead", saved.getIsRead());
+                    evt.put("createdAt", saved.getCreatedAt() != null ? saved.getCreatedAt().toString() : null);
+                    eventService.broadcastJson(evt);
+                    return mentorRepository.findById(mentorId)
+                            .filter(m -> m.getTelegramChatId() != null && !m.getTelegramChatId().isBlank())
+                            .flatMap(m -> {
+                                Map<String, Object> btn = Map.of("text", "📅 Відкрити календар", "url", baseUrl + "/planner");
+                                Map<String, Object> keyboard = Map.of("inline_keyboard", List.of(List.of(btn)));
+                                return telegramService.sendMessageToMentor(m.getTelegramChatId(), title + "\n" + message, keyboard);
+                            })
+                            .then();
+                });
     }
 
     private Mono<Long> getMentorId(ServerWebExchange exchange) {

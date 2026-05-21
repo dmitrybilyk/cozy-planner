@@ -3,8 +3,10 @@ package com.cozy.planner.controllers;
 import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Session;
+import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.SessionRepository;
+import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.TelegramService;
@@ -15,7 +17,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 
 
@@ -28,14 +34,16 @@ public class TelegramController {
     private final ObjectMapper objectMapper;
     private final SessionRepository sessionRepository;
     private final MentorRepository mentorRepository;
+    private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final EventBroadcastService eventBroadcastService;
 
-    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository, MentorRepository mentorRepository, TelegramConfig telegramConfig, EventBroadcastService eventBroadcastService) {
+    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository, MentorRepository mentorRepository, TraineeRepository traineeRepository, TelegramConfig telegramConfig, EventBroadcastService eventBroadcastService) {
         this.telegramService = telegramService;
         this.objectMapper = objectMapper;
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
+        this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.eventBroadcastService = eventBroadcastService;
     }
@@ -198,37 +206,60 @@ public class TelegramController {
         } else if (data.startsWith("trainee_confirm_session:")) {
             Long sessionId = parseSessionId(data);
             if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
-            return sessionRepository.findById(sessionId)
-                    .flatMap(session -> {
-                        session.setConfirmationStatus("CONFIRMED");
-                        return sessionRepository.save(session);
-                    })
-                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
-                    .flatMap(saved -> {
-                        String text = "✅ Дякую! Сесію підтверджено. Тренер отримає сповіщення.";
-                        return telegramService.sendMessage(chatId, text)
-                                .thenReturn(saved);
-                    })
-                    .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
-                            .defaultIfEmpty(Mentor.builder().profile("sport").build())
-                            .flatMap(mentor -> {
-                                String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
-                                String mentorText = String.format(
-                                        ProfileLabels.get(profile, "telegram_session_decision_trainee"),
-                                        "✅ <b>Підтверджено</b>",
-                                        ProfileLabels.get(profile, "telegram_session_confirmed_action"),
-                                        saved.getTitle() != null ? saved.getTitle() : "",
-                                        saved.getWorkoutDate().toString(),
-                                        saved.getStartTime().toString(),
-                                        saved.getEndTime() != null ? saved.getEndTime().toString() : "");
-                                if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
-                                    return telegramService.sendMessageToMentor(chatId, mentorText);
-                                }
-                                if (mentor.hasTelegram()) {
-                                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), mentorText);
-                                }
-                                return Mono.just(true);
-                            }))
+            return traineeRepository.findByTelegramChatId(chatId)
+                    .flatMap(trainee -> sessionRepository.findById(sessionId)
+                            .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
+                                    .collectList()
+                                    .flatMap(allTraineeIds -> {
+                                        if (!allTraineeIds.contains(trainee.getId())) {
+                                            return Mono.just(s);
+                                        }
+                                        List<Long> confirmed = parseConfirmedIds(s.getConfirmedTraineeIds());
+                                        if (!confirmed.contains(trainee.getId())) {
+                                            confirmed = new ArrayList<>(confirmed);
+                                            confirmed.add(trainee.getId());
+                                        }
+                                        s.setConfirmedTraineeIds(confirmed.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                                        if (allTraineeIds.stream().allMatch(confirmed::contains)) {
+                                            s.setConfirmationStatus("CONFIRMED");
+                                        } else {
+                                            s.setConfirmationStatus("PENDING");
+                                        }
+                                        return sessionRepository.save(s);
+                                    }))
+                            .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                            .flatMap(saved -> {
+                                String confirmedLabel = "CONFIRMED".equals(saved.getConfirmationStatus())
+                                        ? "✅ <b>Підтверджено</b>"
+                                        : "⏳ <b>Підтвердження очікується</b>";
+                                String text = String.format("✅ Дякую, %s! Сесію підтверджено. Тренер отримає сповіщення.", trainee.getName());
+                                return telegramService.sendMessage(chatId, text)
+                                        .thenReturn(saved);
+                            })
+                            .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
+                                    .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                                    .flatMap(mentor -> {
+                                        String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                        String confirmedLabel = "CONFIRMED".equals(saved.getConfirmationStatus())
+                                                ? "✅ <b>Підтверджено</b>"
+                                                : "⏳ <b>Частково підтверджено</b>";
+                                        String mentorText = String.format(
+                                                ProfileLabels.get(profile, "telegram_session_decision_trainee"),
+                                                confirmedLabel,
+                                                trainee.getName() + " " + ProfileLabels.get(profile, "telegram_session_confirmed_action"),
+                                                saved.getTitle() != null ? saved.getTitle() : "",
+                                                saved.getWorkoutDate().toString(),
+                                                saved.getStartTime().toString(),
+                                                saved.getEndTime() != null ? saved.getEndTime().toString() : "");
+                                        if (mentor.hasTelegram()) {
+                                            return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), mentorText);
+                                        }
+                                        return Mono.just(true);
+                                    })))
+                    .switchIfEmpty(Mono.defer(() -> {
+                        log.warn("No trainee found for chatId: {}", chatId);
+                        return Mono.empty();
+                    }))
                     .then(ackCallback(callbackId, botType))
                     .thenReturn(ResponseEntity.ok().build());
         } else if (data.startsWith("trainee_reject_session:")) {
@@ -289,6 +320,15 @@ public class TelegramController {
             botToken = telegramService.getBotToken();
         }
         return telegramService.answerCallbackQuery(callbackId, botToken);
+    }
+
+    private List<Long> parseConfirmedIds(String ids) {
+        if (ids == null || ids.isBlank()) return List.of();
+        return Arrays.stream(ids.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .toList();
     }
 
     private enum BotType {

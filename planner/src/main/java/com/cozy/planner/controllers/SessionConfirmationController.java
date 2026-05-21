@@ -2,10 +2,12 @@ package com.cozy.planner.controllers;
 
 import com.cozy.planner.model.entity.Location;
 import com.cozy.planner.model.entity.Mentor;
+import com.cozy.planner.model.entity.MentorDayOff;
 import com.cozy.planner.model.entity.Notification;
 import com.cozy.planner.model.entity.Session;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.LocationRepository;
+import com.cozy.planner.repositories.MentorDayOffRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.NotificationRepository;
 import com.cozy.planner.repositories.SessionRepository;
@@ -14,7 +16,9 @@ import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
 import com.cozy.planner.service.TelegramService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
@@ -24,9 +28,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -40,15 +46,17 @@ public class SessionConfirmationController {
     private final EventBroadcastService eventBroadcastService;
     private final NotificationRepository notificationRepository;
     private final PushService pushService;
+    private final MentorDayOffRepository mentorDayOffRepository;
 
     public SessionConfirmationController(SessionRepository sessionRepository,
-                                          TraineeRepository traineeRepository,
-                                          MentorRepository mentorRepository,
-                                          LocationRepository locationRepository,
-                                          TelegramService telegramService,
-                                          EventBroadcastService eventBroadcastService,
-                                          NotificationRepository notificationRepository,
-                                          PushService pushService) {
+                                           TraineeRepository traineeRepository,
+                                           MentorRepository mentorRepository,
+                                           LocationRepository locationRepository,
+                                           TelegramService telegramService,
+                                           EventBroadcastService eventBroadcastService,
+                                           NotificationRepository notificationRepository,
+                                           PushService pushService,
+                                           MentorDayOffRepository mentorDayOffRepository) {
         this.sessionRepository = sessionRepository;
         this.traineeRepository = traineeRepository;
         this.mentorRepository = mentorRepository;
@@ -57,6 +65,7 @@ public class SessionConfirmationController {
         this.eventBroadcastService = eventBroadcastService;
         this.notificationRepository = notificationRepository;
         this.pushService = pushService;
+        this.mentorDayOffRepository = mentorDayOffRepository;
     }
 
     @PostMapping("/sessions/{sessionId}/confirm")
@@ -64,6 +73,7 @@ public class SessionConfirmationController {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> {
                     session.setConfirmationStatus("CONFIRMED");
+                    session.setConfirmedTraineeIds("");
                     return sessionRepository.save(session);
                 })
                 .flatMap(saved -> notifyOtherParty(saved, true))
@@ -106,29 +116,57 @@ public class SessionConfirmationController {
                 err.put("reason", "Not authenticated as trainee");
                 return Mono.just(ResponseEntity.badRequest().body(err));
             }
+            Long currentTraineeId = ((Number) traineeIdObj).longValue();
             return sessionRepository.findById(sessionId)
                     .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
-                            .any(tId -> tId.equals(((Number) traineeIdObj).longValue()))
-                            .flatMap(isTrainee -> {
-                                if (!isTrainee) {
+                            .collectList()
+                            .flatMap(allTraineeIds -> {
+                                if (!allTraineeIds.contains(currentTraineeId)) {
                                     Map<String, Object> err = new HashMap<>();
                                     err.put("success", false);
                                     err.put("reason", "Not your session");
                                     return Mono.just(ResponseEntity.badRequest().body(err));
                                 }
-                                s.setConfirmationStatus("CONFIRMED");
-                                return sessionRepository.save(s)
-                                        .flatMap(saved -> notifyOtherParty(saved, true))
-                                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
-                                        .map(saved -> {
-                                            Map<String, Object> result = new HashMap<>();
-                                            result.put("success", true);
-                                            result.put("confirmationStatus", "CONFIRMED");
-                                            return ResponseEntity.ok(result);
-                                        });
+                                return traineeRepository.findById(currentTraineeId)
+                                        .map(Trainee::getName)
+                                        .defaultIfEmpty("")
+                                        .flatMap(traineeName -> addConfirmedTrainee(s, currentTraineeId, allTraineeIds)
+                                                .flatMap(updated -> notifyOtherParty(updated, "CONFIRMED".equals(updated.getConfirmationStatus()), traineeName))
+                                                .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                                                .map(saved -> {
+                                                    Map<String, Object> result = new HashMap<>();
+                                                    result.put("success", true);
+                                                    result.put("confirmationStatus", saved.getConfirmationStatus());
+                                                    result.put("confirmedTraineeIds", parseConfirmedIds(saved.getConfirmedTraineeIds()));
+                                                    return ResponseEntity.ok(result);
+                                                }));
                             }))
                     .defaultIfEmpty(ResponseEntity.notFound().build());
         });
+    }
+
+    private List<Long> parseConfirmedIds(String ids) {
+        if (ids == null || ids.isBlank()) return List.of();
+        return Arrays.stream(ids.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .toList();
+    }
+
+    private Mono<Session> addConfirmedTrainee(Session s, Long traineeId, List<Long> allTraineeIds) {
+        List<Long> confirmed = parseConfirmedIds(s.getConfirmedTraineeIds());
+        if (!confirmed.contains(traineeId)) {
+            confirmed = new ArrayList<>(confirmed);
+            confirmed.add(traineeId);
+        }
+        s.setConfirmedTraineeIds(confirmed.stream().map(String::valueOf).collect(Collectors.joining(",")));
+        if (allTraineeIds.stream().allMatch(confirmed::contains)) {
+            s.setConfirmationStatus("CONFIRMED");
+        } else {
+            s.setConfirmationStatus("PENDING");
+        }
+        return sessionRepository.save(s);
     }
 
     @PostMapping("/trainee/sessions/{sessionId}/reject")
@@ -142,9 +180,10 @@ public class SessionConfirmationController {
                 err.put("reason", "Not authenticated as trainee");
                 return Mono.just(ResponseEntity.badRequest().body(err));
             }
+            Long rejectTraineeId = ((Number) traineeIdObj).longValue();
             return sessionRepository.findById(sessionId)
                     .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
-                            .any(tId -> tId.equals(((Number) traineeIdObj).longValue()))
+                            .any(tId -> tId.equals(rejectTraineeId))
                             .flatMap(isTrainee -> {
                                 if (!isTrainee) {
                                     Map<String, Object> err = new HashMap<>();
@@ -152,15 +191,20 @@ public class SessionConfirmationController {
                                     err.put("reason", "Not your session");
                                     return Mono.just(ResponseEntity.badRequest().body(err));
                                 }
-                                s.setConfirmationStatus("REJECTED");
-                                return sessionRepository.save(s)
-                                        .flatMap(saved -> notifyOtherParty(saved, false))
-                                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
-                                        .map(saved -> {
-                                            Map<String, Object> result = new HashMap<>();
-                                            result.put("success", true);
-                                            result.put("confirmationStatus", "REJECTED");
-                                            return ResponseEntity.ok(result);
+                                return traineeRepository.findById(rejectTraineeId)
+                                        .map(Trainee::getName)
+                                        .defaultIfEmpty("")
+                                        .flatMap(traineeName -> {
+                                            s.setConfirmationStatus("REJECTED");
+                                            return sessionRepository.save(s)
+                                                    .flatMap(saved -> notifyOtherParty(saved, false, traineeName))
+                                                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                                                    .map(saved -> {
+                                                        Map<String, Object> result = new HashMap<>();
+                                                        result.put("success", true);
+                                                        result.put("confirmationStatus", "REJECTED");
+                                                        return ResponseEntity.ok(result);
+                                                    });
                                         });
                             }))
                     .defaultIfEmpty(ResponseEntity.notFound().build());
@@ -307,6 +351,7 @@ public class SessionConfirmationController {
                                     m.put("endTime", s.getEndTime() != null ? s.getEndTime().toString() : null);
                                     m.put("confirmationStatus", s.getConfirmationStatus());
                                     m.put("createdBy", s.getCreatedBy());
+                                    m.put("confirmedTraineeIds", s.getConfirmedTraineeIds());
                                     m.put("mentorName", mentorName);
                                     m.put("color", "#3b82f6");
                                     m.put("traineeIds", new ArrayList<>(traineeNames.keySet()));
@@ -339,10 +384,12 @@ public class SessionConfirmationController {
                         String dateStr = (String) body.get("date");
                         String timeStr = (String) body.get("time");
                         String endTimeStr = (String) body.get("endTime");
-                        Long locationId = null;
+                        final Long locationId;
                         Object locObj = body.get("locationId");
                         if (locObj instanceof Number) {
                             locationId = ((Number) locObj).longValue();
+                        } else {
+                            locationId = null;
                         }
 
                         if (title == null || dateStr == null || timeStr == null) {
@@ -352,37 +399,82 @@ public class SessionConfirmationController {
                             return Mono.just(ResponseEntity.badRequest().body(err));
                         }
 
-                        Session newSession = Session.builder()
-                                .title(title)
-                                .description(description)
-                                .workoutDate(LocalDate.parse(dateStr))
-                                .startTime(LocalTime.parse(timeStr))
-                                .endTime(endTimeStr != null ? LocalTime.parse(endTimeStr) : null)
-                                .mentorId(trainee.getMentorId())
-                                .locationId(locationId)
-                                .createdBy("TRAINEE")
-                                .confirmationStatus("PENDING")
-                                .build();
+                        LocalDate sessionDate = LocalDate.parse(dateStr);
+                        LocalTime sessionStart = LocalTime.parse(timeStr);
+                        LocalTime sessionEnd = endTimeStr != null ? LocalTime.parse(endTimeStr) : null;
 
-                        return sessionRepository.save(newSession)
-                                .flatMap(saved -> {
-                                    List<Long> tIds = List.of(traineeId);
-                                    return Flux.fromIterable(tIds)
-                                            .flatMap(id -> sessionRepository.linkTraineeToSession(saved.getId(), id))
-                                            .then(Mono.just(saved));
-                                })
-                                .flatMap(saved -> notifyCoachAboutNewSession(saved, trainee))
-                                .doOnSuccess(s -> eventBroadcastService.broadcast("session_changed"))
-                                .map(saved -> {
-                                    Map<String, Object> result = new HashMap<>();
-                                    result.put("success", true);
-                                    result.put("id", saved.getId());
-                                    result.put("confirmationStatus", "PENDING");
-                                    return ResponseEntity.ok(result);
+                        Long mentorId = trainee.getMentorId();
+                        return mentorDayOffRepository.findByMentorIdAndDate(mentorId, sessionDate)
+                                .map(dayOff -> true)
+                                .defaultIfEmpty(false)
+                                .flatMap(isDayOff -> {
+                                    if (isDayOff) {
+                                        Map<String, Object> err = new HashMap<>();
+                                        err.put("success", false);
+                                        err.put("reason", "Цей день є вихідним для тренера");
+                                        return Mono.just(ResponseEntity.badRequest().body(err));
+                                    }
+                                    return validateTraineeWorkHours(mentorId, sessionStart, sessionEnd)
+                                            .flatMap(errResponse -> {
+                                                if (errResponse != null) {
+                                                    return Mono.just(errResponse);
+                                                }
+                                                Session newSession = Session.builder()
+                                                        .title(title)
+                                                        .description(description)
+                                                        .workoutDate(sessionDate)
+                                                        .startTime(sessionStart)
+                                                        .endTime(sessionEnd)
+                                                        .mentorId(mentorId)
+                                                        .locationId(locationId)
+                                                        .createdBy("TRAINEE")
+                                                        .confirmationStatus("PENDING")
+                                                        .build();
+                                                return sessionRepository.save(newSession)
+                                                        .flatMap(saved -> {
+                                                            List<Long> tIds = List.of(traineeId);
+                                                            return Flux.fromIterable(tIds)
+                                                                    .flatMap(id -> sessionRepository.linkTraineeToSession(saved.getId(), id))
+                                                                    .then(Mono.just(saved));
+                                                        })
+                                                        .flatMap(saved -> notifyCoachAboutNewSession(saved, trainee))
+                                                        .doOnSuccess(s -> eventBroadcastService.broadcast("session_changed"))
+                                                        .map(saved -> {
+                                                            Map<String, Object> result = new HashMap<>();
+                                                            result.put("success", true);
+                                                            result.put("id", saved.getId());
+                                                            result.put("confirmationStatus", "PENDING");
+                                                            return ResponseEntity.ok(result);
+                                                        });
+                                            });
                                 });
                     })
                     .defaultIfEmpty(ResponseEntity.badRequest().build());
         });
+    }
+
+    private Mono<ResponseEntity<Map<String, Object>>> validateTraineeWorkHours(Long mentorId, LocalTime startTime, LocalTime endTime) {
+        if (startTime == null || endTime == null) {
+            return Mono.empty();
+        }
+        return mentorRepository.findById(mentorId)
+                .flatMap(mentor -> {
+                    String workStart = mentor.getWorkStart();
+                    String workEnd = mentor.getWorkEnd();
+                    if (workStart == null || workEnd == null) {
+                        return Mono.empty();
+                    }
+                    LocalTime ws = LocalTime.parse(workStart);
+                    LocalTime we = LocalTime.parse(workEnd);
+                    if (startTime.isBefore(ws) || endTime.isAfter(we)) {
+                        Map<String, Object> err = new HashMap<>();
+                        err.put("success", false);
+                        err.put("reason", "Час сесії має бути в межах робочих годин тренера (" + workStart + " — " + workEnd + ")");
+                        return Mono.just(ResponseEntity.badRequest().body(err));
+                    }
+                    return Mono.empty();
+                })
+                .switchIfEmpty(Mono.empty());
     }
 
     private Mono<Session> notifyCoachAboutNewSession(Session session, Trainee trainee) {
@@ -410,6 +502,10 @@ public class SessionConfirmationController {
     }
 
     private Mono<Session> notifyOtherParty(Session session, boolean confirmed) {
+        return notifyOtherParty(session, confirmed, null);
+    }
+
+    private Mono<Session> notifyOtherParty(Session session, boolean confirmed, String traineeName) {
         String status = confirmed ? "✅ <b>Підтверджено</b>" : "❌ <b>Відхилено</b>";
         String action = confirmed ? "telegram_session_confirmed_action" : "telegram_session_rejected_action";
         String verb = confirmed ? "підтвердив" : "відхилив";
@@ -446,14 +542,15 @@ public class SessionConfirmationController {
                     String profile = getProfile(mentor);
                     String traineeLabel = ProfileLabels.get(profile, "trainee");
                     String sessionLabel = ProfileLabels.get(profile, "session").toLowerCase();
-                    String nTitle = traineeLabel + " " + verb + " " + sessionLabel;
+                    String actorName = traineeName != null ? traineeName : traineeLabel;
+                    String nTitle = actorName + " " + verb + " " + sessionLabel;
                     String nMessage = session.getTitle() + " — " + session.getWorkoutDate() + " " + session.getStartTime();
                     createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, confirmed ? "SESSION_CONFIRMED" : "SESSION_REJECTED", session.getId()).subscribe();
                     if (!mentor.hasTelegram()) return Mono.just(session);
                     String text = String.format(
                             ProfileLabels.get(profile, "telegram_session_decision_trainee"),
                             status,
-                            ProfileLabels.get(profile, action),
+                            (traineeName != null ? traineeName + " " : "") + ProfileLabels.get(profile, action),
                             session.getTitle() != null ? session.getTitle() : "",
                             session.getWorkoutDate().toString(),
                             session.getStartTime().toString(),

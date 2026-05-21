@@ -20,6 +20,7 @@ function sharedAvailabilityApp() {
         ws: null,
         singleDay: false,
         cardGrid: [],
+        workStart: '06:00', workEnd: '22:00',
 
         isDayOff(dateStr) { return this.dayOffs.includes(dateStr); },
 
@@ -66,6 +67,18 @@ function sharedAvailabilityApp() {
             return 'background:#3b82f6';
         },
 
+        buildGrids() {
+            const startH = parseInt(this.workStart.split(':')[0]);
+            const endH = parseInt(this.workEnd.split(':')[0]);
+            this.grid = [];
+            this.cardGrid = [];
+            for (let h = startH; h < endH; h++) {
+                const cells = [{mm:h*60},{mm:h*60+30}];
+                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+                this.cardGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells: [{mm:h*60},{mm:h*60+30}] });
+            }
+        },
+
         async init() {
             const pathParts = window.location.pathname.split('/');
             this.shareToken = pathParts[pathParts.length - 1];
@@ -82,11 +95,7 @@ function sharedAvailabilityApp() {
                 this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
 
-            for (let h = 6; h < 22; h++) {
-                const cells = [{mm:h*60},{mm:h*60+30}];
-                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
-                this.cardGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells: [{mm:h*60},{mm:h*60+30}] });
-            }
+            this.buildGrids();
 
             await this.loadData();
             if (dateParam && this.days.some(d => d.dateStr === dateParam)) {
@@ -126,6 +135,9 @@ function sharedAvailabilityApp() {
                 const mentorData = await mentorRes.json();
                 this.mentorName = mentorData.name;
                 this.dayOffs = mentorData.dayOffDates || [];
+                this.workStart = mentorData.workStart || '06:00';
+                this.workEnd = mentorData.workEnd || '22:00';
+                this.buildGrids();
 
                 const availRes = await fetch(`/api/v1/shared/${this.shareToken}?startDate=${start}&endDate=${end}`);
                 if (!availRes.ok) { this.loading = false; return; }
@@ -133,6 +145,9 @@ function sharedAvailabilityApp() {
                 const availData = await availRes.json();
                 const slots = availData.slots || [];
                 this.dayOffs = this.dayOffs.length ? this.dayOffs : (availData.dayOffDates || []);
+                if (availData.workStart) this.workStart = availData.workStart;
+                if (availData.workEnd) this.workEnd = availData.workEnd;
+                this.buildGrids();
 
                 const g = {};
                 for (const item of slots) {

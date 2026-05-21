@@ -264,6 +264,8 @@ public class CoachAvailabilityController {
         body.put("mentorId", mentor.getId());
         body.put("mentorName", mentor.getName());
         body.put("profile", mentor.getProfile());
+        body.put("workStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
+        body.put("workEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
         body.put("dayOffDates", dayOffDates.stream().map(LocalDate::toString).toList());
         body.put("slots", slots.stream().map(s -> {
             Map<String, Object> slot = new HashMap<>();
@@ -291,6 +293,8 @@ public class CoachAvailabilityController {
                     body.put("id", mentor.getId());
                     body.put("name", mentor.getName());
                     body.put("profile", mentor.getProfile());
+                    body.put("workStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
+                    body.put("workEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
                     if (startDate != null && endDate != null) {
                         return dayOffRepository.findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
                                 .map(MentorDayOff::getDate)

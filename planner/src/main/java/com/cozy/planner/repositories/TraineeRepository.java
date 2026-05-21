@@ -13,6 +13,9 @@ public interface TraineeRepository extends ReactiveCrudRepository<Trainee, Long>
 
     @Query("SELECT * FROM trainees WHERE invite_token = :token")
     Mono<Trainee> findByInviteToken(String token);
+
+    @Query("SELECT * FROM trainees WHERE telegram_chat_id = :chatId")
+    Mono<Trainee> findByTelegramChatId(String chatId);
     
     @Query("SELECT * FROM trainees WHERE mentor_id = :mentorId AND weekend_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
     Flux<Trainee> findAllByMentorIdForWeekendReminders(Long mentorId);
