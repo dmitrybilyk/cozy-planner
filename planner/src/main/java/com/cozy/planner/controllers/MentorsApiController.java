@@ -191,6 +191,7 @@ public class MentorsApiController implements MentorsApi {
                     m.put("weekendReminderEnabled", trainee.isWeekendReminderEnabled());
                     m.put("sessionReminderEnabled", trainee.isSessionReminderEnabled());
                     m.put("inviteToken", trainee.getInviteToken());
+                    m.put("timezone", trainee.getTimezone());
 
                     String connectLink = null;
                     if (telegramService.isEnabled() && trainee.getInviteToken() != null && !trainee.getInviteToken().isBlank()) {
@@ -222,6 +223,7 @@ public class MentorsApiController implements MentorsApi {
                         if (body.containsKey("photoUrl")) mentor.setPhotoUrl(body.get("photoUrl"));
                         if (body.containsKey("workStart")) mentor.setWorkStart(body.get("workStart"));
                         if (body.containsKey("workEnd")) mentor.setWorkEnd(body.get("workEnd"));
+                        if (body.containsKey("timezone")) mentor.setTimezone(body.get("timezone"));
                         return mentorRepository.save(mentor)
                                 .then(Mono.fromCallable(() -> {
                                     Map<String, Object> r = new HashMap<>();

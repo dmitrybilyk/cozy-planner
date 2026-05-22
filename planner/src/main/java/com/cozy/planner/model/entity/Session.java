@@ -56,6 +56,10 @@ public class Session {
     @Builder.Default
     private String confirmedTraineeIds = "";
 
+    @Column("rejected_trainee_ids")
+    @Builder.Default
+    private String rejectedTraineeIds = "";
+
     @Transient
     private List<Long> traineeIds;
 }

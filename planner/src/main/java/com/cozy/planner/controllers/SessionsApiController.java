@@ -414,6 +414,7 @@ public class SessionsApiController implements SessionsApi {
             dto.setTraineeIds(new ArrayList<>(entity.getTraineeIds()));
         }
         dto.setConfirmedTraineeIds(entity.getConfirmedTraineeIds());
+        dto.setRejectedTraineeIds(entity.getRejectedTraineeIds());
         
         return dto;
     }

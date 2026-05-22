@@ -183,6 +183,28 @@ public class TraineesApiController implements TraineesApi {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/api/v1/trainees/{traineeId}/timezone")
+    public Mono<ResponseEntity<Map<String, Object>>> updateTimezone(@PathVariable Long traineeId,
+                                                                        @RequestBody Map<String, Object> body,
+                                                                        ServerWebExchange exchange) {
+        Object tzObj = body.get("timezone");
+        String timezone = tzObj != null ? tzObj.toString() : null;
+
+        return traineeRepository.findById(traineeId)
+                .flatMap(existing -> {
+                    existing.setTimezone(timezone);
+                    return traineeRepository.save(existing);
+                })
+                .doOnSuccess(saved -> eventBroadcastService.broadcast("trainee_changed"))
+                .map(saved -> {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("success", true);
+                    result.put("timezone", saved.getTimezone());
+                    return ResponseEntity.ok(result);
+                })
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/api/v1/trainees/{traineeId}/notify-availability")
     public Mono<ResponseEntity<Map<String, Object>>> notifyAvailability(@PathVariable Long traineeId,
                                                                              @RequestBody Map<String, Object> body,

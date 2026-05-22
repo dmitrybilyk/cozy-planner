@@ -133,13 +133,14 @@ public class SessionConfirmationController {
                                         .map(Trainee::getName)
                                         .defaultIfEmpty("")
                                         .flatMap(traineeName -> addConfirmedTrainee(s, currentTraineeId, allTraineeIds)
-                                                .flatMap(updated -> notifyOtherParty(updated, "CONFIRMED".equals(updated.getConfirmationStatus()), traineeName))
+                                                .flatMap(updated -> notifyTraineeAction(updated, traineeName, true, allTraineeIds))
                                                 .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                                                 .map(saved -> {
                                                     Map<String, Object> result = new HashMap<>();
                                                     result.put("success", true);
                                                     result.put("confirmationStatus", saved.getConfirmationStatus());
-                                                    result.put("confirmedTraineeIds", parseConfirmedIds(saved.getConfirmedTraineeIds()));
+                                                    result.put("confirmedTraineeIds", parseCommaIds(saved.getConfirmedTraineeIds()));
+                                                    result.put("rejectedTraineeIds", parseCommaIds(saved.getRejectedTraineeIds()));
                                                     return ResponseEntity.ok(result);
                                                 }));
                             }))
@@ -147,7 +148,7 @@ public class SessionConfirmationController {
         });
     }
 
-    private List<Long> parseConfirmedIds(String ids) {
+    private List<Long> parseCommaIds(String ids) {
         if (ids == null || ids.isBlank()) return List.of();
         return Arrays.stream(ids.split(","))
                 .map(String::trim)
@@ -157,7 +158,7 @@ public class SessionConfirmationController {
     }
 
     private Mono<Session> addConfirmedTrainee(Session s, Long traineeId, List<Long> allTraineeIds) {
-        List<Long> confirmed = parseConfirmedIds(s.getConfirmedTraineeIds());
+        List<Long> confirmed = parseCommaIds(s.getConfirmedTraineeIds());
         if (!confirmed.contains(traineeId)) {
             confirmed = new ArrayList<>(confirmed);
             confirmed.add(traineeId);
@@ -169,6 +170,36 @@ public class SessionConfirmationController {
             s.setConfirmationStatus("PENDING");
         }
         return sessionRepository.save(s);
+    }
+
+    private Mono<Session> addRejectedTrainee(Session s, Long traineeId) {
+        List<Long> rejected = parseCommaIds(s.getRejectedTraineeIds());
+        if (!rejected.contains(traineeId)) {
+            rejected = new ArrayList<>(rejected);
+            rejected.add(traineeId);
+        }
+        s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
+        return sessionRepository.save(s);
+    }
+
+    private Mono<Session> notifyTraineeAction(Session session, String traineeName, boolean confirmed, List<Long> allTraineeIds) {
+        return mentorRepository.findById(session.getMentorId())
+                .flatMap(mentor -> {
+                    String profile = getProfile(mentor);
+                    List<Long> confirmedIds = parseCommaIds(session.getConfirmedTraineeIds());
+                    List<Long> rejectedIds = parseCommaIds(session.getRejectedTraineeIds());
+                    int respondedCount = confirmedIds.size() + rejectedIds.size();
+                    int totalCount = allTraineeIds.size();
+                    String verb = confirmed ? "підтвердив" : "відхилив";
+                    String nTitle = traineeName + " " + verb + " запрошення на сесію";
+                    String nMessage = String.format("%s — %s %s (%d/%d)",
+                        session.getTitle(), session.getWorkoutDate(), session.getStartTime(), respondedCount, totalCount);
+                    createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, confirmed ? "SESSION_CONFIRMED" : "SESSION_REJECTED", session.getId()).subscribe();
+                    if (!mentor.hasTelegram()) return Mono.just(session);
+                    String text = traineeName + " " + verb + " сесію \"" + session.getTitle() + "\" (" + respondedCount + "/" + totalCount + ")";
+                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), text).thenReturn(session);
+                })
+                .defaultIfEmpty(session);
     }
 
     @PostMapping("/trainee/sessions/{sessionId}/reject")
@@ -196,18 +227,19 @@ public class SessionConfirmationController {
                                 return traineeRepository.findById(rejectTraineeId)
                                         .map(Trainee::getName)
                                         .defaultIfEmpty("")
-                                        .flatMap(traineeName -> {
-                                            s.setConfirmationStatus("REJECTED");
-                                            return sessionRepository.save(s)
-                                                    .flatMap(saved -> notifyOtherParty(saved, false, traineeName))
-                                                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
-                                                    .map(saved -> {
-                                                        Map<String, Object> result = new HashMap<>();
-                                                        result.put("success", true);
-                                                        result.put("confirmationStatus", "REJECTED");
-                                                        return ResponseEntity.ok(result);
-                                                    });
-                                        });
+                                        .flatMap(traineeName -> sessionRepository.findTraineeIdsBySessionId(s.getId())
+                                                .collectList()
+                                                .flatMap(allTraineeIds -> addRejectedTrainee(s, rejectTraineeId)
+                                                        .flatMap(updated -> notifyTraineeAction(updated, traineeName, false, allTraineeIds))
+                                                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                                                        .map(saved -> {
+                                                            Map<String, Object> result = new HashMap<>();
+                                                            result.put("success", true);
+                                                            result.put("confirmationStatus", saved.getConfirmationStatus());
+                                                            result.put("confirmedTraineeIds", parseCommaIds(saved.getConfirmedTraineeIds()));
+                                                            result.put("rejectedTraineeIds", parseCommaIds(saved.getRejectedTraineeIds()));
+                                                            return ResponseEntity.ok(result);
+                                                        })));
                             }))
                     .defaultIfEmpty(ResponseEntity.notFound().build());
         });
@@ -354,6 +386,7 @@ public class SessionConfirmationController {
                                     m.put("confirmationStatus", s.getConfirmationStatus());
                                     m.put("createdBy", s.getCreatedBy());
                                     m.put("confirmedTraineeIds", s.getConfirmedTraineeIds());
+                                    m.put("rejectedTraineeIds", s.getRejectedTraineeIds());
                                     m.put("mentorName", mentorName);
                                     m.put("color", "#3b82f6");
                                     m.put("traineeIds", new ArrayList<>(traineeNames.keySet()));

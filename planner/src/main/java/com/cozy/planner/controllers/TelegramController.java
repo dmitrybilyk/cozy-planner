@@ -265,37 +265,53 @@ public class TelegramController {
         } else if (data.startsWith("trainee_reject_session:")) {
             Long sessionId = parseSessionId(data);
             if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
-            return sessionRepository.findById(sessionId)
-                    .flatMap(session -> {
-                        session.setConfirmationStatus("REJECTED");
-                        return sessionRepository.save(session);
-                    })
-                    .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
-                    .flatMap(saved -> {
-                        String text = "❌ Сесію відхилено. Тренер отримає сповіщення.";
-                        return telegramService.sendMessage(chatId, text)
-                                .thenReturn(saved);
-                    })
-                    .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
-                            .defaultIfEmpty(Mentor.builder().profile("sport").build())
-                            .flatMap(mentor -> {
-                                String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
-                                String mentorText = String.format(
-                                        ProfileLabels.get(profile, "telegram_session_decision_trainee"),
-                                        "❌ <b>Відхилено</b>",
-                                        ProfileLabels.get(profile, "telegram_session_rejected_action"),
-                                        saved.getTitle() != null ? saved.getTitle() : "",
-                                        saved.getWorkoutDate().toString(),
-                                        saved.getStartTime().toString(),
-                                        saved.getEndTime() != null ? saved.getEndTime().toString() : "");
-                                if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
-                                    return telegramService.sendMessageToMentor(chatId, mentorText);
-                                }
-                                if (mentor.hasTelegram()) {
-                                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), mentorText);
-                                }
-                                return Mono.just(true);
-                            }))
+            return traineeRepository.findByTelegramChatId(chatId)
+                    .flatMap(trainee -> sessionRepository.findById(sessionId)
+                            .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
+                                    .collectList()
+                                    .flatMap(allTraineeIds -> {
+                                        if (!allTraineeIds.contains(trainee.getId())) {
+                                            return Mono.just(s);
+                                        }
+                                        List<Long> rejected = parseConfirmedIds(s.getRejectedTraineeIds());
+                                        if (!rejected.contains(trainee.getId())) {
+                                            rejected = new ArrayList<>(rejected);
+                                            rejected.add(trainee.getId());
+                                        }
+                                        s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                                        return sessionRepository.save(s);
+                                    }))
+                            .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                            .flatMap(saved -> {
+                                String text = "❌ Сесію відхилено. Тренер отримає сповіщення.";
+                                return telegramService.sendMessage(chatId, text)
+                                        .thenReturn(saved);
+                            })
+                            .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
+                                    .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                                    .flatMap(mentor -> {
+                                        String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                                        List<Long> confirmedIds = parseConfirmedIds(saved.getConfirmedTraineeIds());
+                                        List<Long> rejectedIds = parseConfirmedIds(saved.getRejectedTraineeIds());
+                                        int respondedCount = confirmedIds.size() + rejectedIds.size();
+                                        int totalCount = saved.getTraineeIds() != null ? saved.getTraineeIds().size() : 0;
+                                        String mentorText = String.format(
+                                                "❌ %s відхилив сесію \"%s\" (%d/%d)",
+                                                trainee.getName(),
+                                                saved.getTitle() != null ? saved.getTitle() : "",
+                                                respondedCount, totalCount);
+                                        if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
+                                            return telegramService.sendMessageToMentor(chatId, mentorText);
+                                        }
+                                        if (mentor.hasTelegram()) {
+                                            return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), mentorText);
+                                        }
+                                        return Mono.just(true);
+                                    })))
+                    .switchIfEmpty(Mono.defer(() -> {
+                        log.warn("No trainee found for chatId: {}", chatId);
+                        return Mono.empty();
+                    }))
                     .then(ackCallback(callbackId, botType))
                     .thenReturn(ResponseEntity.ok().build());
         }

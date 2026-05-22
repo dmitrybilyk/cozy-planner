@@ -231,7 +231,7 @@ public class CoachAvailabilityController {
                                                     if (s.getLocationId() != null) locationIds.add(s.getLocationId());
                                                 }
                                                 if (locationIds.isEmpty()) {
-                                                    return buildSharedResponse(mentor, freeSlots, Map.of(), dayOffDates);
+                                                    return buildSharedResponse(mentor, freeSlots, Map.of(), dayOffDates, sessions);
                                                 }
                                                 return Flux.fromIterable(locationIds)
                                                         .flatMap(id -> locationRepository.findById(id)
@@ -244,10 +244,10 @@ public class CoachAvailabilityController {
                                                                 })
                                                                 .defaultIfEmpty(Map.entry(id, Map.<String, Object>of())))
                                                         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                                        .flatMap(locMap -> buildSharedResponse(mentor, freeSlots, locMap, dayOffDates))
+                                                        .flatMap(locMap -> buildSharedResponse(mentor, freeSlots, locMap, dayOffDates, sessions))
                                                         .onErrorResume(e -> {
                                                             log.error("Failed to resolve locations for shared availability", e);
-                                                            return buildSharedResponse(mentor, freeSlots, Map.of(), dayOffDates);
+                                                            return buildSharedResponse(mentor, freeSlots, Map.of(), dayOffDates, sessions);
                                                         });
                                             }))
                             );
@@ -259,7 +259,8 @@ public class CoachAvailabilityController {
     private Mono<ResponseEntity<Map<String, Object>>> buildSharedResponse(Mentor mentor,
                                                                             List<MentorAvailability> slots,
                                                                             Map<Long, Map<String, Object>> locMap,
-                                                                            List<LocalDate> dayOffDates) {
+                                                                            List<LocalDate> dayOffDates,
+                                                                            List<Session> sessions) {
         Map<String, Object> body = new HashMap<>();
         body.put("mentorId", mentor.getId());
         body.put("mentorName", mentor.getName());
@@ -279,6 +280,13 @@ public class CoachAvailabilityController {
             slot.put("locationDescription", loc.getOrDefault("description", ""));
             slot.put("locationColor", loc.getOrDefault("color", ""));
             return slot;
+        }).toList());
+        body.put("busySlots", sessions.stream().map(s -> {
+            Map<String, Object> bs = new HashMap<>();
+            bs.put("date", s.getWorkoutDate().toString());
+            bs.put("startTime", s.getStartTime().toString());
+            bs.put("endTime", s.getEndTime() != null ? s.getEndTime().toString() : s.getStartTime().toString());
+            return bs;
         }).toList());
         return Mono.just(ResponseEntity.ok(body));
     }

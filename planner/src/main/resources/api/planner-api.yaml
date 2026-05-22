@@ -470,6 +470,8 @@ components:
           type: string
         confirmedTraineeIds:
           type: string
+        rejectedTraineeIds:
+          type: string
 
     LocationDTO:
       type: object

@@ -43,6 +43,7 @@ function traineeApp() {
         // coach schedule
         coachSelectedDate: today,
         coachCellsByDate: {},
+        coachBusyByDate: {},
         mentorWorkStart: '06:00',
         mentorWorkEnd: '21:00',
 
@@ -484,6 +485,18 @@ function traineeApp() {
                         }
                     }
                     this.coachCellsByDate = g;
+                    const busy = {};
+                    for (const bs of data.busySlots || []) {
+                        if (!busy[bs.date]) busy[bs.date] = [];
+                        const [sh, sm] = bs.startTime.split(':').map(Number);
+                        const [eh, em] = bs.endTime.split(':').map(Number);
+                        let t = sh * 60 + sm, end = eh * 60 + em;
+                        while (t < end) {
+                            busy[bs.date].push(t);
+                            t += 30;
+                        }
+                    }
+                    this.coachBusyByDate = busy;
                     console.log('[trainee] coachCellsByDate dates:', Object.keys(this.coachCellsByDate));
                 } else {
                     console.error('[trainee] shared fetch not ok', await res.text());
@@ -527,24 +540,27 @@ function traineeApp() {
             const c = this.coachCellAt(mm);
             if (!c) return;
             if (this.traineeSessionOnDate(this.coachSelectedDate, mm)) return;
+            const busyMms = this.coachBusyByDate[this.coachSelectedDate] || [];
+            if (busyMms.includes(mm)) return;
             const slot = this.mentorSlots.find(s => {
                 if (s.date !== this.coachSelectedDate) return false;
                 const [sh, sm] = s.startTime.split(':').map(Number);
                 const [eh, em] = s.endTime.split(':').map(Number);
                 return mm >= sh * 60 + sm && mm < eh * 60 + em;
             });
-            let startTime, endTime, locationId;
+            const sh = String(Math.floor(mm / 60)).padStart(2, '0');
+            const sm = String(mm % 60).padStart(2, '0');
+            startTime = `${sh}:${sm}`;
+            let endMm = mm + 60;
             if (slot) {
-                startTime = slot.startTime;
-                endTime = slot.endTime;
-                locationId = slot.locationId || '';
-            } else {
-                const h = String(Math.floor(mm / 60)).padStart(2, '0');
-                const m = String(mm % 60).padStart(2, '0');
-                startTime = `${h}:${m}`;
-                endTime = `${Number(m) + 30 < 60 ? `${h}:${String(Number(m) + 30).padStart(2, '0')}` : `${String(Number(h) + 1).padStart(2, '0')}:00`}`;
-                locationId = c.locId || '';
+                const [eh, em] = slot.endTime.split(':').map(Number);
+                const slotEnd = eh * 60 + em;
+                if (endMm > slotEnd) endMm = slotEnd;
             }
+            const endH = String(Math.floor(endMm / 60)).padStart(2, '0');
+            const endM = String(endMm % 60).padStart(2, '0');
+            endTime = `${endH}:${endM}`;
+            const locationId = c.locId || (slot ? slot.locationId : '') || '';
             this.form = { title: 'Сесія', description: '', date: this.coachSelectedDate, time: startTime, endTime, locationId };
             this.selectedModalSlots = this.slotSlides(startTime, endTime);
             this.tab = 'sessions';
@@ -783,6 +799,8 @@ function traineeApp() {
         coachCellStyle(mm) {
             if (this.isPastMinuteOnDate(this.coachSelectedDate, mm)) return 'background:#1a1a1a; pointer-events:none';
             if (this.traineeSessionOnDate(this.coachSelectedDate, mm)) return 'background:#dc2626; pointer-events:none';
+            const busyMms = this.coachBusyByDate[this.coachSelectedDate] || [];
+            if (busyMms.includes(mm)) return 'background:#dc2626; pointer-events:none';
             const c = this.coachCellAt(mm);
             if (!c) return 'background:#2a2a2a';
             if (c.locColor) return `background:${c.locColor}`;

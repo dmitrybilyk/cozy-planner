@@ -10,7 +10,7 @@ function addDays(dateStr, n) {
 function calendarApp() {
     const _today = localDateStr();
     return {
-        currentView: 'feed', showModal: false, showManageTrainees: false, showManageLocations: false, showAvailabilityOverview: false, showProfile: false,
+        activeTab: 'feed', showModal: false,
         editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false,
         selectedDate: _today, todayStr: _today,
         days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport',
@@ -45,9 +45,10 @@ function calendarApp() {
         touchDrag: null,
         touchJustDragged: false,
         _touchDragCleanup: null,
-        showNotifications: false,
         workStart: '09:00',
         workEnd: '21:00',
+        timezone: 'Europe/Kyiv',
+        editingTimezone: 'Europe/Kyiv',
         photoUrl: null,
         notifications: [],
         unreadCount: 0,
@@ -57,12 +58,23 @@ function calendarApp() {
         copiedToday: false,
         imgCopiedWeek: false,
         imgCopiedDay: false,
-        showHistory: false,
-        showAgenda: false,
         pastSessions: [],
         _pastSessionPage: 0,
         hasMorePastSessions: true,
         loadingMorePast: false,
+        coachAvailDate: _today,
+        coachAvailDays: [],
+        coachAvailGrid: [],
+        coachCells: {},
+        coachSess: {},
+        coachCurLoc: null,
+        coachBusySession: null,
+        coachSaving: false,
+        coachDirtyDates: new Set(),
+        coachDirtyDayOffs: [],
+        coachCopied: false,
+        coachImgCopiedWeek: false,
+        coachLoaded: false,
 
         async loadNotifications() {
             const res = await fetch('/api/v1/notifications');
@@ -470,6 +482,8 @@ function calendarApp() {
                     this.mentorProfile = data.mentor?.profile || 'sport';
                     this.workStart = data.mentor?.workStart || '09:00';
                     this.workEnd = data.mentor?.workEnd || '21:00';
+                    this.timezone = data.mentor?.timezone || 'Europe/Kyiv';
+                    this.editingTimezone = this.timezone;
                     this.photoUrl = data.mentor?.photoUrl || null;
                     this.shareToken = data.mentor?.shareToken || null;
                     this.shareUrl = this.shareToken ? window.location.origin + '/shared/' + this.shareToken : '';
@@ -539,6 +553,7 @@ function calendarApp() {
 
         async selectDay(dateStr) {
             this.selectedDate = dateStr;
+            this.activeTab = 'feed';
             this.$nextTick(() => this.scrollToActive());
             if (!this.loadedDates[dateStr]) {
                 await this.loadDaySessions(dateStr);
@@ -578,7 +593,7 @@ function calendarApp() {
             return this.dayOffs.includes(dateStr);
         },
 
-        goToDay(date) { this.selectedDate = date; this.currentView = 'feed'; setTimeout(() => this.scrollToActive(), 150); },
+        goToDay(date) { this.selectedDate = date; this.activeTab = 'feed'; setTimeout(() => this.scrollToActive(), 150); },
         toggleTraineeFilter(id) { if (id === null) this.selectedTraineeFilters = []; else { const idx = this.selectedTraineeFilters.indexOf(id); if (idx > -1) this.selectedTraineeFilters.splice(idx, 1); else this.selectedTraineeFilters.push(id); } },
 
         get agendaGroups() {
@@ -827,11 +842,15 @@ function calendarApp() {
                                         a.weekendReminderEnabled = tg.weekendReminderEnabled;
                                         a.sessionReminderEnabled = tg.sessionReminderEnabled;
                                         a.inviteToken = tg.inviteToken;
+                                        a.timezone = tg.timezone || 'Europe/Kyiv';
+                                        a._editingTz = a.timezone;
                                     } else {
                                         a.telegramEnabled = true;
                                         a.telegramConnected = false;
                                         a.photoBase64 = null;
                                         a.weekendReminderEnabled = false;
+                                        a.timezone = 'Europe/Kyiv';
+                                        a._editingTz = a.timezone;
                                         a.sessionReminderEnabled = false;
                                         a.inviteToken = null;
                                     }
@@ -988,6 +1007,19 @@ function calendarApp() {
             this.buildCoachGrid();
         },
 
+        async saveTimezone() {
+            await fetch('/api/v1/mentor/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({timezone: this.editingTimezone})
+            });
+            this.timezone = this.editingTimezone;
+        },
+
+        cancelTimezone() {
+            this.editingTimezone = this.timezone;
+        },
+
         async mkShareToken() {
             if (this.shareToken) return;
             const r = await fetch('/api/v1/coach/share-token', { method:'POST' });
@@ -1132,6 +1164,13 @@ function calendarApp() {
         getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
         getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
         getLocationColor(id) { return this.locations.find(l => l.id === id)?.color || '#3b82f6'; },
+        getTraineeConfirmStatus(traineeId, session) {
+            const confirmed = (session.confirmedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
+            const rejected = (session.rejectedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
+            if (confirmed.includes(traineeId)) return 'confirmed';
+            if (rejected.includes(traineeId)) return 'rejected';
+            return 'none';
+        },
         getSessionIcons(session, index) {
             const count = (session.traineeIds || []).length;
             return Array(count).fill('😊');
@@ -1150,6 +1189,7 @@ function calendarApp() {
             return h * 60 + (m || 0);
         },
         isSessionNow(session) {
+            if (session.date !== this.todayStr) return false;
             const now = this.nowMinutes;
             const start = this.sessionStartMin(session);
             const end = this.sessionEndMin(session);
@@ -1387,7 +1427,7 @@ function calendarApp() {
         },
 
         createFromAvailability(traineeId, date, startTime, endTime) {
-            this.showAvailabilityOverview = false;
+            this.activeTab = 'feed';
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.$nextTick(() => {
@@ -1471,7 +1511,7 @@ function calendarApp() {
             this.sessionForm.title = names ? base + ' — ' + names : base;
         },
         createSessionForTrainee(trainee) {
-            this.showManageTrainees = false;
+            this.activeTab = 'feed';
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.originalSessionData = null;
@@ -1513,6 +1553,12 @@ function calendarApp() {
              if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500';
              if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/10 border-red-500/30 opacity-70';
              if (session.confirmationStatus === 'PENDING' && session.createdBy === 'TRAINEE') return 'bg-yellow-900/10 border-yellow-500/30';
+             if (session.confirmationStatus === 'PENDING') {
+                 const confirmed = (session.confirmedTraineeIds || '').split(',').filter(Boolean).length;
+                 const total = (session.traineeIds || []).length;
+                 if (confirmed > 0) return 'bg-yellow-900/15 border-yellow-600/40';
+                 return 'bg-yellow-900/10 border-yellow-500/20';
+             }
              return base;
          },
 
@@ -1521,6 +1567,12 @@ function calendarApp() {
              if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500';
              if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/10 border-red-500/30 opacity-70';
              if (session.confirmationStatus === 'PENDING' && session.createdBy === 'TRAINEE') return 'bg-yellow-900/10 border-yellow-500/30';
+             if (session.confirmationStatus === 'PENDING') {
+                 const confirmed = (session.confirmedTraineeIds || '').split(',').filter(Boolean).length;
+                 const total = (session.traineeIds || []).length;
+                 if (confirmed > 0) return 'bg-yellow-900/15 border-yellow-600/40';
+                 return 'bg-yellow-900/10 border-yellow-500/20';
+             }
              return base;
          },
 
@@ -1580,19 +1632,32 @@ function calendarApp() {
              }
          },
          
-         async toggleSessionReminder(trainee) {
-             if (!trainee.telegramEnabled || !trainee.telegramConnected) return;
-             const res = await fetch(`/api/v1/trainees/${trainee.id}/session-reminder`, {
-                 method: 'POST',
-                 headers: { 'Content-Type': 'application/json' },
-                 body: JSON.stringify({ enabled: trainee.sessionReminderEnabled })
-             });
-             if (!res.ok) {
-                 trainee.sessionReminderEnabled = !trainee.sessionReminderEnabled;
-             }
-         },
-        
-         handleTraineePhotoSelect(event) {
+          async toggleSessionReminder(trainee) {
+              if (!trainee.telegramEnabled || !trainee.telegramConnected) return;
+              const res = await fetch(`/api/v1/trainees/${trainee.id}/session-reminder`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ enabled: trainee.sessionReminderEnabled })
+              });
+              if (!res.ok) {
+                  trainee.sessionReminderEnabled = !trainee.sessionReminderEnabled;
+              }
+          },
+
+          async saveTraineeTimezone(trainee) {
+              const res = await fetch(`/api/v1/trainees/${trainee.id}/timezone`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ timezone: trainee._editingTz })
+              });
+              if (res.ok) {
+                  trainee.timezone = trainee._editingTz;
+              } else {
+                  trainee._editingTz = trainee.timezone;
+              }
+          },
+         
+          handleTraineePhotoSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
             
@@ -1660,6 +1725,240 @@ function calendarApp() {
                 start.setDate(start.getDate() + 1);
             }
         },
+        get coachAvailTitle() {
+            const titles = { sport:'Доступність тренера', studying:'Доступність вчителя', psychology:'Доступність психолога', other:'Доступність ментора' };
+            return titles[this.mentorProfile] || titles.sport;
+        },
+        get coachIsDayOff() { return this.dayOffs.includes(this.coachAvailDate); },
+        get coachAvailHasUnsaved() { return this.coachDirtyDates.size > 0 || this.coachDirtyDayOffs.length > 0; },
+
+        coachAvailHasSlots(ds) { return (this.coachCells[ds] || []).length > 0; },
+
+        coachGetCurCells() { return this.coachCells[this.coachAvailDate] || []; },
+
+        coachCellAt(mm) { return this.coachGetCurCells().find(x => x.mm === mm); },
+
+        coachInSess(mm) {
+            return (this.coachSess[this.coachAvailDate] || []).some(s => {
+                const [sh,sm] = s.startTime.split(':').map(Number);
+                const [eh,em] = (s.endTime || s.startTime).split(':').map(Number);
+                return mm >= sh*60+sm && mm < eh*60+em;
+            });
+        },
+
+        coachAvailSessionAt(mm) {
+            return (this.coachSess[this.coachAvailDate] || []).find(s => {
+                const [sh,sm] = s.startTime.split(':').map(Number);
+                const [eh,em] = (s.endTime || s.startTime).split(':').map(Number);
+                return mm >= sh*60+sm && mm < eh*60+em;
+            }) || null;
+        },
+
+        coachAvailTitleAt(mm) {
+            return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
+        },
+
+        coachAvailSel(ds) { this.coachAvailDate = ds; },
+
+        coachBuildGrid() {
+            const [sh, sm] = this.workStart.split(':').map(Number);
+            const [eh, em] = this.workEnd.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+            const arr = [];
+            for (let m = startMin; m < endMin; m += 60) {
+                const cells = [{ mm: m }, { mm: m + 30 }];
+                arr.push({ lbl: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, cells });
+            }
+            this.coachAvailGrid = arr;
+        },
+
+        async coachAvailTap(mm) {
+            const busy = this.coachAvailSessionAt(mm);
+            if (busy) { this.coachBusySession = busy; return; }
+            const arr = this.coachGetCurCells();
+            const idx = arr.findIndex(x => x.mm === mm);
+            if (idx >= 0) {
+                arr.splice(idx, 1);
+            } else {
+                arr.push({ mm, locId: this.coachCurLoc ? Number(this.coachCurLoc) : null });
+            }
+            this.coachCells[this.coachAvailDate] = [...arr];
+            this.coachDirtyDates.add(this.coachAvailDate);
+        },
+
+        coachAvailCellStyle(mm) {
+            if (this.coachIsDayOff) return 'background:#2a1a1a';
+            if (this.coachInSess(mm)) return 'background:#dc2626';
+            const c = this.coachCellAt(mm);
+            if (!c) return 'background:#2a2a2a';
+            if (c.locId != null && this.locations.length) {
+                const l = this.locations.find(x => Number(x.id) === Number(c.locId));
+                if (l && l.color) return `background:${l.color}`;
+            }
+            return 'background:#3b82f6';
+        },
+
+        coachToggleDayOff() {
+            const wasDayOff = this.coachIsDayOff;
+            if (wasDayOff) {
+                this.dayOffs = this.dayOffs.filter(d => d !== this.coachAvailDate);
+                this.coachDirtyDayOffs.push({ date: this.coachAvailDate, action: 'remove' });
+            } else {
+                this.dayOffs.push(this.coachAvailDate);
+                this.coachCells[this.coachAvailDate] = [];
+                this.coachDirtyDayOffs.push({ date: this.coachAvailDate, action: 'add' });
+            }
+            this.coachDirtyDates.delete(this.coachAvailDate);
+        },
+
+        coachFillAllDay() {
+            const [sh, sm] = this.workStart.split(':').map(Number);
+            const [eh, em] = this.workEnd.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+            const cur = this.coachGetCurCells();
+            const freeSlots = [];
+            for (let m = startMin; m < endMin; m += 30) {
+                if (!this.coachInSess(m)) freeSlots.push(m);
+            }
+            const allFilled = freeSlots.every(mm => cur.some(c => c.mm === mm));
+            if (allFilled) {
+                this.coachCells[this.coachAvailDate] = cur.filter(c => this.coachInSess(c.mm));
+                this.coachDirtyDates.add(this.coachAvailDate);
+            } else {
+                const filled = cur.filter(c => this.coachInSess(c.mm));
+                for (const mm of freeSlots) {
+                    if (!filled.some(c => c.mm === mm)) {
+                        filled.push({ mm, locId: this.coachCurLoc ? Number(this.coachCurLoc) : null });
+                    }
+                }
+                this.coachCells[this.coachAvailDate] = filled;
+                this.coachDirtyDates.add(this.coachAvailDate);
+            }
+        },
+
+        async coachSaveAll() {
+            if (this.coachSaving) return;
+            this.coachSaving = true;
+            try {
+                for (const { date } of this.coachDirtyDayOffs) {
+                    await fetch('/api/v1/coach/day-off', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ date })
+                    });
+                }
+                for (const date of this.coachDirtyDates) {
+                    const arr = this.coachCells[date] || [];
+                    if (!arr.length) {
+                        await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
+                    } else {
+                        const sorted = [...arr].sort((a,b) => a.mm - b.mm);
+                        const merged = [];
+                        let cs = sorted[0].mm, ce = sorted[0].mm + 30, cl = sorted[0].locId;
+                        for (let i = 1; i < sorted.length; i++) {
+                            if (sorted[i].mm === ce && sorted[i].locId === cl) {
+                                ce = sorted[i].mm + 30;
+                            } else {
+                                const sh = String(Math.floor(cs / 60)).padStart(2, '0');
+                                const sm = String(cs % 60).padStart(2, '0');
+                                const eh = String(Math.floor(ce / 60)).padStart(2, '0');
+                                const em = String(ce % 60).padStart(2, '0');
+                                merged.push({ date, startTime: sh + ':' + sm, endTime: eh + ':' + em, locationId: cl || null });
+                                cs = sorted[i].mm; ce = sorted[i].mm + 30; cl = sorted[i].locId;
+                            }
+                        }
+                        const sh = String(Math.floor(cs / 60)).padStart(2, '0');
+                        const sm = String(cs % 60).padStart(2, '0');
+                        const eh = String(Math.floor(ce / 60)).padStart(2, '0');
+                        const em = String(ce % 60).padStart(2, '0');
+                        merged.push({ date, startTime: sh + ':' + sm, endTime: eh + ':' + em, locationId: cl || null });
+                        await fetch('/api/v1/coach/availability', {
+                            method:'POST',
+                            headers:{'Content-Type':'application/json'},
+                            body:JSON.stringify(merged)
+                        });
+                    }
+                }
+                this.coachDirtyDates.clear();
+                this.coachDirtyDayOffs = [];
+                if (!this.shareToken) await this.mkShareToken();
+            } catch(e) { console.error('[coach] saveAll error', e); }
+            finally { this.coachSaving = false; }
+        },
+
+        async loadCoachAvailability() {
+            if (this.coachLoaded) return;
+            const now = new Date();
+            const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+            const MON = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+            this.coachAvailDays = [];
+            for (let i = 0; i < 14; i++) {
+                const d = new Date(now); d.setDate(now.getDate() + i);
+                const ds = localDateStr(d);
+                this.coachAvailDays.push({ ds, wd: WD[(d.getDay()+6)%7], num: d.getDate(), mo: MON[d.getMonth()], isToday: ds === this.todayStr, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
+            }
+            this.coachAvailDate = this.todayStr;
+            this.coachBuildGrid();
+            const sd = this.coachAvailDays[0].ds;
+            const ed = this.coachAvailDays[this.coachAvailDays.length-1].ds;
+            try {
+                const [ar, sr, dr] = await Promise.all([
+                    fetch(`/api/v1/coach/availability?startDate=${sd}&endDate=${ed}`),
+                    fetch(`/api/v1/coach/sessions?startDate=${sd}&endDate=${ed}`),
+                    fetch(`/api/v1/coach/day-off?startDate=${sd}&endDate=${ed}`)
+                ]);
+                if (ar.ok) {
+                    const g = {};
+                    for (const i of await ar.json()) {
+                        if (!g[i.date]) g[i.date] = [];
+                        const [sh,sm] = i.startTime.split(':').map(Number);
+                        const [eh,em] = i.endTime.split(':').map(Number);
+                        let t = sh*60+sm, end = eh*60+em;
+                        while (t < end) {
+                            g[i.date].push({ mm: t, locId: i.locationId });
+                            t += 30;
+                        }
+                    }
+                    this.coachCells = g;
+                }
+                if (sr.ok) {
+                    const g = {};
+                    for (const i of await sr.json()) {
+                        if (!g[i.date]) g[i.date] = [];
+                        g[i.date].push(i);
+                    }
+                    this.coachSess = g;
+                }
+                if (dr.ok) this.dayOffs = await dr.json();
+            } catch(e) {
+                console.error('[coach] load error', e);
+            }
+            this.coachDirtyDates.clear();
+            this.coachDirtyDayOffs = [];
+            this.coachLoaded = true;
+        },
+
+        coachCopyLink() {
+            if (!this.shareToken) return this.mkShareToken().then(() => this.coachCopyLink());
+            if (!this.shareUrl) return;
+            navigator.clipboard.writeText(this.shareUrl).then(() => {
+                this.coachCopied = true;
+                setTimeout(() => this.coachCopied = false, 2000);
+            }).catch(e => prompt('Скопіюйте:', this.shareUrl));
+        },
+
+        coachCopyImageWeek() {
+            if (!this.shareToken) return this.mkShareToken().then(() => this.coachCopyImageWeek());
+            if (!this.shareToken) return;
+            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image';
+            navigator.clipboard.writeText(imgUrl).then(() => {
+                this.coachImgCopiedWeek = true;
+                setTimeout(() => this.coachImgCopiedWeek = false, 3000);
+            }).catch(e => prompt('Скопіюйте посилання на картинку:', imgUrl));
+        },
+
         formatDisplayDate(str) {
             const d = new Date(str); const months = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня', 'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'];
             const fullDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
