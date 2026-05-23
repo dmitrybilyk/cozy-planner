@@ -765,6 +765,7 @@
                 <div>
                     <div class="flex items-center justify-between mb-3">
                         <span class="text-xs sm:text-sm font-black text-gray-500 uppercase" x-text="labels.session_time || 'Час'"></span>
+                        <span class="text-[9px] text-gray-600 font-normal">· крок 30 хв</span>
                         <span x-show="sessionForm.startTime && sessionForm.endTime" class="text-sm sm:text-base font-bold text-blue-400 bg-blue-900/30 px-3 py-1.5 rounded-full" x-text="sessionForm.startTime + ' — ' + sessionForm.endTime + ' · ' + getDurationLabel()"></span>
                         <button x-show="selectedCoachSlots.length" @click="selectedCoachSlots = []; sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400 uppercase">Скинути</button>
                     </div>

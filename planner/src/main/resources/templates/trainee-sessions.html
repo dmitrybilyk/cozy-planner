@@ -217,6 +217,7 @@
                 <template x-for="loc in coachLocations" :key="loc.name">
                     <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
                 </template>
+                <span class="text-gray-600">· крок 30 хв</span>
             </div>
         </div>
     </div>
@@ -291,6 +292,7 @@
             <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
             <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#dc2626"></span> Зайнято</span>
             <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#2a2a2a"></span> Недоступно</span>
+            <span class="text-gray-600">· крок 30 хв</span>
         </div>
         <button @click="saveAll()"
                 x-show="hasUnsavedChanges && !saving"
@@ -409,7 +411,7 @@
             </div>
             <div>
                 <div class="flex items-center justify-between mb-2">
-                    <label class="text-xs font-bold text-gray-400 uppercase">Час</label>
+                    <label class="text-xs font-bold text-gray-400 uppercase">Час <span class="text-[9px] font-normal text-gray-600">· крок 30 хв</span></label>
                     <span x-show="selectedModalSlots.length" class="text-xs font-bold text-blue-300" x-text="form.time + ' — ' + form.endTime"></span>
                     <span x-show="!selectedModalSlots.length" class="text-xs font-bold text-gray-500">Оберіть час</span>
                 </div>
