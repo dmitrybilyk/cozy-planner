@@ -1,18 +1,24 @@
-# Stage 1: Build
-FROM gradle:8.5-jdk21 AS build
+# Stage 1: Build native image with GraalVM
+FROM ghcr.io/graalvm/graalvm-community:21 AS build
 
-# Копіюємо вміст папки planner
-COPY --chown=gradle:gradle . /home/gradle/src
-WORKDIR /home/gradle/src
+ENV GRADLE_VERSION=8.5
+RUN microdnf install -y unzip wget findutils && \
+    wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O /tmp/gradle.zip && \
+    unzip /tmp/gradle.zip -d /opt && \
+    ln -s /opt/gradle-${GRADLE_VERSION}/bin/gradle /usr/local/bin/gradle && \
+    rm /tmp/gradle.zip && \
+    microdnf clean all
 
-# Збираємо проект
-RUN gradle build -x test --no-daemon
-
-# Stage 2: Runtime (Легкий образ для запуску)
-FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+COPY . .
+RUN gradle nativeCompile -x test --no-daemon
+# Copy just the actual file libz (resolve symlink) for runtime
+RUN cp -L /usr/lib64/libz.so.1 /tmp/libz.so.1
 
-# Копіюємо тільки основний jar, ігноруючи plain.jar
-COPY --from=build /home/gradle/src/build/libs/*-SNAPSHOT.jar app.jar
-
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# Stage 2: Distroless runtime with glibc
+FROM gcr.io/distroless/cc-debian12 AS runtime
+WORKDIR /app
+COPY --from=build /app/build/native/nativeCompile/planner .
+COPY --from=build /tmp/libz.so.1 /lib/x86_64-linux-gnu/
+EXPOSE 8080
+ENTRYPOINT ["./planner"]
