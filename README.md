@@ -26,7 +26,7 @@ mentor bot
 curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=https://footwork-lid-attendee.ngrok-free.dev/api/v1/telegram/webhook/mentor"
 
 
-
+Duck
 After deploying, tell Telegram where to send updates:                                                                                                                                  LSP                                     
 curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook"
 
@@ -40,6 +40,19 @@ https://footwork-lid-attendee.ngrok-free.dev/trainee/register?token=5VW2KFIzBhFF
 
 
 https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/getWebhookInf
+
+Planus:
+
+PlanusMentor
+PlanusMentorBot
+8822669135:AAFwsykNyYNwzM9P_zrXfub30td-4tzpRcQ
+
+curl -X POST "https://api.telegram.org/bot8822669135:AAFwsykNyYNwzM9P_zrXfub30td-4tzpRcQ/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook/mentor"
+
+Planus
+PlanusNotificationBot
+8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPSqvDHVQAM
+curl -X POST "https://api.telegram.org/bot8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPSqvDHVQAM/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook/notification"
 
 tg://resolve?domain=CozyPlannerMentorBot&start=AT7lQ3KR8KxEQ8A7z9mL2-6LbSzxe9pa
 
