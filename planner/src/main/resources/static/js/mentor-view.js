@@ -75,6 +75,7 @@ function calendarApp() {
         coachCopied: false,
         coachImgCopiedWeek: false,
         coachLoaded: false,
+        sessionValidationErrors: null,
 
         async loadNotifications() {
             const res = await fetch('/api/v1/notifications');
@@ -1353,6 +1354,110 @@ function calendarApp() {
             return true;
         },
 
+        getSessionValidationErrors() {
+            const errors = [];
+            const { startTime, endTime, date, traineeIds } = this.sessionForm;
+            if (!startTime || !endTime || traineeIds.length === 0) return errors;
+            if (this.editingSessionId && this.originalSessionData) {
+                const sameDate = date === this.originalSessionData.date;
+                const sameTime = startTime === this.originalSessionData.time;
+                const sameEndTime = endTime === this.originalSessionData.endTime;
+                const sameTrainees = this.originalSessionData.traineeIds &&
+                    traineeIds.length === this.originalSessionData.traineeIds.length &&
+                    traineeIds.every(id => this.originalSessionData.traineeIds.includes(id));
+                if (sameDate && sameTime && sameEndTime && sameTrainees) return errors;
+            }
+            const sm = this.slotToMin(startTime);
+            const em = this.slotToMin(endTime);
+            if (this.dayOffs.includes(date)) {
+                errors.push(this.labels.err_coach_day_off || 'Цей день є вихідним для тренера');
+            }
+            if (this.workStart && this.workEnd) {
+                const [wsh, wsm] = this.workStart.split(':').map(Number);
+                const [weh, wem] = this.workEnd.split(':').map(Number);
+                const ws = wsh * 60 + wsm;
+                const we = weh * 60 + wem;
+                if (sm < ws || em > we) {
+                    errors.push((this.labels.err_coach_work_hours || 'Час сесії має бути в межах {ws} — {we}').replace('{ws}', this.workStart).replace('{we}', this.workEnd));
+                }
+            }
+            const coachCells = this.coachAvailByDate[date];
+            if (coachCells && Object.keys(coachCells).length > 0) {
+                let within = true;
+                for (let m = sm; m < em; m += 30) {
+                    if (!(m in coachCells)) { within = false; break; }
+                }
+                if (!within) {
+                    errors.push(this.labels.err_coach_avail || 'Час сесії не входить в години доступності тренера');
+                }
+            }
+            const coachSessions = this.coachSess[date] || [];
+            for (const s of coachSessions) {
+                if (this.editingSessionId && s.id === this.editingSessionId) continue;
+                const st = s.startTime || s.time;
+                const et = s.endTime || st;
+                if (!st) continue;
+                const [ssh, ssm] = st.split(':').map(Number);
+                const [seh, sem] = et.split(':').map(Number);
+                const sStart = ssh * 60 + ssm;
+                const sEnd = seh * 60 + sem;
+                if (sm < sEnd && em > sStart) {
+                    errors.push(this.labels.err_coach_conflict || 'Тренер уже має сесію на цей час');
+                    break;
+                }
+            }
+            for (const aId of traineeIds) {
+                const slots = this.availabilityMap[aId + '|' + date];
+                if (slots && slots.length > 0) {
+                    const ok = slots.some(s => {
+                        const ss = this.slotToMin(s.startTime);
+                        const se = this.slotToMin(s.endTime);
+                        return sm >= ss && em <= se;
+                    });
+                    if (!ok) {
+                        const trainee = this.trainees.find(t => t.id === aId);
+                        errors.push((this.labels.err_trainee_avail || 'Час сесії не входить в години доступності учня {name}').replace('{name}', trainee?.name || ''));
+                    }
+                }
+            }
+            if (traineeIds.length > 0) {
+                const checked = new Set();
+                for (const aId of traineeIds) {
+                    if (checked.has(aId)) continue;
+                    for (const s of this.sessions) {
+                        if (this.editingSessionId && s.id === this.editingSessionId) continue;
+                        if (s.date !== date) continue;
+                        if (!s.traineeIds || !s.traineeIds.includes(aId)) continue;
+                        const st = s.time || s.startTime;
+                        const et = s.endTime || st;
+                        if (!st) continue;
+                        const [ssh, ssm] = st.split(':').map(Number);
+                        const [seh, sem] = et.split(':').map(Number);
+                        const sStart = ssh * 60 + ssm;
+                        const sEnd = seh * 60 + sem;
+                        if (sm < sEnd && em > sStart) {
+                            const trainee = this.trainees.find(t => t.id === aId);
+                            errors.push((this.labels.err_trainee_conflict || 'Учень {name} уже має сесію на цей час').replace('{name}', trainee?.name || ''));
+                            checked.add(aId);
+                            break;
+                        }
+                    }
+                }
+            }
+            return errors;
+        },
+
+        get saveBtnClass() {
+            const base = 'flex-[2] text-white py-4 rounded-2xl font-bold text-sm shadow-lg ';
+            if (this.sessionForm.traineeIds.length === 0 || this.isTimePassed() || !this.sessionForm.endTime) {
+                return base + 'bg-gray-600 opacity-30';
+            }
+            if (this.sessionForm.startTime && this.sessionForm.endTime && this.getSessionValidationErrors().length > 0) {
+                return base + 'bg-red-700';
+            }
+            return base + 'bg-blue-600';
+        },
+
         getDurationLabel() {
             if (!this.sessionForm.startTime || !this.sessionForm.endTime) return '';
             const diff = this.slotToMin(this.sessionForm.endTime) - this.slotToMin(this.sessionForm.startTime);
@@ -1386,10 +1491,18 @@ function calendarApp() {
 
         async saveRaw(w) { await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...w, mentorId: this.mentorId }) }); },
 
+        scrollDateIntoView() {
+            this.$nextTick(() => {
+                const btn = this.$refs.dateScroller?.querySelector('[data-date="' + this.sessionForm.date + '"]');
+                if (btn) btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            });
+        },
+
         openSessionModal() {
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.originalSessionData = null;
+            this.sessionValidationErrors = null;
             const workEnd = this.workEnd || '22:00';
             const [weh, wem] = workEnd.split(':').map(Number);
             const now = new Date();
@@ -1405,13 +1518,15 @@ function calendarApp() {
             this.selectedCoachSlots = [];
             this.buildCoachGrid(defaultDate);
             this.showModal = true;
+            this.scrollDateIntoView();
         },
 
         editSession(w) {
             if (w.date < this.todayStr) return;
             this.traineeSearch = '';
             this.editingSessionId = w.id;
-            this.originalSessionData = { date: w.date, time: w.time };
+            this.originalSessionData = { date: w.date, time: w.time, endTime: w.endTime, traineeIds: [...(w.traineeIds || [])], title: w.title, description: w.description || '', locationId: w.locationId || null };
+            this.sessionValidationErrors = null;
             this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null };
             if (w.time && w.endTime) {
                 const slots = [];
@@ -1424,12 +1539,14 @@ function calendarApp() {
             }
             this.buildCoachGrid(w.date);
             this.showModal = true;
+            this.scrollDateIntoView();
         },
 
         createFromAvailability(traineeId, date, startTime, endTime) {
             this.activeTab = 'feed';
             this.traineeSearch = '';
             this.editingSessionId = null;
+            this.sessionValidationErrors = null;
             this.$nextTick(() => {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
@@ -1440,6 +1557,7 @@ function calendarApp() {
                 while (t < end) { slots.push(t); t += 30; }
                 this.selectedCoachSlots = slots;
                 this.showModal = true;
+                this.scrollDateIntoView();
             });
         },
 
@@ -1447,7 +1565,20 @@ function calendarApp() {
             const { startTime, endTime, date, title, description, traineeIds, locationId } = this.sessionForm;
             if (!startTime || !endTime) return;
             if (date < this.todayStr) return;
-            if (!this.isSessionTimeValid) return;
+            const errors = this.getSessionValidationErrors();
+            if (errors.length > 0) { this.sessionValidationErrors = errors; return; }
+            this.sessionValidationErrors = null;
+            if (this.editingSessionId && this.originalSessionData) {
+                const sameDate = date === this.originalSessionData.date;
+                const sameTime = startTime === this.originalSessionData.time;
+                const sameEndTime = endTime === this.originalSessionData.endTime;
+                const sameTrainees = this.originalSessionData.traineeIds &&
+                    traineeIds.length === this.originalSessionData.traineeIds.length &&
+                    traineeIds.every(id => this.originalSessionData.traineeIds.includes(id));
+                if (sameDate && sameTime && sameEndTime && sameTrainees && title === this.originalSessionData.title && description === this.originalSessionData.description && locationId === this.originalSessionData.locationId) {
+                    this.showModal = false; return;
+                }
+            }
             const newTime = startTime;
             if (this.editingSessionId && this.originalSessionData) {
                 if (date !== this.originalSessionData.date || newTime !== this.originalSessionData.time) {

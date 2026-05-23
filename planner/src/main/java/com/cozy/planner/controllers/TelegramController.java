@@ -155,12 +155,16 @@ public class TelegramController {
 
         log.info("Received callback query: data={}, chatId={}", data, chatId);
 
+        Mono<Void> ack = ackCallback(callbackId, botType);
+
         if (data.startsWith("confirm_session:")) {
             Long sessionId = parseSessionId(data);
-            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
-            return sessionRepository.findById(sessionId)
+            if (sessionId == null) return ack.thenReturn(ResponseEntity.ok().build());
+            Mono<Void> logic = sessionRepository.findById(sessionId)
                     .flatMap(session -> {
                         session.setConfirmationStatus("CONFIRMED");
+                        session.setConfirmedTraineeIds("");
+                        session.setRejectedTraineeIds("");
                         return sessionRepository.save(session);
                     })
                     .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
@@ -177,14 +181,18 @@ public class TelegramController {
                                 }
                                 return msg.thenReturn(saved);
                             }))
-                    .then(ackCallback(callbackId, botType))
-                    .thenReturn(ResponseEntity.ok().build());
+                    .doOnError(e -> log.error("Error processing confirm_session callback: {}", e.getMessage()))
+                    .onErrorResume(e -> Mono.empty())
+                    .then();
+            return ack.then(logic).thenReturn(ResponseEntity.ok().build());
         } else if (data.startsWith("reject_session:")) {
             Long sessionId = parseSessionId(data);
-            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
-            return sessionRepository.findById(sessionId)
+            if (sessionId == null) return ack.thenReturn(ResponseEntity.ok().build());
+            Mono<Void> logic = sessionRepository.findById(sessionId)
                     .flatMap(session -> {
                         session.setConfirmationStatus("REJECTED");
+                        session.setConfirmedTraineeIds("");
+                        session.setRejectedTraineeIds("");
                         return sessionRepository.save(session);
                     })
                     .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
@@ -201,12 +209,14 @@ public class TelegramController {
                                 }
                                 return msg.thenReturn(saved);
                             }))
-                    .then(ackCallback(callbackId, botType))
-                    .thenReturn(ResponseEntity.ok().build());
+                    .doOnError(e -> log.error("Error processing reject_session callback: {}", e.getMessage()))
+                    .onErrorResume(e -> Mono.empty())
+                    .then();
+            return ack.then(logic).thenReturn(ResponseEntity.ok().build());
         } else if (data.startsWith("trainee_confirm_session:")) {
             Long sessionId = parseSessionId(data);
-            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
-            return traineeRepository.findByTelegramChatId(chatId)
+            if (sessionId == null) return ack.thenReturn(ResponseEntity.ok().build());
+            Mono<Void> logic = traineeRepository.findByTelegramChatId(chatId)
                     .flatMap(trainee -> sessionRepository.findById(sessionId)
                             .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
                                     .collectList()
@@ -219,7 +229,11 @@ public class TelegramController {
                                             confirmed = new ArrayList<>(confirmed);
                                             confirmed.add(trainee.getId());
                                         }
+                                        List<Long> rejected = parseConfirmedIds(s.getRejectedTraineeIds());
+                                        rejected = new ArrayList<>(rejected);
+                                        rejected.remove(trainee.getId());
                                         s.setConfirmedTraineeIds(confirmed.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                                        s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
                                         if (allTraineeIds.stream().allMatch(confirmed::contains)) {
                                             s.setConfirmationStatus("CONFIRMED");
                                         } else {
@@ -229,9 +243,6 @@ public class TelegramController {
                                     }))
                             .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                             .flatMap(saved -> {
-                                String confirmedLabel = "CONFIRMED".equals(saved.getConfirmationStatus())
-                                        ? "✅ <b>Підтверджено</b>"
-                                        : "⏳ <b>Підтвердження очікується</b>";
                                 String text = String.format("✅ Дякую, %s! Сесію підтверджено. Тренер отримає сповіщення.", trainee.getName());
                                 return telegramService.sendMessage(chatId, text)
                                         .thenReturn(saved);
@@ -260,12 +271,14 @@ public class TelegramController {
                         log.warn("No trainee found for chatId: {}", chatId);
                         return Mono.empty();
                     }))
-                    .then(ackCallback(callbackId, botType))
-                    .thenReturn(ResponseEntity.ok().build());
+                    .doOnError(e -> log.error("Error processing trainee_confirm_session callback: {}", e.getMessage()))
+                    .onErrorResume(e -> Mono.empty())
+                    .then();
+            return ack.then(logic).thenReturn(ResponseEntity.ok().build());
         } else if (data.startsWith("trainee_reject_session:")) {
             Long sessionId = parseSessionId(data);
-            if (sessionId == null) return Mono.just(ResponseEntity.ok().build());
-            return traineeRepository.findByTelegramChatId(chatId)
+            if (sessionId == null) return ack.thenReturn(ResponseEntity.ok().build());
+            Mono<Void> logic = traineeRepository.findByTelegramChatId(chatId)
                     .flatMap(trainee -> sessionRepository.findById(sessionId)
                             .flatMap(s -> sessionRepository.findTraineeIdsBySessionId(s.getId())
                                     .collectList()
@@ -273,11 +286,15 @@ public class TelegramController {
                                         if (!allTraineeIds.contains(trainee.getId())) {
                                             return Mono.just(s);
                                         }
+                                        List<Long> confirmed = parseConfirmedIds(s.getConfirmedTraineeIds());
+                                        confirmed = new ArrayList<>(confirmed);
+                                        confirmed.remove(trainee.getId());
                                         List<Long> rejected = parseConfirmedIds(s.getRejectedTraineeIds());
                                         if (!rejected.contains(trainee.getId())) {
                                             rejected = new ArrayList<>(rejected);
                                             rejected.add(trainee.getId());
                                         }
+                                        s.setConfirmedTraineeIds(confirmed.stream().map(String::valueOf).collect(Collectors.joining(",")));
                                         s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
                                         return sessionRepository.save(s);
                                     }))
@@ -291,15 +308,12 @@ public class TelegramController {
                                     .defaultIfEmpty(Mentor.builder().profile("sport").build())
                                     .flatMap(mentor -> {
                                         String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
-                                        List<Long> confirmedIds = parseConfirmedIds(saved.getConfirmedTraineeIds());
-                                        List<Long> rejectedIds = parseConfirmedIds(saved.getRejectedTraineeIds());
-                                        int respondedCount = confirmedIds.size() + rejectedIds.size();
-                                        int totalCount = saved.getTraineeIds() != null ? saved.getTraineeIds().size() : 0;
+                                        int respondedCount = parseConfirmedIds(saved.getConfirmedTraineeIds()).size() + parseConfirmedIds(saved.getRejectedTraineeIds()).size();
                                         String mentorText = String.format(
-                                                "❌ %s відхилив сесію \"%s\" (%d/%d)",
+                                                "❌ %s відхилив сесію \"%s\" (%d)",
                                                 trainee.getName(),
                                                 saved.getTitle() != null ? saved.getTitle() : "",
-                                                respondedCount, totalCount);
+                                                respondedCount);
                                         if (botType == BotType.COACH && telegramService.isMentorBotEnabled()) {
                                             return telegramService.sendMessageToMentor(chatId, mentorText);
                                         }
@@ -312,11 +326,13 @@ public class TelegramController {
                         log.warn("No trainee found for chatId: {}", chatId);
                         return Mono.empty();
                     }))
-                    .then(ackCallback(callbackId, botType))
-                    .thenReturn(ResponseEntity.ok().build());
+                    .doOnError(e -> log.error("Error processing trainee_reject_session callback: {}", e.getMessage()))
+                    .onErrorResume(e -> Mono.empty())
+                    .then();
+            return ack.then(logic).thenReturn(ResponseEntity.ok().build());
         }
 
-        return Mono.just(ResponseEntity.ok().build());
+        return ack.thenReturn(ResponseEntity.ok().build());
     }
 
     private Long parseSessionId(String data) {
