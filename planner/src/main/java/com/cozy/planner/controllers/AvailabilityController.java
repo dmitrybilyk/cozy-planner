@@ -10,7 +10,7 @@ import com.cozy.planner.repositories.TraineeAvailabilityRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
-import com.cozy.planner.service.TelegramService;
+import com.cozy.planner.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -39,7 +39,7 @@ public class AvailabilityController {
     private final MentorRepository mentorRepository;
     private final EventBroadcastService eventService;
     private final NotificationRepository notificationRepository;
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
     private final TelegramConfig telegramConfig;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -48,14 +48,14 @@ public class AvailabilityController {
                                    MentorRepository mentorRepository,
                                    EventBroadcastService eventService,
                                    NotificationRepository notificationRepository,
-                                   TelegramService telegramService,
+                                   NotificationService notificationService,
                                    TelegramConfig telegramConfig) {
         this.traineeRepository = traineeRepository;
         this.availabilityRepository = availabilityRepository;
         this.mentorRepository = mentorRepository;
         this.eventService = eventService;
         this.notificationRepository = notificationRepository;
-        this.telegramService = telegramService;
+        this.notificationService = notificationService;
         this.telegramConfig = telegramConfig;
     }
 
@@ -246,7 +246,7 @@ public class AvailabilityController {
                             .flatMap(m -> {
                                 Map<String, Object> btn = Map.of("text", "📅 Відкрити календар", "url", baseUrl + "/planner");
                                 Map<String, Object> keyboard = Map.of("inline_keyboard", List.of(List.of(btn)));
-                                return telegramService.sendMessageToMentor(m.getTelegramChatId(), title + "\n" + message, keyboard);
+                                return notificationService.sendMessageToMentor(m.getTelegramChatId(), title + "\n" + message, keyboard);
                             })
                             .then();
                 });

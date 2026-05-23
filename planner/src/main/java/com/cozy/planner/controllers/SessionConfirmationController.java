@@ -15,7 +15,7 @@ import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
-import com.cozy.planner.service.TelegramService;
+import com.cozy.planner.service.NotificationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
@@ -44,7 +44,7 @@ public class SessionConfirmationController {
     private final TraineeRepository traineeRepository;
     private final MentorRepository mentorRepository;
     private final LocationRepository locationRepository;
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
     private final EventBroadcastService eventBroadcastService;
     private final NotificationRepository notificationRepository;
     private final PushService pushService;
@@ -54,7 +54,7 @@ public class SessionConfirmationController {
                                            TraineeRepository traineeRepository,
                                            MentorRepository mentorRepository,
                                            LocationRepository locationRepository,
-                                           TelegramService telegramService,
+                                           NotificationService notificationService,
                                            EventBroadcastService eventBroadcastService,
                                            NotificationRepository notificationRepository,
                                            PushService pushService,
@@ -63,7 +63,7 @@ public class SessionConfirmationController {
         this.traineeRepository = traineeRepository;
         this.mentorRepository = mentorRepository;
         this.locationRepository = locationRepository;
-        this.telegramService = telegramService;
+        this.notificationService = notificationService;
         this.eventBroadcastService = eventBroadcastService;
         this.notificationRepository = notificationRepository;
         this.pushService = pushService;
@@ -206,7 +206,7 @@ public class SessionConfirmationController {
                         confirmed ? "✅ Підтверджено" : "❌ Відхилено",
                         respondedCount, totalCount
                     );
-                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), text).thenReturn(session);
+                    return notificationService.sendMessageToMentor(mentor.getTelegramChatId(), text).thenReturn(session);
                 })
                 .defaultIfEmpty(session);
     }
@@ -286,7 +286,7 @@ public class SessionConfirmationController {
                                                                             saved.getEndTime() != null ? saved.getEndTime().toString() : "",
                                                                             saved.getTitle() != null ? saved.getTitle() : "");
                                                                     Map<String, Object> keyboard = createTraineeConfirmRejectKeyboard(saved.getId());
-                                                                    return telegramService.sendMessage(trainee.getTelegramChatId(), tmpl, keyboard);
+                                                                    return notificationService.sendMessage(trainee.getTelegramChatId(), tmpl, keyboard);
                                                                 }
                                                                 return Mono.just(true);
                                                             })).thenReturn(saved);
@@ -584,7 +584,7 @@ public class SessionConfirmationController {
                             session.getEndTime() != null ? session.getEndTime().toString() : "");
 
                     Map<String, Object> keyboard = createConfirmRejectKeyboard(session.getId());
-                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), message, keyboard)
+                    return notificationService.sendMessageToMentor(mentor.getTelegramChatId(), message, keyboard)
                             .thenReturn(session);
                 })
                 .defaultIfEmpty(session);
@@ -621,7 +621,7 @@ public class SessionConfirmationController {
                                             session.getWorkoutDate().toString(),
                                             session.getStartTime().toString(),
                                             session.getEndTime() != null ? session.getEndTime().toString() : "");
-                                    return telegramService.sendMessage(trainee.getTelegramChatId(), text).thenReturn(session);
+                                    return notificationService.sendMessage(trainee.getTelegramChatId(), text).thenReturn(session);
                                 });
                     })
                     .defaultIfEmpty(session);
@@ -644,7 +644,7 @@ public class SessionConfirmationController {
                             session.getWorkoutDate().toString(),
                             session.getStartTime().toString(),
                             session.getEndTime() != null ? session.getEndTime().toString() : "");
-                    return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), text).thenReturn(session);
+                    return notificationService.sendMessageToMentor(mentor.getTelegramChatId(), text).thenReturn(session);
                 })
                 .defaultIfEmpty(session);
     }

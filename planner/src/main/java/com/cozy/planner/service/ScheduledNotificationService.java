@@ -22,7 +22,7 @@ import java.time.temporal.ChronoUnit;
 @Slf4j
 public class ScheduledNotificationService {
 
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
     private final SessionRepository sessionRepository;
     private final MentorRepository mentorRepository;
     private final LocationRepository locationRepository;
@@ -31,12 +31,12 @@ public class ScheduledNotificationService {
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    public ScheduledNotificationService(TelegramService telegramService, 
+    public ScheduledNotificationService(NotificationService notificationService, 
                                          SessionRepository sessionRepository,
                                          MentorRepository mentorRepository,
                                          LocationRepository locationRepository,
                                          TraineeRepository traineeRepository) {
-        this.telegramService = telegramService;
+        this.notificationService = notificationService;
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.locationRepository = locationRepository;
@@ -45,7 +45,7 @@ public class ScheduledNotificationService {
 
     @Scheduled(cron = "${app.scheduler.weekend-reminder-cron:0 0 16 * * FRI}")
     public void sendWeekendReminders() {
-        if (!telegramService.isEnabled()) {
+        if (!notificationService.isEnabled()) {
             log.info("Telegram not enabled, skipping weekend reminders");
             return;
         }
@@ -55,7 +55,7 @@ public class ScheduledNotificationService {
         traineeRepository.findAllTraineesWithWeekendRemindersEnabled()
                 .flatMap(trainee -> {
                     log.info("Sending weekend reminder to: {} (chatId: {})", trainee.getName(), trainee.getTelegramChatId());
-                    return telegramService.sendWeekendReminder(trainee, baseUrl)
+                    return notificationService.sendWeekendReminder(trainee, baseUrl)
                             .doOnNext(success -> {
                                 if (success) {
                                     log.info("Weekend reminder sent to {}", trainee.getName());
@@ -73,7 +73,7 @@ public class ScheduledNotificationService {
 
     @Scheduled(cron = "${app.scheduler.session-reminder-cron:0 */5 * * * *}")
     public void sendSessionReminders() {
-        if (!telegramService.isEnabled()) {
+        if (!notificationService.isEnabled()) {
             log.info("Telegram not enabled, skipping session reminders");
             return;
         }
@@ -163,7 +163,7 @@ public class ScheduledNotificationService {
                     log.info("Sending session reminder to mentor {} for session '{}' at {} ({} minutes)",
                             mentor.getName(), session.getTitle(), formattedTime, minutesUntilSession);
 
-                    return telegramService.sendSessionReminderToMentor(
+                    return notificationService.sendSessionReminderToMentor(
                                     mentor,
                                     session.getTitle(),
                                     formattedDate,
@@ -194,7 +194,7 @@ public class ScheduledNotificationService {
                     log.info("Sending session reminder to trainee {} for session '{}' at {}",
                             trainee.getName(), session.getTitle(), formattedTime);
 
-                    return telegramService.sendSessionReminderToTrainee(
+                    return notificationService.sendSessionReminderToTrainee(
                                     trainee,
                                     session.getTitle(),
                                     formattedDate,

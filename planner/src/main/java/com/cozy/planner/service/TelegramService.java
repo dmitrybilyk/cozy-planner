@@ -25,7 +25,7 @@ import java.util.Map;
 
 @Service
 @Slf4j
-public class TelegramService {
+public class TelegramService implements NotificationService {
 
     private final TelegramConfig config;
     private final TraineeRepository traineeRepository;

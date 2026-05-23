@@ -46,7 +46,7 @@ dependencies {
 	implementation("jakarta.validation:jakarta.validation-api")
 	// Якщо використовуєш Spring Boot 3
 	implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:2.3.0")
-//	implementation("org.springframework.kafka:spring-kafka")
+	implementation("org.springframework.kafka:spring-kafka")
 	implementation("org.thymeleaf.extras:thymeleaf-extras-springsecurity6")
 	runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 	runtimeOnly("org.postgresql:postgresql")

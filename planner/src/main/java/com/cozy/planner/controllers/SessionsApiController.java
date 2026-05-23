@@ -13,7 +13,7 @@ import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
-import com.cozy.planner.service.TelegramService;
+import com.cozy.planner.service.NotificationService;
 import com.planner.api.SessionsApi;
 import com.planner.model.CreateSessionRequest;
 import com.planner.model.SessionDTO;
@@ -45,7 +45,7 @@ public class SessionsApiController implements SessionsApi {
     private final NotificationRepository notificationRepository;
     private final EventBroadcastService eventBroadcastService;
     private final PushService pushService;
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
     private final MentorDayOffRepository mentorDayOffRepository;
 
     public SessionsApiController(SessionRepository sessionRepository,
@@ -54,7 +54,7 @@ public class SessionsApiController implements SessionsApi {
                                   NotificationRepository notificationRepository,
                                   EventBroadcastService eventBroadcastService,
                                   PushService pushService,
-                                  TelegramService telegramService,
+                                  NotificationService notificationService,
                                   MentorDayOffRepository mentorDayOffRepository) {
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
@@ -62,7 +62,7 @@ public class SessionsApiController implements SessionsApi {
         this.notificationRepository = notificationRepository;
         this.eventBroadcastService = eventBroadcastService;
         this.pushService = pushService;
-        this.telegramService = telegramService;
+        this.notificationService = notificationService;
         this.mentorDayOffRepository = mentorDayOffRepository;
     }
 
@@ -161,7 +161,7 @@ public class SessionsApiController implements SessionsApi {
                                                                                   rejectBtn.put("callback_data", "trainee_reject_session:" + s.getId());
                                                                                   Map<String, Object> keyboard = new HashMap<>();
                                                                                   keyboard.put("inline_keyboard", List.of(List.of(confirmBtn, rejectBtn)));
-                                                                                  return telegramService.sendMessage(t.getTelegramChatId(), tmpl, keyboard);
+                                                                                  return notificationService.sendMessage(t.getTelegramChatId(), tmpl, keyboard);
                                                                               })
                                                                               .thenReturn(savedN);
                                                                  });
@@ -272,7 +272,7 @@ public class SessionsApiController implements SessionsApi {
                                                         rejectBtn.put("callback_data", "trainee_reject_session:" + s.getId());
                                                         Map<String, Object> keyboard = new HashMap<>();
                                                         keyboard.put("inline_keyboard", List.of(List.of(confirmBtn, rejectBtn)));
-                                                        return telegramService.sendMessage(t.getTelegramChatId(), tmpl, keyboard);
+                                                        return notificationService.sendMessage(t.getTelegramChatId(), tmpl, keyboard);
                                                     })
                                                     .thenReturn(savedN);
                                         });

@@ -4,7 +4,7 @@ import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
-import com.cozy.planner.service.TelegramService;
+import com.cozy.planner.service.NotificationService;
 import com.planner.api.TraineesApi;
 import com.planner.model.TraineeDTO;
 import com.planner.model.CreateTraineeRequest;
@@ -25,7 +25,7 @@ public class TraineesApiController implements TraineesApi {
     private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final EventBroadcastService eventBroadcastService;
-    private final TelegramService telegramService;
+    private final NotificationService notificationService;
 
     @Value("${app.base-url:}")
     private String appBaseUrl;
@@ -33,11 +33,11 @@ public class TraineesApiController implements TraineesApi {
     public TraineesApiController(TraineeRepository traineeRepository, 
                                    TelegramConfig telegramConfig,
                                    EventBroadcastService eventBroadcastService,
-                                   TelegramService telegramService) {
+                                   NotificationService notificationService) {
         this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.eventBroadcastService = eventBroadcastService;
-        this.telegramService = telegramService;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -224,7 +224,7 @@ public class TraineesApiController implements TraineesApi {
                         }
                     }
 
-                    return telegramService.sendAvailabilityReminder(trainee, baseUrl, customMessage, dayType, targetDate)
+                    return notificationService.sendAvailabilityReminder(trainee, baseUrl, customMessage, dayType, targetDate)
                             .map(success -> {
                                 Map<String, Object> result = new HashMap<>();
                                 if (success) {

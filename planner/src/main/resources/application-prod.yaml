@@ -1,5 +1,6 @@
 app:
   base-url: https://cozy-planner.duckdns.org
+  notification-service: telegram
 
 telegram:
   enabled: true
