@@ -17,7 +17,7 @@ import java.util.*;
 
 @Service
 @ConditionalOnProperty(name = "app.notification-service", havingValue = "kafka", matchIfMissing = true)
-@Primary
+//@Primary
 public class KafkaNotificationService implements NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaNotificationService.class);
