@@ -1,0 +1,18 @@
+{
+  "name": "Cozy Planner",
+  "short_name": "Cozy Planner",
+  "description": "Планувальник тренувань",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "background_color": "#121212",
+  "theme_color": "#1a1a1a",
+  "orientation": "portrait",
+  "categories": ["productivity", "lifestyle"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
