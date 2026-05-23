@@ -14,6 +14,7 @@ import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
 import com.cozy.planner.service.NotificationService;
+import com.cozy.planner.service.SearchEventPublisher;
 import com.planner.api.SessionsApi;
 import com.planner.model.CreateSessionRequest;
 import com.planner.model.SessionDTO;
@@ -47,6 +48,7 @@ public class SessionsApiController implements SessionsApi {
     private final PushService pushService;
     private final NotificationService notificationService;
     private final MentorDayOffRepository mentorDayOffRepository;
+    private final SearchEventPublisher searchEventPublisher;
 
     public SessionsApiController(SessionRepository sessionRepository,
                                   MentorRepository mentorRepository,
@@ -55,7 +57,8 @@ public class SessionsApiController implements SessionsApi {
                                   EventBroadcastService eventBroadcastService,
                                   PushService pushService,
                                   NotificationService notificationService,
-                                  MentorDayOffRepository mentorDayOffRepository) {
+                                  MentorDayOffRepository mentorDayOffRepository,
+                                  SearchEventPublisher searchEventPublisher) {
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.traineeRepository = traineeRepository;
@@ -64,6 +67,7 @@ public class SessionsApiController implements SessionsApi {
         this.pushService = pushService;
         this.notificationService = notificationService;
         this.mentorDayOffRepository = mentorDayOffRepository;
+        this.searchEventPublisher = searchEventPublisher;
     }
 
     @Override
@@ -103,7 +107,8 @@ public class SessionsApiController implements SessionsApi {
                             .mentorId(request.getMentorId())
                             .locationId(request.getLocationId())
                             .build();
-                    return sessionRepository.save(session);
+                    return sessionRepository.save(session)
+                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("CREATED", saved).thenReturn(saved));
                 }))
                 .flatMap(saved -> saveTraineeLinks(saved.getId(), request.getTraineeIds())
                         .then(loadTraineeIds(saved))
@@ -204,6 +209,7 @@ public class SessionsApiController implements SessionsApi {
 
         return validateSession(existing.getMentorId(), newDate, newStartTime, newEndTime)
                 .then(sessionRepository.save(existing))
+                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved))
                 .flatMap(saved -> {
                     if (traineeIds != null) {
                         return sessionRepository.deleteTraineeLinks(saved.getId())

@@ -16,6 +16,7 @@ import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
 import com.cozy.planner.service.NotificationService;
+import com.cozy.planner.service.SearchEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
@@ -49,16 +50,18 @@ public class SessionConfirmationController {
     private final NotificationRepository notificationRepository;
     private final PushService pushService;
     private final MentorDayOffRepository mentorDayOffRepository;
+    private final SearchEventPublisher searchEventPublisher;
 
     public SessionConfirmationController(SessionRepository sessionRepository,
-                                           TraineeRepository traineeRepository,
-                                           MentorRepository mentorRepository,
-                                           LocationRepository locationRepository,
-                                           NotificationService notificationService,
-                                           EventBroadcastService eventBroadcastService,
-                                           NotificationRepository notificationRepository,
-                                           PushService pushService,
-                                           MentorDayOffRepository mentorDayOffRepository) {
+                                            TraineeRepository traineeRepository,
+                                            MentorRepository mentorRepository,
+                                            LocationRepository locationRepository,
+                                            NotificationService notificationService,
+                                            EventBroadcastService eventBroadcastService,
+                                            NotificationRepository notificationRepository,
+                                            PushService pushService,
+                                            MentorDayOffRepository mentorDayOffRepository,
+                                            SearchEventPublisher searchEventPublisher) {
         this.sessionRepository = sessionRepository;
         this.traineeRepository = traineeRepository;
         this.mentorRepository = mentorRepository;
@@ -68,6 +71,7 @@ public class SessionConfirmationController {
         this.notificationRepository = notificationRepository;
         this.pushService = pushService;
         this.mentorDayOffRepository = mentorDayOffRepository;
+        this.searchEventPublisher = searchEventPublisher;
     }
 
     @PostMapping("/sessions/{sessionId}/confirm")
@@ -76,7 +80,8 @@ public class SessionConfirmationController {
                 .flatMap(session -> {
                     session.setConfirmationStatus("CONFIRMED");
                     session.setConfirmedTraineeIds("");
-                    return sessionRepository.save(session);
+                    return sessionRepository.save(session)
+                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
                 })
                 .flatMap(saved -> notifyOtherParty(saved, true))
                 .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
@@ -94,7 +99,8 @@ public class SessionConfirmationController {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> {
                     session.setConfirmationStatus("REJECTED");
-                    return sessionRepository.save(session);
+                    return sessionRepository.save(session)
+                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
                 })
                 .flatMap(saved -> notifyOtherParty(saved, false))
                 .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
@@ -169,7 +175,8 @@ public class SessionConfirmationController {
         } else {
             s.setConfirmationStatus("PENDING");
         }
-        return sessionRepository.save(s);
+        return sessionRepository.save(s)
+                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
     }
 
     private Mono<Session> addRejectedTrainee(Session s, Long traineeId) {
@@ -179,7 +186,8 @@ public class SessionConfirmationController {
             rejected.add(traineeId);
         }
         s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
-        return sessionRepository.save(s);
+        return sessionRepository.save(s)
+                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
     }
 
     private Mono<Session> notifyTraineeAction(Session session, String traineeName, boolean confirmed, List<Long> allTraineeIds) {
@@ -259,7 +267,8 @@ public class SessionConfirmationController {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> {
                     session.setConfirmationStatus("PENDING");
-                    return sessionRepository.save(session);
+                    return sessionRepository.save(session)
+                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
                 })
                 .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
                         .defaultIfEmpty(Mentor.builder().profile("sport").build())
@@ -328,6 +337,7 @@ public class SessionConfirmationController {
                                 }
                                 s.setConfirmationStatus("PENDING");
                                 return sessionRepository.save(s)
+                                        .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved))
                                         .flatMap(saved -> traineeRepository.findById(traineeId)
                                                 .flatMap(trainee -> notifyCoachAboutNewSession(saved, trainee))
                                                 .switchIfEmpty(Mono.just(saved)))
@@ -497,6 +507,7 @@ public class SessionConfirmationController {
                                                         .confirmationStatus("PENDING")
                                                         .build();
                                                 return sessionRepository.save(newSession)
+                                                        .flatMap(saved -> searchEventPublisher.publishSessionEvent("CREATED", saved).thenReturn(saved))
                                                         .flatMap(saved -> {
                                                             List<Long> tIds = List.of(traineeId);
                                                             return Flux.fromIterable(tIds)

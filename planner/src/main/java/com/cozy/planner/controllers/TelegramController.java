@@ -10,6 +10,7 @@ import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.TelegramService;
+import com.cozy.planner.service.SearchEventPublisher;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +38,9 @@ public class TelegramController {
     private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final EventBroadcastService eventBroadcastService;
+    private final SearchEventPublisher searchEventPublisher;
 
-    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository, MentorRepository mentorRepository, TraineeRepository traineeRepository, TelegramConfig telegramConfig, EventBroadcastService eventBroadcastService) {
+    public TelegramController(TelegramService telegramService, ObjectMapper objectMapper, SessionRepository sessionRepository, MentorRepository mentorRepository, TraineeRepository traineeRepository, TelegramConfig telegramConfig, EventBroadcastService eventBroadcastService, SearchEventPublisher searchEventPublisher) {
         this.telegramService = telegramService;
         this.objectMapper = objectMapper;
         this.sessionRepository = sessionRepository;
@@ -46,6 +48,7 @@ public class TelegramController {
         this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.eventBroadcastService = eventBroadcastService;
+        this.searchEventPublisher = searchEventPublisher;
     }
 
     @GetMapping("/telegram/config")
@@ -174,7 +177,8 @@ public class TelegramController {
                         session.setConfirmationStatus("CONFIRMED");
                         session.setConfirmedTraineeIds("");
                         session.setRejectedTraineeIds("");
-                        return sessionRepository.save(session);
+                        return sessionRepository.save(session)
+                                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
                     })
                     .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                     .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
@@ -202,7 +206,8 @@ public class TelegramController {
                         session.setConfirmationStatus("REJECTED");
                         session.setConfirmedTraineeIds("");
                         session.setRejectedTraineeIds("");
-                        return sessionRepository.save(session);
+                        return sessionRepository.save(session)
+                                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
                     })
                     .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                     .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
@@ -248,7 +253,8 @@ public class TelegramController {
                                         } else {
                                             s.setConfirmationStatus("PENDING");
                                         }
-                                        return sessionRepository.save(s);
+                                        return sessionRepository.save(s)
+                                                .flatMap(sv -> searchEventPublisher.publishSessionEvent("UPDATED", sv).thenReturn(sv));
                                     }))
                             .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                             .flatMap(saved -> {
@@ -305,7 +311,8 @@ public class TelegramController {
                                         }
                                         s.setConfirmedTraineeIds(confirmed.stream().map(String::valueOf).collect(Collectors.joining(",")));
                                         s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
-                                        return sessionRepository.save(s);
+                                        return sessionRepository.save(s)
+                                                .flatMap(sv -> searchEventPublisher.publishSessionEvent("UPDATED", sv).thenReturn(sv));
                                     }))
                             .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                             .flatMap(saved -> {
