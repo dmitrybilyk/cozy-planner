@@ -309,6 +309,63 @@
     </div>
 </div>
 
+<!-- ІСТОРІЯ -->
+<div x-show="activeTab === 'history'" class="max-w-2xl mx-auto p-4 pb-24">
+    <h3 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest mb-6">📅 Минулі дні</h3>
+    <div x-show="loadingMorePast" class="flex flex-col items-center justify-center py-20">
+        <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <span class="text-sm text-gray-500">Завантаження…</span>
+    </div>
+    <template x-for="dateGroup in pastSessionsGroups" :key="dateGroup.date">
+        <div class="space-y-3 mb-6">
+            <div class="sticky top-0 bg-[#121212] py-2 z-10">
+                <span class="text-xs font-black text-gray-500 uppercase tracking-widest" x-text="formatDisplayDate(dateGroup.date)"></span>
+            </div>
+            <div class="space-y-3">
+                <template x-for="session in dateGroup.items" :key="session.id">
+                    <div class="rounded-2xl p-5 shadow-sm card-hover fade-in relative overflow-hidden opacity-70 hover:opacity-100 transition-opacity"
+                         :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex flex-col items-center">
+                                <div class="relative flex flex-col items-center justify-center rounded-2xl px-3 py-2 min-w-[70px] border border-[#333]"
+                                     :style="'background: ' + (session.color || '#3b82f6') + '33'">
+                                    <span class="text-xl sm:text-2xl font-black leading-none" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
+                                <p class="text-sm text-gray-500 italic truncate" x-text="session.description"></p>
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    <template x-for="aId in session.traineeIds">
+                                        <span class="inline-flex items-center gap-1 text-xs sm:text-sm bg-[#333] px-2.5 py-0.5 rounded-full font-semibold text-gray-300">
+                                            <span x-text="getTraineeName(aId)"></span>
+                                        </span>
+                                    </template>
+                                </div>
+                                <div x-show="getLocationName(session.locationId)" class="mt-1.5 flex items-center space-x-1">
+                                    <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
+                                    <span class="text-xs text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
+                                </div>
+                                <div class="flex items-center gap-4 mt-2">
+                                    <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Копіювати">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+    <div x-show="hasMorePastSessions && !loadingMorePast" class="text-center pt-4 pb-8">
+        <button @click="loadMorePastSessions()"
+                class="bg-[#262626] hover:bg-[#333] text-gray-300 px-6 py-3 rounded-xl text-sm font-bold transition active:scale-[0.97]">
+            Завантажити ще
+        </button>
+    </div>
+</div>
+
 <!-- ПРОФІЛЬ -->
 <div x-show="activeTab === 'profile'" class="max-w-2xl mx-auto p-4 pb-24">
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">

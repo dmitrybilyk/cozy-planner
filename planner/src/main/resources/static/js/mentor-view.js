@@ -293,11 +293,12 @@ function calendarApp() {
         },
 
         copySession(w) {
-            if (w.date < this.todayStr) return;
             this.editingSessionId = null;
             this.originalSessionData = null;
+            let date = w.date;
+            if (date < this.todayStr) date = this.todayStr;
             let st = w.time, et = w.endTime || this.nextSlot(w.time);
-            if (w.date === this.todayStr && new Date(`${w.date}T${st}`) <= new Date()) {
+            if (date === this.todayStr && new Date(`${date}T${st}`) <= new Date()) {
                 const dur = this.slotToMin(et) - this.slotToMin(st);
                 st = this.getNearestSlot();
                 const em = this.slotToMin(st) + Math.max(dur, 30);
@@ -307,7 +308,7 @@ function calendarApp() {
             this.sessionForm = {
                 title: w.title,
                 description: w.description || '',
-                date: w.date,
+                date,
                 startTime: st,
                 endTime: et,
                 traineeIds: [...(w.traineeIds || [])],
@@ -606,7 +607,7 @@ function calendarApp() {
         toggleTraineeFilter(id) { if (id === null) this.selectedTraineeFilters = []; else { const idx = this.selectedTraineeFilters.indexOf(id); if (idx > -1) this.selectedTraineeFilters.splice(idx, 1); else this.selectedTraineeFilters.push(id); } },
 
         get agendaGroups() {
-            const loadedList = Object.keys(this.loadedDates).sort().filter(d => d >= this.todayStr);
+            const loadedList = Object.keys(this.loadedDates).sort();
             let filtered = this.sessions.filter(w => loadedList.includes(w.date));
             if (this.selectedTraineeFilters.length > 0) filtered = filtered.filter(w => w.traineeIds.some(id => this.selectedTraineeFilters.includes(id)));
             const groups = filtered.reduce((acc, w) => { if (!acc[w.date]) acc[w.date] = []; acc[w.date].push(w); return acc; }, {});
@@ -621,12 +622,13 @@ function calendarApp() {
             this.agendaReady = false;
             const today = this.todayStr;
             this.loadedDates = {};
-            for (let i = 0; i < 3; i++) {
-                this.loadedDates[addDays(today, i)] = true;
+            const pastStart = addDays(today, -3);
+            for (let i = 0; i < 6; i++) {
+                this.loadedDates[addDays(pastStart, i)] = true;
             }
             const end = addDays(today, 2);
             try {
-                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${today}&endDate=${end}`);
+                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${pastStart}&endDate=${end}`);
                 if (res.ok) {
                     const newSessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
                     for (const w of newSessions) {
@@ -648,13 +650,18 @@ function calendarApp() {
 
         async loadMoreAgenda() {
             if (!this.hasMoreDays) return;
-            await this.loadNextDays(7);
+            this.loadingMore = true;
+            await Promise.all([
+                this.loadNextDays(7),
+                this.loadPrevDays(7)
+            ]);
+            this.loadingMore = false;
         },
 
         get hasMoreDays() {
-            const futureDays = this.days.filter(d => d.dateStr >= this.todayStr);
-            const loadedFuture = Object.keys(this.loadedDates).filter(d => d >= this.todayStr);
-            return loadedFuture.length < futureDays.length;
+            const allDays = this.days;
+            const loaded = Object.keys(this.loadedDates);
+            return loaded.length < allDays.length;
         },
 
         get futureDays() {
@@ -681,7 +688,7 @@ function calendarApp() {
         async loadMorePastSessions() {
             if (!this.hasMorePastSessions) return;
             this.loadingMorePast = true;
-            const daysBack = 7;
+            const daysBack = this._pastSessionPage === 0 ? 3 : 7;
             const startDate = addDays(this.todayStr, -(this._pastSessionPage + 1) * daysBack + 1);
             const endDate = addDays(this.todayStr, -this._pastSessionPage * daysBack);
             try {
@@ -746,12 +753,13 @@ function calendarApp() {
             const today = this.todayStr;
             if (!this.mentorId) { console.warn('[agenda] no mentorId'); this.agendaReady = true; return; }
             this.loadedDates = {};
-            for (let i = 0; i < 3; i++) {
-                this.loadedDates[addDays(today, i)] = true;
+            const pastStart = addDays(today, -3);
+            for (let i = 0; i < 6; i++) {
+                this.loadedDates[addDays(pastStart, i)] = true;
             }
             const end = addDays(today, 2);
             try {
-                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${today}&endDate=${end}`);
+                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${pastStart}&endDate=${end}`);
                 if (res.ok) {
                     this.sessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
                     for (const w of this.sessions) {
@@ -793,7 +801,6 @@ function calendarApp() {
             if (!lastLoaded) return;
             const startDate = addDays(lastLoaded, 1);
             const endDate = addDays(lastLoaded, n);
-            this.loadingMore = true;
             try {
                 const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${startDate}&endDate=${endDate}`);
                 if (res.ok) {
@@ -814,8 +821,39 @@ function calendarApp() {
                         d.setDate(d.getDate() + 1);
                     }
                 }
-            } finally {
-                this.loadingMore = false;
+            } catch (e) {
+                console.error('[agenda] loadNextDays error:', e);
+            }
+        },
+
+        async loadPrevDays(n) {
+            const loaded = Object.keys(this.loadedDates).sort();
+            const firstLoaded = loaded[0];
+            if (!firstLoaded) return;
+            const startDate = addDays(firstLoaded, -n);
+            const endDate = addDays(firstLoaded, -1);
+            try {
+                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${startDate}&endDate=${endDate}`);
+                if (res.ok) {
+                    const newSessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
+                    for (const w of newSessions) {
+                        w.color = this.getLocationColor(w.locationId);
+                        const existing = this.sessions.findIndex(s => s.id === w.id);
+                        if (existing >= 0) {
+                            this.sessions[existing] = w;
+                        } else {
+                            this.sessions.push(w);
+                        }
+                    }
+                    let d = new Date(startDate + 'T12:00:00');
+                    const end = new Date(endDate + 'T12:00:00');
+                    while (d <= end) {
+                        this.loadedDates[localDateStr(d)] = true;
+                        d.setDate(d.getDate() + 1);
+                    }
+                }
+            } catch (e) {
+                console.error('[agenda] loadPrevDays error:', e);
             }
         },
 

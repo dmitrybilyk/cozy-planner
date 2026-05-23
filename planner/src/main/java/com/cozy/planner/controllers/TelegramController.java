@@ -70,6 +70,15 @@ public class TelegramController {
         return processWebhook(body, BotType.ATHLETE);
     }
 
+    @PostMapping("/telegram/webhook/notification")
+    public Mono<ResponseEntity<String>> webhookNotification(@RequestBody String body) {
+        if (!telegramService.isEnabled()) {
+            return Mono.just(ResponseEntity.ok().build());
+        }
+        log.debug("Received Notification (trainee) Telegram webhook: {}", body);
+        return processWebhook(body, BotType.ATHLETE);
+    }
+
     @PostMapping("/telegram/webhook/mentor")
     public Mono<ResponseEntity<String>> webhookMentor(@RequestBody String body) {
         if (!telegramService.isEnabled()) {
