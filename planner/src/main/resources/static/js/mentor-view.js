@@ -317,6 +317,12 @@ function calendarApp() {
             this.showModal = true;
         },
 
+        copySessionById(id) {
+            const w = this.pastSessions.find(s => s.id === id) || this.sessions.find(s => s.id === id);
+            if (!w) return;
+            this.copySession(w);
+        },
+
         copyFromHistory(session) {
             this.editingSessionId = null;
             this.originalSessionData = null;

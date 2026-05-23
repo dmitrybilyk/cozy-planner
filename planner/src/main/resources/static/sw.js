@@ -1,4 +1,4 @@
-const CACHE = 'cozy-v1';
+const CACHE = 'cozy-v2';
 const STATIC = [
   '/favicon.svg', '/icon.svg', '/manifest.json',
   '/css/shared.css', '/css/mentor-view.css', '/css/trainee-sessions.css',

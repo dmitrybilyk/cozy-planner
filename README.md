@@ -18,21 +18,23 @@ npm run test:headed     # with browser UI
 
 http://localhost:8080/api/v1/sessions?startDate=2026-05-06&endDate=2026-05-13
 
-After deploying, tell Telegram where to send updates:                                                                                                                                  LSP                                     
+NGROK
 curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY/setWebhook?url=https://footwork-lid-attendee.ngrok-free.dev/api/v1/telegram/webhook"
 
-
-mentor bot
 curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=https://footwork-lid-attendee.ngrok-free.dev/api/v1/telegram/webhook/mentor"
 
 
 Duck
-After deploying, tell Telegram where to send updates:                                                                                                                                  LSP                                     
 curl -X POST "https://api.telegram.org/bot8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook"
 
-
-mentor bot
 curl -X POST "https://api.telegram.org/bot8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook/mentor"
+
+
+Planus:
+curl -X POST "https://api.telegram.org/bot8822669135:AAFwsykNyYNwzM9P_zrXfub30td-4tzpRcQ/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook/mentor"
+
+curl -X POST "https://api.telegram.org/bot8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPSqvDHVQAM/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook/notification"
+
 
 sudo certbot certonly --standalone -d cozy-planner.duckdns.org
 

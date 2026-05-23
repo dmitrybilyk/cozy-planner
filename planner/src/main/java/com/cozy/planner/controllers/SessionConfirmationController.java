@@ -196,7 +196,16 @@ public class SessionConfirmationController {
                         session.getTitle(), session.getWorkoutDate(), session.getStartTime(), respondedCount, totalCount);
                     createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, confirmed ? "SESSION_CONFIRMED" : "SESSION_REJECTED", session.getId()).subscribe();
                     if (!mentor.hasTelegram()) return Mono.just(session);
-                    String text = traineeName + " " + verb + " сесію \"" + session.getTitle() + "\" (" + respondedCount + "/" + totalCount + ")";
+                    String text = String.format(
+                        "%s %s сесію\n\n🏷 <b>%s</b>\n📅 %s\n🕐 %s — %s\n👤 %s (%d/%d)",
+                        traineeName, verb,
+                        session.getTitle() != null ? session.getTitle() : "",
+                        session.getWorkoutDate() != null ? session.getWorkoutDate().toString() : "",
+                        session.getStartTime() != null ? session.getStartTime().toString() : "",
+                        session.getEndTime() != null ? session.getEndTime().toString() : "",
+                        confirmed ? "✅ Підтверджено" : "❌ Відхилено",
+                        respondedCount, totalCount
+                    );
                     return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), text).thenReturn(session);
                 })
                 .defaultIfEmpty(session);
