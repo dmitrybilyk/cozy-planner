@@ -122,6 +122,7 @@ public class PlannerController {
         r.put("athleteId", trainee.getId());
         r.put("name", trainee.getName());
         r.put("inviteToken", trainee.getInviteToken());
+        r.put("timezone", trainee.getTimezone() != null ? trainee.getTimezone() : "Europe/Kiev");
 
         boolean tgEnabled = telegramConfig.isEnabled()
                 && telegramConfig.getBotToken() != null
@@ -146,11 +147,13 @@ public class PlannerController {
             r.put("mentorTelegramConnected", mentor.hasTelegram());
             r.put("mentorShareToken", mentor.getShareToken());
             r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
+            r.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
         } else {
             r.put("mentorName", null);
             r.put("mentorTelegramConnected", false);
             r.put("mentorShareToken", null);
             r.put("mentorProfile", "sport");
+            r.put("mentorTimezone", "Europe/Kiev");
         }
         r.put("locations", locations);
         return r;

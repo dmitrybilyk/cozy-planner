@@ -37,6 +37,8 @@ function traineeApp() {
         sessionInfo: { show: false, id: null, title: '', description: '', date: '', time: '', endTime: '', mentorName: '', status: '', createdBy: '' },
         tabLabels: {},
         pageTitle: 'Мої сесії',
+        coachTimezone: 'Europe/Kiev',
+        timezone: 'Europe/Kiev',
         notifications: [],
         unreadCount: 0,
 
@@ -135,6 +137,8 @@ function traineeApp() {
             if (!me.traineeId) { window.location.href = '/signin'; return; }
             this.traineeId = me.traineeId;
             this.me = me;
+            this.coachTimezone = me.mentorTimezone || 'Europe/Kiev';
+            this.timezone = me.timezone || 'Europe/Kiev';
             this.locations = me.locations || [];
 
             const profile = me.mentorProfile || 'sport';
@@ -467,6 +471,7 @@ function traineeApp() {
                         console.log('[trainee] shared data slots count:', (data.slots || []).length);
                         this.mentorSlots = data.slots || [];
                         this.coachDayOffs = data.dayOffDates || [];
+                        if (data.mentorTimezone) this.coachTimezone = data.mentorTimezone;
                         if (data.workStart) this.mentorWorkStart = data.workStart;
                         if (data.workEnd) this.mentorWorkEnd = data.workEnd;
                         this.buildWorkGrid();
@@ -812,6 +817,26 @@ function traineeApp() {
             const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
             return mm < currentMin;
+        },
+
+        convertTz(timeStr, dateStr, fromTz, toTz) {
+            if (!timeStr) return '';
+            toTz = toTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (!fromTz || fromTz === toTz) return timeStr;
+            const d = dateStr || new Date().toISOString().slice(0, 10);
+            const [h, m] = timeStr.split(':').map(Number);
+            if (isNaN(h) || isNaN(m)) return timeStr;
+            const tzOff = (tz) => {
+                const dt = new Date(d + 'T' + timeStr + ':00');
+                const f = new Intl.DateTimeFormat('en', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+                const p = f.formatToParts(dt);
+                const v = (t) => parseInt(p.find(x => x.type === t)?.value || '0');
+                return (Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute')) - dt.getTime()) / 60000;
+            };
+            let totalMin = h * 60 + m + (tzOff(toTz) - tzOff(fromTz));
+            if (totalMin < 0) totalMin += 1440;
+            if (totalMin >= 1440) totalMin -= 1440;
+            return `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
         }
     }
 }

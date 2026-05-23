@@ -83,7 +83,7 @@
                             <p class="text-sm text-gray-500 mt-1 truncate" x-text="session.description" :title="session.description"></p>
                             <div class="flex items-center gap-2 mt-2 text-sm text-gray-400">
                                 <span>📅 <span x-text="session.date"></span></span>
-                                <span>🕐 <span x-text="session.time"></span><span x-show="session.endTime" x-text="' — ' + session.endTime"></span></span>
+                                <span>🕐 <span x-text="convertTz(session.time, session.date, coachTimezone, timezone)"></span><span x-show="session.endTime" x-text="' — ' + convertTz(session.endTime, session.date, coachTimezone, timezone)"></span></span>
                             </div>
                             <div class="flex items-center gap-2 mt-2">
                                 <span class="text-xs text-gray-500" x-text="session.mentorName ? '👤 ' + session.mentorName : ''"></span>
@@ -332,7 +332,7 @@
                 </div>
                 <div class="flex items-center gap-2">
                     <span>🕐</span>
-                    <span x-text="sessionInfo.time + ' — ' + sessionInfo.endTime"></span>
+                    <span x-text="convertTz(sessionInfo.time, sessionInfo.date, coachTimezone, timezone) + ' — ' + convertTz(sessionInfo.endTime, sessionInfo.date, coachTimezone, timezone)"></span>
                 </div>
                 <div x-show="sessionInfo.mentorName" class="flex items-center gap-2">
                     <span>👤</span>

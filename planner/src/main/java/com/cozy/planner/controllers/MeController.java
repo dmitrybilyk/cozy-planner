@@ -136,6 +136,7 @@ public class MeController {
         r.put("athleteId", trainee.getId());
         r.put("name", trainee.getName());
         r.put("inviteToken", trainee.getInviteToken());
+        r.put("timezone", trainee.getTimezone() != null ? trainee.getTimezone() : "Europe/Kiev");
 
         boolean tgEnabled = telegramConfig.isEnabled()
                 && telegramConfig.getBotToken() != null
@@ -164,6 +165,7 @@ public class MeController {
                     r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
                     r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
                     r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
+                    r.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
                     return locationRepository.findAllByMentorId(mentor.getId())
                             .map(loc -> Map.of("id", loc.getId(), "name", loc.getName(), "color", loc.getColor()))
                             .collectList()
@@ -180,6 +182,7 @@ public class MeController {
                     r.put("mentorProfile", "sport");
                     r.put("mentorWorkStart", "06:00");
                     r.put("mentorWorkEnd", "22:00");
+                    r.put("mentorTimezone", "Europe/Kiev");
                     r.put("locations", List.of());
                     return r;
                 }));

@@ -267,6 +267,7 @@ public class CoachAvailabilityController {
         body.put("profile", mentor.getProfile());
         body.put("workStart", mentor.getWorkStart());
         body.put("workEnd", mentor.getWorkEnd());
+        body.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
         body.put("dayOffDates", dayOffDates.stream().map(LocalDate::toString).toList());
         body.put("slots", slots.stream().map(s -> {
             Map<String, Object> slot = new HashMap<>();
