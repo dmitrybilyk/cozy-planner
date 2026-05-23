@@ -5,7 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title x-text="mentorTitle"></title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="/js/coach-availability.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cozy Planner">
+    <link rel="apple-touch-icon" href="/icon.svg">
     <link rel="stylesheet" href="/css/shared.css">
 </head>
 <body class="antialiased" x-data="app()">
@@ -17,6 +25,9 @@
         </a>
         <h1 class="text-lg font-bold" x-text="mentorTitle"></h1>
     </div>
+    <button @click="installPwa()" class="mr-2 text-sm" title="Встановити додаток">
+        <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+    </button>
 </header>
 
 <main class="max-w-lg mx-auto p-4 pb-28">
@@ -164,6 +175,5 @@
         </div>
     </div>
 
-<script src="/js/coach-availability.js"></script>
 </body>
 </html>

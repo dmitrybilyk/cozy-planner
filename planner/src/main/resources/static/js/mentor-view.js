@@ -1,3 +1,6 @@
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredInstall = e; });
+
 function localDateStr(d) {
     d = d || new Date();
     return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
@@ -45,6 +48,8 @@ function calendarApp() {
         touchDrag: null,
         touchJustDragged: false,
         _touchDragCleanup: null,
+        deferredInstallPrompt: null,
+        isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         workStart: '09:00',
         workEnd: '21:00',
         timezone: 'Europe/Kyiv',
@@ -157,9 +162,11 @@ function calendarApp() {
                 const {vapidKey} = await vapidRes.json();
                 if (!vapidKey) return;
                 const reg = await navigator.serviceWorker.register('/sw.js');
+                let appKey;
+                try { appKey = this.base64UrlToUint8Array(vapidKey); } catch (e) { console.log('push: invalid vapid key'); return; }
                 const sub = await reg.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: this.base64UrlToUint8Array(vapidKey)
+                    applicationServerKey: appKey
                 });
                 const getKey = (name) => {
                     const k = sub.getKey(name);
@@ -193,6 +200,7 @@ function calendarApp() {
         async init() {
             console.log('init() starting...');
             this.initAudioContext();
+            if (_deferredInstall) this.deferredInstallPrompt = _deferredInstall;
             try {
                 const me = await this.fetchMe();
                 console.log('fetchMe result:', me, 'mentorId:', this.mentorId);
@@ -2095,6 +2103,36 @@ function calendarApp() {
             const fullDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
             const dayIdx = (d.getDay() + 6) % 7;
             return `${fullDays[dayIdx]}, ${d.getDate()} ${months[d.getMonth()]}`;
+        },
+
+        async installPwa() {
+            const prompt = this.deferredInstallPrompt || _deferredInstall;
+            if (prompt) {
+                prompt.prompt();
+                const result = await prompt.userChoice;
+                this.deferredInstallPrompt = null;
+                _deferredInstall = null;
+            }
+        },
+
+        convertTz(timeStr, dateStr, fromTz, toTz) {
+            if (!timeStr) return '';
+            toTz = toTz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (!fromTz || fromTz === toTz) return timeStr;
+            const d = dateStr || new Date().toISOString().slice(0, 10);
+            const [h, m] = timeStr.split(':').map(Number);
+            if (isNaN(h) || isNaN(m)) return timeStr;
+            const tzOff = (tz) => {
+                const dt = new Date(d + 'T' + timeStr + ':00');
+                const f = new Intl.DateTimeFormat('en', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+                const p = f.formatToParts(dt);
+                const v = (t) => parseInt(p.find(x => x.type === t)?.value || '0');
+                return (Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute')) - dt.getTime()) / 60000;
+            };
+            let totalMin = h * 60 + m + (tzOff(toTz) - tzOff(fromTz));
+            if (totalMin < 0) totalMin += 1440;
+            if (totalMin >= 1440) totalMin -= 1440;
+            return `${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`;
         }
     }
 }

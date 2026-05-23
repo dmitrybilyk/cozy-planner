@@ -34,6 +34,11 @@ public class PlannerController {
         this.telegramConfig = telegramConfig;
     }
 
+    @GetMapping("/")
+    public String root() {
+        return "redirect:/planner";
+    }
+
     @GetMapping("/planner")
     public String getPlanner() {
         return "mentor-view";

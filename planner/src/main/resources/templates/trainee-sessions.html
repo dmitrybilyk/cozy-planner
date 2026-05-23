@@ -5,7 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title x-text="pageTitle || 'Мої сесії'"></title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="/js/trainee-sessions.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cozy Planner">
+    <link rel="apple-touch-icon" href="/icon.svg">
     <link rel="stylesheet" href="/css/shared.css">
     <link rel="stylesheet" href="/css/trainee-sessions.css">
 </head>
@@ -33,6 +41,9 @@
                 </span>
             </template>
         </div>
+        <button @click="installPwa()" class="mr-1 text-sm" title="Встановити додаток">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+        </button>
         <template x-if="tab === 'sessions'">
             <button @click="openCreateModal()" class="bg-blue-600 text-white px-4 py-1.5 rounded-xl font-bold text-xs shadow-lg">+ Створити</button>
         </template>
@@ -123,9 +134,11 @@
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                             </span>
                         </div>
-                        <button @click.stop="exportToGCal(session)" class="mt-3 text-green-400 hover:text-green-300 transition" title="Google Календар">
-                            <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
-                        </button>
+                        <div class="flex items-center gap-4 mt-3">
+                            <button @click.stop="exportToGCal(session)" class="p-1" title="Google Календар">
+                                <svg class="w-6 h-6" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </template>
@@ -434,6 +447,5 @@
 <script th:inline="javascript">
     var embeddedTrainee = /*[[${traineeData}]]*/ null;
 </script>
-<script src="/js/trainee-sessions.js"></script>
 </body>
 </html>

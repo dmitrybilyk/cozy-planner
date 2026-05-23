@@ -1,3 +1,6 @@
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredInstall = e; });
+
 function localDateStr(d) {
     d = d || new Date();
     return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
@@ -22,6 +25,8 @@ function sharedAvailabilityApp() {
         ws: null,
         singleDay: false,
         cardGrid: [],
+        deferredInstallPrompt: null,
+        isStandalone: window.matchMedia('(display-mode: standalone)').matches,
 
         isDayOff(dateStr) { return this.dayOffs.includes(dateStr); },
 
@@ -81,6 +86,7 @@ function sharedAvailabilityApp() {
         },
 
         async init() {
+            if (_deferredInstall) this.deferredInstallPrompt = _deferredInstall;
             const pathParts = window.location.pathname.split('/');
             this.shareToken = pathParts[pathParts.length - 1];
 
@@ -168,6 +174,16 @@ function sharedAvailabilityApp() {
             } catch (e) {
                 console.error(e);
                 this.loading = false;
+            }
+        },
+
+        async installPwa() {
+            const prompt = this.deferredInstallPrompt || _deferredInstall;
+            if (prompt) {
+                prompt.prompt();
+                const result = await prompt.userChoice;
+                this.deferredInstallPrompt = null;
+                _deferredInstall = null;
             }
         }
     }

@@ -1,3 +1,6 @@
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredInstall = e; });
+
 function app() {
     const MON = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
     const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
@@ -13,6 +16,8 @@ function app() {
         workStart: '09:00',
         workEnd: '21:00',
         dayOffs: [],
+        deferredInstallPrompt: null,
+        isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         saving: false,
 
         get isDayOff() { return this.dayOffs.includes(this.curDate); },
@@ -22,6 +27,7 @@ function app() {
         get hasUnsavedChanges() { return this._dirtyDates.size > 0 || this._dirtyDayOffs.length > 0; },
 
         init() {
+            if (_deferredInstall) this.deferredInstallPrompt = _deferredInstall;
             const now = new Date;
             for (let i = 0; i < 14; i++) {
                 const d = new Date(now); d.setDate(now.getDate() + i);
@@ -282,6 +288,15 @@ function app() {
             const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.todayStr;
             try { await navigator.clipboard.writeText(imgUrl); this.imgCopiedDay = true; setTimeout(() => this.imgCopiedDay = false, 3000); }
             catch(e) { prompt('Скопіюйте посилання на картинку:', imgUrl); }
+        },
+        async installPwa() {
+            const prompt = this.deferredInstallPrompt || _deferredInstall;
+            if (prompt) {
+                prompt.prompt();
+                const result = await prompt.userChoice;
+                this.deferredInstallPrompt = null;
+                _deferredInstall = null;
+            }
         }
     }
 }

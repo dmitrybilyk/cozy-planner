@@ -1,3 +1,6 @@
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredInstall = e; });
+
 function localDateStr(d) {
     d = d || new Date();
     return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
@@ -39,6 +42,8 @@ function traineeApp() {
         pageTitle: 'Мої сесії',
         coachTimezone: 'Europe/Kiev',
         timezone: 'Europe/Kiev',
+        deferredInstallPrompt: null,
+        isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         notifications: [],
         unreadCount: 0,
 
@@ -128,6 +133,7 @@ function traineeApp() {
 
         async init() {
             this.initAudioContext();
+            if (_deferredInstall) this.deferredInstallPrompt = _deferredInstall;
             let me = embeddedTrainee;
             if (!me || !me.traineeId) {
                 const res = await fetch('/api/v1/me');
@@ -294,9 +300,11 @@ function traineeApp() {
                 const {vapidKey} = await vapidRes.json();
                 if (!vapidKey) return;
                 const reg = await navigator.serviceWorker.register('/sw.js');
+                let appKey;
+                try { appKey = this.base64UrlToUint8Array(vapidKey); } catch (e) { console.log('push: invalid vapid key'); return; }
                 const sub = await reg.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: this.base64UrlToUint8Array(vapidKey)
+                    applicationServerKey: appKey
                 });
                 const getKey = (name) => {
                     const k = sub.getKey(name);
@@ -817,6 +825,16 @@ function traineeApp() {
             const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
             return mm < currentMin;
+        },
+
+        async installPwa() {
+            const prompt = this.deferredInstallPrompt || _deferredInstall;
+            if (prompt) {
+                prompt.prompt();
+                const result = await prompt.userChoice;
+                this.deferredInstallPrompt = null;
+                _deferredInstall = null;
+            }
         },
 
         convertTz(timeStr, dateStr, fromTz, toTz) {

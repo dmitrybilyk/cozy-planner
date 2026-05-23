@@ -1,5 +1,29 @@
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+const CACHE = 'cozy-v1';
+const STATIC = [
+  '/favicon.svg', '/icon.svg', '/manifest.json',
+  '/css/shared.css', '/css/mentor-view.css', '/css/trainee-sessions.css',
+  '/js/mentor-view.js', '/js/trainee-sessions.js', '/js/coach-availability.js', '/js/shared-availability.js', '/js/trainee-availability.js'
+];
+
+self.addEventListener('install', (e) => {
+  self.skipWaiting();
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(STATIC).catch(() => {}))
+  );
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(clients.claim());
+});
+
+self.addEventListener('fetch', (e) => {
+  const url = new URL(e.request.url);
+  if (STATIC.includes(url.pathname)) {
+    e.respondWith(
+      caches.match(e.request).then(r => r || fetch(e.request))
+    );
+  }
+});
 
 self.addEventListener('push', (event) => {
     let title = 'Cozy Planner';
