@@ -35,6 +35,10 @@ curl -X POST "https://api.telegram.org/bot8822669135:AAFwsykNyYNwzM9P_zrXfub30td
 
 curl -X POST "https://api.telegram.org/bot8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPSqvDHVQAM/setWebhook?url=https://cozy-planner.duckdns.org/api/v1/telegram/webhook/notification"
 
+curl "https://api.telegram.org/bot8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPSqvDHVQAM/getWebhookInfo"
+
+
+
 
 sudo certbot certonly --standalone -d cozy-planner.duckdns.org
 

@@ -274,12 +274,15 @@ public class TelegramService {
 
     public Mono<Trainee> connectTraineeByToken(String token, String chatId, String username) {
         return traineeRepository.findByInviteToken(token)
-                .flatMap(trainee -> {
-                    trainee.setTelegramChatId(chatId);
-                    trainee.setTelegramUsername(username);
-                    trainee.setTelegramConnectedAt(LocalDateTime.now());
-                    return traineeRepository.save(trainee);
-                })
+                .flatMap(trainee ->
+                    traineeRepository.clearTelegramChatIdForOtherTrainees(chatId, trainee.getId())
+                            .then(Mono.defer(() -> {
+                                trainee.setTelegramChatId(chatId);
+                                trainee.setTelegramUsername(username);
+                                trainee.setTelegramConnectedAt(LocalDateTime.now());
+                                return traineeRepository.save(trainee);
+                            }))
+                )
                 .flatMap(trainee ->
                     mentorRepository.findById(trainee.getMentorId())
                             .defaultIfEmpty(Mentor.builder().profile("sport").build())
@@ -314,12 +317,15 @@ public class TelegramService {
 
     public Mono<Mentor> connectMentorByToken(String token, String chatId, String username) {
         return mentorRepository.findByTelegramToken(token)
-                .flatMap(mentor -> {
-                    mentor.setTelegramChatId(chatId);
-                    mentor.setTelegramUsername(username);
-                    mentor.setTelegramConnectedAt(LocalDateTime.now());
-                    return mentorRepository.save(mentor);
-                })
+                .flatMap(mentor ->
+                    mentorRepository.clearTelegramChatIdForOtherMentors(chatId, mentor.getId())
+                            .then(Mono.defer(() -> {
+                                mentor.setTelegramChatId(chatId);
+                                mentor.setTelegramUsername(username);
+                                mentor.setTelegramConnectedAt(LocalDateTime.now());
+                                return mentorRepository.save(mentor);
+                            }))
+                )
                 .doOnNext(m -> {
                     if (m != null) {
                         log.info("Mentor {} connected Telegram: chatId={}", m.getId(), chatId);

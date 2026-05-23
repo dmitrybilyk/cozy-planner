@@ -17,6 +17,9 @@ public interface TraineeRepository extends ReactiveCrudRepository<Trainee, Long>
     @Query("SELECT * FROM trainees WHERE telegram_chat_id = :chatId")
     Mono<Trainee> findByTelegramChatId(String chatId);
     
+    @Query("UPDATE trainees SET telegram_chat_id = NULL, telegram_username = NULL, telegram_connected_at = NULL WHERE telegram_chat_id = :chatId AND id != :excludeId")
+    Mono<Integer> clearTelegramChatIdForOtherTrainees(String chatId, Long excludeId);
+
     @Query("SELECT * FROM trainees WHERE mentor_id = :mentorId AND weekend_reminder_enabled = TRUE AND telegram_chat_id IS NOT NULL AND telegram_chat_id != ''")
     Flux<Trainee> findAllByMentorIdForWeekendReminders(Long mentorId);
     
