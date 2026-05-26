@@ -5,17 +5,33 @@ function localDateStr(d) {
     d = d || new Date();
     return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`;
 }
+function localDateStrTz(tz, d) {
+    d = d || new Date();
+    return new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(d);
+}
+function datePartsInTz(tz, d) {
+    const fmt = new Intl.DateTimeFormat('en', { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric', weekday: 'numeric' });
+    const parts = fmt.formatToParts(d);
+    let year, month, day, weekday;
+    for (const p of parts) {
+        if (p.type === 'year') year = parseInt(p.value);
+        if (p.type === 'month') month = parseInt(p.value);
+        if (p.type === 'day') day = parseInt(p.value);
+        if (p.type === 'weekday') weekday = parseInt(p.value);
+    }
+    return { year, month, day, weekday };
+}
 const MON = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
 const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+const WD_NUM = {1:'Пн',2:'Вт',3:'Ср',4:'Чт',5:'Пт',6:'Сб',7:'Нд'};
 
 function sharedAvailabilityApp() {
-    const today = localDateStr();
     return {
         shareToken: '',
         mentorName: '',
         loading: true,
         hasData: false,
-        selectedDate: today,
+        selectedDate: '',
         days: [],
         cellsByDate: {},
         dayOffs: [],
@@ -27,6 +43,9 @@ function sharedAvailabilityApp() {
         cardGrid: [],
         deferredInstallPrompt: null,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
+        today: '',
+        mentorTimezone: '',
+        _dataLoaded: false,
 
         isDayOff(dateStr) { return this.dayOffs.includes(dateStr); },
 
@@ -48,7 +67,7 @@ function sharedAvailabilityApp() {
             return Object.values(seen);
         },
         get isTodaySelected() {
-            return this.selectedDate === today;
+            return this.selectedDate === this.today;
         },
         dayName(dateStr) {
             const d = this.days.find(x => x.dateStr === dateStr);
@@ -85,35 +104,76 @@ function sharedAvailabilityApp() {
             }
         },
 
+        _pickDate() {
+            if (this._dateParam && this.days.some(d => d.dateStr === this._dateParam)) {
+                this.selectedDate = this._dateParam;
+            } else if (this.singleDay) {
+                this.selectedDate = this.today;
+            }
+            if (!this.cellsByDate[this.selectedDate]?.length) {
+                const sorted = Object.keys(this.cellsByDate).sort();
+                if (sorted.length) this.selectedDate = sorted[0];
+            }
+        },
+
         async init() {
             if (_deferredInstall) this.deferredInstallPrompt = _deferredInstall;
             const pathParts = window.location.pathname.split('/');
             this.shareToken = pathParts[pathParts.length - 1];
 
             const params = new URLSearchParams(window.location.search);
-            const dateParam = params.get('date');
-            if (dateParam) this.singleDay = true;
+            this._dateParam = params.get('date');
+            if (this._dateParam) this.singleDay = true;
 
+            this.today = localDateStr();
+            this._buildDays();
+            this.buildWorkGrid();
+
+            await this.loadData();
+            this._dataLoaded = true;
+            this._pickDate();
+
+            this.connectWebSocket();
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) this._reload();
+            });
+        },
+
+        _reload() {
+            this.loadData().then(() => {
+                this._pickDate();
+            });
+        },
+
+        _buildDays() {
+            const tz = this.mentorTimezone;
             const now = new Date();
             for (let i = 0; i < 14; i++) {
                 const d = new Date(now);
                 d.setDate(now.getDate() + i);
-                const ds = localDateStr(d);
-                this.days.push({ dateStr: ds, weekday: WD[(d.getDay()+6)%7], dayNum: d.getDate(), month: MON[d.getMonth()], isToday: ds === today, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
+                const ds = tz ? localDateStrTz(tz, d) : localDateStr(d);
+                let weekday, dayNum, month, isWeekend;
+                if (tz) {
+                    const p = datePartsInTz(tz, d);
+                    weekday = WD_NUM[p.weekday] || '';
+                    dayNum = p.day;
+                    month = MON[p.month - 1] || '';
+                    isWeekend = p.weekday === 6 || p.weekday === 7;
+                } else {
+                    weekday = WD[(d.getDay()+6)%7];
+                    dayNum = d.getDate();
+                    month = MON[d.getMonth()];
+                    isWeekend = d.getDay() === 0 || d.getDay() === 6;
+                }
+                this.days.push({
+                    dateStr: ds,
+                    weekday,
+                    dayNum,
+                    month,
+                    isToday: ds === this.today,
+                    isWeekend
+                });
             }
-
-            this.buildWorkGrid();
-
-            await this.loadData();
-            if (dateParam && this.days.some(d => d.dateStr === dateParam)) {
-                this.selectedDate = dateParam;
-            } else if (this.singleDay) {
-                this.selectedDate = today;
-            }
-            this.connectWebSocket();
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) this.loadData();
-            });
         },
 
         connectWebSocket() {
@@ -124,7 +184,7 @@ function sharedAvailabilityApp() {
                 console.log('[shared] ws event:', event.data);
                 if (event.data === 'coach_availability_changed' || event.data === 'location_changed' || event.data === 'session_changed') {
                     console.log('[shared] reloading data');
-                    this.loadData();
+                    this._reload();
                 }
             };
             ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
@@ -151,6 +211,11 @@ function sharedAvailabilityApp() {
                 this.dayOffs = this.dayOffs.length ? this.dayOffs : (availData.dayOffDates || []);
                 if (availData.workStart) this.mentorWorkStart = availData.workStart;
                 if (availData.workEnd) this.mentorWorkEnd = availData.workEnd;
+                if (availData.mentorTimezone) {
+                    this.mentorTimezone = availData.mentorTimezone;
+                    this.today = localDateStrTz(this.mentorTimezone);
+                    this.days.forEach(d => d.isToday = d.dateStr === this.today);
+                }
                 this.buildWorkGrid();
 
                 const g = {};
@@ -167,9 +232,6 @@ function sharedAvailabilityApp() {
 
                 this.cellsByDate = g;
                 this.hasData = Object.keys(g).length > 0;
-                if (this.hasData) {
-                    this.selectedDate = Object.keys(g).sort()[0];
-                }
                 this.loading = false;
             } catch (e) {
                 console.error(e);

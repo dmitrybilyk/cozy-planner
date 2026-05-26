@@ -385,11 +385,12 @@ public class CoachAvailabilityController {
                                                      List<LocalDate> dayOffDates) {
         return Mono.fromCallable(() -> {
             int dayCount = 14;
-            int cellW = 80, cellH = 14;
+            int subCellW = 40;
+            int hourH = 28;
             int topMargin = 70, bottomMargin = 40, leftMargin = 48, rightMargin = 20;
-            int rows = (22 - 6) * 2;
-            int totalW = leftMargin + dayCount * cellW + rightMargin;
-            int totalH = topMargin + rows * cellH + bottomMargin;
+            int rows = 22 - 6;
+            int totalW = leftMargin + dayCount * 2 * subCellW + rightMargin;
+            int totalH = topMargin + rows * hourH + bottomMargin;
 
             String[] days = {"Пн","Вт","Ср","Чт","Пт","Сб","Нд"};
             String[] months = {"січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"};
@@ -402,49 +403,49 @@ public class CoachAvailabilityController {
 
             StringBuilder svg = new StringBuilder();
             svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"").append(totalW).append("\" height=\"").append(totalH).append("\">\n");
-            svg.append("<rect width=\"").append(totalW).append("\" height=\"").append(totalH).append("\" fill=\"#121212\"/>\n");
+            svg.append("<rect width=\"").append(totalW).append("\" height=\"").append(totalH).append("\" fill=\"#1a1a1a\"/>\n");
 
             svg.append("<text x=\"20\" y=\"26\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"16\" font-weight=\"bold\">")
                 .append(xmlEscape(mentor.getName())).append(" — графік доступності</text>\n");
 
             for (int hi = 0; hi < rows; hi++) {
-                int hh = 6 + hi / 2;
-                int mm = (hi % 2) * 30;
-                int y = topMargin + hi * cellH;
-                String time = String.format("%02d:%02d", hh, mm);
-                svg.append("<text x=\"5\" y=\"").append(y + cellH - 4).append("\" fill=\"#666666\" font-family=\"Arial,sans-serif\" font-size=\"9\" font-weight=\"bold\">")
+                int hh = 6 + hi;
+                int y = topMargin + hi * hourH;
+                String time = String.format("%02d:00", hh);
+                svg.append("<text x=\"5\" y=\"").append(y + hourH / 2 + 4).append("\" fill=\"#888888\" font-family=\"Arial,sans-serif\" font-size=\"9\" font-weight=\"bold\">")
                     .append(time).append("</text>\n");
-                String rowColor = hi % 2 == 0 ? "#282828" : "#1c1c1c";
-                svg.append("<line x1=\"").append(leftMargin).append("\" y1=\"").append(y).append("\" x2=\"").append(leftMargin + dayCount * cellW).append("\" y2=\"").append(y).append("\" stroke=\"").append(rowColor).append("\"/>\n");
+                svg.append("<line x1=\"").append(leftMargin).append("\" y1=\"").append(y).append("\" x2=\"").append(totalW - rightMargin).append("\" y2=\"").append(y).append("\" stroke=\"#1f1f1f\"/>\n");
+                for (int di = 0; di < dayCount; di++) {
+                    int dx = leftMargin + di * 2 * subCellW;
+                    svg.append("<line x1=\"").append(dx + subCellW).append("\" y1=\"").append(y).append("\" x2=\"").append(dx + subCellW).append("\" y2=\"").append(y + hourH).append("\" stroke=\"#1f1f1f\"/>\n");
+                }
             }
 
             for (int di = 0; di < dayCount; di++) {
-                int x = leftMargin + di * cellW;
+                int x = leftMargin + di * 2 * subCellW;
                 LocalDate d = startDate.plusDays(di);
                 boolean isToday = d.equals(LocalDate.now());
 
                 String dayColor = isToday ? "#3b82f6" : "#a0a0a0";
                 String dayLabel = days[(d.getDayOfWeek().getValue() + 6) % 7] + " " + d.getDayOfMonth() + " " + months[d.getMonthValue() - 1];
-                svg.append("<text x=\"").append(x + 3).append("\" y=\"").append(topMargin - 5).append("\" fill=\"").append(dayColor).append("\" font-family=\"Arial,sans-serif\" font-size=\"11\" font-weight=\"bold\">")
+                svg.append("<text x=\"").append(x + 2).append("\" y=\"").append(topMargin - 5).append("\" fill=\"").append(dayColor).append("\" font-family=\"Arial,sans-serif\" font-size=\"11\" font-weight=\"bold\">")
                     .append(dayLabel).append("</text>\n");
                 if (isToday) {
-                    svg.append("<text x=\"").append(x + 3).append("\" y=\"").append(topMargin - 16).append("\" fill=\"#3b82f6\" font-family=\"Arial,sans-serif\" font-size=\"8\" font-weight=\"bold\">СЬОГОДНІ</text>\n");
+                    svg.append("<text x=\"").append(x + 2).append("\" y=\"").append(topMargin - 16).append("\" fill=\"#3b82f6\" font-family=\"Arial,sans-serif\" font-size=\"8\" font-weight=\"bold\">СЬОГОДНІ</text>\n");
                 }
 
-                svg.append("<line x1=\"").append(x).append("\" y1=\"").append(topMargin).append("\" x2=\"").append(x).append("\" y2=\"").append(topMargin + rows * cellH).append("\" stroke=\"#1e1e1e\"/>\n");
+                svg.append("<line x1=\"").append(x).append("\" y1=\"").append(topMargin).append("\" x2=\"").append(x).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#1f1f1f\"/>\n");
 
                 boolean isDayOff = dayOffDates.contains(d);
                 if (isDayOff) {
-                    svg.append("<rect x=\"").append(x + 2).append("\" y=\"").append(topMargin).append("\" width=\"").append(cellW - 4).append("\" height=\"").append(rows * cellH).append("\" rx=\"4\" ry=\"4\" fill=\"#2a1a1a\" opacity=\"0.6\"/>\n");
-                    svg.append("<text x=\"").append(x + cellW / 2).append("\" y=\"").append(topMargin + rows * cellH / 2).append("\" fill=\"#ef4444\" font-family=\"Arial,sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\">ВИХІДНИЙ</text>\n");
+                    svg.append("<rect x=\"").append(x + 2).append("\" y=\"").append(topMargin).append("\" width=\"").append(2 * subCellW - 4).append("\" height=\"").append(rows * hourH).append("\" rx=\"4\" ry=\"4\" fill=\"#2a1a1a\" opacity=\"0.6\"/>\n");
+                    svg.append("<text x=\"").append(x + subCellW).append("\" y=\"").append(topMargin + rows * hourH / 2).append("\" fill=\"#ef4444\" font-family=\"Arial,sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\">ВИХІДНИЙ</text>\n");
                 }
 
                 List<MentorAvailability> daySlots = byDate.getOrDefault(di, List.of());
                 for (MentorAvailability s : daySlots) {
                     int startMin = s.getStartTime().getHour() * 60 + s.getStartTime().getMinute();
                     int endMin = s.getEndTime().getHour() * 60 + s.getEndTime().getMinute();
-                    int startRow = Math.max(0, (startMin - 360) / 30);
-                    int endRow = Math.min(rows, (endMin - 360 + 29) / 30);
 
                     String colorStr = "#3b82f6";
                     String locName = "";
@@ -454,18 +455,25 @@ public class CoachAvailabilityController {
                         locName = (String) loc.getOrDefault("name", "");
                     }
 
-                    int slotY = topMargin + startRow * cellH;
-                    int slotH = (endRow - startRow) * cellH;
-                    svg.append("<rect x=\"").append(x + 2).append("\" y=\"").append(slotY).append("\" width=\"").append(cellW - 4).append("\" height=\"").append(slotH).append("\" rx=\"4\" ry=\"4\" fill=\"").append(colorStr).append("\"/>\n");
-                    if (!locName.isEmpty() && slotH > 20) {
-                        svg.append("<text x=\"").append(x + 4).append("\" y=\"").append(slotY + 12).append("\" fill=\"#c8c8c8\" font-family=\"Arial,sans-serif\" font-size=\"8\">")
-                            .append(xmlEscape(locName)).append("</text>\n");
+                    boolean labelPlaced = false;
+                    for (int t = startMin; t < endMin; t += 30) {
+                        int hourIdx = (t / 60) - 6;
+                        int cellIdx = (t % 60) / 30;
+                        if (hourIdx < 0 || hourIdx >= rows) continue;
+                        int sy = topMargin + hourIdx * hourH;
+                        int sx = x + cellIdx * subCellW;
+                        svg.append("<rect x=\"").append(sx + 1).append("\" y=\"").append(sy + 1).append("\" width=\"").append(subCellW - 2).append("\" height=\"").append(hourH - 2).append("\" rx=\"3\" ry=\"3\" fill=\"").append(colorStr).append("\"/>\n");
+                        if (!labelPlaced && !locName.isEmpty()) {
+                            svg.append("<text x=\"").append(sx + 3).append("\" y=\"").append(sy + 12).append("\" fill=\"#c8c8c8\" font-family=\"Arial,sans-serif\" font-size=\"7\">")
+                                .append(xmlEscape(locName)).append("</text>\n");
+                            labelPlaced = true;
+                        }
                     }
                 }
             }
 
             int legendY = totalH - 20;
-            svg.append("<line x1=\"").append(leftMargin).append("\" y1=\"").append(topMargin + rows * cellH).append("\" x2=\"").append(leftMargin + dayCount * cellW).append("\" y2=\"").append(topMargin + rows * cellH).append("\" stroke=\"#3c3c3c\"/>\n");
+            svg.append("<line x1=\"").append(leftMargin).append("\" y1=\"").append(topMargin + rows * hourH).append("\" x2=\"").append(totalW - rightMargin).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#3c3c3c\"/>\n");
             svg.append("<rect x=\"20\" y=\"").append(legendY - 5).append("\" width=\"12\" height=\"12\" rx=\"2\" ry=\"2\" fill=\"#3b82f6\"/>\n");
             svg.append("<text x=\"36\" y=\"").append(legendY + 4).append("\" fill=\"#c8c8c8\" font-family=\"Arial,sans-serif\" font-size=\"9\">Вільно</text>\n");
 
@@ -480,6 +488,8 @@ public class CoachAvailabilityController {
                 lx += textWidth("Вільно на " + name, 9) + 24;
             }
 
+            svg.append("<text x=\"").append(lx + 10).append("\" y=\"").append(legendY + 4).append("\" fill=\"#666666\" font-family=\"Arial,sans-serif\" font-size=\"9\">· крок 30 хв</text>\n");
+
             svg.append("</svg>");
             return svg.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
         });
@@ -489,11 +499,13 @@ public class CoachAvailabilityController {
                                                    Map<Long, Map<String, Object>> locMap, LocalDate date,
                                                    List<LocalDate> dayOffDates) {
         return Mono.fromCallable(() -> {
-            int cellW = 1088, cellH = 28;
-            int topMargin = 100, bottomMargin = 60, leftMargin = 60, rightMargin = 40;
-            int rows = (22 - 6) * 2;
-            int totalW = leftMargin + cellW + rightMargin;
-            int totalH = topMargin + rows * cellH + bottomMargin;
+            int hourH = 56;
+            int timeLabelW = 64;
+            int subCellW = 260;
+            int topMargin = 90, bottomMargin = 50;
+            int rows = 22 - 6;
+            int totalW = timeLabelW + 2 * subCellW;
+            int totalH = topMargin + rows * hourH + bottomMargin;
 
             String[] days = {"Пн","Вт","Ср","Чт","Пт","Сб","Нд"};
             String[] months = {"січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"};
@@ -502,45 +514,47 @@ public class CoachAvailabilityController {
 
             StringBuilder svg = new StringBuilder();
             svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"").append(totalW).append("\" height=\"").append(totalH).append("\">\n");
-            svg.append("<rect width=\"").append(totalW).append("\" height=\"").append(totalH).append("\" fill=\"#121212\"/>\n");
+            svg.append("<rect width=\"").append(totalW).append("\" height=\"").append(totalH).append("\" fill=\"#1a1a1a\"/>\n");
 
-            svg.append("<text x=\"20\" y=\"36\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"22\" font-weight=\"bold\">")
+            svg.append("<text x=\"16\" y=\"30\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"16\" font-weight=\"bold\">")
                 .append(xmlEscape(mentor.getName())).append("</text>\n");
-            svg.append("<text x=\"20\" y=\"61\" fill=\"#a0a0a0\" font-family=\"Arial,sans-serif\" font-size=\"16\" font-weight=\"bold\">")
+            svg.append("<text x=\"16\" y=\"50\" fill=\"#a0a0a0\" font-family=\"Arial,sans-serif\" font-size=\"13\" font-weight=\"bold\">")
                 .append(dateStr).append("</text>\n");
 
             if (date.equals(LocalDate.now())) {
-                svg.append("<rect x=\"20\" y=\"68\" width=\"62\" height=\"14\" rx=\"7\" ry=\"7\" fill=\"#3b82f6\"/>\n");
-                svg.append("<text x=\"51\" y=\"79\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\">СЬОГОДНІ</text>\n");
+                svg.append("<rect x=\"16\" y=\"58\" width=\"54\" height=\"14\" rx=\"7\" ry=\"7\" fill=\"#3b82f6\"/>\n");
+                svg.append("<text x=\"43\" y=\"68\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"8\" font-weight=\"bold\" text-anchor=\"middle\">СЬОГОДНІ</text>\n");
             }
 
-            int startMin = 360;
             for (int hi = 0; hi < rows; hi++) {
-                int hh = 6 + hi / 2;
-                int mm = (hi % 2) * 30;
-                int y = topMargin + hi * cellH;
-                String time = String.format("%02d:%02d", hh, mm);
-                svg.append("<text x=\"5\" y=\"").append(y + cellH - 8).append("\" fill=\"#a0a0a0\" font-family=\"Arial,sans-serif\" font-size=\"13\" font-weight=\"bold\">")
-                    .append(time).append("</text>\n");
-                String rowColor = hi % 2 == 0 ? "#282828" : "#1c1c1c";
-                svg.append("<rect x=\"").append(leftMargin).append("\" y=\"").append(y).append("\" width=\"").append(cellW).append("\" height=\"").append(cellH).append("\" fill=\"").append(rowColor).append("\"/>\n");
-                svg.append("<line x1=\"").append(leftMargin).append("\" y1=\"").append(y).append("\" x2=\"").append(leftMargin + cellW).append("\" y2=\"").append(y).append("\" stroke=\"#323232\"/>\n");
-            }
+                int hh = 6 + hi;
+                int y = topMargin + hi * hourH;
+                String time = String.format("%02d:00", hh);
 
-            svg.append("<line x1=\"").append(leftMargin + cellW).append("\" y1=\"").append(topMargin).append("\" x2=\"").append(leftMargin + cellW).append("\" y2=\"").append(topMargin + rows * cellH).append("\" stroke=\"#323232\"/>\n");
+                svg.append("<text x=\"").append(timeLabelW - 10).append("\" y=\"").append(y + hourH / 2 + 4).append("\" fill=\"#888888\" font-family=\"Arial,sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"end\">")
+                    .append(time).append("</text>\n");
+
+                svg.append("<line x1=\"").append(timeLabelW).append("\" y1=\"").append(y).append("\" x2=\"").append(totalW).append("\" y2=\"").append(y).append("\" stroke=\"#1f1f1f\"/>\n");
+
+                for (int ci = 0; ci < 2; ci++) {
+                    int cx = timeLabelW + ci * subCellW;
+                    svg.append("<rect x=\"").append(cx).append("\" y=\"").append(y).append("\" width=\"").append(subCellW).append("\" height=\"").append(hourH).append("\" fill=\"#2a2a2a\"/>\n");
+                    if (ci > 0) {
+                        svg.append("<line x1=\"").append(cx).append("\" y1=\"").append(y).append("\" x2=\"").append(cx).append("\" y2=\"").append(y + hourH).append("\" stroke=\"#1f1f1f\"/>\n");
+                    }
+                }
+            }
 
             boolean isDayOff = dayOffDates.contains(date);
             if (isDayOff) {
-                svg.append("<rect x=\"").append(leftMargin + 3).append("\" y=\"").append(topMargin + 2).append("\" width=\"").append(cellW - 6).append("\" height=\"").append(rows * cellH - 4).append("\" rx=\"10\" ry=\"10\" fill=\"#2a1a1a\" opacity=\"0.5\"/>\n");
-                svg.append("<text x=\"").append(leftMargin + cellW / 2).append("\" y=\"").append(topMargin + rows * cellH / 2).append("\" fill=\"#ef4444\" font-family=\"Arial,sans-serif\" font-size=\"24\" font-weight=\"bold\" text-anchor=\"middle\">ВИХІДНИЙ</text>\n");
+                svg.append("<rect x=\"").append(timeLabelW + 4).append("\" y=\"").append(topMargin + 4).append("\" width=\"").append(2 * subCellW - 8).append("\" height=\"").append(rows * hourH - 8).append("\" rx=\"10\" ry=\"10\" fill=\"#2a1a1a\" opacity=\"0.5\"/>\n");
+                svg.append("<text x=\"").append(timeLabelW + subCellW).append("\" y=\"").append(topMargin + rows * hourH / 2).append("\" fill=\"#ef4444\" font-family=\"Arial,sans-serif\" font-size=\"18\" font-weight=\"bold\" text-anchor=\"middle\">ВИХІДНИЙ</text>\n");
             }
 
             for (MentorAvailability s : slots) {
                 if (!s.getDate().equals(date)) continue;
                 int sStart = s.getStartTime().getHour() * 60 + s.getStartTime().getMinute();
                 int sEnd = s.getEndTime().getHour() * 60 + s.getEndTime().getMinute();
-                int startRow = Math.max(0, (sStart - startMin) / 30);
-                int endRow = Math.min(rows, (sEnd - startMin + 29) / 30);
 
                 String colorStr = "#3b82f6";
                 String locName = "";
@@ -550,30 +564,39 @@ public class CoachAvailabilityController {
                     locName = (String) loc.getOrDefault("name", "");
                 }
 
-                int slotY = topMargin + startRow * cellH;
-                int slotH = (endRow - startRow) * cellH;
-                svg.append("<rect x=\"").append(leftMargin + 3).append("\" y=\"").append(slotY + 2).append("\" width=\"").append(cellW - 6).append("\" height=\"").append(slotH - 2).append("\" rx=\"6\" ry=\"6\" fill=\"").append(colorStr).append("\"/>\n");
-                if (!locName.isEmpty() && slotH > 28) {
-                    svg.append("<text x=\"").append(leftMargin + 10).append("\" y=\"").append(slotY + 20).append("\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"13\" font-weight=\"bold\">")
-                        .append(xmlEscape(locName)).append("</text>\n");
+                boolean labelPlaced = false;
+                for (int t = sStart; t < sEnd; t += 30) {
+                    int hourIdx = (t / 60) - 6;
+                    int cellIdx = (t % 60) / 30;
+                    if (hourIdx < 0 || hourIdx >= rows) continue;
+                    int y = topMargin + hourIdx * hourH;
+                    int cx = timeLabelW + cellIdx * subCellW;
+                    svg.append("<rect x=\"").append(cx + 2).append("\" y=\"").append(y + 2).append("\" width=\"").append(subCellW - 4).append("\" height=\"").append(hourH - 4).append("\" rx=\"6\" ry=\"6\" fill=\"").append(colorStr).append("\"/>\n");
+                    if (!labelPlaced && !locName.isEmpty()) {
+                        svg.append("<text x=\"").append(cx + 8).append("\" y=\"").append(y + hourH / 2 + 5).append("\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"12\" font-weight=\"bold\">")
+                            .append(xmlEscape(locName)).append("</text>\n");
+                        labelPlaced = true;
+                    }
                 }
             }
 
-            int legendY = totalH - 28;
-            svg.append("<line x1=\"").append(leftMargin).append("\" y1=\"").append(topMargin + rows * cellH).append("\" x2=\"").append(leftMargin + cellW).append("\" y2=\"").append(topMargin + rows * cellH).append("\" stroke=\"#3c3c3c\"/>\n");
-            svg.append("<rect x=\"20\" y=\"").append(legendY - 5).append("\" width=\"14\" height=\"14\" rx=\"2\" ry=\"2\" fill=\"#3b82f6\"/>\n");
-            svg.append("<text x=\"40\" y=\"").append(legendY + 8).append("\" fill=\"#c8c8c8\" font-family=\"Arial,sans-serif\" font-size=\"11\">Вільно</text>\n");
+            int legendY = totalH - 22;
+            svg.append("<line x1=\"").append(timeLabelW).append("\" y1=\"").append(topMargin + rows * hourH).append("\" x2=\"").append(totalW).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#3c3c3c\"/>\n");
+            svg.append("<rect x=\"16\" y=\"").append(legendY - 4).append("\" width=\"12\" height=\"12\" rx=\"2\" ry=\"2\" fill=\"#3b82f6\"/>\n");
+            svg.append("<text x=\"33\" y=\"").append(legendY + 6).append("\" fill=\"#c8c8c8\" font-family=\"Arial,sans-serif\" font-size=\"10\">Вільно</text>\n");
 
-            int lx = 120;
+            int lx = 100;
             for (Map.Entry<Long, Map<String, Object>> e : locMap.entrySet()) {
                 Map<String, Object> loc = e.getValue();
                 String name = (String) loc.getOrDefault("name", "");
                 String colorStr = (String) loc.getOrDefault("color", "#3b82f6");
                 if (name.isEmpty()) continue;
-                svg.append("<rect x=\"").append(lx).append("\" y=\"").append(legendY - 5).append("\" width=\"14\" height=\"14\" rx=\"2\" ry=\"2\" fill=\"").append(colorStr).append("\"/>\n");
-                svg.append("<text x=\"").append(lx + 20).append("\" y=\"").append(legendY + 8).append("\" fill=\"#c8c8c8\" font-family=\"Arial,sans-serif\" font-size=\"11\">Вільно на ").append(xmlEscape(name)).append("</text>\n");
-                lx += textWidth("Вільно на " + name, 11) + 30;
+                svg.append("<rect x=\"").append(lx).append("\" y=\"").append(legendY - 4).append("\" width=\"12\" height=\"12\" rx=\"2\" ry=\"2\" fill=\"").append(colorStr).append("\"/>\n");
+                svg.append("<text x=\"").append(lx + 17).append("\" y=\"").append(legendY + 6).append("\" fill=\"#c8c8c8\" font-family=\"Arial,sans-serif\" font-size=\"10\">Вільно на ").append(xmlEscape(name)).append("</text>\n");
+                lx += textWidth("Вільно на " + name, 10) + 26;
             }
+
+            svg.append("<text x=\"").append(lx + 8).append("\" y=\"").append(legendY + 6).append("\" fill=\"#666666\" font-family=\"Arial,sans-serif\" font-size=\"10\">· крок 30 хв</text>\n");
 
             svg.append("</svg>");
             return svg.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);

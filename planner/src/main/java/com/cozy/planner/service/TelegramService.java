@@ -179,7 +179,13 @@ public class TelegramService implements NotificationService {
                     StringBuilder text = new StringBuilder();
                     text.append("👋 <b>").append(escapeHtml(trainee.getName())).append("</b>!\n\n");
                     
-                    if ("tomorrow".equals(dayType)) {
+                    if ("today".equals(dayType)) {
+                        text.append("📅 <b>Сьогодні");
+                        if (targetDate != null) {
+                            text.append(" (").append(LocalDate.parse(targetDate).format(fmt)).append(")");
+                        }
+                        text.append("</b>\n\n");
+                    } else if ("tomorrow".equals(dayType)) {
                         text.append("📅 <b>Запит на завтра");
                         if (targetDate != null) {
                             text.append(" (").append(LocalDate.parse(targetDate).format(fmt)).append(")");

@@ -927,6 +927,11 @@
             <div class="mb-4">
                 <label class="text-xs font-bold text-gray-500 uppercase mb-3 block">Період:</label>
                 <div class="flex gap-2">
+                    <button @click="notifyModal.dayType = 'today'" 
+                            class="flex-1 py-3 rounded-xl text-sm font-bold transition"
+                            :class="notifyModal.dayType === 'today' ? 'bg-blue-600 text-white' : 'bg-[#262626] text-gray-400 hover:bg-[#333]'">
+                        Сьогодні
+                    </button>
                     <button @click="notifyModal.dayType = 'tomorrow'" 
                             class="flex-1 py-3 rounded-xl text-sm font-bold transition"
                             :class="notifyModal.dayType === 'tomorrow' ? 'bg-blue-600 text-white' : 'bg-[#262626] text-gray-400 hover:bg-[#333]'">

@@ -1,5 +1,6 @@
 plugins {
 	java
+	id("idea")
 	id("org.springframework.boot") version "3.5.14"
 	id("io.spring.dependency-management") version "1.1.7"
 	id("org.openapi.generator") version "7.4.0"
@@ -84,6 +85,25 @@ sourceSets {
 		java {
 			srcDir(layout.buildDirectory.dir("generated-sources/src/main/java"))
 		}
+	}
+}
+
+idea {
+	module {
+		generatedSourceDirs.add(file("build/generated/aotSources"))
+	}
+}
+
+// Ensure IntelliJ sees AOT source set dependencies properly
+configurations {
+	val aotImplementation by getting {
+		extendsFrom(configurations.implementation.get())
+	}
+	val aotCompileOnly by getting {
+		extendsFrom(configurations.compileOnly.get())
+	}
+	val aotRuntimeOnly by getting {
+		extendsFrom(configurations.runtimeOnly.get())
 	}
 }
 

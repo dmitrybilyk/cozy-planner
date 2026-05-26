@@ -151,7 +151,13 @@ public class KafkaNotificationService implements NotificationService {
     private String formatAvailabilityText(Trainee trainee, String baseUrl, String dayType, String targetDate) {
         StringBuilder text = new StringBuilder();
         text.append("👋 <b>").append(escapeHtml(trainee.getName())).append("</b>!\n\n");
-        if ("tomorrow".equals(dayType)) {
+        if ("today".equals(dayType)) {
+            text.append("📅 <b>Сьогодні");
+            if (targetDate != null) {
+                text.append(" (").append(LocalDate.parse(targetDate).format(DateTimeFormatter.ofPattern("dd.MM (EEE)", Locale.forLanguageTag("uk")))).append(")");
+            }
+            text.append("</b>\n\n");
+        } else if ("tomorrow".equals(dayType)) {
             text.append("📅 <b>Запит на завтра");
             if (targetDate != null) {
                 text.append(" (").append(LocalDate.parse(targetDate).format(DateTimeFormatter.ofPattern("dd.MM (EEE)", Locale.forLanguageTag("uk")))).append(")");

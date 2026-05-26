@@ -213,6 +213,9 @@ public class TraineesApiController implements TraineesApi {
                 .flatMap(trainee -> {
                     String dayType = body.containsKey("dayType") ? body.get("dayType").toString() : "tomorrow";
                     String targetDate = body.containsKey("targetDate") ? body.get("targetDate").toString() : null;
+                    if ("today".equals(dayType) && targetDate == null) {
+                        targetDate = java.time.LocalDate.now().toString();
+                    }
                     String customMessage = body.containsKey("customMessage") ? body.get("customMessage").toString() : null;
 
                     String baseUrl = appBaseUrl;

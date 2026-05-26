@@ -974,7 +974,9 @@ function calendarApp() {
             this.notifySuccess[traineeId] = false;
             
             const body = { dayType };
-            if (dayType === 'specific_day' && targetDate) {
+            if (dayType === 'today') {
+                body.targetDate = localDateStr();
+            } else if (dayType === 'specific_day' && targetDate) {
                 body.targetDate = targetDate;
             }
             if (customMsg && customMsg.trim().length > 0) {
