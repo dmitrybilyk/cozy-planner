@@ -62,41 +62,34 @@
                 <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">План</span>
             </button>
         </div>
-         <form method="POST" action="/logout" id="logoutForm" class="hidden"></form>
-         
-          <button @click="activeTab = 'notifications'" class="relative mr-1 text-lg"
-                  :class="activeTab === 'notifications' ? 'text-blue-400' : ''">
-              🔔
-              <span x-show="unreadCount > 0" class="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-1 leading-none" x-text="unreadCount"></span>
-          </button>
-
-          
-          <button onclick="document.getElementById('logoutForm').submit()" class="flex-shrink-0"><svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg></button>
-    </div>
-    <!-- Ряд 2: Кнопки дій -->
+     </div>
+    <!-- Ряд 2: Кнопки дій (текстові) -->
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex gap-2">
-        <button @click="openSessionModal()" :disabled="selectedDate < todayStr" class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100" :title="labels.new_session || 'Нова сесія'">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        <button @click="openSessionModal()" :disabled="selectedDate < todayStr"
+                class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-3 px-1 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100">
+            <span class="text-[10px] sm:text-xs font-bold leading-tight text-center" x-text="labels.create_session || 'Створити сесію'"></span>
         </button>
-        <button @click="activeTab = 'trainees'" class="flex-1 flex items-center justify-center py-3 rounded-2xl transition"
-                :class="activeTab === 'trainees' ? 'bg-[#333] ring-2 ring-emerald-400' : 'bg-[#262626] hover:bg-[#333]'"
-                :title="labels.manage_trainees || 'Учні'">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <button @click="activeTab = 'trainees'"
+                class="flex-1 flex items-center justify-center py-3 px-1 rounded-2xl transition"
+                :class="activeTab === 'trainees' ? 'bg-[#333] ring-2 ring-emerald-400' : 'bg-[#262626] hover:bg-[#333]'">
+            <span class="text-[10px] sm:text-xs font-bold leading-tight text-center text-emerald-400" x-text="labels.manage_trainees || 'Учні'"></span>
         </button>
-        <button @click="activeTab = 'locations'" class="flex-1 flex items-center justify-center py-3 rounded-2xl transition"
-                :class="activeTab === 'locations' ? 'bg-[#333] ring-2 ring-rose-400' : 'bg-[#262626] hover:bg-[#333]'"
-                :title="labels.locations || 'Місця'">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <button @click="activeTab = 'locations'"
+                class="flex-1 flex items-center justify-center py-3 px-1 rounded-2xl transition"
+                :class="activeTab === 'locations' ? 'bg-[#333] ring-2 ring-rose-400' : 'bg-[#262626] hover:bg-[#333]'">
+            <span class="text-[10px] sm:text-xs font-bold leading-tight text-center text-rose-400" x-text="labels.locations || 'Місця'"></span>
         </button>
-        <button @click="activeTab = 'coach-availability'; loadCoachAvailability()" class="flex-1 flex items-center justify-center py-3 rounded-2xl transition"
+        <button @click="activeTab = 'coach-availability'; loadCoachAvailability()"
+                class="flex-1 flex items-center justify-center py-3 px-1 rounded-2xl transition"
                 :class="activeTab === 'coach-availability' ? 'bg-[#333] ring-2 ring-violet-400' : 'bg-[#262626] hover:bg-[#333]'"
                 :title="'Доступність ' + (labels.mentor || 'тренера').toLowerCase()">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span class="text-[10px] sm:text-xs font-bold leading-tight text-center text-violet-400" x-text="'Доступність ' + (labels.mentor || 'тренера').toLowerCase()"></span>
         </button>
-        <button @click="activeTab = 'availability-overview'" class="flex items-center justify-center py-3 px-3 rounded-2xl transition"
+        <button @click="activeTab = 'availability-overview'"
+                class="flex-1 flex items-center justify-center py-3 px-1 rounded-2xl transition"
                 :class="activeTab === 'availability-overview' ? 'bg-[#333] ring-2 ring-amber-400' : 'bg-[#262626] hover:bg-[#333]'"
                 :title="'Доступність ' + (labels.trainees || 'учнів').toLowerCase()">
-            <svg class="w-5 h-5 sm:w-6 sm:h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span class="text-[10px] sm:text-xs font-bold leading-tight text-center text-amber-400" x-text="'Доступність ' + (labels.trainees || 'учнів').toLowerCase()"></span>
         </button>
     </div>
     <!-- Ряд 3: Історія + Смуга днів -->
@@ -387,7 +380,7 @@
             </select>
         </div>
     </div>
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+    <div x-show="deferredInstallPrompt" class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
         <button @click="installPwa()" class="w-full flex items-center justify-center gap-3 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-white/5 active:scale-[0.97]">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
             <span>Встановити додаток</span>
