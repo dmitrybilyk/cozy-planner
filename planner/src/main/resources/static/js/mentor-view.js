@@ -1775,10 +1775,44 @@ function calendarApp() {
              return '';
          },
 
-         async confirmSession(sessionId) {
-             await fetch(`/api/v1/sessions/${sessionId}/confirm`, { method: 'POST' });
-             await this.fetchData();
-         },
+          async toggleTraineeConfirm(traineeId, session) {
+               if (this.getTraineeConfirmStatus(traineeId, session) === 'confirmed') {
+                   await this.unconfirmTrainee(traineeId, session);
+               } else {
+                   await this.confirmTrainee(traineeId, session);
+               }
+           },
+
+         async confirmTrainee(traineeId, session) {
+              await fetch(`/api/v1/sessions/${session.id}/confirm-trainee/${traineeId}`, { method: 'POST' });
+              await this.fetchData();
+          },
+
+         async unconfirmTrainee(traineeId, session) {
+              await fetch(`/api/v1/sessions/${session.id}/unconfirm-trainee/${traineeId}`, { method: 'POST' });
+              await this.fetchData();
+          },
+
+         allTraineesConfirmed(session) {
+              const ids = session.traineeIds || [];
+              if (ids.length === 0) return false;
+              return ids.every(id => this.getTraineeConfirmStatus(id, session) === 'confirmed');
+          },
+
+          isTraineeTelegramConnected(traineeId) {
+               const t = this.trainees.find(a => a.id == traineeId);
+               return t && t.telegramConnected;
+          },
+
+          async requestTraineeConfirmationForTrainee(traineeId, session) {
+               await fetch(`/api/v1/sessions/${session.id}/request-trainee-confirmation/${traineeId}`, { method: 'POST' });
+               await this.fetchData();
+           },
+
+          async confirmSession(sessionId) {
+              await fetch(`/api/v1/sessions/${sessionId}/confirm`, { method: 'POST' });
+              await this.fetchData();
+          },
 
           async rejectSession(sessionId) {
               await fetch(`/api/v1/sessions/${sessionId}/reject`, { method: 'POST' });

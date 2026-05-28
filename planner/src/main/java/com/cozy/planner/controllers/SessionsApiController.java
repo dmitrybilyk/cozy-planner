@@ -173,7 +173,19 @@ public class SessionsApiController implements SessionsApi {
                                                     })
                                                     .then();
                                         })
-                                        .then(Mono.just(s));
+                                        .then(Mono.defer(() ->
+                                            traineeRepository.findAllById(tIds)
+                                                .filter(Trainee::hasTelegram)
+                                                .hasElements()
+                                                .flatMap(hasTg -> {
+                                                    if (hasTg) {
+                                                        s.setConfirmationStatus("PENDING");
+                                                        return sessionRepository.save(s)
+                                                            .flatMap(sv -> searchEventPublisher.publishSessionEvent("UPDATED", sv).thenReturn(sv));
+                                                    }
+                                                    return Mono.just(s);
+                                                })
+                                        ));
                             }
                             return Mono.just(s);
                         })
