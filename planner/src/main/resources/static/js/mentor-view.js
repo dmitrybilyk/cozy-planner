@@ -433,44 +433,69 @@ function calendarApp() {
             };
 
                 const onMove = (e) => {
-                if (!drag || !drag.armed) return;
-                e.preventDefault();
+                if (!drag) return;
                 const t = e.touches[0];
+                const dx = t.clientX - drag.startX;
+                if (dx >= -20 && dx <= 20) return;
+                e.preventDefault();
                 if (!drag.ghost) {
                     const g = drag.card.cloneNode(true);
                     g.style.position = 'fixed';
                     g.style.width = drag.card.offsetWidth + 'px';
-                    g.style.opacity = '0.85';
                     g.style.pointerEvents = 'none';
                     g.style.zIndex = '9999';
                     g.style.transform = 'scale(0.95) rotate(1deg)';
                     g.style.transition = 'none';
+                    const overlay = document.createElement('div');
+                    overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;border-radius:24px;opacity:0;pointer-events:none;z-index:20;font-size:15px;font-weight:800;color:#fff;transition:none';
+                    if (dx < 0) {
+                        overlay.style.background = 'linear-gradient(90deg,rgba(220,38,38,0.93),rgba(220,38,38,0.5) 55%,transparent)';
+                        overlay.style.justifyContent = 'flex-start';
+                        overlay.style.paddingLeft = '20px';
+                        overlay.innerHTML = '<svg style="width:22px;height:22px;margin-right:8px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>Видалити';
+                    } else {
+                        overlay.style.background = 'linear-gradient(270deg,rgba(34,197,94,0.93),rgba(34,197,94,0.5) 55%,transparent)';
+                        overlay.style.justifyContent = 'flex-end';
+                        overlay.style.paddingRight = '20px';
+                        overlay.innerHTML = 'Копіювати<svg style="width:22px;height:22px;margin-left:8px;flex-shrink:0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>';
+                    }
+                    g.appendChild(overlay);
                     document.body.appendChild(g);
                     drag.ghost = g;
+                    drag._overlay = overlay;
                 }
                 drag.ghost.style.left = (t.clientX - drag.ghost.offsetWidth / 2) + 'px';
                 drag.ghost.style.top = (t.clientY - 30) + 'px';
+                const intensity = Math.min(Math.abs(dx) / 120, 1);
+                drag._overlay.style.opacity = intensity;
             };
 
             const onEnd = async (e) => {
                 clearTimeout(timer);
                 if (!drag) return;
-                if (drag.armed && drag.ghost) {
+                const dx = e.changedTouches[0].clientX - drag.startX;
+                if (dx < -80) {
+                    if (drag.ghost) drag.ghost.remove();
+                    drag.ghost = null;
                     this.touchJustDragged = true;
                     setTimeout(() => { this.touchJustDragged = false; }, 400);
-                    const el = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-                    const c = el?.closest('[data-session-id]');
-                    if (c) {
-                        const tid = parseInt(c.dataset.sessionId);
-                        const tw = this.sessions.find(w => w.id === tid);
-                        if (tw && tw.id !== drag.session.id) {
-                            const ts = drag.session.time, te = drag.session.endTime;
-                            drag.session.time = tw.time; drag.session.endTime = tw.endTime;
-                            tw.time = ts; tw.endTime = te;
-                            await this.saveRaw(drag.session); await this.saveRaw(tw);
+                    this.editingSessionId = drag.session.id;
+                    this.confirmData = {
+                        show: true,
+                        title: this.labels.confirm_delete_title || 'Видалити?',
+                        message: this.labels.confirm_delete_session || 'Дію неможливо скасувати.',
+                        onConfirm: async () => {
+                            await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' });
+                            this.editingSessionId = null;
                             await this.fetchData();
                         }
-                    }
+                    };
+                } else if (dx > 80) {
+                    if (drag.ghost) drag.ghost.remove();
+                    drag.ghost = null;
+                    this.touchJustDragged = true;
+                    setTimeout(() => { this.touchJustDragged = false; }, 400);
+                    this.copySession(drag.session);
                 }
                 if (drag.ghost) drag.ghost.remove();
                 drag = null;
@@ -1533,14 +1558,7 @@ function calendarApp() {
         },
 
         async drop(event, targetIndex) {
-            if (this.draggedIndex === null || this.draggedIndex === targetIndex) return;
-            const list = this.filteredSessions; const dragged = list[this.draggedIndex]; const target = list[targetIndex];
-            if (dragged.date < this.todayStr) return;
-            const ts = dragged.time; const te = dragged.endTime;
-            dragged.time = target.time; dragged.endTime = target.endTime;
-            target.time = ts; target.endTime = te;
-            await this.saveRaw(dragged); await this.saveRaw(target);
-            this.draggedIndex = null; await this.fetchData();
+            this.draggedIndex = null;
         },
 
         async saveRaw(w) { await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...w, mentorId: this.mentorId }) }); },
@@ -1817,6 +1835,20 @@ function calendarApp() {
           async rejectSession(sessionId) {
               await fetch(`/api/v1/sessions/${sessionId}/reject`, { method: 'POST' });
               await this.fetchData();
+          },
+
+          deleteSessionConfirm(session) {
+              this.editingSessionId = session.id;
+              this.confirmData = {
+                  show: true,
+                  title: this.labels.confirm_delete_title || 'Видалити?',
+                  message: this.labels.confirm_delete_session || 'Дію неможливо скасувати.',
+                  onConfirm: async () => {
+                      await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' });
+                      this.editingSessionId = null;
+                      await this.fetchData();
+                  }
+              };
           },
 
           handleConfirmAction(session) {
