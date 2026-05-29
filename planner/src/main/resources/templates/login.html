@@ -12,8 +12,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cozy Planner">
     <link rel="apple-touch-icon" href="/icon.svg">
-    <link rel="stylesheet" href="/css/shared.css">
-    <link rel="stylesheet" href="/css/login.css">
+    <link rel="stylesheet" href="/css/shared.css" th:href="@{/css/shared.css(v=${appVersion})}">
+    <link rel="stylesheet" href="/css/login.css" th:href="@{/css/login.css(v=${appVersion})}">
 </head>
 <body class="antialiased flex items-center justify-center min-h-screen p-6">
     <div class="w-full max-w-sm text-center space-y-8">

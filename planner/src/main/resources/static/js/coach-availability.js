@@ -9,7 +9,7 @@ function app() {
     return {
         mentorId: null, shareToken: null, shareUrl: '', copied: false, copiedToday: false, imgCopiedWeek: false, imgCopiedDay: false,
         curDate: today, todayStr: today, days: [], grid: [],
-        cells: {}, sess: {}, locs: [], curLoc: null,
+        cells: {}, sess: {}, locs: [], curLoc: null, trainees: [],
         ws: null,
         busySession: null,
         mentorProfile: 'sport',
@@ -243,6 +243,9 @@ function app() {
             if (lr.ok) { this.locs = await lr.json(); if (this.locs.length === 1) this.curLoc = this.locs[0].id; }
             if (dr.ok) this.dayOffs = await dr.json();
 
+            const tr = await fetch(`/api/v1/mentors/${this.mentorId}/trainees`);
+            if (tr.ok) this.trainees = await tr.json();
+
             if (ar.ok) {
                 const step = this.availStep || 30;
                 const g = {};
@@ -321,6 +324,80 @@ function app() {
             const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.todayStr;
             try { await navigator.clipboard.writeText(imgUrl); this.imgCopiedDay = true; setTimeout(() => this.imgCopiedDay = false, 3000); }
             catch(e) { prompt('Скопіюйте посилання на картинку:', imgUrl); }
+        },
+        getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
+        getTraineeConfirmStatus(traineeId, session) {
+            const confirmed = (session.confirmedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
+            const rejected = (session.rejectedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
+            if (confirmed.includes(traineeId)) return 'confirmed';
+            if (rejected.includes(traineeId)) return 'rejected';
+            return 'none';
+        },
+        isTraineeTelegramConnected(traineeId) {
+            const t = this.trainees.find(a => a.id == traineeId);
+            return t && t.telegramConnected;
+        },
+        async toggleTraineeConfirm(traineeId, session) {
+            const status = this.getTraineeConfirmStatus(traineeId, session);
+            if (status === 'confirmed') {
+                await this.rejectTrainee(traineeId);
+            } else if (status === 'rejected') {
+                await this.unrejectTrainee(traineeId);
+            } else {
+                await this.confirmTrainee(traineeId);
+            }
+        },
+        async confirmTrainee(traineeId) {
+            if (!this.busySession) return;
+            const sid = this.busySession.id;
+            await fetch(`/api/v1/sessions/${sid}/confirm-trainee/${traineeId}`, { method: 'POST' });
+            await this.load();
+            this.busySession = this._findSessById(sid);
+        },
+        async unconfirmTrainee(traineeId) {
+            if (!this.busySession) return;
+            const sid = this.busySession.id;
+            await fetch(`/api/v1/sessions/${sid}/unconfirm-trainee/${traineeId}`, { method: 'POST' });
+            await this.load();
+            this.busySession = this._findSessById(sid);
+        },
+        async rejectTrainee(traineeId) {
+            if (!this.busySession) return;
+            const sid = this.busySession.id;
+            await fetch(`/api/v1/sessions/${sid}/reject-trainee/${traineeId}`, { method: 'POST' });
+            await this.load();
+            this.busySession = this._findSessById(sid);
+        },
+        async unrejectTrainee(traineeId) {
+            if (!this.busySession) return;
+            const sid = this.busySession.id;
+            await fetch(`/api/v1/sessions/${sid}/unreject-trainee/${traineeId}`, { method: 'POST' });
+            await this.load();
+            this.busySession = this._findSessById(sid);
+        },
+        allTraineesConfirmed(session) {
+            const ids = session.traineeIds || [];
+            if (ids.length === 0) return false;
+            return ids.every(id => this.getTraineeConfirmStatus(id, session) === 'confirmed');
+        },
+        someTraineesConfirmed(session) {
+            const ids = session.traineeIds || [];
+            if (ids.length === 0) return false;
+            return ids.some(id => this.getTraineeConfirmStatus(id, session) === 'confirmed') && !this.allTraineesConfirmed(session);
+        },
+        async requestTraineeConfirmationForTrainee(traineeId) {
+            if (!this.busySession) return;
+            const sid = this.busySession.id;
+            await fetch(`/api/v1/sessions/${sid}/request-trainee-confirmation/${traineeId}`, { method: 'POST' });
+            await this.load();
+            this.busySession = this._findSessById(sid);
+        },
+        _findSessById(id) {
+            for (const dateKey in this.sess) {
+                const found = this.sess[dateKey].find(s => s.id === id);
+                if (found) return found;
+            }
+            return null;
         },
         async installPwa() {
             const prompt = this.deferredInstallPrompt || _deferredInstall;

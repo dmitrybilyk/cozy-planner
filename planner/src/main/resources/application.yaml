@@ -84,6 +84,7 @@ app:
     weekend-reminder-cron: ${SCHEDULER_WEEKEND_REMINDER_CRON:0 0 16 * * FRI}
     session-reminder-cron: ${SCHEDULER_SESSION_REMINDER_CRON:0 */5 * * * *}
   search-enabled: true
+  version: 6
 
 telegram:
   enabled: ${TELEGRAM_ENABLED:true}

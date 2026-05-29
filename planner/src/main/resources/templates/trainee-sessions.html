@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title x-text="pageTitle || 'Мої сесії'"></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="/js/trainee-sessions.js"></script>
+    <script defer src="/js/trainee-sessions.js" th:src="@{/js/trainee-sessions.js(v=${appVersion})}"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="manifest" href="/manifest.json">
@@ -14,8 +14,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cozy Planner">
     <link rel="apple-touch-icon" href="/icon.svg">
-    <link rel="stylesheet" href="/css/shared.css">
-    <link rel="stylesheet" href="/css/trainee-sessions.css">
+    <link rel="stylesheet" href="/css/shared.css" th:href="@{/css/shared.css(v=${appVersion})}">
+    <link rel="stylesheet" href="/css/trainee-sessions.css" th:href="@{/css/trainee-sessions.css(v=${appVersion})}">
 </head>
 <body class="antialiased" x-data="traineeApp()">
 

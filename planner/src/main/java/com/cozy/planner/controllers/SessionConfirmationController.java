@@ -134,11 +134,48 @@ public class SessionConfirmationController {
 
     @PostMapping("/sessions/{sessionId}/unconfirm-trainee/{traineeId}")
     public Mono<ResponseEntity<Map<String, Object>>> unconfirmTrainee(@PathVariable Long sessionId,
-                                                                        @PathVariable Long traineeId) {
+                                                                         @PathVariable Long traineeId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(sessionId)
                         .collectList()
                         .flatMap(allTraineeIds -> removeConfirmedTrainee(session, traineeId, allTraineeIds))
+                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                        .map(saved -> {
+                            Map<String, Object> result = new HashMap<>();
+                            result.put("success", true);
+                            result.put("confirmationStatus", saved.getConfirmationStatus());
+                            result.put("confirmedTraineeIds", parseCommaIds(saved.getConfirmedTraineeIds()));
+                            result.put("rejectedTraineeIds", parseCommaIds(saved.getRejectedTraineeIds()));
+                            return ResponseEntity.ok(result);
+                        }))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/sessions/{sessionId}/reject-trainee/{traineeId}")
+    public Mono<ResponseEntity<Map<String, Object>>> rejectTrainee(@PathVariable Long sessionId,
+                                                                     @PathVariable Long traineeId) {
+        return sessionRepository.findById(sessionId)
+                .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(sessionId)
+                        .collectList()
+                        .flatMap(allTraineeIds -> addRejectedTrainee(session, traineeId)
+                                .flatMap(saved -> removeConfirmedTrainee(saved, traineeId, allTraineeIds)))
+                        .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
+                        .map(saved -> {
+                            Map<String, Object> result = new HashMap<>();
+                            result.put("success", true);
+                            result.put("confirmationStatus", saved.getConfirmationStatus());
+                            result.put("confirmedTraineeIds", parseCommaIds(saved.getConfirmedTraineeIds()));
+                            result.put("rejectedTraineeIds", parseCommaIds(saved.getRejectedTraineeIds()));
+                            return ResponseEntity.ok(result);
+                        }))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/sessions/{sessionId}/unreject-trainee/{traineeId}")
+    public Mono<ResponseEntity<Map<String, Object>>> unrejectTrainee(@PathVariable Long sessionId,
+                                                                       @PathVariable Long traineeId) {
+        return sessionRepository.findById(sessionId)
+                .flatMap(session -> removeRejectedTrainee(session, traineeId)
                         .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                         .map(saved -> {
                             Map<String, Object> result = new HashMap<>();
@@ -208,6 +245,12 @@ public class SessionConfirmationController {
             confirmed.add(traineeId);
         }
         s.setConfirmedTraineeIds(confirmed.stream().map(String::valueOf).collect(Collectors.joining(",")));
+        List<Long> rejected = parseCommaIds(s.getRejectedTraineeIds());
+        if (rejected.contains(traineeId)) {
+            rejected = new ArrayList<>(rejected);
+            rejected.remove(traineeId);
+            s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
+        }
         if (allTraineeIds.stream().allMatch(confirmed::contains)) {
             s.setConfirmationStatus("CONFIRMED");
         } else {
@@ -236,6 +279,14 @@ public class SessionConfirmationController {
             rejected = new ArrayList<>(rejected);
             rejected.add(traineeId);
         }
+        s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
+        return sessionRepository.save(s)
+                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
+    }
+
+    private Mono<Session> removeRejectedTrainee(Session s, Long traineeId) {
+        List<Long> rejected = new ArrayList<>(parseCommaIds(s.getRejectedTraineeIds()));
+        rejected.remove(traineeId);
         s.setRejectedTraineeIds(rejected.stream().map(String::valueOf).collect(Collectors.joining(",")));
         return sessionRepository.save(s)
                 .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));

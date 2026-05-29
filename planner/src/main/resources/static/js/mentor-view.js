@@ -1416,10 +1416,12 @@ function calendarApp() {
         getNearestSlot() {
             const now = new Date();
             const totalMin = Math.max(now.getHours() * 60 + now.getMinutes(), 7 * 60);
-            const nextSlot = Math.ceil(totalMin / 30) * 30;
+            const step = this.availStep || 30;
+            const nextSlot = Math.ceil(totalMin / step) * step;
             const nh = Math.floor(nextSlot / 60) % 24;
             const nm = nextSlot % 60;
-            return `${nh.toString().padStart(2, '0')}:${nm === 0 ? '00' : '30'}`;
+            const mm = nm === 0 ? '00' : String(nm).padStart(2, '0');
+            return `${nh.toString().padStart(2, '0')}:${mm}`;
         },
 
         slotToMin(t) {
@@ -1435,6 +1437,7 @@ function calendarApp() {
             }
             if (this.isSlotPast(t)) return;
             if (this.isSlotOnCoachSession(t)) return;
+            const step = this.availStep || 30;
             const tm = this.slotToMin(t);
             const sel = this.selectedCoachSlots;
             if (sel.length === 0) {
@@ -1442,9 +1445,9 @@ function calendarApp() {
             } else {
                 const sorted = [...sel].sort((a, b) => a - b);
                 const min = sorted[0], max = sorted[sorted.length - 1];
-                if (tm === max + 30) {
+                if (tm === max + step) {
                     this.selectedCoachSlots = [...sorted, tm];
-                } else if (tm === min - 30) {
+                } else if (tm === min - step) {
                     this.selectedCoachSlots = [tm, ...sorted];
                 } else if (tm >= min && tm <= max) {
                     this.selectedCoachSlots = [tm];
@@ -1456,7 +1459,7 @@ function calendarApp() {
             if (sorted.length) {
                 const sh = String(Math.floor(sorted[0] / 60)).padStart(2, '0');
                 const sm = String(sorted[0] % 60).padStart(2, '0');
-                const last = sorted[sorted.length - 1] + 30;
+                const last = sorted[sorted.length - 1] + step;
                 const eh = String(Math.floor(last / 60)).padStart(2, '0');
                 const em = String(last % 60).padStart(2, '0');
                 this.sessionForm.startTime = `${sh}:${sm}`;
@@ -1484,9 +1487,12 @@ function calendarApp() {
         },
 
         nextSlot(t) {
-            const m = this.slotToMin(t) + 30;
+            const step = this.availStep || 30;
+            const m = this.slotToMin(t) + step;
             const h = Math.floor(m / 60) % 24;
-            return `${h.toString().padStart(2, '0')}:${m % 60 === 0 ? '00' : '30'}`;
+            const mm = m % 60;
+            if (mm === 0) return `${h.toString().padStart(2, '0')}:00`;
+            return `${h.toString().padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
         },
 
         getTimeClass(t) {
@@ -1913,8 +1919,11 @@ function calendarApp() {
          },
 
           async toggleTraineeConfirm(traineeId, session) {
-               if (this.getTraineeConfirmStatus(traineeId, session) === 'confirmed') {
-                   await this.unconfirmTrainee(traineeId, session);
+               const status = this.getTraineeConfirmStatus(traineeId, session);
+               if (status === 'confirmed') {
+                   await this.rejectTrainee(traineeId, session);
+               } else if (status === 'rejected') {
+                   await this.unrejectTrainee(traineeId, session);
                } else {
                    await this.confirmTrainee(traineeId, session);
                }
@@ -1927,6 +1936,16 @@ function calendarApp() {
 
          async unconfirmTrainee(traineeId, session) {
               await fetch(`/api/v1/sessions/${session.id}/unconfirm-trainee/${traineeId}`, { method: 'POST' });
+              await this.fetchData();
+          },
+
+          async rejectTrainee(traineeId, session) {
+              await fetch(`/api/v1/sessions/${session.id}/reject-trainee/${traineeId}`, { method: 'POST' });
+              await this.fetchData();
+          },
+
+          async unrejectTrainee(traineeId, session) {
+              await fetch(`/api/v1/sessions/${session.id}/unreject-trainee/${traineeId}`, { method: 'POST' });
               await this.fetchData();
           },
 
