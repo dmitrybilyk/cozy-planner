@@ -1,0 +1,1 @@
+ALTER TABLE mentors ADD COLUMN avail_step INT NOT NULL DEFAULT 30;
