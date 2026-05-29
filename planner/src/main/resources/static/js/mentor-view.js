@@ -81,6 +81,10 @@ function calendarApp() {
         coachImgCopiedWeek: false,
         coachLoaded: false,
         sessionValidationErrors: null,
+        compactView: true,
+        expandedIds: [],
+        collapsedIds: [],
+        showConfirmedOnly: false,
 
         async loadNotifications() {
             const res = await fetch('/api/v1/notifications');
@@ -290,6 +294,62 @@ function calendarApp() {
             if (this.touchJustDragged) return;
             if (session.date < this.todayStr) return;
             this.editSession(session);
+        },
+
+        toggleCompactView() {
+            this.compactView = !this.compactView;
+            if (this.compactView) {
+                this.expandedIds = [];
+            } else {
+                this.collapsedIds = [];
+            }
+        },
+
+        toggleConfirmedFilter() {
+            this.showConfirmedOnly = !this.showConfirmedOnly;
+        },
+
+        toggleExpand(id) {
+            const idx = this.expandedIds.indexOf(id);
+            if (idx >= 0) {
+                this.expandedIds.splice(idx, 1);
+            } else {
+                this.expandedIds.push(id);
+            }
+        },
+
+        toggleCollapse(id) {
+            const idx = this.collapsedIds.indexOf(id);
+            if (idx >= 0) {
+                this.collapsedIds.splice(idx, 1);
+            } else {
+                this.collapsedIds.push(id);
+            }
+        },
+
+        isExpanded(id) {
+            return this.expandedIds.indexOf(id) >= 0;
+        },
+
+        isCollapsed(id) {
+            return this.collapsedIds.indexOf(id) >= 0;
+        },
+
+        toggleConfirmedFilter() {
+            this.showConfirmedOnly = !this.showConfirmedOnly;
+        },
+
+        toggleExpand(id) {
+            const idx = this.expandedIds.indexOf(id);
+            if (idx >= 0) {
+                this.expandedIds.splice(idx, 1);
+            } else {
+                this.expandedIds.push(id);
+            }
+        },
+
+        isExpanded(id) {
+            return this.expandedIds.includes(id);
         },
 
         copySession(w) {
@@ -541,7 +601,9 @@ function calendarApp() {
         },
 
         get filteredSessions() {
-            return this.sessions.filter(w => w.date === this.selectedDate);
+            let result = this.sessions.filter(w => w.date === this.selectedDate);
+            if (this.showConfirmedOnly) result = result.filter(w => w.confirmationStatus === 'CONFIRMED' || this.allTraineesConfirmed(w));
+            return result;
         },
 
         targetIndex(id) {
@@ -640,6 +702,7 @@ function calendarApp() {
         get agendaGroups() {
             const loadedList = Object.keys(this.loadedDates).sort();
             let filtered = this.sessions.filter(w => loadedList.includes(w.date));
+            if (this.showConfirmedOnly) filtered = filtered.filter(w => w.confirmationStatus === 'CONFIRMED' || this.allTraineesConfirmed(w));
             if (this.selectedTraineeFilters.length > 0) filtered = filtered.filter(w => w.traineeIds.some(id => this.selectedTraineeFilters.includes(id)));
             const groups = filtered.reduce((acc, w) => { if (!acc[w.date]) acc[w.date] = []; acc[w.date].push(w); return acc; }, {});
             return loadedList.map(date => ({ date, items: groups[date] || [] }));
@@ -653,13 +716,12 @@ function calendarApp() {
             this.agendaReady = false;
             const today = this.todayStr;
             this.loadedDates = {};
-            const pastStart = addDays(today, -3);
             for (let i = 0; i < 6; i++) {
-                this.loadedDates[addDays(pastStart, i)] = true;
+                this.loadedDates[addDays(today, i)] = true;
             }
-            const end = addDays(today, 2);
+            const end = addDays(today, 5);
             try {
-                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${pastStart}&endDate=${end}`);
+                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${today}&endDate=${end}`);
                 if (res.ok) {
                     const newSessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
                     for (const w of newSessions) {
@@ -1811,11 +1873,17 @@ function calendarApp() {
               await this.fetchData();
           },
 
-         allTraineesConfirmed(session) {
-              const ids = session.traineeIds || [];
-              if (ids.length === 0) return false;
-              return ids.every(id => this.getTraineeConfirmStatus(id, session) === 'confirmed');
-          },
+          allTraineesConfirmed(session) {
+               const ids = session.traineeIds || [];
+               if (ids.length === 0) return false;
+               return ids.every(id => this.getTraineeConfirmStatus(id, session) === 'confirmed');
+           },
+
+          someTraineesConfirmed(session) {
+               const ids = session.traineeIds || [];
+               if (ids.length === 0) return false;
+               return ids.some(id => this.getTraineeConfirmStatus(id, session) === 'confirmed') && !this.allTraineesConfirmed(session);
+           },
 
           isTraineeTelegramConnected(traineeId) {
                const t = this.trainees.find(a => a.id == traineeId);
