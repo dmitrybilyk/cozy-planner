@@ -441,15 +441,19 @@ public class CoachAvailabilityController {
                 LocalDate d = startDate.plusDays(di);
                 boolean isToday = d.equals(LocalDate.now());
 
-                String dayColor = isToday ? "#3b82f6" : "#aaaaaa";
+                if (di % 2 == 0) {
+                    svg.append("<rect x=\"").append(x).append("\" y=\"").append(topMargin).append("\" width=\"").append(cellsPerHour * subCellW).append("\" height=\"").append(rows * hourH).append("\" fill=\"#1e1e1e\"/>\n");
+                }
+
+                String dayColor = isToday ? "#3b82f6" : "#cccccc";
                 String dayLabel = days[(d.getDayOfWeek().getValue() + 6) % 7] + " " + d.getDayOfMonth() + " " + months[d.getMonthValue() - 1];
-                svg.append("<text x=\"").append(x + 2).append("\" y=\"").append(topMargin - 5).append("\" fill=\"").append(dayColor).append("\" font-family=\"Arial,sans-serif\" font-size=\"12\" font-weight=\"bold\">")
+                svg.append("<text x=\"").append(x + 2).append("\" y=\"").append(topMargin - 5).append("\" fill=\"").append(dayColor).append("\" font-family=\"Arial,sans-serif\" font-size=\"13\" font-weight=\"bold\">")
                     .append(dayLabel).append("</text>\n");
                 if (isToday) {
                     svg.append("<text x=\"").append(x + 2).append("\" y=\"").append(topMargin - 17).append("\" fill=\"#3b82f6\" font-family=\"Arial,sans-serif\" font-size=\"9\" font-weight=\"bold\">СЬОГОДНІ</text>\n");
                 }
 
-                svg.append("<line x1=\"").append(x).append("\" y1=\"").append(topMargin).append("\" x2=\"").append(x).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#2a2a2a\"/>\n");
+                svg.append("<line x1=\"").append(x).append("\" y1=\"").append(topMargin - 22).append("\" x2=\"").append(x).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#444444\" stroke-width=\"2\"/>\n");
 
                 int dayW = cellsPerHour * subCellW;
                 boolean isDayOff = dayOffDates.contains(d);
@@ -487,6 +491,9 @@ public class CoachAvailabilityController {
                     }
                 }
             }
+
+            int rightEdge = leftMargin + dayCount * cellsPerHour * subCellW;
+            svg.append("<line x1=\"").append(rightEdge).append("\" y1=\"").append(topMargin - 22).append("\" x2=\"").append(rightEdge).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#444444\" stroke-width=\"2\"/>\n");
 
             int legendY = totalH - 20;
             svg.append("<line x1=\"").append(leftMargin).append("\" y1=\"").append(topMargin + rows * hourH).append("\" x2=\"").append(totalW - rightMargin).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#3c3c3c\"/>\n");
