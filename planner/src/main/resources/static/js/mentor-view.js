@@ -14,7 +14,7 @@ function calendarApp() {
     const _today = localDateStr();
     return {
         activeTab: 'feed', showModal: false,
-        editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false,
+        editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false, showTraineeFormModal: false, showLocationFormModal: false, traineeCompactView: true, traineeExpandedIds: [], _ref: 0,
         selectedDate: _today, todayStr: _today,
         days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport',
         hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
@@ -333,6 +333,22 @@ function calendarApp() {
 
         isCollapsed(id) {
             return this.collapsedIds.indexOf(id) >= 0;
+        },
+
+        toggleTraineeExpand(id) {
+            const i = this.traineeExpandedIds.indexOf(id);
+            if (i >= 0) {
+                this.traineeExpandedIds.splice(i, 1);
+            } else {
+                this.traineeExpandedIds.push(id);
+            }
+            this._ref++;
+        },
+
+        toggleTraineeView() {
+            this.traineeCompactView = !this.traineeCompactView;
+            this.traineeExpandedIds = [];
+            this._ref++;
         },
 
         toggleConfirmedFilter() {
@@ -1754,17 +1770,13 @@ function calendarApp() {
                 });
             }
             
-            this.traineeForm = { name: '', description: '', photoBase64: null }; this.editingTraineeId = null; this.showCreateForm = false; await this.fetchTrainees();
+            this.traineeForm = { name: '', description: '', photoBase64: null }; this.editingTraineeId = null; this.showCreateForm = false; this.showTraineeFormModal = false; await this.fetchTrainees();
         },
 
         openCreateTraineeForm() {
-            if (this.showCreateForm && !this.editingTraineeId) {
-                this.showCreateForm = false;
-                return;
-            }
             this.traineeForm = { name: '', description: '', photoBase64: null };
             this.editingTraineeId = null;
-            this.showCreateForm = true;
+            this.showTraineeFormModal = true;
         },
 
         getTraineeNamesText(ids) {
@@ -1784,8 +1796,10 @@ function calendarApp() {
             this.selectedCoachSlots = [];
             this.showModal = true;
         },
-        editTrainee(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null }; this.showCreateForm = false; },
+        openTraineeForm(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null }; this.showTraineeFormModal = true; },
          askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
+
+          getCopyLinkText(id) { return this.traineeLinks && this.traineeLinks[id] ? '✓ ' + (this.labels.copied || 'Скопійовано') : ''; },
 
           async generateTraineeLink(trainee) {
               if (this.traineeLinks[trainee.id]) return;
@@ -2017,11 +2031,12 @@ function calendarApp() {
             const method = this.editingLocationId ? 'PUT' : 'POST';
             const url = this.editingLocationId ? `/api/v1/locations/${this.editingLocationId}` : '/api/v1/locations';
             await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...this.locationForm, mentorId: this.mentorId }) });
-            this.locationForm = { name: '', description: '', color: '#3b82f6' }; this.editingLocationId = null;
+            this.locationForm = { name: '', description: '', color: '#3b82f6' }; this.editingLocationId = null; this.showLocationFormModal = false;
             await this.fetchLocations();
         },
 
-        editLocation(l) { this.editingLocationId = l.id; this.locationForm = { name: l.name, description: l.description || '', color: l.color || '#3b82f6' }; },
+        openCreateLocationForm() { this.editingLocationId = null; this.locationForm = { name: '', description: '', color: '#3b82f6' }; this.showLocationFormModal = true; },
+        editLocation(l) { this.editingLocationId = l.id; this.locationForm = { name: l.name, description: l.description || '', color: l.color || '#3b82f6' }; this.showLocationFormModal = true; },
         askDeleteLocation(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_location || 'Локація зникне з усіх тренувань.', onConfirm: async () => { await fetch(`/api/v1/locations/${id}`, { method: 'DELETE' }); await this.fetchLocations(); await this.fetchData(); } }; },
 
         snapToMonday(date) {

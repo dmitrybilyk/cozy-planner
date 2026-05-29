@@ -8,6 +8,7 @@ public class ProfileLabels {
         "sport", Map.<String, String>ofEntries(
             Map.entry("mentor", "Тренер"),
             Map.entry("trainee", "Спортсмен"),
+            Map.entry("trainee_gen", "спортсмена"),
             Map.entry("trainees", "Спортсмени"),
             Map.entry("trainee_search", "Пошук спортсменів..."),
             Map.entry("trainee_name_placeholder", "ПІБ спортсмена"),
@@ -126,6 +127,7 @@ public class ProfileLabels {
         "medicine", Map.<String, String>ofEntries(
             Map.entry("mentor", "Лікар"),
             Map.entry("trainee", "Пацієнт"),
+            Map.entry("trainee_gen", "пацієнта"),
             Map.entry("trainees", "Пацієнти"),
             Map.entry("trainee_search", "Пошук пацієнтів..."),
             Map.entry("trainee_name_placeholder", "ПІБ пацієнта"),
@@ -244,6 +246,7 @@ public class ProfileLabels {
         "studying", Map.<String, String>ofEntries(
             Map.entry("mentor", "Репетитор"),
             Map.entry("trainee", "Студент"),
+            Map.entry("trainee_gen", "студента"),
             Map.entry("trainees", "Студенти"),
             Map.entry("trainee_search", "Пошук студентів..."),
             Map.entry("trainee_name_placeholder", "ПІБ студента"),
@@ -362,6 +365,7 @@ public class ProfileLabels {
         "other", Map.<String, String>ofEntries(
             Map.entry("mentor", "Виконавець"),
             Map.entry("trainee", "Клієнт"),
+            Map.entry("trainee_gen", "клієнта"),
             Map.entry("trainees", "Клієнти"),
             Map.entry("trainee_search", "Пошук клієнтів..."),
             Map.entry("trainee_name_placeholder", "ПІБ клієнта"),
@@ -480,6 +484,7 @@ public class ProfileLabels {
         "psychology", Map.<String, String>ofEntries(
             Map.entry("mentor", "Терапевт"),
             Map.entry("trainee", "Пацієнт"),
+            Map.entry("trainee_gen", "пацієнта"),
             Map.entry("trainees", "Пацієнти"),
             Map.entry("trainee_search", "Пошук пацієнтів..."),
             Map.entry("trainee_name_placeholder", "ПІБ пацієнта"),
