@@ -85,6 +85,7 @@ public class MeController {
                                             mentorMap.put("workEnd", mentor.getWorkEnd());
                                             mentorMap.put("photoUrl", mentor.getPhotoUrl());
                                             mentorMap.put("timezone", mentor.getTimezone());
+                                            mentorMap.put("availStep", mentor.getAvailStep());
                                             r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));
                                             return r;

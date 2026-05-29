@@ -59,6 +59,10 @@ public class Mentor {
     @Column("work_end")
     private String workEnd;
 
+    @Column("avail_step")
+    @Builder.Default
+    private Integer availStep = 30;
+
     public boolean hasTelegram() {
         return telegramChatId != null && !telegramChatId.isBlank();
     }

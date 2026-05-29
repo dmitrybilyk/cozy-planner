@@ -74,16 +74,21 @@
             <div class="max-h-96 overflow-y-auto no-scrollbar">
                 <template x-for="(row, ri) in grid" :key="ri">
                     <div class="flex border-b border-[#1f1f1f] last:border-b-0">
-                        <div class="w-12 flex-shrink-0 flex items-start justify-end pr-2 pt-1 text-[10px] font-bold text-gray-600 select-none leading-none">
-                            <span x-text="row.lbl"></span>
+                        <div class="w-10 flex-shrink-0 flex items-center justify-end pr-1 text-[9px] font-bold text-gray-500 select-none">
+                            <span x-text="parseInt(row.lbl)"></span>
                         </div>
                         <div class="flex-1 flex">
                             <template x-for="(c, ci) in row.cells" :key="ci">
-                                <div class="flex-1 h-10 sm:h-11 border-l border-[#1f1f1f] first:border-l-0 relative"
+                                <div class="flex-1 h-7 sm:h-8 border-l border-[#1f1f1f] first:border-l-0 relative"
                                      :style="cellStyle(c.mm)">
                                     <span x-show="c.locName"
-                                          class="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-white leading-tight text-center px-0.5 truncate"
+                                          class="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-white leading-tight text-center px-0.5 truncate"
                                           style="text-shadow:0 1px 2px rgba(0,0,0,0.6)" x-text="c.locName"></span>
+                                </div>
+                                <div x-show="ci < row.cells.length - 1"
+                                     class="w-4 flex-shrink-0 flex items-center justify-center border-l border-[#1f1f1f] text-[7px] font-bold text-gray-600 select-none"
+                                     :title="fmt(row.cells[ci+1].mm)">
+                                    <span x-text="':' + String(row.cells[ci+1].mm % 60)"></span>
                                 </div>
                             </template>
                         </div>
@@ -104,16 +109,21 @@
             <div class="overflow-y-auto no-scrollbar">
                 <template x-for="(row, ri) in cardGrid" :key="ri">
                     <div class="flex border-b border-[#1f1f1f] last:border-b-0">
-                        <div class="w-16 flex-shrink-0 flex items-start justify-end pr-3 pt-2.5 text-sm font-bold text-gray-500 select-none leading-none">
-                            <span x-text="row.lbl"></span>
+                        <div class="w-12 flex-shrink-0 flex items-center justify-end pr-1.5 text-[10px] sm:text-xs font-bold text-gray-500 select-none">
+                            <span x-text="parseInt(row.lbl)"></span>
                         </div>
                         <div class="flex-1 flex">
                             <template x-for="(c, ci) in row.cells" :key="ci">
-                                <div class="flex-1 h-14 sm:h-16 border-l border-[#1f1f1f] first:border-l-0 relative"
+                                <div class="flex-1 h-11 sm:h-12 border-l border-[#1f1f1f] first:border-l-0 relative"
                                      :style="cardCellStyle(c.mm)">
                                     <span x-show="cardCellAt(c.mm)?.locName"
-                                          class="absolute inset-0 flex items-center justify-center text-[11px] sm:text-sm font-bold text-white leading-tight text-center px-1 truncate"
+                                          class="absolute inset-0 flex items-center justify-center text-[10px] sm:text-xs font-bold text-white leading-tight text-center px-1 truncate"
                                           style="text-shadow:0 1px 3px rgba(0,0,0,0.7)" x-text="cardCellAt(c.mm)?.locName || ''"></span>
+                                </div>
+                                <div x-show="ci < row.cells.length - 1"
+                                     class="w-4 flex-shrink-0 flex items-center justify-center border-l border-[#1f1f1f] text-[7px] font-bold text-gray-600 select-none"
+                                     :title="fmt(row.cells[ci+1].mm)">
+                                    <span x-text="':' + String(row.cells[ci+1].mm % 60)"></span>
                                 </div>
                             </template>
                         </div>
@@ -127,7 +137,7 @@
             <template x-for="loc in locations" :key="loc.name">
                 <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
             </template>
-            <span class="text-gray-600">· крок 30 хв</span>
+            <span class="text-gray-600">· крок <span x-text="availStep || 30"></span> хв</span>
         </div>
     </div>
 </main>

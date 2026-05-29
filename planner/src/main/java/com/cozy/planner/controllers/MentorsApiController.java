@@ -224,6 +224,7 @@ public class MentorsApiController implements MentorsApi {
                         if (body.containsKey("workStart")) mentor.setWorkStart(body.get("workStart"));
                         if (body.containsKey("workEnd")) mentor.setWorkEnd(body.get("workEnd"));
                         if (body.containsKey("timezone")) mentor.setTimezone(body.get("timezone"));
+                        if (body.containsKey("availStep")) mentor.setAvailStep(Integer.valueOf(body.get("availStep")));
                         return mentorRepository.save(mentor)
                                 .then(Mono.fromCallable(() -> {
                                     Map<String, Object> r = new HashMap<>();

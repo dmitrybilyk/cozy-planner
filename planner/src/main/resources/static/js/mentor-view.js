@@ -52,6 +52,7 @@ function calendarApp() {
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         workStart: '09:00',
         workEnd: '21:00',
+        availStep: 30,
         timezone: 'Europe/Kyiv',
         editingTimezone: 'Europe/Kyiv',
         photoUrl: null,
@@ -85,6 +86,7 @@ function calendarApp() {
         expandedIds: [],
         collapsedIds: [],
         showConfirmedOnly: false,
+        showRefreshModal: false,
 
         async loadNotifications() {
             const res = await fetch('/api/v1/notifications');
@@ -439,30 +441,36 @@ function calendarApp() {
 
         buildCoachGrid(dateStr) {
             this.coachGrid = [];
-            const startH = parseInt(this.workStart?.split(':')[0] || '9');
-            const endH = parseInt(this.workEnd?.split(':')[0] || '21');
+            const step = this.availStep || 30;
+            const [sh, sm] = (this.workStart || '09:00').split(':').map(Number);
+            const [eh, em] = (this.workEnd || '21:00').split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
             const now = new Date();
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
             const today = this.todayStr;
-            for (let h = startH; h < endH; h++) {
+            for (let m = startMin; m < endMin; m += 60) {
+                const hourEnd = Math.min(m + 60, endMin);
                 const cells = [];
-                for (const offset of [0, 30]) {
-                    const mm = h * 60 + offset;
+                for (let t = m; t < hourEnd; t += step) {
                     let isPast = false;
                     if (dateStr && dateStr < today) {
                         isPast = true;
                     } else if (dateStr === today) {
-                        isPast = mm <= currentMinutes;
+                        isPast = t <= currentMinutes;
                     }
-                    cells.push({ mm, isPast });
+                    cells.push({ mm: t, isPast });
                 }
-                this.coachGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
+                if (cells.length) {
+                    this.coachGrid.push({ lbl: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, cells });
+                }
             }
             this.loadCoachAvail(dateStr);
         },
 
         async loadCoachAvail(dateStr) {
             if (!dateStr) return;
+            const step = this.availStep || 30;
             try {
                 const r = await fetch(`/api/v1/coach/availability?startDate=${dateStr}&endDate=${dateStr}`);
                 if (!r.ok) return;
@@ -474,7 +482,30 @@ function calendarApp() {
                     let t = sh * 60 + sm, end = eh * 60 + em;
                     while (t < end) {
                         cells[t] = item.locationId || null;
-                        t += 30;
+                        t += step;
+                    }
+                }
+                this.coachAvailByDate[dateStr] = cells;
+            } catch (e) {
+                console.error('loadCoachAvail failed', e);
+            }
+        },
+
+        async loadCoachAvail(dateStr) {
+            if (!dateStr) return;
+            const step = this.availStep || 30;
+            try {
+                const r = await fetch(`/api/v1/coach/availability?startDate=${dateStr}&endDate=${dateStr}`);
+                if (!r.ok) return;
+                const data = (await r.json()).filter(x => x.date === dateStr);
+                const cells = {};
+                for (const item of data) {
+                    const [sh, sm] = item.startTime.split(':').map(Number);
+                    const [eh, em] = item.endTime.split(':').map(Number);
+                    let t = sh * 60 + sm, end = eh * 60 + em;
+                    while (t < end) {
+                        cells[t] = item.locationId || null;
+                        t += step;
                     }
                 }
                 this.coachAvailByDate[dateStr] = cells;
@@ -599,6 +630,7 @@ function calendarApp() {
                     this.mentorProfile = data.mentor?.profile || 'sport';
                     this.workStart = data.mentor?.workStart || '09:00';
                     this.workEnd = data.mentor?.workEnd || '21:00';
+                    this.availStep = data.mentor?.availStep || 30;
                     this.timezone = data.mentor?.timezone || 'Europe/Kyiv';
                     this.editingTimezone = this.timezone;
                     this.photoUrl = data.mentor?.photoUrl || null;
@@ -1165,6 +1197,15 @@ function calendarApp() {
             this.buildCoachGrid();
         },
 
+        async saveAvailStep() {
+            await fetch('/api/v1/mentor/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({availStep: String(this.availStep)})
+            });
+            this.showRefreshModal = true;
+        },
+
         async saveTimezone() {
             await fetch('/api/v1/mentor/profile', {
                 method: 'PUT',
@@ -1679,10 +1720,11 @@ function calendarApp() {
             this.sessionValidationErrors = null;
             this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null };
             if (w.time && w.endTime) {
+                const step = this.availStep || 30;
                 const slots = [];
                 let t = this.slotToMin(w.time);
                 const end = this.slotToMin(w.endTime);
-                while (t < end) { slots.push(t); t += 30; }
+                while (t < end) { slots.push(t); t += step; }
                 this.selectedCoachSlots = slots;
             } else {
                 this.selectedCoachSlots = [];
@@ -1701,10 +1743,11 @@ function calendarApp() {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
                 this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: null };
+                const step = this.availStep || 30;
                 const slots = [];
                 let t = this.slotToMin(startTime);
                 const end = this.slotToMin(endTime);
-                while (t < end) { slots.push(t); t += 30; }
+                while (t < end) { slots.push(t); t += step; }
                 this.selectedCoachSlots = slots;
                 this.showModal = true;
                 this.scrollDateIntoView();
@@ -2094,15 +2137,29 @@ function calendarApp() {
 
         coachAvailSel(ds) { this.coachAvailDate = ds; },
 
+        coachAvailToggleRow(lbl) {
+            const hour = parseInt(lbl);
+            const row = this.coachAvailGrid.find(r => parseInt(r.lbl) === hour);
+            if (!row) return;
+            row.cells.forEach(c => this.coachAvailTap(c.mm));
+        },
+
         coachBuildGrid() {
+            const step = this.availStep || 30;
             const [sh, sm] = this.workStart.split(':').map(Number);
             const [eh, em] = this.workEnd.split(':').map(Number);
             const startMin = sh * 60 + sm;
             const endMin = eh * 60 + em;
             const arr = [];
             for (let m = startMin; m < endMin; m += 60) {
-                const cells = [{ mm: m }, { mm: m + 30 }];
-                arr.push({ lbl: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, cells });
+                const hourEnd = Math.min(m + 60, endMin);
+                const cells = [];
+                for (let t = m; t < hourEnd; t += step) {
+                    cells.push({ mm: t });
+                }
+                if (cells.length) {
+                    arr.push({ lbl: this.coachAvailTitleAt(m), cells });
+                }
             }
             this.coachAvailGrid = arr;
         },
@@ -2147,13 +2204,14 @@ function calendarApp() {
         },
 
         coachFillAllDay() {
+            const step = this.availStep || 30;
             const [sh, sm] = this.workStart.split(':').map(Number);
             const [eh, em] = this.workEnd.split(':').map(Number);
             const startMin = sh * 60 + sm;
             const endMin = eh * 60 + em;
             const cur = this.coachGetCurCells();
             const freeSlots = [];
-            for (let m = startMin; m < endMin; m += 30) {
+            for (let m = startMin; m < endMin; m += step) {
                 if (!this.coachInSess(m)) freeSlots.push(m);
             }
             const allFilled = freeSlots.every(mm => cur.some(c => c.mm === mm));
@@ -2188,19 +2246,20 @@ function calendarApp() {
                     if (!arr.length) {
                         await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
                     } else {
+                        const step = this.availStep || 30;
                         const sorted = [...arr].sort((a,b) => a.mm - b.mm);
                         const merged = [];
-                        let cs = sorted[0].mm, ce = sorted[0].mm + 30, cl = sorted[0].locId;
+                        let cs = sorted[0].mm, ce = sorted[0].mm + step, cl = sorted[0].locId;
                         for (let i = 1; i < sorted.length; i++) {
                             if (sorted[i].mm === ce && sorted[i].locId === cl) {
-                                ce = sorted[i].mm + 30;
+                                ce = sorted[i].mm + step;
                             } else {
                                 const sh = String(Math.floor(cs / 60)).padStart(2, '0');
                                 const sm = String(cs % 60).padStart(2, '0');
                                 const eh = String(Math.floor(ce / 60)).padStart(2, '0');
                                 const em = String(ce % 60).padStart(2, '0');
                                 merged.push({ date, startTime: sh + ':' + sm, endTime: eh + ':' + em, locationId: cl || null });
-                                cs = sorted[i].mm; ce = sorted[i].mm + 30; cl = sorted[i].locId;
+                                cs = sorted[i].mm; ce = sorted[i].mm + step; cl = sorted[i].locId;
                             }
                         }
                         const sh = String(Math.floor(cs / 60)).padStart(2, '0');
@@ -2245,6 +2304,7 @@ function calendarApp() {
                 ]);
                 if (ar.ok) {
                     const g = {};
+                    const step = this.availStep || 30;
                     for (const i of await ar.json()) {
                         if (!g[i.date]) g[i.date] = [];
                         const [sh,sm] = i.startTime.split(':').map(Number);
@@ -2252,7 +2312,7 @@ function calendarApp() {
                         let t = sh*60+sm, end = eh*60+em;
                         while (t < end) {
                             g[i.date].push({ mm: t, locId: i.locationId });
-                            t += 30;
+                            t += step;
                         }
                     }
                     this.coachCells = g;

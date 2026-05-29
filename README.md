@@ -1,6 +1,11 @@
 # cozy-planner
 Cozy planner for every day's usage
 
+
+make digies bigger to be more visible. but height of slots should stay the same. so, increse digis to most possible counting height of slots should not be changed. make it some       [•] Fix/verify :15, :30, :45         █  
+┃  how highltited for user that if he clicks on 10, 11 and other figure at left - all row will be affected
+
+
 docker compose -f docker-compose.native.yml up -d
 
 ./gradlew bootJar -x processAot && java -jar build/libs/planner-0.0.1-SNAPSHOT.jar

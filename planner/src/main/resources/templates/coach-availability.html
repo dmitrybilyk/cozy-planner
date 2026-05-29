@@ -23,7 +23,6 @@
         <a href="/planner" class="text-gray-400 hover:text-white">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </a>
-        <h1 class="text-lg font-bold" x-text="mentorTitle"></h1>
     </div>
     <button @click="installPwa()" class="mr-2 text-sm" title="Встановити додаток">
         <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
@@ -32,61 +31,43 @@
 
 <main class="max-w-lg mx-auto p-4 pb-28">
 
-    <div class="flex overflow-x-auto no-scrollbar mb-4 space-x-2">
-        <template x-for="day in days" :key="day.ds">
-            <button @click="sel(day.ds)"
-                    class="flex-shrink-0 flex flex-col items-center px-4 py-2.5 rounded-2xl transition-all min-w-[60px] relative"
-                    :class="day.ds === curDate ? 'bg-blue-600 text-white shadow-lg' : ((dayOffs.includes(day.ds) || day.isWeekend) ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
-                <span class="text-[9px] font-bold uppercase" x-text="day.wd"></span>
-                <span class="text-xl font-black leading-tight" x-text="day.num"></span>
-                <span class="text-[9px] font-bold mt-0.5" x-text="day.mo"></span>
-                <span x-show="day.isToday" class="text-[7px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
-                <span x-show="dayOffs.includes(day.ds)" class="text-[7px] font-black text-red-400 uppercase mt-0.5">✕</span>
-                <span x-show="hasDaySlots(day.ds) && !dayOffs.includes(day.ds)" class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-            </button>
-        </template>
-    </div>
-
-    <!-- Share buttons -->
-    <div class="flex flex-wrap gap-2 mb-4">
-        <div class="flex-1 flex items-center gap-1 bg-[#1e1e1e] border border-[#333] rounded-2xl px-3 py-2.5 min-w-[140px]">
-            <span class="text-[10px] font-bold text-gray-500 uppercase mr-1">Сьогодні</span>
-            <button @click="copyTodayLink()" class="p-1.5 rounded-lg hover:bg-[#333] transition" :title="copiedToday ? 'Скопійовано' : 'Копіювати посилання'">
-                <svg class="w-3.5 h-3.5" :class="copiedToday ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-            </button>
-            <button @click="copyImageDay()" class="p-1.5 rounded-lg hover:bg-[#333] transition" :title="imgCopiedDay ? 'Скопійовано' : 'Копіювати картинку'">
-                <svg class="w-3.5 h-3.5" :class="imgCopiedDay ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            </button>
+    <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] mb-4">
+        <div class="flex overflow-x-auto no-scrollbar space-x-2 p-2.5">
+            <template x-for="day in days" :key="day.ds">
+                <button @click="sel(day.ds)"
+                        class="flex-shrink-0 flex flex-col items-center px-1.5 py-1 rounded-lg transition-all min-w-[28px] relative"
+                        :class="day.ds === curDate ? 'bg-blue-600 text-white shadow-lg' : ((dayOffs.includes(day.ds) || day.isWeekend) ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
+                    <span class="text-[6px] font-bold uppercase" x-text="day.wd"></span>
+                    <span class="text-[10px] font-black leading-tight" x-text="day.num"></span>
+                    <span class="text-[6px] font-bold" x-text="day.mo"></span>
+                    <span x-show="dayOffs.includes(day.ds)" class="text-[5px] font-black text-red-400 uppercase">✕</span>
+                    <span x-show="hasDaySlots(day.ds) && !dayOffs.includes(day.ds)" class="w-0.5 h-0.5 rounded-full bg-blue-400 mt-0.5"></span>
+                </button>
+            </template>
         </div>
-        <div class="flex-1 flex items-center gap-1 bg-[#1e1e1e] border border-[#333] rounded-2xl px-3 py-2.5 min-w-[140px]">
-            <span class="text-[10px] font-bold text-gray-500 uppercase mr-1">Розклад</span>
-            <button @click="copyLink()" class="p-1.5 rounded-lg hover:bg-[#333] transition" :title="copied ? 'Скопійовано' : 'Копіювати посилання'">
-                <svg class="w-3.5 h-3.5" :class="copied ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-            </button>
-            <button @click="copyImageWeek()" class="p-1.5 rounded-lg hover:bg-[#333] transition" :title="imgCopiedWeek ? 'Скопійовано' : 'Копіювати картинку'">
-                <svg class="w-3.5 h-3.5" :class="imgCopiedWeek ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            </button>
-        </div>
-    </div>
-
-    <div x-show="isDayOff" class="bg-red-900/20 border border-red-500/30 rounded-2xl p-4 text-center mb-4">
-        <p class="text-red-400 text-base font-bold">✕ ВИХІДНИЙ</p>
-        <p class="text-gray-500 text-xs mt-1">Цього дня немає тренувань</p>
-    </div>
-
-    <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
-        <div class="px-4 py-2 border-b border-[#2a2a2a] flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-gray-500 whitespace-nowrap" x-text="curDate"></span>
+        <div class="px-3 py-1.5 border-t border-[#2a2a2a] flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1">
                 <button @click="toggleDayOff()"
                         :class="isDayOff ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-500 hover:text-gray-300'"
-                        class="px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase transition">
+                        class="px-1.5 py-0.5 rounded-lg text-[8px] font-bold uppercase transition">
                     <span x-text="isDayOff ? '✓ Вихідний' : 'Вихідний'"></span>
+                </button>
+                <button @click="copyLink()" class="p-1 rounded-lg hover:bg-[#333] transition" :title="copied ? 'Скопійовано' : 'Посилання на розклад'">
+                    <svg class="w-3 h-3" :class="copied ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                </button>
+                <button @click="copyImageWeek()" class="p-1 rounded-lg hover:bg-[#333] transition" :title="imgCopiedWeek ? 'Скопійовано' : 'Картинка розкладу'">
+                    <svg class="w-3 h-3" :class="imgCopiedWeek ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 </button>
             </div>
             <div class="flex items-center gap-2">
-                <button @click="fillAllDay()" :disabled="isDayOff" class="px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase bg-[#2a2a2a] text-gray-400 hover:text-gray-300 transition disabled:opacity-30 disabled:cursor-not-allowed">Весь день</button>
-                <select x-show="locs.length" x-model="curLoc" class="bg-[#262626] text-gray-300 text-xs rounded-xl px-2 py-1.5 border border-[#444] focus:outline-none max-w-[120px]">
+                <span x-show="curDate === todayStr" class="text-[7px] font-black uppercase bg-blue-600 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
+                <button @click="fillAllDay()" :disabled="isDayOff" class="px-1.5 py-0.5 rounded-lg text-[8px] font-bold bg-[#2a2a2a] text-gray-400 hover:text-gray-300 transition disabled:opacity-30 disabled:cursor-not-allowed">Весь день</button>
+                <select x-model="availStep" @change="saveStep()" class="bg-[#262626] text-gray-300 text-[10px] rounded-lg px-1.5 py-1 border border-[#444] focus:outline-none max-w-[70px]">
+                    <option value="15">15 хв</option>
+                    <option value="30">30 хв</option>
+                    <option value="60">60 хв</option>
+                </select>
+                <select x-show="locs.length" x-model="curLoc" class="bg-[#262626] text-gray-300 text-[10px] rounded-lg px-1.5 py-1 border border-[#444] focus:outline-none max-w-[90px]">
                     <option :value="null">Місце</option>
                     <template x-for="l in locs" :key="l.id">
                         <option :value="l.id" x-text="l.name" :style="'color: ' + (l.color || '#3b82f6')"></option>
@@ -94,21 +75,33 @@
                 </select>
             </div>
         </div>
-        <div class="max-h-96 overflow-y-auto no-scrollbar">
+    </div>
+
+    <div x-show="isDayOff" class="bg-red-900/20 border border-red-500/30 rounded-2xl p-3 text-center mb-3">
+        <p class="text-red-400 text-sm font-bold">✕ ВИХІДНИЙ</p>
+        <p class="text-gray-500 text-[10px] mt-0.5">Цього дня немає тренувань</p>
+    </div>
+
+    <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
+        <div class="max-h-80 overflow-y-auto no-scrollbar">
             <template x-for="(row, ri) in grid" :key="ri">
                 <div class="flex border-b border-[#1f1f1f] last:border-b-0">
-                    <div class="w-12 flex-shrink-0 flex items-start justify-end pr-2 pt-1 text-[10px] font-bold text-gray-600 select-none leading-none">
-                        <span x-text="row.lbl"></span>
+                    <div class="w-9 flex-shrink-0 flex items-center justify-end pr-1 text-[8px] font-bold text-gray-500 select-none cursor-pointer hover:text-white transition"
+                         @click="toggleRow(row.lbl)">
+                        <span x-text="parseInt(row.lbl)"></span>
                     </div>
                     <div class="flex-1 flex">
                         <template x-for="(c, ci) in row.cells" :key="ci">
                             <button @click="tap(c.mm)"
-                                    class="flex-1 h-10 sm:h-11 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95 relative"
+                                    class="flex-1 h-6 sm:h-7 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95 relative"
                                     :style="cellStyle(c.mm)"
                                     :title="title(c.mm)">
                                 <span x-show="inSess(c.mm)"
-                                      class="absolute inset-0 flex items-center justify-center text-[9px] font-black text-white leading-tight"
+                                      class="absolute inset-0 flex items-center justify-center text-[6px] font-black text-white leading-tight"
                                       style="text-shadow:0 1px 3px rgba(0,0,0,0.6)">Busy</span>
+                                <span x-show="ci < row.cells.length - 1"
+                                      class="absolute right-0 top-0 bottom-0 flex items-center pr-0.5 text-[6px] font-bold text-gray-400 pointer-events-none"
+                                      x-text="':' + String(row.cells[ci+1].mm % 60)"></span>
                             </button>
                         </template>
                     </div>
@@ -117,13 +110,13 @@
         </div>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2 mt-3 text-xs text-gray-500">
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#dc2626"></span> Зайнято</span>
-        <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
+    <div class="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-gray-500">
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#dc2626"></span> Зайнято</span>
+        <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
         <template x-for="loc in locs" :key="loc.id">
-            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
         </template>
-        <span class="text-gray-600">· крок 30 хв</span>
+        <span class="text-gray-600">· крок <span x-text="availStep || 30"></span> хв</span>
     </div>
 
     <!-- Session details popup on busy slot -->

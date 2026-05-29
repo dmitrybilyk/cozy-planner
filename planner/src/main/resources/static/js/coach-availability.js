@@ -8,13 +8,14 @@ function app() {
 
     return {
         mentorId: null, shareToken: null, shareUrl: '', copied: false, copiedToday: false, imgCopiedWeek: false, imgCopiedDay: false,
-        curDate: today, days: [], grid: [],
+        curDate: today, todayStr: today, days: [], grid: [],
         cells: {}, sess: {}, locs: [], curLoc: null,
         ws: null,
         busySession: null,
         mentorProfile: 'sport',
         workStart: '09:00',
         workEnd: '21:00',
+        availStep: 30,
         dayOffs: [],
         deferredInstallPrompt: null,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
@@ -41,14 +42,21 @@ function app() {
         getCurCells() { return this.cells[this.curDate] || []; },
 
         buildGrid() {
+            const step = this.availStep || 30;
             const [sh, sm] = this.workStart.split(':').map(Number);
             const [eh, em] = this.workEnd.split(':').map(Number);
             const startMin = sh * 60 + sm;
             const endMin = eh * 60 + em;
             const arr = [];
             for (let m = startMin; m < endMin; m += 60) {
-                const cells = [{ mm: m }, { mm: m + 30 }];
-                arr.push({ lbl: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, cells });
+                const hourEnd = Math.min(m + 60, endMin);
+                const cells = [];
+                for (let t = m; t < hourEnd; t += step) {
+                    cells.push({ mm: t });
+                }
+                if (cells.length) {
+                    arr.push({ lbl: this.title(m), cells });
+                }
             }
             this.grid = arr;
         },
@@ -110,6 +118,24 @@ function app() {
 
         sel(d) { this.curDate = d; },
 
+        toggleRow(lbl) {
+            const hour = parseInt(lbl);
+            const row = this.grid.find(r => parseInt(r.lbl) === hour);
+            if (!row) return;
+            row.cells.forEach(c => this.tap(c.mm));
+        },
+
+        async saveStep() {
+            this.buildGrid();
+            this._dirtyDates.add(this.curDate);
+            await fetch('/api/v1/mentor/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({availStep: String(this.availStep)})
+            });
+            if (confirm('Крок змінено. Оновити сторінку?')) location.reload();
+        },
+
         toggleDayOff() {
             const wasDayOff = this.isDayOff;
             if (wasDayOff) {
@@ -124,24 +150,28 @@ function app() {
         },
 
         fillAllDay() {
+            const step = this.availStep || 30;
             const [sh, sm] = this.workStart.split(':').map(Number);
             const [eh, em] = this.workEnd.split(':').map(Number);
             const startMin = sh * 60 + sm;
             const endMin = eh * 60 + em;
-            const total = (endMin - startMin) / 30;
             const cur = this.getCurCells();
-            const filled = cur.length === total && cur.every(c => {
-                return c.mm >= startMin && c.mm < endMin;
-            });
-            if (filled) {
-                this.cells[this.curDate] = [];
+            const freeSlots = [];
+            for (let m = startMin; m < endMin; m += step) {
+                if (!this.inSess(m)) freeSlots.push(m);
+            }
+            const allFilled = freeSlots.every(mm => cur.some(c => c.mm === mm));
+            if (allFilled) {
+                this.cells[this.curDate] = cur.filter(c => this.inSess(c.mm));
                 this._dirtyDates.add(this.curDate);
             } else {
-                const arr = [];
-                for (let m = startMin; m < endMin; m += 30) {
-                    arr.push({ mm: m, locId: this.curLoc ? Number(this.curLoc) : null });
+                const filled = cur.filter(c => this.inSess(c.mm));
+                for (const mm of freeSlots) {
+                    if (!filled.some(c => c.mm === mm)) {
+                        filled.push({ mm, locId: this.curLoc ? Number(this.curLoc) : null });
+                    }
                 }
-                this.cells[this.curDate] = arr;
+                this.cells[this.curDate] = filled;
                 this._dirtyDates.add(this.curDate);
             }
         },
@@ -162,15 +192,16 @@ function app() {
                     if (!arr.length) {
                         await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
                     } else {
+                        const step = this.availStep || 30;
                         const sorted = [...arr].sort((a,b) => a.mm - b.mm);
                         const merged = [];
-                        let cs = sorted[0].mm, ce = sorted[0].mm + 30, cl = sorted[0].locId;
+                        let cs = sorted[0].mm, ce = sorted[0].mm + step, cl = sorted[0].locId;
                         for (let i = 1; i < sorted.length; i++) {
                             if (sorted[i].mm === ce && sorted[i].locId === cl) {
-                                ce = sorted[i].mm + 30;
+                                ce = sorted[i].mm + step;
                             } else {
                                 merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
-                                cs = sorted[i].mm; ce = sorted[i].mm + 30; cl = sorted[i].locId;
+                                cs = sorted[i].mm; ce = sorted[i].mm + step; cl = sorted[i].locId;
                             }
                         }
                         merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
@@ -197,6 +228,7 @@ function app() {
             this.mentorProfile = me.mentor.profile || 'sport';
             this.workStart = me.mentor.workStart || '09:00';
             this.workEnd = me.mentor.workEnd || '21:00';
+            this.availStep = me.mentor.availStep || 30;
             this.shareToken = me.mentor.shareToken;
             if (this.shareToken) this.shareUrl = window.location.origin + '/shared/' + this.shareToken;
             this.buildGrid();
@@ -212,6 +244,7 @@ function app() {
             if (dr.ok) this.dayOffs = await dr.json();
 
             if (ar.ok) {
+                const step = this.availStep || 30;
                 const g = {};
                 for (const i of await ar.json()) {
                     if (!g[i.date]) g[i.date] = [];
@@ -220,7 +253,7 @@ function app() {
                     let t = sh*60+sm, end = eh*60+em;
                     while (t < end) {
                         g[i.date].push({ mm: t, locId: i.locationId });
-                        t += 30;
+                        t += step;
                     }
                 }
                 this.cells = g;

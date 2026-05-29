@@ -37,6 +37,7 @@ function sharedAvailabilityApp() {
         dayOffs: [],
         mentorWorkStart: '06:00',
         mentorWorkEnd: '21:00',
+        availStep: 30,
         grid: [],
         ws: null,
         singleDay: false,
@@ -54,6 +55,9 @@ function sharedAvailabilityApp() {
         },
         cellAt(mm) {
             return this.coachCurCells.find(x => x.mm === mm);
+        },
+        fmt(mm) {
+            return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
         },
         get locations() {
             const seen = {};
@@ -95,12 +99,22 @@ function sharedAvailabilityApp() {
         buildWorkGrid() {
             this.grid = [];
             this.cardGrid = [];
-            const ws = parseInt((this.mentorWorkStart || '06:00').split(':')[0]);
-            const we = parseInt((this.mentorWorkEnd || '21:00').split(':')[0]);
-            for (let h = ws; h < we; h++) {
-                const cells = [{mm:h*60},{mm:h*60+30}];
-                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells });
-                this.cardGrid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells: [{mm:h*60},{mm:h*60+30}] });
+            const step = this.availStep || 30;
+            const [sh, sm] = (this.mentorWorkStart || '06:00').split(':').map(Number);
+            const [eh, em] = (this.mentorWorkEnd || '21:00').split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+            for (let m = startMin; m < endMin; m += 60) {
+                const hourEnd = Math.min(m + 60, endMin);
+                const cells = [];
+                for (let t = m; t < hourEnd; t += step) {
+                    cells.push({ mm: t });
+                }
+                if (cells.length) {
+                    const rowCells = cells.map(c => ({ mm: c.mm }));
+                    this.grid.push({ lbl: `${String(Math.floor(m / 60)).padStart(2,'0')}:00`, cells: rowCells });
+                    this.cardGrid.push({ lbl: `${String(Math.floor(m / 60)).padStart(2,'0')}:00`, cells: rowCells.map(c => ({ mm: c.mm })) });
+                }
             }
         },
 
@@ -211,6 +225,7 @@ function sharedAvailabilityApp() {
                 this.dayOffs = this.dayOffs.length ? this.dayOffs : (availData.dayOffDates || []);
                 if (availData.workStart) this.mentorWorkStart = availData.workStart;
                 if (availData.workEnd) this.mentorWorkEnd = availData.workEnd;
+                if (availData.availStep) this.availStep = availData.availStep;
                 if (availData.mentorTimezone) {
                     this.mentorTimezone = availData.mentorTimezone;
                     this.today = localDateStrTz(this.mentorTimezone);
@@ -218,6 +233,7 @@ function sharedAvailabilityApp() {
                 }
                 this.buildWorkGrid();
 
+                const step = this.availStep || 30;
                 const g = {};
                 for (const item of slots) {
                     if (!g[item.date]) g[item.date] = [];
@@ -226,7 +242,7 @@ function sharedAvailabilityApp() {
                     let t = sh * 60 + sm, end = eh * 60 + em;
                     while (t < end) {
                         g[item.date].push({ mm: t, locId: item.locationId, locColor: item.locationColor, locName: item.locationName });
-                        t += 30;
+                        t += step;
                     }
                 }
 
