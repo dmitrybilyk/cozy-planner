@@ -67,9 +67,6 @@ curl -X POST "https://api.telegram.org/bot8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPS
 
 tg://resolve?domain=CozyPlannerMentorBot&start=AT7lQ3KR8KxEQ8A7z9mL2-6LbSzxe9pa
 
-SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com;SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=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
-
-
 # start monitoring                                                                                                                               Add Playwright tests                 ▀
      docker compose -f docker-compose/docker-compose-monitoring.yaml up -d
 
