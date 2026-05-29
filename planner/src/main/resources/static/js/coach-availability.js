@@ -136,6 +136,16 @@ function app() {
             if (confirm('Крок змінено. Оновити сторінку?')) location.reload();
         },
 
+        async saveWorkRange() {
+            this.buildGrid();
+            this._dirtyDates.add(this.curDate);
+            await fetch('/api/v1/mentor/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({workStart: this.workStart, workEnd: this.workEnd})
+            });
+        },
+
         toggleDayOff() {
             const wasDayOff = this.isDayOff;
             if (wasDayOff) {

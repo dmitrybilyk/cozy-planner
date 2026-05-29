@@ -38,6 +38,8 @@ function traineeApp() {
         formPickStart: null,
         selectedModalSlots: [],
         sessionInfo: { show: false, id: null, title: '', description: '', date: '', time: '', endTime: '', mentorName: '', status: '', createdBy: '' },
+        compactView: true,
+        expandedIds: [],
         tabLabels: {},
         pageTitle: 'Мої сесії',
         coachTimezone: 'Europe/Kiev',
@@ -53,6 +55,7 @@ function traineeApp() {
         coachBusyByDate: {},
         mentorWorkStart: '06:00',
         mentorWorkEnd: '21:00',
+        availStep: 30,
 
         // availability state
         traineeId: null,
@@ -69,10 +72,20 @@ function traineeApp() {
         },
         buildWorkGrid() {
             this.grid = [];
-            const ws = parseInt((this.mentorWorkStart || '06:00').split(':')[0]);
-            const we = parseInt((this.mentorWorkEnd || '21:00').split(':')[0]);
-            for (let h = ws; h < we; h++) {
-                this.grid.push({ lbl: `${String(h).padStart(2,'0')}:00`, cells: [{ mm: h*60 }, { mm: h*60+30 }] });
+            const step = this.availStep || 30;
+            const [sh, sm] = (this.mentorWorkStart || '06:00').split(':').map(Number);
+            const [eh, em] = (this.mentorWorkEnd || '21:00').split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+            for (let m = startMin; m < endMin; m += 60) {
+                const hourEnd = Math.min(m + 60, endMin);
+                const cells = [];
+                for (let t = m; t < hourEnd; t += step) {
+                    cells.push({ mm: t });
+                }
+                if (cells.length) {
+                    this.grid.push({ lbl: this.title(m), cells });
+                }
             }
         },
 
@@ -146,6 +159,7 @@ function traineeApp() {
             this.coachTimezone = me.mentorTimezone || 'Europe/Kiev';
             this.timezone = me.timezone || 'Europe/Kiev';
             this.locations = me.locations || [];
+            if (me.availStep) this.availStep = me.availStep;
 
             const profile = me.mentorProfile || 'sport';
             const tabLabelSets = {
@@ -447,6 +461,50 @@ function traineeApp() {
             return Array(count).fill('😊');
         },
 
+        toggleCompactView() {
+            this.compactView = !this.compactView;
+        },
+
+        isExpanded(session) {
+            return this.expandedIds.includes(session.id);
+        },
+
+        toggleExpand(session) {
+            const idx = this.expandedIds.indexOf(session.id);
+            if (idx >= 0) {
+                this.expandedIds.splice(idx, 1);
+            } else {
+                this.expandedIds.push(session.id);
+            }
+        },
+
+        getTraineeConfirmStatus(traineeId, session) {
+            const confirmed = (session.confirmedTraineeIds || '').split(',').map(Number).filter(Boolean);
+            const rejected = (session.rejectedTraineeIds || '').split(',').map(Number).filter(Boolean);
+            if (confirmed.includes(traineeId)) return 'confirmed';
+            if (rejected.includes(traineeId)) return 'rejected';
+            return 'none';
+        },
+
+        getTraineeName(traineeId, session) {
+            const names = session.traineeNames || {};
+            return names[traineeId] || 'Unknown';
+        },
+
+        getTraineeNamesText(session) {
+            return (session.traineeIds || []).map(id => this.getTraineeName(id, session)).join(', ');
+        },
+
+        async toggleTraineeConfirm(session) {
+            const status = this.getTraineeConfirmStatus(this.traineeId, session);
+            if (status === 'confirmed') {
+                await fetch(`/api/v1/trainee/sessions/${session.id}/reject`, { method: 'POST' });
+            } else {
+                await fetch(`/api/v1/trainee/sessions/${session.id}/confirm`, { method: 'POST' });
+            }
+            await this.loadSessions();
+        },
+
         // ---- COACH SCHEDULE ----
         locColors: ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'],
 
@@ -482,6 +540,7 @@ function traineeApp() {
                         if (data.mentorTimezone) this.coachTimezone = data.mentorTimezone;
                         if (data.workStart) this.mentorWorkStart = data.workStart;
                         if (data.workEnd) this.mentorWorkEnd = data.workEnd;
+                        if (data.availStep) this.availStep = data.availStep;
                         this.buildWorkGrid();
                         const g = {};
                         for (const item of this.mentorSlots) {
@@ -491,10 +550,11 @@ function traineeApp() {
                         let color = item.locationColor || this.getMentorLocationColor(item.locationId);
                         if (!color && item.locationName) color = this.locationNameColor(item.locationName);
                         if (!color) color = '#3b82f6';
+                        const step = this.availStep || 30;
                         let t = sh * 60 + sm, end = eh * 60 + em;
                         while (t < end) {
                             g[item.date].push({ mm: t, locId: item.locationId, locColor: color, locName: item.locationName });
-                            t += 30;
+                            t += step;
                         }
                     }
                     this.coachCellsByDate = g;
@@ -503,10 +563,11 @@ function traineeApp() {
                         if (!busy[bs.date]) busy[bs.date] = [];
                         const [sh, sm] = bs.startTime.split(':').map(Number);
                         const [eh, em] = bs.endTime.split(':').map(Number);
+                        const bstep = this.availStep || 30;
                         let t = sh * 60 + sm, end = eh * 60 + em;
                         while (t < end) {
                             busy[bs.date].push(t);
-                            t += 30;
+                            t += bstep;
                         }
                     }
                     this.coachBusyByDate = busy;
@@ -527,8 +588,9 @@ function traineeApp() {
         slotSlides(startTime, endTime) {
             const [sh, sm] = startTime.split(':').map(Number);
             const [eh, em] = endTime.split(':').map(Number);
+            const step = this.availStep || 30;
             const slots = [];
-            for (let t = sh * 60 + sm; t < eh * 60 + em; t += 30) slots.push(t);
+            for (let t = sh * 60 + sm; t < eh * 60 + em; t += step) slots.push(t);
             return slots;
         },
 
@@ -661,6 +723,7 @@ function traineeApp() {
             if (res.ok) {
                 const data = await res.json();
                 const g = {};
+                const step = this.availStep || 30;
                 for (const item of data) {
                     if (!g[item.date]) g[item.date] = [];
                     const [sh, sm] = item.startTime.split(':').map(Number);
@@ -668,7 +731,7 @@ function traineeApp() {
                     let t = sh * 60 + sm, end = eh * 60 + em;
                     while (t < end) {
                         g[item.date].push({ mm: t });
-                        t += 30;
+                        t += step;
                     }
                 }
                 this.cellsByDate = g;
@@ -680,18 +743,19 @@ function traineeApp() {
             if (this.saving) return;
             this.saving = true;
             try {
+                const step = this.availStep || 30;
                 const all = [];
                 for (const date of this._dirtyDates) {
                     const arr = this.cellsByDate[date] || [];
                     if (!arr.length) continue;
                     const sorted = [...arr].sort((a,b) => a.mm - b.mm);
-                    let cs = sorted[0].mm, ce = sorted[0].mm + 30;
+                    let cs = sorted[0].mm, ce = sorted[0].mm + step;
                     for (let i = 1; i < sorted.length; i++) {
                         if (sorted[i].mm === ce) {
-                            ce = sorted[i].mm + 30;
+                            ce = sorted[i].mm + step;
                         } else {
                             all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
-                            cs = sorted[i].mm; ce = sorted[i].mm + 30;
+                            cs = sorted[i].mm; ce = sorted[i].mm + step;
                         }
                     }
                     all.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce) });
@@ -729,15 +793,16 @@ function traineeApp() {
         pickModalTime(mm) {
             if (this.isPastMinute(mm)) return;
             if (!this.isCoachSlotOnModalDate(mm)) return;
+            const step = this.availStep || 30;
             const sel = this.selectedModalSlots;
             if (sel.length === 0) {
                 this.selectedModalSlots = [mm];
             } else {
                 const sorted = [...sel].sort((a, b) => a - b);
                 const min = sorted[0], max = sorted[sorted.length - 1];
-                if (mm === max + 30) {
+                if (mm === max + step) {
                     this.selectedModalSlots = [...sorted, mm];
-                } else if (mm === min - 30) {
+                } else if (mm === min - step) {
                     this.selectedModalSlots = [mm, ...sorted];
                 } else if (mm >= min && mm <= max) {
                     this.selectedModalSlots = [mm];
@@ -749,7 +814,7 @@ function traineeApp() {
             if (sorted.length) {
                 const sh = String(Math.floor(sorted[0] / 60)).padStart(2, '0');
                 const sm = String(sorted[0] % 60).padStart(2, '0');
-                const last = sorted[sorted.length - 1] + 30;
+                const last = sorted[sorted.length - 1] + step;
                 const eh = String(Math.floor(last / 60)).padStart(2, '0');
                 const em = String(last % 60).padStart(2, '0');
                 this.form.time = `${sh}:${sm}`;

@@ -62,6 +62,17 @@
             <div class="flex items-center gap-2">
                 <span x-show="curDate === todayStr" class="text-[7px] font-black uppercase bg-blue-600 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
                 <button @click="fillAllDay()" :disabled="isDayOff" class="px-1.5 py-0.5 rounded-lg text-[8px] font-bold bg-[#2a2a2a] text-gray-400 hover:text-gray-300 transition disabled:opacity-30 disabled:cursor-not-allowed">Весь день</button>
+                <select x-model="workStart" @change="saveWorkRange()" class="bg-[#262626] text-gray-300 text-[10px] rounded-lg px-1 py-0.5 border border-[#444] focus:outline-none max-w-[50px]" title="Початок">
+                    <template x-for="h in Array.from({length: 16}, (_, i) => i + 6)" :key="h">
+                        <option :value="String(h).padStart(2,'0') + ':00'" x-text="h"></option>
+                    </template>
+                </select>
+                <span class="text-gray-600 text-[8px]">—</span>
+                <select x-model="workEnd" @change="saveWorkRange()" class="bg-[#262626] text-gray-300 text-[10px] rounded-lg px-1 py-0.5 border border-[#444] focus:outline-none max-w-[50px]" title="Кінець">
+                    <template x-for="h in Array.from({length: 16}, (_, i) => i + 6)" :key="h">
+                        <option :value="String(h).padStart(2,'0') + ':00'" x-text="h"></option>
+                    </template>
+                </select>
                 <select x-model="availStep" @change="saveStep()" class="bg-[#262626] text-gray-300 text-[10px] rounded-lg px-1.5 py-1 border border-[#444] focus:outline-none max-w-[70px]">
                     <option value="15">15 хв</option>
                     <option value="30">30 хв</option>
