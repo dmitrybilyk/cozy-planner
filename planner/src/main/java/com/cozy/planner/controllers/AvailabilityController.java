@@ -6,6 +6,7 @@ import com.cozy.planner.model.entity.TraineeAvailability;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.NotificationRepository;
+import com.cozy.planner.repositories.AvailabilityRangeRepository;
 import com.cozy.planner.repositories.TraineeAvailabilityRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
@@ -23,6 +24,7 @@ import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
@@ -36,6 +38,7 @@ public class AvailabilityController {
 
     private final TraineeRepository traineeRepository;
     private final TraineeAvailabilityRepository availabilityRepository;
+    private final AvailabilityRangeRepository rangeRepository;
     private final MentorRepository mentorRepository;
     private final EventBroadcastService eventService;
     private final NotificationRepository notificationRepository;
@@ -45,6 +48,7 @@ public class AvailabilityController {
 
     public AvailabilityController(TraineeRepository traineeRepository,
                                    TraineeAvailabilityRepository availabilityRepository,
+                                   AvailabilityRangeRepository rangeRepository,
                                    MentorRepository mentorRepository,
                                    EventBroadcastService eventService,
                                    NotificationRepository notificationRepository,
@@ -52,6 +56,7 @@ public class AvailabilityController {
                                    TelegramConfig telegramConfig) {
         this.traineeRepository = traineeRepository;
         this.availabilityRepository = availabilityRepository;
+        this.rangeRepository = rangeRepository;
         this.mentorRepository = mentorRepository;
         this.eventService = eventService;
         this.notificationRepository = notificationRepository;
@@ -107,24 +112,40 @@ public class AvailabilityController {
     public Flux<Map<String, Object>> getTraineesAvailability(@PathVariable("mentorId") Long mentorId,
                                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
                                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        ZoneId zone = ZoneId.of("Europe/Kiev");
         return traineeRepository.findAllByMentorId(mentorId)
-                .flatMap(trainee -> availabilityRepository.findByTraineeIdAndDateBetween(trainee.getId(), startDate, endDate)
-                        .collectList()
-                        .map(availList -> {
-                            Map<String, Object> entry = new HashMap<>();
-                            entry.put("traineeId", trainee.getId());
-                            entry.put("athleteId", trainee.getId());
-                            entry.put("traineeName", trainee.getName());
-                            entry.put("athleteName", trainee.getName());
-                            entry.put("slots", availList.stream().map(a -> {
+                .flatMap(trainee -> {
+                    Flux<Map<String, String>> oldSlots = availabilityRepository
+                            .findByTraineeIdAndDateBetween(trainee.getId(), startDate, endDate)
+                            .map(a -> {
                                 Map<String, String> slot = new HashMap<>();
                                 slot.put("date", a.getDate().toString());
                                 slot.put("startTime", a.getStartTime().toString());
                                 slot.put("endTime", a.getEndTime().toString());
                                 return slot;
-                            }).toList());
-                            return entry;
-                        }));
+                            });
+                    Flux<Map<String, String>> newSlots = rangeRepository
+                            .findByUserIdAndUserTypeAndDateBetween(trainee.getId(), "TRAINEE", startDate, endDate)
+                            .map(r -> {
+                                Map<String, String> slot = new HashMap<>();
+                                slot.put("date", r.getDate().toString());
+                                slot.put("startTime", r.getStartTime().atZoneSameInstant(zone).toLocalTime().toString());
+                                slot.put("endTime", r.getEndTime().atZoneSameInstant(zone).toLocalTime().toString());
+                                return slot;
+                            });
+                    return Flux.concat(oldSlots, newSlots)
+                            .distinct(s -> s.get("date") + "|" + s.get("startTime") + "|" + s.get("endTime"))
+                            .collectList()
+                            .map(slots -> {
+                                Map<String, Object> entry = new HashMap<>();
+                                entry.put("traineeId", trainee.getId());
+                                entry.put("athleteId", trainee.getId());
+                                entry.put("traineeName", trainee.getName());
+                                entry.put("athleteName", trainee.getName());
+                                entry.put("slots", slots);
+                                return entry;
+                            });
+                });
     }
 
     @PostMapping(path = {"/api/v1/trainees/{traineeId}/availability"})

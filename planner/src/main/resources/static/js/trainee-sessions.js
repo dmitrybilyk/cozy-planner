@@ -48,11 +48,17 @@ function traineeApp() {
         get timeSlots15() {
             const ws = this.mentorWorkStart || '09:00';
             const we = this.mentorWorkEnd || '21:00';
+            const step = this.mentorAvailStep || 30;
             return Array.from({length: 96}, (_, i) => {
                 const h = String(Math.floor(i / 4)).padStart(2, '0');
                 const m = String([0, 15, 30, 45][i % 4]).padStart(2, '0');
                 return `${h}:${m}`;
-            }).filter(t => t >= ws && t <= we);
+            }).filter(t => t >= ws && t <= we)
+              .filter(t => {
+                  if (step === 60) return t.endsWith(':00');
+                  if (step === 30) return t.endsWith(':00') || t.endsWith(':30');
+                  return true;
+              });
         },
 
         // coach schedule
@@ -67,7 +73,8 @@ function traineeApp() {
         days: [],
         availDate: today,
         availRanges: [],
-        availFreeAllDay: true,
+        mentorAvailStep: 30,
+        availFreeAllDay: false,
         availRangesByDate: {},
         availFreeAllDayByDate: {},
         availDirtyDates: new Set(),
@@ -102,6 +109,14 @@ function traineeApp() {
             return this.sessions.some(s => s.date > cutoff);
         },
 
+        isPastSession(s) {
+            const now = new Date();
+            const todayStr = localDateStr(now);
+            if (s.date > todayStr) return false;
+            if (s.date < todayStr) return true;
+            return !(s.endTime && s.endTime > now.toTimeString().slice(0,5));
+        },
+
         hasSessionOnDate(dateStr) {
             return this.sessions.some(s => s.date === dateStr && s.confirmationStatus !== 'REJECTED');
         },
@@ -116,6 +131,15 @@ function traineeApp() {
                 }
             }
             return Object.values(seen).sort((a, b) => a.name.localeCompare(b.name));
+        },
+
+        get coachSlotDates() {
+            return this.sortedMentorDays.map(d => d.date);
+        },
+
+        get coachSlotsOnDate() {
+            const day = this.sortedMentorDays.find(d => d.date === this.coachSelectedDate);
+            return day ? day.slots : [];
         },
 
         get sortedMentorDays() {
@@ -158,6 +182,7 @@ function traineeApp() {
             this.coachTimezone = me.mentorTimezone || 'Europe/Kiev';
             this.timezone = me.timezone || 'Europe/Kiev';
             this.locations = me.locations || [];
+            this.mentorAvailStep = me.mentorAvailStep || 30;
 
 
             const profile = me.mentorProfile || 'sport';
@@ -347,8 +372,10 @@ function traineeApp() {
             } catch (e) {}
         },
         async loadSessions() {
-            const res = await fetch('/api/v1/trainee/sessions');
-            if (res.ok) { this.sessions = await res.json(); }
+            try {
+                const res = await fetch('/api/v1/trainee/sessions');
+                if (res.ok) { this.sessions = await res.json(); }
+            } catch(e) { console.error('[sessions] load error', e); }
         },
 
         openCreateModal() {
@@ -462,8 +489,8 @@ function traineeApp() {
             this.compactView = !this.compactView;
         },
 
-        isExpanded(session) {
-            return this.expandedIds.includes(session.id);
+        isExpanded(sessionId) {
+            return this.expandedIds.includes(sessionId);
         },
 
         toggleExpand(session) {
@@ -720,13 +747,14 @@ function traineeApp() {
             this.availDate = d;
             const cached = this.availRangesByDate[d];
             this.availRanges = cached ? [...cached] : [];
-            this.availFreeAllDay = this.availFreeAllDayByDate[d] !== undefined ? this.availFreeAllDayByDate[d] : true;
+            this.availFreeAllDay = this.availFreeAllDayByDate[d] !== undefined ? this.availFreeAllDayByDate[d] : false;
         },
 
         availAddRange() {
             const defStart = this.mentorWorkStart || '09:00';
             const defEnd = this.mentorWorkEnd || '18:00';
-            this.availRanges.push({ startTime: defStart, endTime: defEnd, locationId: null });
+            this.availRanges.push({ startTime: defStart, endTime: defEnd });
+            this.availSortRanges();
             this.availMarkDirty();
         },
 
@@ -743,6 +771,58 @@ function traineeApp() {
                 const next = this.timeSlots15.find(t => t > r.startTime);
                 r.endTime = next || '';
             }
+            this.availSortRanges();
+        },
+
+        slotToMin(t) {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        },
+
+        startSlots(excludeIndex) {
+            const we = this.mentorWorkEnd || '21:00';
+            const curRange = this.availRanges[excludeIndex];
+            return this.timeSlots15.filter(t => {
+                if (t >= we) return false;
+                const tm = this.slotToMin(t);
+                if (curRange && curRange.startTime && t === curRange.startTime) return true;
+                for (let i = 0; i < this.availRanges.length; i++) {
+                    if (i === excludeIndex) continue;
+                    const r = this.availRanges[i];
+                    if (!r.startTime || !r.endTime) continue;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    if (tm >= rs && tm < re) return false;
+                }
+                return true;
+            });
+        },
+
+        endSlots(startTime, excludeIndex) {
+            if (!startTime) return this.timeOptionsAfter(startTime);
+            const sm = this.slotToMin(startTime);
+            const curRange = this.availRanges[excludeIndex];
+            return this.timeOptionsAfter(startTime).filter(t => {
+                const tm = this.slotToMin(t);
+                if (curRange && curRange.endTime && t === curRange.endTime) return true;
+                for (let i = 0; i < this.availRanges.length; i++) {
+                    if (i === excludeIndex) continue;
+                    const r = this.availRanges[i];
+                    if (!r.startTime || !r.endTime) continue;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    if (sm < re && tm > rs) return false;
+                }
+                return true;
+            });
+        },
+
+        availSortRanges() {
+            this.availRanges.sort((a, b) => {
+                if (!a.startTime) return -1;
+                if (!b.startTime) return 1;
+                return a.startTime.localeCompare(b.startTime);
+            });
         },
 
         availMarkDirty() {
@@ -769,15 +849,21 @@ function traineeApp() {
             if (!this.traineeId) return;
             const start = this.days[0].dateStr;
             const end = this.days[this.days.length - 1].dateStr;
-            const res = await fetch(`/api/v1/availability/ranges?userId=${this.traineeId}&userType=TRAINEE&startDate=${start}&endDate=${end}`);
+            const url = `/api/v1/availability/ranges?userId=${this.traineeId}&userType=TRAINEE&startDate=${start}&endDate=${end}`;
+            console.log('[avail] loadAvailability', url);
+            const res = await fetch(url);
+            console.log('[avail] load status:', res.status);
             const rangesByDate = {};
             const freeAllDayByDate = {};
             for (const d of this.days) {
                 rangesByDate[d.dateStr] = [];
-                freeAllDayByDate[d.dateStr] = true;
+                freeAllDayByDate[d.dateStr] = false;
             }
             if (res.ok) {
-                for (const item of await res.json()) {
+                let items;
+                try { items = await res.json(); } catch (e) { console.warn('[avail] json parse error', e); items = []; }
+                console.log('[avail] items count:', items.length);
+                for (const item of items) {
                     if (!rangesByDate[item.date]) rangesByDate[item.date] = [];
                     rangesByDate[item.date].push({
                         startTime: item.startTime || '',
@@ -786,42 +872,59 @@ function traineeApp() {
                     });
                     freeAllDayByDate[item.date] = false;
                 }
+            } else {
+                console.warn('[avail] load not OK, body:', await res.text().catch(() => '(no body)'));
             }
             this.availRangesByDate = rangesByDate;
             this.availFreeAllDayByDate = freeAllDayByDate;
+            console.log('[avail] availDate:', this.availDate, 'ranges for date:', rangesByDate[this.availDate]);
             this.availRanges = [...(rangesByDate[this.availDate] || [])];
-            this.availFreeAllDay = freeAllDayByDate[this.availDate] !== undefined ? freeAllDayByDate[this.availDate] : true;
+            this.availFreeAllDay = freeAllDayByDate[this.availDate] !== undefined ? freeAllDayByDate[this.availDate] : false;
+            console.log('[avail] loaded availRanges count:', this.availRanges.length);
             this.availDirtyDates.clear();
         },
 
         async availSaveAll() {
             if (this.availSaving) return;
             this.availSaving = true;
+            this.availRangesByDate[this.availDate] = [...this.availRanges];
+            this.availFreeAllDayByDate[this.availDate] = this.availFreeAllDay;
             try {
+                let allOk = true;
                 for (const date of this.availDirtyDates) {
                     const cached = this.availRangesByDate[date];
                     const isFreeAllDay = this.availFreeAllDayByDate[date] !== undefined ? this.availFreeAllDayByDate[date] : true;
                     const ranges = isFreeAllDay ? [] : (cached || []);
-                    await fetch('/api/v1/availability/ranges', {
+                    console.log('[avail] saving', date, ranges.length, 'ranges');
+                    const res = await fetch('/api/v1/availability/ranges', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             userId: this.traineeId,
                             userType: 'TRAINEE',
                             date,
-                            ranges: ranges.map(r => ({
-                                startTime: r.startTime,
-                                endTime: r.endTime,
-                                locationId: r.locationId || null
-                            }))
+                                ranges: ranges.map(r => ({
+                                    startTime: r.startTime,
+                                    endTime: r.endTime,
+                                    locationId: null
+                                }))
                         })
                     });
+                    if (!res.ok) {
+                        console.error('[avail] save failed for', date, res.status, await res.text().catch(() => '(no body)'));
+                        allOk = false;
+                    }
                 }
-                this.availDirtyDates.clear();
-                this.saved = true;
-                this.savedMessage = 'Збережено!';
-                setTimeout(() => this.saved = false, 3000);
-            } catch(e) { console.error('[avail] save error', e); }
+                if (allOk) {
+                    this.availDirtyDates.clear();
+                    this.saved = true;
+                    this.savedMessage = 'Збережено!';
+                    setTimeout(() => this.saved = false, 3000);
+                } else {
+                    this.savedMessage = 'Помилка збереження';
+                    setTimeout(() => this.saved = false, 3000);
+                }
+            } catch(e) { console.error('[avail] save error', e); this.savedMessage = 'Помилка збереження'; setTimeout(() => this.saved = false, 3000); }
             finally { this.availSaving = false; }
         },
 

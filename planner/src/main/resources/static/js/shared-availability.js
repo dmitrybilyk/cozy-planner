@@ -33,101 +33,54 @@ function sharedAvailabilityApp() {
         hasData: false,
         selectedDate: '',
         days: [],
-        cellsByDate: {},
+        rangesByDate: {},
         dayOffs: [],
-        mentorWorkStart: '06:00',
-        mentorWorkEnd: '21:00',
         availStep: 30,
-        grid: [],
         ws: null,
-        singleDay: false,
-        cardGrid: [],
         deferredInstallPrompt: null,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         today: '',
         mentorTimezone: '',
-        _dataLoaded: false,
 
         isDayOff(dateStr) { return this.dayOffs.includes(dateStr); },
 
-        get coachCurCells() {
-            return this.cellsByDate[this.selectedDate] || [];
+        get selectedRanges() {
+            return (this.rangesByDate[this.selectedDate] || []).slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
         },
-        cellAt(mm) {
-            return this.coachCurCells.find(x => x.mm === mm);
-        },
-        fmt(mm) {
-            return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
-        },
+
         get locations() {
             const seen = {};
-            for (const date in this.cellsByDate) {
-                for (const cell of this.cellsByDate[date]) {
-                    if (cell.locName && !seen[cell.locName]) {
-                        seen[cell.locName] = { name: cell.locName, color: cell.locColor || '#3b82f6' };
+            for (const date in this.rangesByDate) {
+                for (const r of this.rangesByDate[date]) {
+                    if (r.locName && !seen[r.locName]) {
+                        seen[r.locName] = { name: r.locName, color: r.locColor || '#3b82f6' };
                     }
                 }
             }
             return Object.values(seen);
         },
+
         get isTodaySelected() {
             return this.selectedDate === this.today;
         },
+
         dayName(dateStr) {
             const d = this.days.find(x => x.dateStr === dateStr);
-            return d ? d.weekday + ', ' + d.dayNum + ' ' + d.month : '';
-        },
-        cellStyle(mm) {
-            const c = this.cellAt(mm);
-            if (!c) return 'background:#2a2a2a';
-            if (c.locColor) return `background:${c.locColor}`;
-            return 'background:#3b82f6';
-        },
-        get cardCurCells() {
-            return this.cellsByDate[this.selectedDate] || [];
-        },
-        cardCellAt(mm) {
-            return this.cardCurCells.find(x => x.mm === mm);
-        },
-        cardCellStyle(mm) {
-            const c = this.cardCellAt(mm);
-            if (!c) return 'background:#2a2a2a';
-            if (c.locColor) return `background:${c.locColor}`;
-            return 'background:#3b82f6';
-        },
-
-        buildWorkGrid() {
-            this.grid = [];
-            this.cardGrid = [];
-            const step = this.availStep || 30;
-            const [sh, sm] = (this.mentorWorkStart || '06:00').split(':').map(Number);
-            const [eh, em] = (this.mentorWorkEnd || '21:00').split(':').map(Number);
-            const startMin = sh * 60 + sm;
-            const endMin = eh * 60 + em;
-            for (let m = startMin; m < endMin; m += 60) {
-                const hourEnd = Math.min(m + 60, endMin);
-                const cells = [];
-                for (let t = m; t < hourEnd; t += step) {
-                    cells.push({ mm: t });
-                }
-                if (cells.length) {
-                    const rowCells = cells.map(c => ({ mm: c.mm }));
-                    this.grid.push({ lbl: `${String(Math.floor(m / 60)).padStart(2,'0')}:00`, cells: rowCells });
-                    this.cardGrid.push({ lbl: `${String(Math.floor(m / 60)).padStart(2,'0')}:00`, cells: rowCells.map(c => ({ mm: c.mm })) });
-                }
+            if (!d) return '';
+            const dayNames = ['Неділя','Понеділок','Вівторок','Середа','Четвер','П\'ятниця','Субота'];
+            const weekdayIndex = WD.indexOf(d.weekday) + 1;
+            if (weekdayIndex > 0 && weekdayIndex <= 7) {
+                return dayNames[weekdayIndex % 7] + ', ' + d.dayNum + ' ' + d.month;
             }
+            return d.weekday + ', ' + d.dayNum + ' ' + d.month;
         },
 
         _pickDate() {
-            if (this._dateParam && this.days.some(d => d.dateStr === this._dateParam)) {
-                this.selectedDate = this._dateParam;
-            } else if (this.singleDay) {
-                this.selectedDate = this.today;
-            }
-            if (!this.cellsByDate[this.selectedDate]?.length) {
-                const sorted = Object.keys(this.cellsByDate).sort();
-                if (sorted.length) this.selectedDate = sorted[0];
-            }
+            if (this.selectedDate && this.rangesByDate[this.selectedDate]?.length) return;
+            if (this.rangesByDate[this.today]?.length) { this.selectedDate = this.today; return; }
+            const sorted = Object.keys(this.rangesByDate).sort();
+            if (sorted.length) { this.selectedDate = sorted[0]; return; }
+            this.selectedDate = this.today;
         },
 
         async init() {
@@ -136,15 +89,12 @@ function sharedAvailabilityApp() {
             this.shareToken = pathParts[pathParts.length - 1];
 
             const params = new URLSearchParams(window.location.search);
-            this._dateParam = params.get('date');
-            if (this._dateParam) this.singleDay = true;
+            this.selectedDate = params.get('date') || '';
 
             this.today = localDateStr();
             this._buildDays();
-            this.buildWorkGrid();
 
             await this.loadData();
-            this._dataLoaded = true;
             this._pickDate();
 
             this.connectWebSocket();
@@ -154,9 +104,7 @@ function sharedAvailabilityApp() {
         },
 
         _reload() {
-            this.loadData().then(() => {
-                this._pickDate();
-            });
+            this.loadData().then(() => { this._pickDate(); });
         },
 
         _buildDays() {
@@ -223,30 +171,26 @@ function sharedAvailabilityApp() {
                 const availData = await availRes.json();
                 const slots = availData.slots || [];
                 this.dayOffs = this.dayOffs.length ? this.dayOffs : (availData.dayOffDates || []);
-                if (availData.workStart) this.mentorWorkStart = availData.workStart;
-                if (availData.workEnd) this.mentorWorkEnd = availData.workEnd;
                 if (availData.availStep) this.availStep = availData.availStep;
                 if (availData.mentorTimezone) {
                     this.mentorTimezone = availData.mentorTimezone;
                     this.today = localDateStrTz(this.mentorTimezone);
                     this.days.forEach(d => d.isToday = d.dateStr === this.today);
                 }
-                this.buildWorkGrid();
 
-                const step = this.availStep || 30;
                 const g = {};
                 for (const item of slots) {
                     if (!g[item.date]) g[item.date] = [];
-                    const [sh, sm] = item.startTime.split(':').map(Number);
-                    const [eh, em] = item.endTime.split(':').map(Number);
-                    let t = sh * 60 + sm, end = eh * 60 + em;
-                    while (t < end) {
-                        g[item.date].push({ mm: t, locId: item.locationId, locColor: item.locationColor, locName: item.locationName });
-                        t += step;
-                    }
+                    g[item.date].push({
+                        startTime: item.startTime,
+                        endTime: item.endTime,
+                        locId: item.locationId,
+                        locColor: item.locationColor,
+                        locName: item.locationName
+                    });
                 }
 
-                this.cellsByDate = g;
+                this.rangesByDate = g;
                 this.hasData = Object.keys(g).length > 0;
                 this.loading = false;
             } catch (e) {

@@ -45,7 +45,7 @@
 
     <div x-show="!loading && hasData">
         <!-- multi-day navigation -->
-        <div x-show="!singleDay" class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] mb-4">
+        <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] mb-4">
             <div class="flex overflow-x-auto no-scrollbar space-x-2 p-2.5">
                 <template x-for="day in days" :key="day.dateStr">
                     <button @click="selectedDate = day.dateStr"
@@ -55,85 +55,63 @@
                         <span class="text-xs font-black leading-tight" x-text="day.dayNum"></span>
                         <span class="text-[9px] font-bold" x-text="day.month"></span>
                         <span x-show="day.isToday" class="text-[7px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1 py-0.5 rounded-full">Сьогодні</span>
-                        <span x-show="cellsByDate[day.dateStr]?.length && !isDayOff(day.dateStr)" class="w-0.5 h-0.5 rounded-full bg-blue-400 mt-0.5"></span>
+                        <span x-show="rangesByDate[day.dateStr]?.length && !isDayOff(day.dateStr)" class="w-0.5 h-0.5 rounded-full bg-blue-400 mt-0.5"></span>
                         <span x-show="isDayOff(day.dateStr)" class="text-[7px] font-black text-red-400 uppercase">✕</span>
                     </button>
                 </template>
             </div>
         </div>
 
-        <!-- day off banner -->
-        <div x-show="isDayOff(selectedDate)" class="bg-red-900/20 border border-red-500/30 rounded-2xl p-6 text-center mb-4">
-            <p class="text-red-400 text-lg font-bold">ВИХІДНИЙ</p>
-            <p class="text-gray-500 text-sm mt-1">Тренер не працює цього дня</p>
+        <!-- selected date header -->
+        <div x-show="!isDayOff(selectedDate)" class="mb-3">
+            <h2 class="text-lg font-bold text-white" x-text="dayName(selectedDate)"></h2>
+            <p x-show="isTodaySelected" class="text-xs font-bold text-blue-400 uppercase tracking-wider mt-0.5">Сьогодні</p>
         </div>
 
-        <!-- standard grid (multi-day) -->
-        <div x-show="!singleDay && !isDayOff(selectedDate)" class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
-            <div class="px-4 py-2 border-b border-[#2a2a2a] flex items-center justify-between gap-2">
-                <span class="text-xs font-bold text-gray-500 whitespace-nowrap" x-text="selectedDate"></span>
-            </div>
-            <div class="max-h-96 overflow-y-auto no-scrollbar">
-                <template x-for="(row, ri) in grid" :key="ri">
-                    <div class="flex border-b border-[#1f1f1f] last:border-b-0 hover:bg-white/[0.04] transition-colors">
-                        <div class="w-12 flex-shrink-0 flex items-center justify-end pr-1.5 text-sm sm:text-base font-bold text-gray-500 select-none">
-                            <span x-text="parseInt(row.lbl)"></span>
-                        </div>
-                        <div class="flex-1 flex">
-                            <template x-for="(c, ci) in row.cells" :key="ci">
-                                <div class="flex-1 h-6 sm:h-7 border-l border-[#1f1f1f] first:border-l-0 relative"
-                                     :style="cellStyle(c.mm)">
-                                    <span x-show="cellAt(c.mm)?.locName"
-                                          class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white leading-tight"
-                                          style="text-shadow:0 1px 3px rgba(0,0,0,0.6)" x-text="cellAt(c.mm)?.locName || ''"></span>
-                                    <span x-show="ci < row.cells.length - 1"
-                                          class="absolute right-0 top-0 bottom-0 flex items-center pr-1 text-[11px] font-bold text-gray-400 pointer-events-none"
-                                          x-text="ci < row.cells.length - 1 ? ':' + String(row.cells[ci+1].mm % 60) : ''"></span>
-                                </div>
-                            </template>
-                        </div>
-                    </div>
-                </template>
-            </div>
+        <!-- day off -->
+        <div x-show="isDayOff(selectedDate)" class="bg-gradient-to-br from-red-900/30 to-red-950/30 border border-red-500/20 rounded-3xl p-8 text-center mb-4">
+            <span class="text-5xl block mb-3">🌙</span>
+            <p class="text-red-400 text-xl font-black tracking-wide">ВИХІДНИЙ</p>
+            <p class="text-gray-500 text-sm mt-2">Тренер не працює цього дня</p>
         </div>
 
-        <!-- single-day cozy card view -->
-        <div x-show="singleDay && !isDayOff(selectedDate)" class="bg-[#1a1a1a] rounded-3xl border border-[#2a2a2a] overflow-hidden shadow-xl">
-            <div class="px-5 py-4 border-b border-[#2a2a2a] flex items-center justify-between gap-2">
-                <div>
-                    <span class="text-sm font-bold text-gray-400" x-text="selectedDate"></span>
-                    <span class="text-xs text-gray-600 ml-2" x-text="dayName(selectedDate)"></span>
+        <!-- range cards -->
+        <div x-show="!isDayOff(selectedDate)">
+            <template x-if="selectedRanges.length === 0">
+                <div class="text-center py-10 text-gray-600">
+                    <p class="text-3xl mb-2">🕊️</p>
+                    <p class="text-sm">На цей день доступні години відсутні</p>
                 </div>
-                <span x-show="isTodaySelected" class="text-xs font-black uppercase bg-blue-600 text-white px-3 py-1 rounded-full">Сьогодні</span>
-            </div>
-            <div class="overflow-y-auto no-scrollbar">
-                <template x-for="(row, ri) in cardGrid" :key="ri">
-                    <div class="flex border-b border-[#1f1f1f] last:border-b-0 hover:bg-white/[0.04] transition-colors">
-                        <div class="w-14 flex-shrink-0 flex items-center justify-end pr-2 text-sm sm:text-base font-bold text-gray-500 select-none">
-                            <span x-text="parseInt(row.lbl)"></span>
-                        </div>
-                        <div class="flex-1 flex">
-                            <template x-for="(c, ci) in row.cells" :key="ci">
-                                <div class="flex-1 h-11 sm:h-12 border-l border-[#1f1f1f] first:border-l-0 relative"
-                                     :style="cardCellStyle(c.mm)">
-                                    <span x-show="cardCellAt(c.mm)?.locName"
-                                          class="absolute inset-0 flex items-center justify-center text-xs sm:text-xs font-bold text-white leading-tight text-center px-1 truncate"
-                                          style="text-shadow:0 1px 3px rgba(0,0,0,0.7)" x-text="cardCellAt(c.mm)?.locName || ''"></span>
-                                    <span x-show="ci < row.cells.length - 1"
-                                          class="absolute right-0 top-0 bottom-0 flex items-center pr-1 text-[11px] font-bold text-gray-400 pointer-events-none"
-                                          x-text="ci < row.cells.length - 1 ? ':' + String(row.cells[ci+1].mm % 60) : ''"></span>
+            </template>
+
+            <div class="space-y-3">
+                <template x-for="(r, i) in selectedRanges" :key="i">
+                    <div class="rounded-2xl border border-[#2a2a2a] overflow-hidden transition-all hover:border-blue-500/30">
+                        <div class="flex items-stretch">
+                            <div class="w-2 flex-shrink-0" :style="'background:' + (r.locColor || '#3b82f6')"></div>
+                            <div class="flex-1 px-4 py-3.5">
+                                <div class="flex items-baseline gap-2">
+                                    <span class="text-lg font-black text-white tracking-wide" x-text="r.startTime?.slice(0,5)"></span>
+                                    <span class="text-sm text-gray-500">—</span>
+                                    <span class="text-lg font-black text-white tracking-wide" x-text="r.endTime?.slice(0,5)"></span>
                                 </div>
-                            </template>
+                                <div x-show="r.locName" class="flex items-center gap-1.5 mt-1.5">
+                                    <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+                                    <span class="text-xs font-semibold text-gray-400" x-text="r.locName"></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </template>
+            </div>
 
-        <div class="flex flex-wrap items-center gap-2 mt-2 text-xs text-gray-500" :class="singleDay ? 'text-sm' : ''">
-            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
-            <template x-for="loc in locations" :key="loc.name">
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
-            </template>
-            <span class="text-gray-600">· крок <span x-text="availStep || 30"></span> хв</span>
+            <div x-show="selectedRanges.length > 0" class="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-[#222] text-xs text-gray-500">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#3b82f6"></span> Вільно</span>
+                <template x-for="loc in locations" :key="loc.name">
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" :style="'background:' + (loc.color || '#3b82f6')"></span> <span x-text="loc.name"></span></span>
+                </template>
+                <span class="text-gray-600">· крок <span x-text="availStep || 30"></span> хв</span>
+            </div>
         </div>
     </div>
 </main>

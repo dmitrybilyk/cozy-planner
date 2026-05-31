@@ -348,7 +348,8 @@ public class SessionConfirmationController {
                                         .defaultIfEmpty("")
                                         .flatMap(traineeName -> sessionRepository.findTraineeIdsBySessionId(s.getId())
                                                 .collectList()
-                                                .flatMap(allTraineeIds -> addRejectedTrainee(s, rejectTraineeId)
+                                                .flatMap(allTraineeIds -> removeConfirmedTrainee(s, rejectTraineeId, allTraineeIds)
+                                                        .flatMap(updated -> addRejectedTrainee(updated, rejectTraineeId))
                                                         .flatMap(updated -> notifyTraineeAction(updated, traineeName, false, allTraineeIds))
                                                         .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                                                         .map(saved -> {

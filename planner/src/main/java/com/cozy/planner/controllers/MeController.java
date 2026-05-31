@@ -164,6 +164,7 @@ public class MeController {
                     r.put("mentorTelegramConnected", mentor.hasTelegram());
                     r.put("mentorShareToken", mentor.getShareToken());
                     r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
+                    r.put("mentorAvailStep", mentor.getAvailStep() != null ? mentor.getAvailStep() : 30);
                     r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
                     r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
                     r.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
