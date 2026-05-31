@@ -75,7 +75,7 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/confirm")
-    public Mono<ResponseEntity<Map<String, Object>>> confirmSession(@PathVariable Long sessionId) {
+    public Mono<ResponseEntity<Map<String, Object>>> confirmSession(@PathVariable("sessionId") Long sessionId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> {
                     session.setConfirmationStatus("CONFIRMED");
@@ -95,7 +95,7 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/reject")
-    public Mono<ResponseEntity<Map<String, Object>>> rejectSession(@PathVariable Long sessionId) {
+    public Mono<ResponseEntity<Map<String, Object>>> rejectSession(@PathVariable("sessionId") Long sessionId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> {
                     session.setConfirmationStatus("REJECTED");
@@ -114,8 +114,8 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/confirm-trainee/{traineeId}")
-    public Mono<ResponseEntity<Map<String, Object>>> confirmTrainee(@PathVariable Long sessionId,
-                                                                      @PathVariable Long traineeId) {
+    public Mono<ResponseEntity<Map<String, Object>>> confirmTrainee(@PathVariable("sessionId") Long sessionId,
+                                                                      @PathVariable("traineeId") Long traineeId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(sessionId)
                         .collectList()
@@ -133,8 +133,8 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/unconfirm-trainee/{traineeId}")
-    public Mono<ResponseEntity<Map<String, Object>>> unconfirmTrainee(@PathVariable Long sessionId,
-                                                                         @PathVariable Long traineeId) {
+    public Mono<ResponseEntity<Map<String, Object>>> unconfirmTrainee(@PathVariable("sessionId") Long sessionId,
+                                                                        @PathVariable("traineeId") Long traineeId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(sessionId)
                         .collectList()
@@ -152,8 +152,8 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/reject-trainee/{traineeId}")
-    public Mono<ResponseEntity<Map<String, Object>>> rejectTrainee(@PathVariable Long sessionId,
-                                                                     @PathVariable Long traineeId) {
+    public Mono<ResponseEntity<Map<String, Object>>> rejectTrainee(@PathVariable("sessionId") Long sessionId,
+                                                                     @PathVariable("traineeId") Long traineeId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(sessionId)
                         .collectList()
@@ -172,8 +172,8 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/unreject-trainee/{traineeId}")
-    public Mono<ResponseEntity<Map<String, Object>>> unrejectTrainee(@PathVariable Long sessionId,
-                                                                       @PathVariable Long traineeId) {
+    public Mono<ResponseEntity<Map<String, Object>>> unrejectTrainee(@PathVariable("sessionId") Long sessionId,
+                                                                       @PathVariable("traineeId") Long traineeId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> removeRejectedTrainee(session, traineeId)
                         .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
@@ -189,7 +189,7 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/trainee/sessions/{sessionId}/confirm")
-    public Mono<ResponseEntity<Map<String, Object>>> traineeConfirmSession(@PathVariable Long sessionId,
+    public Mono<ResponseEntity<Map<String, Object>>> traineeConfirmSession(@PathVariable("sessionId") Long sessionId,
                                                                              ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
             Object traineeIdObj = session.getAttribute("trainee_id");
@@ -322,7 +322,7 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/trainee/sessions/{sessionId}/reject")
-    public Mono<ResponseEntity<Map<String, Object>>> traineeRejectSession(@PathVariable Long sessionId,
+    public Mono<ResponseEntity<Map<String, Object>>> traineeRejectSession(@PathVariable("sessionId") Long sessionId,
                                                                             ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
             Object traineeIdObj = session.getAttribute("trainee_id");
@@ -365,8 +365,8 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/request-trainee-confirmation/{traineeId}")
-    public Mono<ResponseEntity<Map<String, Object>>> requestTraineeConfirmation(@PathVariable Long sessionId,
-                                                                                  @PathVariable Long traineeId) {
+    public Mono<ResponseEntity<Map<String, Object>>> requestTraineeConfirmation(@PathVariable("sessionId") Long sessionId,
+                                                                                  @PathVariable("traineeId") Long traineeId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> {
                     session.setConfirmationStatus("PENDING");
@@ -409,7 +409,7 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/sessions/{sessionId}/request-trainee-confirmation")
-    public Mono<ResponseEntity<Map<String, Object>>> requestTraineeConfirmationAll(@PathVariable Long sessionId) {
+    public Mono<ResponseEntity<Map<String, Object>>> requestTraineeConfirmationAll(@PathVariable("sessionId") Long sessionId) {
         return sessionRepository.findById(sessionId)
                 .flatMap(session -> {
                     session.setConfirmationStatus("PENDING");
@@ -460,7 +460,7 @@ public class SessionConfirmationController {
     }
 
     @PostMapping("/trainee/sessions/{sessionId}/request-coach-confirmation")
-    public Mono<ResponseEntity<Map<String, Object>>> requestCoachConfirmation(@PathVariable Long sessionId,
+    public Mono<ResponseEntity<Map<String, Object>>> requestCoachConfirmation(@PathVariable("sessionId") Long sessionId,
                                                                                ServerWebExchange exchange) {
         return exchange.getSession().flatMap(session -> {
             Object traineeIdObj = session.getAttribute("trainee_id");

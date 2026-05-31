@@ -25,12 +25,12 @@
     <div class="flex items-center gap-2">
         <template x-if="me.telegramEnabled && !me.telegramConnected && me.telegramConnectLink">
             <a :href="me.telegramConnectLink" target="_blank"
-               class="bg-yellow-600 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase whitespace-nowrap">
+               class="bg-yellow-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold uppercase whitespace-nowrap">
                 📲 Підключити TG
             </a>
         </template>
         <template x-if="me.telegramConnected">
-            <span class="text-green-400 text-[10px] font-bold">✓ TG</span>
+            <span class="text-green-400 text-xs font-bold">✓ TG</span>
         </template>
 
     </div>
@@ -46,7 +46,7 @@
             <button @click="selectDate(day.dateStr)"
                     class="flex-shrink-0 flex flex-col items-center px-4 py-3 rounded-2xl transition-all"
                     :class="selectedDate === day.dateStr ? 'bg-blue-600 text-white' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
-                <span class="text-[10px] font-bold uppercase" x-text="day.weekday"></span>
+                <span class="text-xs font-bold uppercase" x-text="day.weekday"></span>
                 <span class="text-lg font-black" x-text="day.dayNum"></span>
             </button>
         </template>
@@ -67,7 +67,7 @@
 
     <div>
         <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-bold text-gray-500 uppercase">Новий діапазон <span class="text-[9px] font-normal text-gray-600">· крок 30 хв</span></span>
+            <span class="text-xs font-bold text-gray-500 uppercase">Новий діапазон <span class="text-[11px] font-normal text-gray-600">· крок 30 хв</span></span>
             <span x-show="pickStart" class="text-xs font-bold text-yellow-400">Оберіть кінець</span>
         </div>
         <div class="grid grid-cols-4 gap-1.5 max-h-52 overflow-y-auto no-scrollbar">
@@ -105,11 +105,11 @@
     <div class="flex items-center justify-around max-w-lg mx-auto h-14">
         <div class="flex flex-col items-center gap-0.5 text-blue-400">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span class="text-[9px] font-bold uppercase">Моя доступність</span>
+            <span class="text-[11px] font-bold uppercase">Моя доступність</span>
         </div>
         <a :href="sessionsLink" class="flex flex-col items-center gap-0.5 text-gray-500">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-            <span class="text-[9px] font-bold uppercase" x-text="sessionsTabLabel"></span>
+            <span class="text-[11px] font-bold uppercase" x-text="sessionsTabLabel"></span>
         </a>
     </div>
 </nav>

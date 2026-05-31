@@ -41,13 +41,13 @@
                 </template>
                 <template x-if="!photoUrl">
                     <div class="bg-black rounded-full w-full h-full flex items-center justify-center">
-                        <span class="text-[8px] sm:text-[10px] font-black italic ig-gradient-text">CP</span>
+                        <span class="text-xs sm:text-sm font-black italic ig-gradient-text">CP</span>
                     </div>
                 </template>
             </div>
             <div class="leading-tight truncate">
-                <h1 class="text-[11px] sm:text-sm font-bold truncate" x-text="mentor.name || 'Cozy Planner'"></h1>
-                <p x-show="user.email" class="text-[8px] sm:text-[9px] text-gray-500 font-medium truncate" x-text="user.email"></p>
+                <h1 class="text-sm sm:text-sm font-bold truncate" x-text="mentor.name || 'Cozy Planner'"></h1>
+                <p x-show="user.email" class="text-xs sm:text-xs text-gray-500 font-medium truncate" x-text="user.email"></p>
             </div>
             <svg class="w-3 h-3 text-gray-500 flex-shrink-0 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
@@ -62,10 +62,10 @@
             </button>
             <div class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl">
                 <button @click="activeTab = 'feed'" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition" :class="activeTab === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">
-                    <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider" x-text="labels.today_short || 'День'"></span>
+                    <span class="text-[11px] sm:text-sm font-black uppercase tracking-wider" x-text="labels.today_short || 'День'"></span>
                 </button>
                 <button @click="activeTab = 'agenda'; loadFutureSessions()" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition" :class="activeTab === 'agenda' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">
-                    <span class="text-[9px] sm:text-[10px] font-black uppercase tracking-wider">План</span>
+                    <span class="text-[11px] sm:text-sm font-black uppercase tracking-wider">План</span>
                 </button>
             </div>
         </div>
@@ -74,23 +74,23 @@
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex items-center gap-1">
         <button @click="openSessionModal()" :disabled="selectedDate < todayStr"
                 class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-2 px-0.5 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100">
-            <span class="text-[9px] sm:text-[10px] font-bold leading-tight text-center" x-text="labels.create_session || 'Створити сесію'"></span>
+            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center" x-text="labels.create_session || 'Створити сесію'"></span>
         </button>
         <button @click="activeTab = 'trainees'"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'trainees' ? 'bg-[#333] ring-2 ring-emerald-400' : 'bg-[#262626] hover:bg-[#333]'">
-            <span class="text-[9px] sm:text-[10px] font-bold leading-tight text-center text-emerald-400" x-text="labels.manage_trainees || 'Учні'"></span>
+            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-emerald-400" x-text="labels.manage_trainees || 'Учні'"></span>
         </button>
         <button @click="activeTab = 'locations'"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'locations' ? 'bg-[#333] ring-2 ring-rose-400' : 'bg-[#262626] hover:bg-[#333]'">
-            <span class="text-[9px] sm:text-[10px] font-bold leading-tight text-center text-rose-400" x-text="labels.locations || 'Місця'"></span>
+            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-rose-400" x-text="labels.locations || 'Місця'"></span>
         </button>
         <button @click="activeTab = 'coach-availability'; loadCoachAvailability()"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'coach-availability' ? 'bg-[#333] ring-2 ring-violet-400' : 'bg-[#262626] hover:bg-[#333]'"
                 :title="'Доступність тренера'">
-            <span class="text-[9px] sm:text-[10px] font-bold leading-tight text-center text-violet-400" x-text="'Доступність тренера'"></span>
+            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-violet-400" x-text="'Доступність тренера'"></span>
         </button>
     </div>
     <!-- Ряд 3: Смуга днів -->
@@ -103,15 +103,15 @@
                         class="flex-shrink-0 flex flex-col items-center min-w-[56px]"
                         :class="day.isMonday ? 'week-start' : ''">
                     <div class="w-12 h-12 rounded-xl p-[2px] flex items-center justify-center transition-all relative"
-                         :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : (day.isWeekend || isDayOff(day.dateStr) ? 'bg-[#5a2525]' : 'bg-[#333]'), day.dateStr === todayStr ? 'today-marker' : '']">
+                         :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : (day.isWeekend || isDayOff(day.dateStr) ? 'bg-[#5a2525]' : sessionCountClass(day.dateStr) || 'bg-[#333]'), day.dateStr === todayStr ? 'today-marker' : '']">
                         <div class="w-full h-full rounded-xl bg-black flex flex-col items-center justify-center border-2 border-black">
-                            <span class="text-[8px] font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
+                            <span class="text-xs font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
                             <span class="text-xs font-bold text-white" x-text="day.dayNum"></span>
                         </div>
                     </div>
-                    <span x-show="day.dateStr === todayStr" class="text-[7px] font-black text-white uppercase mt-1 tracking-tighter" x-text="labels.today || 'Сьогодні'"></span>
-                    <div x-show="isDayOff(day.dateStr)" class="text-[7px] font-black text-red-400 uppercase mt-0.5">✕</div>
-                    <div x-show="sessionCountOn(day.dateStr) > 0 && !isDayOff(day.dateStr)" class="mt-0.5 text-[8px] font-bold text-blue-400" x-text="sessionCountOn(day.dateStr)"></div>
+                    <span x-show="day.dateStr === todayStr" class="text-[9px] font-black text-white uppercase mt-1 tracking-tighter" x-text="labels.today || 'Сьогодні'"></span>
+                    <div x-show="isDayOff(day.dateStr)" class="text-[9px] font-black text-red-400 uppercase mt-0.5">✕</div>
+                    <div x-show="sessionCountOn(day.dateStr) > 0 && !isDayOff(day.dateStr)" class="mt-0.5 text-xs font-bold text-blue-400" x-text="sessionCountOn(day.dateStr)"></div>
                 </button>
             </template>
         </div>
@@ -130,7 +130,7 @@
                 <button @click="toggleConfirmedFilter()" class="p-1.5 rounded-lg transition" :class="showConfirmedOnly ? 'bg-green-600/30 ring-2 ring-green-500' : 'bg-[#2a2a2a] hover:bg-[#333]'" title="Показати лише підтверджені">
                     <svg class="w-4 h-4" :class="showConfirmedOnly ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 </button>
-                <button @click="toggleCompactView()" class="text-[10px] sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤' : '▣'"></button>
+                <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤' : '▣'"></button>
                 <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-xs sm:text-sm font-bold text-blue-400" x-text="labels.today || 'Сьогодні'"></button>
             </div>
         </div>
@@ -140,7 +140,7 @@
                     <div x-show="showNowLineAfter(session, filteredSessions)"
                          class="my-3 flex items-center gap-2">
                         <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
-                        <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1">● NOW</span>
+                        <span class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1">● NOW</span>
                         <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
                     </div>
                      <div draggable="true" @dragstart="dragStart($event, index)" @dragend="dragEnd" @dragover.prevent @drop="drop($event, targetIndex(session.id))"
@@ -168,7 +168,7 @@
                             <div class="flex items-center gap-2">
                                 <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
                                 <span x-show="isSessionNow(session)" 
-                                      class="text-[9px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● NOW</span>
+                                      class="text-[11px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● NOW</span>
                                 <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="ml-auto p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0" title="Згорнути">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
                                 </button>
@@ -176,18 +176,18 @@
                             <p class="text-sm text-gray-500 italic" x-text="session.description"></p>
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-lg sm:text-xl font-black" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
-                                <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="sessionDuration(session)"></span>
-                                <span x-show="allTraineesConfirmed(session)" class="text-[9px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
-                                <span x-show="!allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[9px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
-                                <span x-show="!allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[9px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
-                                <span x-show="session.confirmationStatus === 'REJECTED'" class="text-[9px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
+                                <span class="text-[11px] font-bold text-gray-500 uppercase" x-text="sessionDuration(session)"></span>
+                                <span x-show="allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
+                                <span x-show="!allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
+                                <span x-show="!allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
+                                <span x-show="session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
                             </div>
                             <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1">
                                 <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
                                 <span class="text-xs text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <template x-for="aId in session.traineeIds"><span @click.stop="toggleTraineeConfirm(aId, session)" class="flex items-center w-full text-xs sm:text-sm bg-[#333] px-3 py-1.5 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><span class="flex items-center justify-center w-8 h-8 rounded-lg mr-2.5 flex-shrink-0 pointer-events-none" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'border-2 border-green-500' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'border-2 border-red-500' : 'border border-[#555]'"><svg class="w-5 h-5" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><span class="ml-auto flex items-center"><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="text-[8px] font-bold text-yellow-500 whitespace-nowrap">Запитати</button></span></span></template>
+                                <template x-for="aId in session.traineeIds"><span @click.stop="toggleTraineeConfirm(aId, session)" class="flex items-center w-full text-xs sm:text-sm bg-[#333] px-3 py-1.5 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><span class="flex items-center justify-center w-8 h-8 rounded-lg mr-2.5 flex-shrink-0 pointer-events-none" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'border-2 border-green-500' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'border-2 border-red-500' : 'border border-[#555]'"><svg class="w-5 h-5" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><span class="ml-auto flex items-center"><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="text-xs font-bold text-yellow-500 whitespace-nowrap">Запитати</button></span></span></template>
                             </div>
                             <div class="flex items-center justify-between mt-2">
                                 <div class="flex items-center">
@@ -234,7 +234,7 @@
                 <button @click="toggleConfirmedFilter()" class="p-1.5 rounded-lg transition" :class="showConfirmedOnly ? 'bg-green-600/30 ring-2 ring-green-500' : 'bg-[#2a2a2a] hover:bg-[#333]'" title="Показати лише підтверджені">
                     <svg class="w-4 h-4" :class="showConfirmedOnly ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 </button>
-                <button @click="toggleCompactView()" class="text-[10px] sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤' : '▣'"></button>
+                <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤' : '▣'"></button>
                 <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-xs sm:text-sm font-bold text-blue-400" x-text="labels.today || 'Сьогодні'"></button>
             </div>
         </div>
@@ -279,11 +279,11 @@
                                 <p class="text-sm text-gray-500 italic" x-text="session.description"></p>
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="text-lg sm:text-xl font-black" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
-                                    <span class="text-[9px] font-bold text-gray-500 uppercase" x-text="sessionDuration(session)"></span>
-                                    <span x-show="allTraineesConfirmed(session)" class="text-[9px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
-                                    <span x-show="!allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[9px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
-                                    <span x-show="!allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[9px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
-                                    <span x-show="session.confirmationStatus === 'REJECTED'" class="text-[9px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
+                                    <span class="text-[11px] font-bold text-gray-500 uppercase" x-text="sessionDuration(session)"></span>
+                                    <span x-show="allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
+                                    <span x-show="!allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
+                                    <span x-show="!allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
+                                    <span x-show="session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
                                 </div>
                                 <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1">
                                     <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
@@ -295,7 +295,7 @@
                                             <span class="flex items-center justify-center w-8 h-8 rounded-lg mr-2.5 flex-shrink-0 pointer-events-none" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'border-2 border-green-500' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'border-2 border-red-500' : 'border border-[#555]'"><svg class="w-5 h-5" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span>
                                             <span class="pointer-events-none" x-text="getTraineeName(aId)"></span>
                                             <svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                                            <span class="ml-auto flex items-center"><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="text-[8px] font-bold text-yellow-500 whitespace-nowrap">Запитати</button></span>
+                                            <span class="ml-auto flex items-center"><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="text-xs font-bold text-yellow-500 whitespace-nowrap">Запитати</button></span>
                                         </span>
                                     </template>
                                 </div>
@@ -397,7 +397,7 @@
 <div x-show="activeTab === 'profile'" class="max-w-2xl mx-auto p-4 pb-24">
     <!-- Photo -->
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
-        <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">📷 Фото</h4>
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">📷 Фото</h4>
         <div class="flex items-center gap-4">
             <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-[#262626] flex-shrink-0">
                 <template x-if="photoUrl">
@@ -412,18 +412,18 @@
                     Завантажити
                     <input type="file" accept="image/*" class="hidden" @change="uploadPhoto($event)">
                 </label>
-                <button x-show="photoUrl" @click="photoUrl = null; fetch('/api/v1/mentor/profile', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({photoUrl: ''})})" class="text-[10px] font-bold text-red-400">Видалити</button>
+                <button x-show="photoUrl" @click="photoUrl = null; fetch('/api/v1/mentor/profile', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({photoUrl: ''})})" class="text-xs font-bold text-red-400">Видалити</button>
             </div>
         </div>
     </div>
     <!-- Work hours -->
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">⏰ Робочі години</h4>
-        <p class="text-[10px] text-gray-600 mb-3">Діапазон часу, який буде показано в сітці доступності</p>
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏰ Робочі години</h4>
+        <p class="text-xs text-gray-600 mb-3">Діапазон часу, який буде показано в сітці доступності</p>
         <div class="flex items-center gap-3">
             <div class="flex-1">
-                <label class="text-[9px] font-bold text-gray-500 uppercase mb-1 block">Від</label>
-                <select x-model="workStart" @change="saveWorkHours()" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">Від</label>
+                <select x-model="workStart" @change="saveWorkHours()" x-effect="$nextTick(() => $el.value = workStart)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
                     <template x-for="h in Array.from({length: 16}, (_, i) => i + 6)" :key="h">
                         <option :value="String(h).padStart(2,'0') + ':00'" x-text="String(h).padStart(2,'0') + ':00'"></option>
                     </template>
@@ -431,9 +431,9 @@
             </div>
             <span class="text-gray-500 mt-5">—</span>
             <div class="flex-1">
-                <label class="text-[9px] font-bold text-gray-500 uppercase mb-1 block">До</label>
-                <select x-model="workEnd" @change="saveWorkHours()" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
-                    <template x-for="h in Array.from({length: 16}, (_, i) => i + 6)" :key="h">
+                <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">До</label>
+                <select x-model="workEnd" @change="saveWorkHours()" x-effect="$nextTick(() => $el.value = workEnd)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                    <template x-for="h in Array.from({length: 18}, (_, i) => i + 6)" :key="h">
                         <option :value="String(h).padStart(2,'0') + ':00'" x-text="String(h).padStart(2,'0') + ':00'"></option>
                     </template>
                 </select>
@@ -442,7 +442,7 @@
     </div>
     <!-- Timezone -->
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">🌍 Часовий пояс</h4>
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🌍 Часовий пояс</h4>
         <div class="flex items-center gap-2">
             <select x-model="editingTimezone" @change="saveTimezone()" class="flex-1 text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
                 <option value="Europe/Kyiv">Europe/Kyiv (UTC+2/+3)</option>
@@ -462,26 +462,26 @@
         </div>
     </div>
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Крок сітки</h4>
-        <p class="text-[10px] text-gray-600 mb-3">Виберіть інтервал часу для сітки доступності</p>
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Крок сітки</h4>
+        <p class="text-xs text-gray-600 mb-3">Виберіть інтервал часу для сітки доступності</p>
         <div class="flex bg-[#262626] rounded-xl p-1 gap-1">
             <button @click="availStep = 15; saveAvailStep()"
                     class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
                     :class="availStep === 15 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
                 <span class="block text-sm">15</span>
-                <span class="block text-[8px] font-medium opacity-70">хвилин</span>
+                <span class="block text-xs font-medium opacity-70">хвилин</span>
             </button>
             <button @click="availStep = 30; saveAvailStep()"
                     class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
                     :class="availStep === 30 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
                 <span class="block text-sm">30</span>
-                <span class="block text-[8px] font-medium opacity-70">хвилин</span>
+                <span class="block text-xs font-medium opacity-70">хвилин</span>
             </button>
             <button @click="availStep = 60; saveAvailStep()"
                     class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
                     :class="availStep === 60 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
                 <span class="block text-sm">1</span>
-                <span class="block text-[8px] font-medium opacity-70">година</span>
+                <span class="block text-xs font-medium opacity-70">година</span>
             </button>
         </div>
     </div>
@@ -492,7 +492,7 @@
         </button>
     </div>
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4"><span class="mr-1">📱</span> Telegram</h4>
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4"><span class="mr-1">📱</span> Telegram</h4>
         <template x-if="!mentorTg.enabled">
             <p class="text-gray-500 text-sm">Telegram не налаштовано.</p>
         </template>
@@ -518,7 +518,7 @@
                     <span x-show="!mentorTg.copied && mentorTg.connectLink">Копіювати посилання</span>
                     <span x-show="!mentorTg.copied && !mentorTg.connectLink">Під'єднати Телеграм</span>
                 </button>
-                <p x-show="mentorTg.connectLink && !mentorTg.copied" class="text-gray-600 text-[10px] text-center">
+                <p x-show="mentorTg.connectLink && !mentorTg.copied" class="text-gray-600 text-xs text-center">
                     Натисніть, щоб скопіювати посилання для підключення
                 </p>
             </div>
@@ -547,11 +547,11 @@
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest" x-text="labels.team || 'Команда'"></h3>
                 <div class="flex items-center gap-2">
-                    <button @click="openCreateTraineeForm()" class="text-[11px] font-bold text-blue-400 flex items-center gap-1">
+                    <button @click="openCreateTraineeForm()" class="text-sm font-bold text-blue-400 flex items-center gap-1">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                 <span x-text="(labels.add_trainee_short || 'Додати ' + (labels.trainee_gen || labels.trainee || 'учня'))"></span>
                             </button>
-                    <button @click="toggleTraineeView()" class="text-[10px] sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="traineeCompactView ? '▤' : '▣'"></button>
+                    <button @click="toggleTraineeView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="traineeCompactView ? '▤' : '▣'"></button>
                 </div>
             </div>
             <input type="text" x-model="traineeSearch" :placeholder="'🔍 ' + (labels.trainee_search || 'Пошук учнів...')" class="w-full bg-[#262626] text-gray-200 text-sm px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500 mb-3">
@@ -607,11 +607,11 @@
                     <!-- TG Invite + Timezone + Site link + Create Session row -->
                     <div class="flex items-center gap-2 mt-3 pt-3 border-t border-[#292929] flex-wrap">
                         <template x-if="t.telegramEnabled && !t.telegramConnected">
-                            <button @click="generateInvite(t.id)" class="text-[10px] font-bold text-green-400 px-2.5 py-1 rounded-lg border border-green-500/30 hover:bg-green-500/10 transition" x-text="inviteUrls[t.id] ? '✓ Скопійовано!' : 'Запросити в TG'"></button>
+                            <button @click="generateInvite(t.id)" class="text-xs font-bold text-green-400 px-2.5 py-1 rounded-lg border border-green-500/30 hover:bg-green-500/10 transition" x-text="inviteUrls[t.id] ? '✓ Скопійовано!' : 'Запросити в TG'"></button>
                         </template>
                         <div class="flex items-center gap-1 text-xs text-gray-400">
                             <span class="text-gray-500">🌍</span>
-                            <select x-model="t._editingTz" @change="saveTraineeTimezone(t)" class="text-[10px] !py-1 !px-1.5 !rounded-lg max-w-[100px] bg-[#262626] border border-[#444]"
+                            <select x-model="t._editingTz" @change="saveTraineeTimezone(t)" class="text-xs !py-1 !px-1.5 !rounded-lg max-w-[100px] bg-[#262626] border border-[#444]"
                                     :class="t._editingTz !== t.timezone ? '!border-yellow-500' : ''">
                                 <option value="Europe/Kyiv">Kyiv</option>
                                 <option value="Europe/Warsaw">Warsaw</option>
@@ -627,24 +627,24 @@
                                 <option value="America/Denver">Denver</option>
                                 <option value="America/Los_Angeles">LA</option>
                             </select>
-                            <button x-show="t._editingTz !== t.timezone" @click="t._editingTz = t.timezone" class="text-gray-500 hover:text-white text-[10px] font-bold">✕</button>
+                            <button x-show="t._editingTz !== t.timezone" @click="t._editingTz = t.timezone" class="text-gray-500 hover:text-white text-xs font-bold">✕</button>
                         </div>
-                        <button @click="generateTraineeLink(t)" class="text-[10px] font-bold text-orange-400 px-2.5 py-1 rounded-lg border border-orange-500/30 hover:bg-orange-500/10 transition">
+                        <button @click="generateTraineeLink(t)" class="text-xs font-bold text-orange-400 px-2.5 py-1 rounded-lg border border-orange-500/30 hover:bg-orange-500/10 transition">
                             <span x-text="getCopyLinkText(t.id) || '🌐 Сайт ' + (labels.trainee_gen || labels.trainee || 'учня')"></span>
                         </button>
-                        <button @click="createSessionForTrainee(t)" class="text-[10px] font-bold text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
+                        <button @click="createSessionForTrainee(t)" class="text-xs font-bold text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
                             <span x-text="(labels.create_session || 'Створити тренування')"></span>
                         </button>
                     </div>
                     <!-- Availability section -->
                     <div class="mt-3 pt-3 border-t border-[#292929]">
                         <div class="flex items-center justify-between mb-2">
-                            <span class="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Доступність</span>
+                            <span class="text-sm font-bold text-gray-500 uppercase tracking-widest">Доступність</span>
                             <div x-show="t.telegramEnabled && t.telegramConnected">
                                 <button @click="openNotifyModal(t)" 
                                         :disabled="notifyingTrainees[t.id] === true"
                                         :class="notifyingTrainees[t.id] === true ? 'text-gray-500 border-gray-500/30' : (notifySuccess[t.id] === true ? 'text-green-400 border-green-500/30' : 'text-blue-400 border-blue-500/30')"
-                                        class="px-2.5 py-1 rounded-lg text-[10px] font-bold disabled:opacity-50 cursor-pointer border">
+                                        class="px-2.5 py-1 rounded-lg text-xs font-bold disabled:opacity-50 cursor-pointer border">
                                     <span x-show="notifyingTrainees[t.id] === true" x-text="labels.sending || '...'"></span>
                                     <span x-show="notifySuccess[t.id] === true">✓</span>
                                     <span x-show="notifyingTrainees[t.id] !== true && notifySuccess[t.id] !== true" x-text="labels.notify_availability || 'Запитати доступність'"></span>
@@ -653,17 +653,17 @@
                         </div>
                         <template x-for="day in futureDays" :key="day.dateStr">
                             <div x-show="getFutureSlots(t.id, day.dateStr).length > 0" class="flex items-start gap-3 py-1.5">
-                                <span class="text-[10px] font-bold w-14 flex-shrink-0 pt-0.5" :class="day.isWeekend ? 'text-red-400' : 'text-gray-500'" x-text="day.weekday + ' ' + day.dayNum"></span>
+                                <span class="text-xs font-bold w-14 flex-shrink-0 pt-0.5" :class="day.isWeekend ? 'text-red-400' : 'text-gray-500'" x-text="day.weekday + ' ' + day.dayNum"></span>
                                 <div class="flex flex-wrap gap-1">
                                     <template x-for="slot in getFutureSlots(t.id, day.dateStr)" :key="slot.startTime">
-                                        <button @click="createFromAvailability(t.id, day.dateStr, slot.startTime, slot.endTime)" type="button" class="bg-blue-900/30 text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all"><span x-text="slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span></button>
+                                        <button @click="createFromAvailability(t.id, day.dateStr, slot.startTime, slot.endTime)" type="button" class="bg-blue-900/30 text-blue-300 text-xs font-bold px-2 py-0.5 rounded-full border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all"><span x-text="slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span></button>
                                     </template>
                                 </div>
                             </div>
                         </template>
-                        <div x-show="!traineeHasFutureAvailability(t.id)" class="text-[11px] text-gray-600 italic" x-text="labels.no_availability || 'Немає даних про доступність'"></div>
+                        <div x-show="!traineeHasFutureAvailability(t.id)" class="text-sm text-gray-600 italic" x-text="labels.no_availability || 'Немає даних про доступність'"></div>
                     </div>
-                    <div x-show="!!notifyErrors[t.id]" class="mt-2 text-[10px] text-red-400 font-medium" x-text="notifyErrors[t.id]"></div>
+                    <div x-show="!!notifyErrors[t.id]" class="mt-2 text-xs text-red-400 font-medium" x-text="notifyErrors[t.id]"></div>
                    </div>
                     </template>
                 </div>
@@ -767,7 +767,7 @@
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest">🔔 Сповіщення</h3>
             <template x-if="unreadCount > 0">
-                <button @click="markAllNotificationsRead()" class="text-[11px] font-bold text-blue-400 ">Прочитати всі</button>
+                <button @click="markAllNotificationsRead()" class="text-sm font-bold text-blue-400 ">Прочитати всі</button>
             </template>
         </div>
         <div x-show="notifications.length === 0" class="text-center py-20 text-gray-600 text-sm">Немає сповіщень.</div>
@@ -780,7 +780,7 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-bold text-white" x-text="n.title"></p>
                             <p class="text-xs text-gray-300 mt-0.5" x-text="n.message"></p>
-                            <p class="text-[10px] text-gray-400 mt-1" x-text="n.createdAt ? n.createdAt.slice(0, 16).replace('T', ' ') : ''"></p>
+                            <p class="text-xs text-gray-400 mt-1" x-text="n.createdAt ? n.createdAt.slice(0, 16).replace('T', ' ') : ''"></p>
                         </div>
                         <template x-if="!n.isRead">
                             <span class="w-2.5 h-2.5 rounded-full bg-blue-400 flex-shrink-0 mt-1.5"></span>
@@ -794,86 +794,88 @@
     <!-- ДОСТУПНІСТЬ ТРЕНЕРА -->
     <div x-show="activeTab === 'coach-availability'" class="max-w-2xl mx-auto p-4 pb-24">
 
-        <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] mb-4">
-            <div class="flex overflow-x-auto no-scrollbar space-x-2 p-2.5">
+        <div class="sticky top-0 z-10 bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] mb-4">
+            <div class="flex overflow-x-auto no-scrollbar space-x-2 p-3">
                 <template x-for="day in coachAvailDays" :key="day.ds">
                     <button @click="coachAvailSel(day.ds)"
-                            class="flex-shrink-0 flex flex-col items-center px-1.5 py-1 rounded-lg transition-all min-w-[28px] relative"
-                            :class="day.ds === coachAvailDate ? 'bg-blue-600 text-white shadow-lg' : ((dayOffs.includes(day.ds) || day.isWeekend) ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
-                        <span class="text-[6px] font-bold uppercase" x-text="day.wd"></span>
-                        <span class="text-[10px] font-black leading-tight" x-text="day.num"></span>
-                        <span class="text-[6px] font-bold" x-text="day.mo"></span>
-                        <span x-show="dayOffs.includes(day.ds)" class="text-[5px] font-black text-red-400 uppercase">✕</span>
-                        <span x-show="coachAvailHasSlots(day.ds) && !dayOffs.includes(day.ds)" class="w-0.5 h-0.5 rounded-full bg-blue-400 mt-0.5"></span>
+                            class="flex-shrink-0 flex flex-col items-center px-2.5 py-1.5 rounded-lg transition-all min-w-[36px] relative"
+                            :class="day.ds === coachAvailDate ? 'bg-blue-600 text-white shadow-lg' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
+                        <span class="text-[11px] font-bold uppercase" x-text="day.wd"></span>
+                        <span class="text-sm font-black leading-tight" x-text="day.num"></span>
+                        <span class="text-[11px] font-bold" x-text="day.mo"></span>
+                        <span x-show="coachHasRanges(day.ds)" class="w-1 h-1 rounded-full bg-blue-400 mt-1"></span>
                     </button>
                 </template>
             </div>
-            <div class="px-3 py-1.5 border-t border-[#2a2a2a] flex items-center justify-between gap-2">
-                <div class="flex items-center gap-1">
-                    <button @click="coachToggleDayOff()"
-                            :class="coachIsDayOff ? 'bg-red-600 text-white' : 'bg-[#2a2a2a] text-gray-500 hover:text-gray-300'"
-                            class="px-1.5 py-0.5 rounded-lg text-[8px] font-bold uppercase transition">
-                        <span x-text="coachIsDayOff ? '✓ Вихідний' : 'Вихідний'"></span>
+            <div class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-gray-400 uppercase">Поділитися</span>
+                    <button @click="coachCopyLink()" class="px-2.5 py-1 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-xs font-bold transition" :class="coachCopied ? 'text-green-400' : 'text-gray-300'">
+                        <span x-text="coachCopied ? '✓ Скопійовано' : 'Посиланням'"></span>
                     </button>
-                    <button @click="coachCopyLink()" class="p-1 rounded-lg hover:bg-[#333] transition" :title="coachCopied ? 'Скопійовано' : 'Посилання на розклад'">
-                        <svg class="w-3 h-3" :class="coachCopied ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                    </button>
-                    <button @click="coachCopyImageWeek()" class="p-1 rounded-lg hover:bg-[#333] transition" :title="coachImgCopiedWeek ? 'Скопійовано' : 'Картинка розкладу'">
-                        <svg class="w-3 h-3" :class="coachImgCopiedWeek ? 'text-green-400' : 'text-gray-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <button @click="coachCopyImageWeek()" class="px-2.5 py-1 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-xs font-bold transition" :class="coachImgCopiedWeek ? 'text-green-400' : 'text-gray-300'">
+                        <span x-text="coachImgCopiedWeek ? '✓ Скопійовано' : 'Картинкою'"></span>
                     </button>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span x-show="coachAvailDate === todayStr" class="text-[7px] font-black uppercase bg-blue-600 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span>
-                    <button @click="coachFillAllDay()" :disabled="coachIsDayOff" class="px-1.5 py-0.5 rounded-lg text-[8px] font-bold bg-[#2a2a2a] text-gray-400 hover:text-gray-300 transition disabled:opacity-30 disabled:cursor-not-allowed">Весь день</button>
-                    <select x-show="locations.length" x-model="coachCurLoc" class="bg-[#262626] text-gray-300 text-[10px] rounded-lg px-1.5 py-1 border border-[#444] focus:outline-none max-w-[90px]">
-                        <option :value="null">Місце</option>
-                        <template x-for="l in locations" :key="l.id">
-                            <option :value="l.id" x-text="l.name" :style="'color: ' + (l.color || '#3b82f6')"></option>
-                        </template>
-                    </select>
+                    <span x-show="coachAvailDate === todayStr" class="text-[10px] font-black uppercase bg-blue-600 text-white px-2 py-0.5 rounded-full">Сьогодні</span>
                 </div>
             </div>
-        </div>
-
-        <div x-show="coachIsDayOff" class="bg-red-900/20 border border-red-500/30 rounded-2xl p-3 text-center mb-3">
-            <p class="text-red-400 text-sm font-bold">✕ ВИХІДНИЙ</p>
-            <p class="text-gray-500 text-[10px] mt-0.5">Цього дня немає тренувань</p>
-        </div>
-
-        <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden">
-            <div class="max-h-80 overflow-y-auto no-scrollbar">
-                <template x-for="(row, ri) in coachAvailGrid" :key="ri">
-                    <div class="flex border-b border-[#1f1f1f] last:border-b-0 hover:bg-white/[0.04] transition-colors">
-                        <div class="w-12 flex-shrink-0 flex items-center justify-end pr-1.5 text-sm sm:text-base font-bold text-gray-500 select-none cursor-pointer hover:text-white transition"
-                             @click="coachAvailToggleRow(row.lbl)">
-                            <span x-text="parseInt(row.lbl)"></span>
-                        </div>
-                        <div class="flex-1 flex">
-                            <template x-for="(c, ci) in row.cells" :key="ci">
-                                <button @click="coachAvailTap(c.mm)"
-                                        class="flex-1 h-6 sm:h-7 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95 relative"
-                                        :style="coachAvailCellStyle(c.mm)"
-                                        :title="coachAvailTitleAt(c.mm)">
-                                    <span x-show="coachInSess(c.mm)"
-                                          class="absolute inset-0 flex items-center justify-center text-[6px] font-black text-white leading-tight"
-                                          style="text-shadow:0 1px 3px rgba(0,0,0,0.6)">Busy</span>
-                                    <span x-show="ci < row.cells.length - 1"
-                                          class="absolute right-0 top-0 bottom-0 flex items-center pr-1 text-[9px] font-bold text-gray-400 pointer-events-none"
-                                          x-text="ci < row.cells.length - 1 ? ':' + String(row.cells[ci+1].mm % 60) : ''"></span>
-                                </button>
-                            </template>
-                        </div>
-                    </div>
-                </template>
+            <div class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between">
+                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Інтервали доступності по локаціях</span>
+                <button @click="coachAddRange()" :disabled="coachAllCovered"
+                        class="text-xs font-bold flex items-center gap-1 transition"
+                        :class="coachAllCovered ? 'text-gray-600 cursor-not-allowed' : 'text-blue-400 hover:text-blue-300'">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Додати
+                </button>
             </div>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-gray-500">
-            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#dc2626"></span> Зайнято</span>
-            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" style="background:#3b82f6"></span> Вільно</span>
-            <template x-for="loc in locations" :key="loc.id">
-                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm" :style="'background:' + (loc.color || '#3b82f6')"></span> Вільно на <span x-text="loc.name"></span></span>
-            </template>
+        <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden mb-4">
+            <div class="p-4 space-y-3">
+                <template x-for="(r, i) in coachRanges" :key="i">
+                    <div class="flex items-center gap-2 rounded-xl p-3 transition-all duration-300 bg-[#262626]"
+                         :class="r._new ? '!bg-[#1e2a3a] !ring-2 !ring-blue-500/40' : ''"
+                         x-effect="$el.style.borderLeft = '4px solid ' + (getLocColor(r.locationId) || 'transparent')">
+                        <div class="flex-1 flex items-center gap-1">
+                             <select x-model="r.startTime" @change="onCoachAvailStartChange(i)"
+                                    x-effect="$nextTick(() => $el.value = r.startTime)"
+                                    class="bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                                <option value="" disabled>Час</option>
+                                <template x-for="t in coachStartSlots(i)" :key="t">
+                                    <option :value="t" x-text="t"></option>
+                                </template>
+                            </select>
+                            <span class="text-gray-500 text-xs">—</span>
+                            <select x-model="r.endTime" @change="coachMarkDirty()"
+                                    x-effect="$nextTick(() => $el.value = r.endTime)"
+                                    class="bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                                <option value="" disabled>Час</option>
+                                <template x-for="t in coachEndSlots(r.startTime, i)" :key="t">
+                                    <option :value="t" x-text="t"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <select x-model="r.locationId" @change="coachMarkDirty()"
+                                    x-effect="$nextTick(() => $el.value = r.locationId)"
+                                    class="bg-[#333] text-gray-300 text-xs rounded-lg px-1.5 py-1.5 border border-[#444] focus:outline-none max-w-[80px]">
+                                <option :value="null">Місце</option>
+                                <template x-for="loc in locations" :key="loc.id">
+                                    <option :value="loc.id" x-text="loc.name" :style="'color:' + (loc.color || '#3b82f6')"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <button @click="coachRemoveRange(i)" class="p-1 text-red-400 hover:text-red-300 transition flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </template>
+                <div x-show="coachRanges.length === 0" class="text-center py-4 text-gray-600 text-xs">
+                    Натисніть "Додати", щоб створити інтервал доступності
+                </div>
+            </div>
         </div>
 
         <div x-show="coachAvailHasUnsaved && !coachSaving"
@@ -895,24 +897,12 @@
             </div>
         </div>
 
-        <div x-show="coachBusySession" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="coachBusySession = null">
-            <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl">
-                <div class="p-5 border-b border-[#333] flex items-center justify-between">
-                    <h3 class="text-lg font-bold text-white truncate" x-text="coachBusySession?.title || 'Сесія'"></h3>
-                    <button @click="coachBusySession = null" class="text-gray-500 hover:text-white text-xl leading-none">&times;</button>
-                </div>
-                <div class="p-5 space-y-4">
-                    <div class="flex items-center gap-2 text-sm text-gray-400">
-                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        <span x-text="(coachBusySession?.startTime || coachBusySession?.time || '').slice(0,5) + ' — ' + (coachBusySession?.endTime || coachBusySession?.time || '').slice(0,5)"></span>
-                    </div>
-                    <div x-show="coachBusySession?.description" class="text-sm text-gray-300 bg-[#262626] rounded-xl p-3">
-                        <p x-text="coachBusySession?.description"></p>
-                    </div>
-                </div>
-                <div class="px-5 pb-5">
-                    <button @click="coachBusySession = null" class="w-full py-3 rounded-xl text-sm font-bold text-white bg-[#333] hover:bg-[#444] transition-all">Закрити</button>
-                </div>
+        <div x-show="coachSaved && !coachSaving"
+             class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+             x-cloak x-transition>
+            <div class="bg-green-600 text-white px-8 py-3.5 rounded-2xl font-bold text-sm shadow-2xl shadow-green-600/30 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                Збережено!
             </div>
         </div>
     </div>
@@ -925,48 +915,66 @@
             <h3 class="text-2xl sm:text-3xl font-bold text-white" x-text="editingSessionId ? (labels.edit || 'Редагувати') : (labels.new_session || 'Нова сесія')"></h3>
             <button x-show="editingSessionId" @click="askDeleteSession()" class="text-red-500 font-bold text-xs ">Видалити</button>
         </div>
+        <div class="border-b border-[#333] px-6 py-3">
+            <div x-ref="dateScroller" class="flex overflow-x-auto no-scrollbar space-x-2">
+                <template x-for="day in futureDays" :key="day.dateStr">
+                    <button :data-date="day.dateStr" @click="onSessionDateChange(day.dateStr)"
+                            class="flex-shrink-0 flex flex-col items-center px-2 py-1.5 rounded-xl transition-all min-w-[36px] relative"
+                            :class="day.dateStr === sessionForm.date ? 'bg-blue-600 text-white shadow-lg' : (dayOffs.includes(day.dateStr) ? 'bg-[#3a1a1a] text-red-400' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400'))">
+                        <span class="text-[10px] font-bold uppercase" x-text="day.weekday"></span>
+                        <span class="text-sm font-black leading-tight" x-text="day.dayNum"></span>
+                        <span class="text-[10px] font-bold mt-0.5" x-text="day.shortMonth || ''"></span>
+                        <span x-show="day.dateStr === todayStr" class="text-[8px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1 py-0.5 rounded-full">Сьогодні</span>
+                        <span x-show="dayOffs.includes(day.dateStr)" class="absolute top-0.5 right-1 text-[8px] font-black text-red-500">✕</span>
+                    </button>
+                </template>
+            </div>
+        </div>
         <div class="modal-body space-y-6">
-            <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-[10px] font-bold uppercase text-center">Час уже минув</div>
+            <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-xs font-bold uppercase text-center">Час уже минув</div>
             <div class="space-y-4">
-                <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_date || 'Дата'"></label><div x-ref="dateScroller" class="flex overflow-x-auto no-scrollbar space-x-2 pb-1"><template x-for="day in futureDays" :key="day.dateStr"><button :data-date="day.dateStr" @click="sessionForm.date = day.dateStr" class="flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-2xl transition-all min-w-[52px] relative" :class="day.dateStr === sessionForm.date ? 'bg-blue-600 text-white shadow-lg' : (dayOffs.includes(day.dateStr) ? 'bg-[#3a1a1a] text-red-400' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400'))"><span class="text-[8px] font-bold uppercase" x-text="day.weekday"></span><span class="text-lg font-black leading-tight" x-text="day.dayNum"></span><span class="text-[8px] font-bold mt-0.5" x-text="day.shortMonth || ''"></span><span x-show="day.dateStr === todayStr" class="text-[6px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full">Сьогодні</span><span x-show="dayOffs.includes(day.dateStr)" class="absolute top-0.5 right-1 text-[7px] font-black text-red-500">✕</span></button></template></div></div>
                 <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_name || 'Назва'"></label><input type="text" x-model="sessionForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
                 <div>
-                    <div class="flex items-center justify-between mb-3">
-                        <span class="text-xs sm:text-sm font-black text-gray-500 uppercase" x-text="labels.session_time || 'Час'"></span>
-                        <span class="text-[9px] text-gray-600 font-normal">· крок <span x-text="availStep || 30"></span> хв</span>
-                        <span x-show="sessionForm.startTime && sessionForm.endTime" class="text-sm sm:text-base font-bold text-blue-400 bg-blue-900/30 px-3 py-1.5 rounded-full" x-text="sessionForm.startTime + ' — ' + sessionForm.endTime + ' · ' + getDurationLabel()"></span>
-                        <button x-show="selectedCoachSlots.length" @click="selectedCoachSlots = []; sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400 ">Скинути</button>
-                    </div>
-                    <div class="bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] overflow-hidden max-h-72 overflow-y-auto no-scrollbar">
-                        <template x-for="(row, ri) in coachGrid" :key="ri">
-                            <div class="flex border-b border-[#1f1f1f] last:border-b-0">
-                                <div class="w-10 sm:w-12 flex-shrink-0 flex items-center justify-end pr-1 text-[9px] sm:text-[10px] font-bold text-gray-500 select-none">
-                                    <span x-text="parseInt(row.lbl)"></span>
-                                </div>
-                                <div class="flex-1 flex">
-                                    <template x-for="(c, ci) in row.cells" :key="ci">
-                                        <button @click="pickTime(c.mm)" type="button"
-                                                class="flex-1 h-7 sm:h-8 border-l border-[#1f1f1f] first:border-l-0 transition-all active:scale-95 relative"
-                                                :style="coachCellStyle(c.mm)"
-                                                x-show="!c.isPast">
-                                    <span x-show="ci < row.cells.length - 1"
-                                          class="absolute right-0 top-0 bottom-0 flex items-center pr-1 text-[9px] font-bold text-gray-400 pointer-events-none"
-                                          x-text="ci < row.cells.length - 1 ? ':' + String(row.cells[ci+1].mm % 60) : ''"></span>
-                                        </button>
-                                    </template>
-                                </div>
-                            </div>
-                        </template>
+                    <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_location || 'Локація'"></label>
+                    <div class="flex items-center gap-2">
+                        <select x-model="sessionForm.locationId" class="flex-1 text-base" @change="onSessionLocationChange()">
+                            <option :value="null" x-text="labels.no_location || 'Без місця'"></option>
+                            <template x-for="location in locations" :key="location.id">
+                                <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
+                            </template>
+                        </select>
+                        <button @click="showAvailPopup = true" type="button"
+                                :disabled="sessionForm.locationId && !coachHasLocationAvail(sessionForm.date, sessionForm.locationId)"
+                                class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition"
+                                :class="(sessionForm.locationId && !coachHasLocationAvail(sessionForm.date, sessionForm.locationId)) ? 'text-gray-600 bg-gray-800/30 cursor-not-allowed' : 'text-blue-400 bg-blue-900/30 hover:bg-blue-900/50'"
+                                x-text="labels.availability || 'Доступність'">
+                        </button>
                     </div>
                 </div>
                 <div>
-                    <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_location || 'Локація'"></label>
-                    <select x-model="sessionForm.locationId" class="w-full text-base">
-                        <option :value="null" x-text="labels.no_location || 'Без місця'"></option>
-                        <template x-for="location in locations" :key="location.id">
-                            <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
-                        </template>
-                    </select>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs sm:text-sm font-black text-gray-500 uppercase" x-text="labels.session_time || 'Час'"></span>
+                        <span class="text-[11px] text-gray-600 font-normal">· крок <span x-text="availStep || 30"></span> хв</span>
+                        <span x-show="sessionForm.startTime && sessionForm.endTime" class="text-sm sm:text-base font-bold text-blue-400 bg-blue-900/30 px-3 py-1.5 rounded-full" x-text="sessionForm.startTime + ' — ' + sessionForm.endTime + ' · ' + getDurationLabel()"></span>
+                        <button x-show="sessionForm.startTime" @click="sessionForm.startTime = null; sessionForm.endTime = null" type="button" class="text-xs font-bold text-red-400">Скинути</button>
+                    </div>
+                    <div class="flex items-center gap-2 bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] p-3">
+                        <select x-model="sessionForm.startTime" @change="onSessionStartChange()"
+                                class="flex-1 bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                            <option value="" disabled>Від</option>
+                            <template x-for="t in validStartSlots" :key="t">
+                                <option :value="t" x-text="t" :class="t.endsWith(':00') ? 'font-semibold text-blue-400' : ''"></option>
+                            </template>
+                        </select>
+                        <span class="text-gray-500 text-xs">—</span>
+                        <select x-model="sessionForm.endTime"
+                                class="flex-1 bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500">
+                            <option value="" disabled>До</option>
+                            <template x-for="t in validEndSlots" :key="t">
+                                <option :value="t" x-text="t" :class="t.endsWith(':00') ? 'font-semibold text-blue-400' : ''"></option>
+                            </template>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
@@ -1005,6 +1013,47 @@
         <div class="modal-footer flex space-x-3">
             <button @click="showModal = false; sessionValidationErrors = null" class="flex-1 py-4 font-bold text-gray-500 text-sm" x-text="labels.cancel || 'Скасувати'"></button>
             <button @click="saveSession()" :class="saveBtnClass" x-text="labels.save || 'Зберегти'"></button>
+        </div>
+    </div>
+</div>
+
+<div x-show="showAvailPopup" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition @click="showAvailPopup = false">
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-[400px] rounded-[24px] overflow-hidden shadow-2xl" @click.stop>
+        <div class="p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="text-lg font-bold text-white">
+                    <span x-text="labels.availability || 'Доступність'"></span>
+                    <span class="text-gray-500 font-normal text-sm"> · <span x-text="sessionForm.date"></span></span>
+                </h4>
+                <button @click="showAvailPopup = false" class="text-gray-500 hover:text-white transition p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div x-show="getAvailPopupRanges().length === 0" class="text-center py-8 text-gray-500 text-sm">
+                <span x-text="labels.no_avail || 'Немає встановленої доступності на цей день'"></span>
+            </div>
+            <div class="space-y-3 max-h-64 overflow-y-auto no-scrollbar pr-1">
+                <template x-for="group in getAvailPopupRanges()" :key="group.locationId || '__none__'">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span class="w-3 h-3 rounded-full flex-shrink-0" :style="'background:' + (group.locationColor || '#555')"></span>
+                            <span class="text-sm font-bold text-gray-300" x-text="group.locationName || (labels.no_location || 'Без місця')"></span>
+                        </div>
+                        <div class="space-y-1 pl-5">
+                            <template x-for="r in group.ranges" :key="r.startTime + '-' + r.endTime">
+                                <div class="flex items-center gap-2 text-sm">
+                                    <span class="text-blue-400 font-semibold" x-text="r.startTime || '...'"></span>
+                                    <span class="text-gray-600">—</span>
+                                    <span class="text-blue-400 font-semibold" x-text="r.endTime || '...'"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+        <div class="border-t border-[#333]">
+            <button @click="showAvailPopup = false" class="w-full py-4 text-sm font-bold text-white hover:bg-white/5 transition">Закрити</button>
         </div>
     </div>
 </div>

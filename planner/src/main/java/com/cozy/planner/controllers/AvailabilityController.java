@@ -104,7 +104,7 @@ public class AvailabilityController {
     }
 
     @GetMapping(path = {"/api/v1/mentors/{mentorId}/availability"})
-    public Flux<Map<String, Object>> getTraineesAvailability(@PathVariable Long mentorId,
+    public Flux<Map<String, Object>> getTraineesAvailability(@PathVariable("mentorId") Long mentorId,
                                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
                                                                 @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return traineeRepository.findAllByMentorId(mentorId)

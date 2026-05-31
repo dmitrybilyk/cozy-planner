@@ -177,7 +177,7 @@ public class MentorsApiController implements MentorsApi {
     }
 
     @GetMapping("/api/v1/mentors/{mentorId}/trainees-telegram")
-    public Mono<ResponseEntity<Flux<Map<String, Object>>>> getTraineesTelegramStatus(@PathVariable Long mentorId) {
+    public Mono<ResponseEntity<Flux<Map<String, Object>>>> getTraineesTelegramStatus(@PathVariable("mentorId") Long mentorId) {
         Flux<Map<String, Object>> result = traineeRepository.findAllByMentorId(mentorId)
                 .map(trainee -> {
                     Map<String, Object> m = new HashMap<>();

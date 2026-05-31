@@ -1,31 +1,52 @@
 let _deferredInstall = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); _deferredInstall = e; });
 
-function app() {
+function rangeApp() {
     const MON = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
     const WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
     const today = (d=>`${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')}`)(new Date);
 
     return {
-        mentorId: null, shareToken: null, shareUrl: '', copied: false, copiedToday: false, imgCopiedWeek: false, imgCopiedDay: false,
-        curDate: today, todayStr: today, days: [], grid: [],
-        cells: {}, sess: {}, locs: [], curLoc: null, trainees: [],
-        ws: null,
-        busySession: null,
+        mentorId: null, shareToken: null, shareUrl: '', copied: false,
+        curDate: today, todayStr: today, days: [],
+        ranges: [], freeAllDay: true,
+        rangesByDate: {}, freeAllDayByDate: {},
+        locs: [], trainees: [],
         mentorProfile: 'sport',
-        workStart: '09:00',
-        workEnd: '21:00',
-        availStep: 30,
         dayOffs: [],
         deferredInstallPrompt: null,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         saving: false,
+        workStart: '09:00',
+        workEnd: '21:00',
+        availStep: 30,
+        get timeSlots15() {
+            const ws = this.workStart || '09:00';
+            const we = this.workEnd || '21:00';
+            const step = this.availStep || 30;
+            return Array.from({length: 96}, (_, i) => {
+                const h = String(Math.floor(i / 4)).padStart(2, '0');
+                const m = String([0, 15, 30, 45][i % 4]).padStart(2, '0');
+                return `${h}:${m}`;
+            }).filter(t => t >= ws && t <= we)
+              .filter(t => {
+                  if (step === 60) return t.endsWith(':00');
+                  if (step === 30) return t.endsWith(':00') || t.endsWith(':30');
+                  return true;
+              });
+        },
+
+        slotToMin(t) {
+            if (!t) return 0;
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
+        },
 
         get isDayOff() { return this.dayOffs.includes(this.curDate); },
         _dirtyDates: new Set(),
         _dirtyDayOffs: [],
 
-        get hasUnsavedChanges() { return this._dirtyDates.size > 0 || this._dirtyDayOffs.length > 0; },
+        get dirty() { return this._dirtyDates.size > 0 || this._dirtyDayOffs.length > 0; },
 
         init() {
             if (_deferredInstall) this.deferredInstallPrompt = _deferredInstall;
@@ -39,111 +60,59 @@ function app() {
             this.connectWebSocket();
         },
 
-        getCurCells() { return this.cells[this.curDate] || []; },
-
-        buildGrid() {
-            const step = this.availStep || 30;
-            const [sh, sm] = this.workStart.split(':').map(Number);
-            const [eh, em] = this.workEnd.split(':').map(Number);
-            const startMin = sh * 60 + sm;
-            const endMin = eh * 60 + em;
-            const arr = [];
-            for (let m = startMin; m < endMin; m += 60) {
-                const hourEnd = Math.min(m + 60, endMin);
-                const cells = [];
-                for (let t = m; t < hourEnd; t += step) {
-                    cells.push({ mm: t });
-                }
-                if (cells.length) {
-                    arr.push({ lbl: this.title(m), cells });
-                }
-            }
-            this.grid = arr;
-        },
-
-        cellAt(mm) { return this.getCurCells().find(x => x.mm === mm); },
-
-        inSess(mm) {
-            return (this.sess[this.curDate] || []).some(s => {
-                const [sh,sm] = s.startTime.split(':').map(Number);
-                const [eh,em] = s.endTime.split(':').map(Number);
-                return mm >= sh*60+sm && mm < eh*60+em;
-            });
-        },
-
-        title(mm) {
-            return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
-        },
-
         get mentorTitle() {
             const titles = { sport:'Доступність тренера', studying:'Доступність вчителя', psychology:'Доступність психолога', other:'Доступність ментора' };
             return titles[this.mentorProfile] || titles.sport;
         },
 
-        hasDaySlots(ds) { return (this.cells[ds] || []).length > 0; },
-
-        sessionAt(mm) {
-            return (this.sess[this.curDate] || []).find(s => {
-                const [sh,sm] = s.startTime.split(':').map(Number);
-                const [eh,em] = s.endTime.split(':').map(Number);
-                return mm >= sh*60+sm && mm < eh*60+em;
-            }) || null;
+        hasRanges(ds) {
+            const fr = this.freeAllDayByDate[ds];
+            if (fr === true) return false;
+            const rr = this.rangesByDate[ds];
+            return rr && rr.length > 0;
         },
 
-        async tap(mm) {
-            const busy = this.sessionAt(mm);
-            if (busy) { this.busySession = busy; return; }
-            const arr = this.getCurCells();
-            const idx = arr.findIndex(x => x.mm === mm);
-            if (idx >= 0) {
-                arr.splice(idx, 1);
+        sel(d) {
+            console.log('[avail] sel switching from', this.curDate, 'to', d, 'current ranges:', JSON.parse(JSON.stringify(this.ranges)));
+            this.rangesByDate[this.curDate] = [...this.ranges];
+            this.freeAllDayByDate[this.curDate] = this.freeAllDay;
+            this.curDate = d;
+            const cached = this.rangesByDate[d];
+            this.ranges = cached ? [...cached] : [];
+            this.freeAllDay = this.freeAllDayByDate[d] !== undefined ? this.freeAllDayByDate[d] : true;
+            console.log('[avail] sel done, new ranges:', JSON.parse(JSON.stringify(this.ranges)));
+        },
+
+        addRange() {
+            this.ranges.push({ startTime: '09:15', endTime: '17:45', locationId: null });
+            this.markDirty();
+        },
+
+        removeRange(i) {
+            this.ranges.splice(i, 1);
+            this.markDirty();
+        },
+
+        onAvailStartChange(i) {
+            const r = this.ranges[i];
+            if (r && r.startTime) r._new = false;
+            this.markDirty();
+        },
+
+        markDirty() {
+            console.log('[avail] markDirty date:', this.curDate, 'prev size:', this._dirtyDates.size);
+            this._dirtyDates.add(this.curDate);
+        },
+
+        onFreeAllDayToggle() {
+            if (this.freeAllDay) {
+                this.ranges = [];
             } else {
-                arr.push({ mm, locId: this.curLoc ? Number(this.curLoc) : null });
+                if (this.ranges.length === 0) {
+                    this.ranges.push({ startTime: '09:15', endTime: '17:45', locationId: null });
+                }
             }
-            this.cells[this.curDate] = [...arr];
             this._dirtyDates.add(this.curDate);
-        },
-
-        cellStyle(mm) {
-            if (this.isDayOff) return 'background:#2a1a1a';
-            if (this.inSess(mm)) return 'background:#dc2626';
-            const c = this.cellAt(mm);
-            if (!c) return 'background:#2a2a2a';
-            if (c.locId != null && this.locs.length) {
-                const l = this.locs.find(x => Number(x.id) === Number(c.locId));
-                if (l && l.color) return `background:${l.color}`;
-            }
-            return 'background:#3b82f6';
-        },
-
-        sel(d) { this.curDate = d; },
-
-        toggleRow(lbl) {
-            const hour = parseInt(lbl);
-            const row = this.grid.find(r => parseInt(r.lbl) === hour);
-            if (!row) return;
-            row.cells.forEach(c => this.tap(c.mm));
-        },
-
-        async saveStep() {
-            this.buildGrid();
-            this._dirtyDates.add(this.curDate);
-            await fetch('/api/v1/mentor/profile', {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({availStep: String(this.availStep)})
-            });
-            if (confirm('Крок змінено. Оновити сторінку?')) location.reload();
-        },
-
-        async saveWorkRange() {
-            this.buildGrid();
-            this._dirtyDates.add(this.curDate);
-            await fetch('/api/v1/mentor/profile', {
-                method: 'PUT',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({workStart: this.workStart, workEnd: this.workEnd})
-            });
         },
 
         toggleDayOff() {
@@ -153,86 +122,97 @@ function app() {
                 this._dirtyDayOffs.push({ date: this.curDate, action: 'remove' });
             } else {
                 this.dayOffs.push(this.curDate);
-                this.cells[this.curDate] = [];
+                this.ranges = [];
+                this.freeAllDay = true;
                 this._dirtyDayOffs.push({ date: this.curDate, action: 'add' });
+                this._dirtyDates.delete(this.curDate);
             }
-            this._dirtyDates.delete(this.curDate);
         },
 
-        fillAllDay() {
-            const step = this.availStep || 30;
-            const [sh, sm] = this.workStart.split(':').map(Number);
-            const [eh, em] = this.workEnd.split(':').map(Number);
-            const startMin = sh * 60 + sm;
-            const endMin = eh * 60 + em;
-            const cur = this.getCurCells();
-            const freeSlots = [];
-            for (let m = startMin; m < endMin; m += step) {
-                if (!this.inSess(m)) freeSlots.push(m);
-            }
-            const allFilled = freeSlots.every(mm => cur.some(c => c.mm === mm));
-            if (allFilled) {
-                this.cells[this.curDate] = cur.filter(c => this.inSess(c.mm));
-                this._dirtyDates.add(this.curDate);
-            } else {
-                const filled = cur.filter(c => this.inSess(c.mm));
-                for (const mm of freeSlots) {
-                    if (!filled.some(c => c.mm === mm)) {
-                        filled.push({ mm, locId: this.curLoc ? Number(this.curLoc) : null });
-                    }
+        getLocName(id) { return id ? (this.locs.find(l => Number(l.id) === Number(id))?.name || '') : ''; },
+        getLocColor(id) { return id ? (this.locs.find(l => Number(l.id) === Number(id))?.color || null) : null; },
+        timeOptionsAfter(fromTime) {
+            if (!fromTime) return this.timeSlots15;
+            return this.timeSlots15.filter(t => t > fromTime);
+        },
+
+        startSlots(excludeIndex) {
+            const we = this.workEnd || '21:00';
+            return this.timeSlots15.filter(t => {
+                if (t >= we) return false;
+                const tm = this.slotToMin(t);
+                for (let i = 0; i < this.ranges.length; i++) {
+                    if (i === excludeIndex) continue;
+                    const r = this.ranges[i];
+                    if (!r.startTime || !r.endTime) continue;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    if (tm >= rs && tm < re) return false;
                 }
-                this.cells[this.curDate] = filled;
-                this._dirtyDates.add(this.curDate);
-            }
+                return true;
+            });
+        },
+
+        endSlots(startTime, excludeIndex) {
+            if (!startTime) return this.timeOptionsAfter(startTime);
+            const sm = this.slotToMin(startTime);
+            return this.timeOptionsAfter(startTime).filter(t => {
+                const tm = this.slotToMin(t);
+                for (let i = 0; i < this.ranges.length; i++) {
+                    if (i === excludeIndex) continue;
+                    const r = this.ranges[i];
+                    if (!r.startTime || !r.endTime) continue;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    if (sm < re && tm > rs) return false;
+                }
+                return true;
+            });
         },
 
         async saveAll() {
             if (this.saving) return;
             this.saving = true;
+            this.rangesByDate[this.curDate] = [...this.ranges];
+            this.freeAllDayByDate[this.curDate] = this.freeAllDay;
             try {
-                for (const { date } of this._dirtyDayOffs) {
+                for (const { date, action } of this._dirtyDayOffs) {
                     await fetch('/api/v1/coach/day-off', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ date })
+                        body: JSON.stringify({ date, action })
                     });
                 }
                 for (const date of this._dirtyDates) {
-                    const arr = this.cells[date] || [];
-                    if (!arr.length) {
-                        await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
-                    } else {
-                        const step = this.availStep || 30;
-                        const sorted = [...arr].sort((a,b) => a.mm - b.mm);
-                        const merged = [];
-                        let cs = sorted[0].mm, ce = sorted[0].mm + step, cl = sorted[0].locId;
-                        for (let i = 1; i < sorted.length; i++) {
-                            if (sorted[i].mm === ce && sorted[i].locId === cl) {
-                                ce = sorted[i].mm + step;
-                            } else {
-                                merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
-                                cs = sorted[i].mm; ce = sorted[i].mm + step; cl = sorted[i].locId;
-                            }
-                        }
-                        merged.push({ date, startTime: this.minStr(cs), endTime: this.minStr(ce), locationId: cl || null });
-                        await fetch('/api/v1/coach/availability', {
-                            method:'POST',
-                            headers:{'Content-Type':'application/json'},
-                            body:JSON.stringify(merged)
-                        });
-                    }
+                    const cached = this.rangesByDate[date];
+                    const isFreeAllDay = this.freeAllDayByDate[date] !== undefined ? this.freeAllDayByDate[date] : true;
+                    const ranges = isFreeAllDay ? [] : (cached || []);
+                    await fetch('/api/v1/availability/ranges', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: this.mentorId,
+                            userType: 'COACH',
+                            date,
+                            ranges: ranges.map(r => ({
+                                startTime: r.startTime,
+                                endTime: r.endTime,
+                                locationId: r.locationId || null
+                            }))
+                        })
+                    });
                 }
                 this._dirtyDates.clear();
                 this._dirtyDayOffs = [];
-                if (!this.shareToken) await this.mkToken();
-            } catch(e) { console.error('[coach] saveAll error', e); }
+                this.saved = true;
+                this.savedMessage = 'Збережено!';
+                setTimeout(() => this.saved = false, 3000);
+            } catch(e) { console.error('[save] error', e); }
             finally { this.saving = false; }
         },
 
         async load() {
-            const r = await fetch('/api/v1/me');
-            if (!r.ok) { window.location.href = '/signin'; return; }
-            const me = await r.json();
+            const me = await (await fetch('/api/v1/me')).json();
             if (!me.mentor || me.mentor.id < 0) { window.location.href = '/signin'; return; }
             this.mentorId = me.mentor.id;
             this.mentorProfile = me.mentor.profile || 'sport';
@@ -241,50 +221,46 @@ function app() {
             this.availStep = me.mentor.availStep || 30;
             this.shareToken = me.mentor.shareToken;
             if (this.shareToken) this.shareUrl = window.location.origin + '/shared/' + this.shareToken;
-            this.buildGrid();
 
             const sd = this.days[0].ds, ed = this.days[this.days.length-1].ds;
-            const [lr, ar, sr, dr] = await Promise.all([
+            const [lr, rr, dr] = await Promise.all([
                 fetch(`/api/v1/mentors/${this.mentorId}/locations`),
-                fetch(`/api/v1/coach/availability?startDate=${sd}&endDate=${ed}`),
-                fetch(`/api/v1/coach/sessions?startDate=${sd}&endDate=${ed}`),
+                fetch(`/api/v1/availability/ranges?userId=${this.mentorId}&userType=COACH&startDate=${sd}&endDate=${ed}`),
                 fetch(`/api/v1/coach/day-off?startDate=${sd}&endDate=${ed}`)
             ]);
-            if (lr.ok) { this.locs = await lr.json(); if (this.locs.length === 1) this.curLoc = this.locs[0].id; }
+            if (lr.ok) { this.locs = await lr.json(); }
             if (dr.ok) this.dayOffs = await dr.json();
 
             const tr = await fetch(`/api/v1/mentors/${this.mentorId}/trainees`);
             if (tr.ok) this.trainees = await tr.json();
 
-            if (ar.ok) {
-                const step = this.availStep || 30;
-                const g = {};
-                for (const i of await ar.json()) {
-                    if (!g[i.date]) g[i.date] = [];
-                    const [sh,sm] = i.startTime.split(':').map(Number);
-                    const [eh,em] = i.endTime.split(':').map(Number);
-                    let t = sh*60+sm, end = eh*60+em;
-                    while (t < end) {
-                        g[i.date].push({ mm: t, locId: i.locationId });
-                        t += step;
-                    }
-                }
-                this.cells = g;
+            const rangesByDate = {};
+            const freeAllDayByDate = {};
+            for (const d of this.days) {
+                rangesByDate[d.ds] = [];
+                freeAllDayByDate[d.ds] = true;
             }
-
-            if (sr.ok) {
-                const g = {};
-                for (const i of await sr.json()) {
-                    if (!g[i.date]) g[i.date] = [];
-                    g[i.date].push(i);
+            if (rr.ok) {
+                const data = await rr.json();
+                console.log('[avail] API raw ranges response:', JSON.parse(JSON.stringify(data)));
+                for (const item of data) {
+                    if (!rangesByDate[item.date]) rangesByDate[item.date] = [];
+                    rangesByDate[item.date].push({
+                        startTime: (item.startTime || '').replace(/:00$/, ''),
+                        endTime: (item.endTime || '').replace(/:00$/, ''),
+                        locationId: item.locationId
+                    });
+                    freeAllDayByDate[item.date] = false;
                 }
-                this.sess = g;
             }
+            this.rangesByDate = rangesByDate;
+            this.freeAllDayByDate = freeAllDayByDate;
+            this.ranges = [...(rangesByDate[this.curDate] || [])];
+            this.freeAllDay = freeAllDayByDate[this.curDate] !== undefined ? freeAllDayByDate[this.curDate] : true;
+            console.log('[avail] after load, ranges:', JSON.parse(JSON.stringify(this.ranges)), 'date:', this.curDate);
             this._dirtyDates.clear();
             this._dirtyDayOffs = [];
         },
-
-        minStr(m) { return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`; },
 
         connectWebSocket() {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -292,131 +268,35 @@ function app() {
             const ws = new WebSocket(wsUrl);
             ws.onmessage = (event) => {
                 if (this.saving) return;
-                if (event.data === 'coach_availability_changed' || event.data === 'session_changed' || event.data === 'location_changed') {
+                if (event.data === 'coach_availability_changed' || event.data === 'availability_changed' || event.data === 'session_changed' || event.data === 'location_changed') {
                     console.log('[coach] reloading from ws:', event.data);
                     this.load();
                 }
             };
-            ws.onclose = () => setTimeout(() => this.connectWebSocket(), 3000);
-            ws.onerror = () => ws.close();
+            ws.onopen = () => console.log('[coach] ws connected');
+            ws.onerror = () => console.log('[coach] ws error');
             this.ws = ws;
         },
 
-        async mkToken() {
-            if (this.shareToken) return;
-            const r = await fetch('/api/v1/coach/share-token', { method:'POST' });
-            if (r.ok) { const d = await r.json(); this.shareToken = d.shareToken; this.shareUrl = window.location.origin + '/shared/' + this.shareToken; }
+        copyLink() {
+            if (this.shareUrl) {
+                navigator.clipboard.writeText(this.shareUrl).catch(() => {});
+                this.copied = true;
+                setTimeout(() => this.copied = false, 2000);
+            }
         },
 
-        async copyTodayLink() {
-            if (!this.shareToken) await this.mkToken();
-            if (!this.shareUrl) return;
-            const url = this.shareUrl + '?date=' + this.todayStr;
-            try { await navigator.clipboard.writeText(url); this.copiedToday = true; setTimeout(() => this.copiedToday = false, 2000); }
-            catch(e) { prompt('Скопіюйте:', url); }
-        },
-        async copyLink() {
-            if (!this.shareToken) await this.mkToken();
-            if (!this.shareUrl) return;
-            try { await navigator.clipboard.writeText(this.shareUrl); this.copied = true; setTimeout(() => this.copied = false, 2000); }
-            catch(e) { prompt('Скопіюйте:', this.shareUrl); }
-        },
-        async copyImageWeek() {
-            if (!this.shareToken) await this.mkToken();
-            if (!this.shareToken) return;
-            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image';
-            try { await navigator.clipboard.writeText(imgUrl); this.imgCopiedWeek = true; setTimeout(() => this.imgCopiedWeek = false, 3000); }
-            catch(e) { prompt('Скопіюйте посилання на картинку:', imgUrl); }
-        },
-        async copyImageDay() {
-            if (!this.shareToken) await this.mkToken();
-            if (!this.shareToken) return;
-            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.todayStr;
-            try { await navigator.clipboard.writeText(imgUrl); this.imgCopiedDay = true; setTimeout(() => this.imgCopiedDay = false, 3000); }
-            catch(e) { prompt('Скопіюйте посилання на картинку:', imgUrl); }
-        },
         getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
-        getTraineeConfirmStatus(traineeId, session) {
-            const confirmed = (session.confirmedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
-            const rejected = (session.rejectedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
-            if (confirmed.includes(traineeId)) return 'confirmed';
-            if (rejected.includes(traineeId)) return 'rejected';
-            return 'none';
-        },
-        isTraineeTelegramConnected(traineeId) {
-            const t = this.trainees.find(a => a.id == traineeId);
-            return t && t.telegramConnected;
-        },
-        async toggleTraineeConfirm(traineeId, session) {
-            const status = this.getTraineeConfirmStatus(traineeId, session);
-            if (status === 'confirmed') {
-                await this.rejectTrainee(traineeId);
-            } else if (status === 'rejected') {
-                await this.unrejectTrainee(traineeId);
-            } else {
-                await this.confirmTrainee(traineeId);
-            }
-        },
-        async confirmTrainee(traineeId) {
-            if (!this.busySession) return;
-            const sid = this.busySession.id;
-            await fetch(`/api/v1/sessions/${sid}/confirm-trainee/${traineeId}`, { method: 'POST' });
-            await this.load();
-            this.busySession = this._findSessById(sid);
-        },
-        async unconfirmTrainee(traineeId) {
-            if (!this.busySession) return;
-            const sid = this.busySession.id;
-            await fetch(`/api/v1/sessions/${sid}/unconfirm-trainee/${traineeId}`, { method: 'POST' });
-            await this.load();
-            this.busySession = this._findSessById(sid);
-        },
-        async rejectTrainee(traineeId) {
-            if (!this.busySession) return;
-            const sid = this.busySession.id;
-            await fetch(`/api/v1/sessions/${sid}/reject-trainee/${traineeId}`, { method: 'POST' });
-            await this.load();
-            this.busySession = this._findSessById(sid);
-        },
-        async unrejectTrainee(traineeId) {
-            if (!this.busySession) return;
-            const sid = this.busySession.id;
-            await fetch(`/api/v1/sessions/${sid}/unreject-trainee/${traineeId}`, { method: 'POST' });
-            await this.load();
-            this.busySession = this._findSessById(sid);
-        },
-        allTraineesConfirmed(session) {
-            const ids = session.traineeIds || [];
-            if (ids.length === 0) return false;
-            return ids.every(id => this.getTraineeConfirmStatus(id, session) === 'confirmed');
-        },
-        someTraineesConfirmed(session) {
-            const ids = session.traineeIds || [];
-            if (ids.length === 0) return false;
-            return ids.some(id => this.getTraineeConfirmStatus(id, session) === 'confirmed') && !this.allTraineesConfirmed(session);
-        },
-        async requestTraineeConfirmationForTrainee(traineeId) {
-            if (!this.busySession) return;
-            const sid = this.busySession.id;
-            await fetch(`/api/v1/sessions/${sid}/request-trainee-confirmation/${traineeId}`, { method: 'POST' });
-            await this.load();
-            this.busySession = this._findSessById(sid);
-        },
-        _findSessById(id) {
-            for (const dateKey in this.sess) {
-                const found = this.sess[dateKey].find(s => s.id === id);
-                if (found) return found;
-            }
-            return null;
-        },
+
         async installPwa() {
             const prompt = this.deferredInstallPrompt || _deferredInstall;
             if (prompt) {
                 prompt.prompt();
                 const result = await prompt.userChoice;
+                if (result.outcome === 'accepted') console.log('PWA installed');
                 this.deferredInstallPrompt = null;
                 _deferredInstall = null;
             }
         }
-    }
+    };
 }

@@ -90,6 +90,7 @@ sourceSets {
 
 idea {
 	module {
+		generatedSourceDirs.add(file("build/generated-sources/src/main/java"))
 		generatedSourceDirs.add(file("build/generated/aotSources"))
 	}
 }

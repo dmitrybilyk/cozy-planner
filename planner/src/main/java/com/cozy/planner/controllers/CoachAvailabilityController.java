@@ -1,10 +1,12 @@
 package com.cozy.planner.controllers;
 
+import com.cozy.planner.model.entity.AvailabilityRange;
 import com.cozy.planner.model.entity.Location;
 import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.MentorAvailability;
 import com.cozy.planner.model.entity.MentorDayOff;
 import com.cozy.planner.model.entity.Session;
+import com.cozy.planner.repositories.AvailabilityRangeRepository;
 import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.MentorAvailabilityRepository;
 import com.cozy.planner.repositories.MentorDayOffRepository;
@@ -22,8 +24,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.security.SecureRandom;
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RestController
@@ -31,6 +33,7 @@ public class CoachAvailabilityController {
 
     private final MentorRepository mentorRepository;
     private final MentorAvailabilityRepository availabilityRepository;
+    private final AvailabilityRangeRepository rangeRepository;
     private final MentorDayOffRepository dayOffRepository;
     private final SessionRepository sessionRepository;
     private final LocationRepository locationRepository;
@@ -40,12 +43,14 @@ public class CoachAvailabilityController {
 
     public CoachAvailabilityController(MentorRepository mentorRepository,
                                        MentorAvailabilityRepository availabilityRepository,
+                                       AvailabilityRangeRepository rangeRepository,
                                        MentorDayOffRepository dayOffRepository,
                                        SessionRepository sessionRepository,
                                        LocationRepository locationRepository,
                                        EventBroadcastService eventService) {
         this.mentorRepository = mentorRepository;
         this.availabilityRepository = availabilityRepository;
+        this.rangeRepository = rangeRepository;
         this.dayOffRepository = dayOffRepository;
         this.sessionRepository = sessionRepository;
         this.locationRepository = locationRepository;
@@ -62,8 +67,8 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/coach/availability")
     public Flux<MentorAvailability> getCoachAvailability(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             ServerWebExchange exchange) {
         return getMentorId(exchange)
                 .flatMapMany(mentorId -> availabilityRepository.findByMentorIdAndDateBetween(mentorId, startDate, endDate));
@@ -129,8 +134,8 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/coach/day-off")
     public Flux<LocalDate> getDayOffs(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             ServerWebExchange exchange) {
         return getMentorId(exchange)
                 .flatMapMany(mentorId -> dayOffRepository.findByMentorIdAndDateBetween(mentorId, startDate, endDate)
@@ -169,8 +174,8 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/coach/sessions")
     public Flux<Map<String, Object>> getCoachSessions(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             ServerWebExchange exchange) {
         return getMentorId(exchange)
                 .flatMapMany(mentorId -> sessionRepository
@@ -211,17 +216,18 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/shared/{shareToken}")
     public Mono<ResponseEntity<Map<String, Object>>> getSharedAvailability(@PathVariable String shareToken,
-                                                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                                                                             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+              @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                              @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+                                                                             @RequestParam(required = false) String timezone) {
         return mentorRepository.findByShareToken(shareToken)
                 .flatMap(mentor -> {
+                    ZoneId viewerZone = timezone != null ? ZoneId.of(timezone)
+                            : ZoneId.of(mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
                     Set<Long> locationIds = new HashSet<>();
                     return dayOffRepository.findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
                             .map(MentorDayOff::getDate)
                             .collectList()
-                            .flatMap(dayOffDates -> availabilityRepository
-                                    .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
-                                    .collectList()
+                            .flatMap(dayOffDates -> loadFreeSlotsForMentor(mentor, startDate, endDate, viewerZone)
                                     .flatMap(slots -> sessionRepository
                                             .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
                                             .collectList()
@@ -253,6 +259,72 @@ public class CoachAvailabilityController {
                             );
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    private Mono<List<MentorAvailability>> loadFreeSlotsForMentor(Mentor mentor, LocalDate startDate, LocalDate endDate) {
+        ZoneId coachZone = ZoneId.of(mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
+        return loadFreeSlotsForMentor(mentor, startDate, endDate, coachZone);
+    }
+
+    private Mono<List<MentorAvailability>> loadFreeSlotsForMentor(Mentor mentor, LocalDate startDate, LocalDate endDate, ZoneId targetZone) {
+        LocalTime ws = LocalTime.parse(mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
+        LocalTime we = LocalTime.parse(mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "21:00");
+        long mentorId = mentor.getId();
+
+        return rangeRepository.findByUserIdAndUserTypeAndDateBetween(mentorId, "COACH", startDate, endDate)
+                .collectList()
+                .flatMap(ranges -> {
+                    if (ranges.isEmpty()) {
+                        return availabilityRepository.findByMentorIdAndDateBetween(mentorId, startDate, endDate)
+                                .collectList()
+                                .map(old -> old.isEmpty()
+                                        ? makeDefaultSlots(mentorId, startDate, endDate, ws, we)
+                                        : old);
+                    }
+                    return Mono.just(mergeRanges(mentorId, startDate, endDate, ws, we, ranges, targetZone));
+                });
+    }
+
+    private static List<MentorAvailability> makeDefaultSlots(long mentorId, LocalDate start, LocalDate end,
+                                                              LocalTime ws, LocalTime we) {
+        List<MentorAvailability> list = new ArrayList<>();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            list.add(newSlot(mentorId, d, ws, we, null));
+        }
+        return list;
+    }
+
+    private static List<MentorAvailability> mergeRanges(long mentorId, LocalDate start, LocalDate end,
+                                                         LocalTime ws, LocalTime we,
+                                                         List<AvailabilityRange> ranges, ZoneId targetZone) {
+        Map<LocalDate, List<AvailabilityRange>> byDate = new HashMap<>();
+        for (AvailabilityRange r : ranges) {
+            byDate.computeIfAbsent(r.getDate(), k -> new ArrayList<>()).add(r);
+        }
+        List<MentorAvailability> result = new ArrayList<>();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            List<AvailabilityRange> dayRanges = byDate.get(d);
+            if (dayRanges != null) {
+                for (AvailabilityRange r : dayRanges) {
+                    LocalTime localStart = r.getStartTime().atZoneSameInstant(targetZone).toLocalTime();
+                    LocalTime localEnd = r.getEndTime().atZoneSameInstant(targetZone).toLocalTime();
+                    result.add(newSlot(mentorId, d, localStart, localEnd, r.getLocationId()));
+                }
+            } else {
+                result.add(newSlot(mentorId, d, ws, we, null));
+            }
+        }
+        return result;
+    }
+
+    private static MentorAvailability newSlot(long mentorId, LocalDate date, LocalTime start, LocalTime end, Long locId) {
+        MentorAvailability ma = new MentorAvailability();
+        ma.setMentorId(mentorId);
+        ma.setDate(date);
+        ma.setStartTime(start);
+        ma.setEndTime(end);
+        ma.setLocationId(locId);
+        return ma;
     }
 
     @SuppressWarnings("unchecked")
@@ -295,8 +367,8 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/shared/{shareToken}/mentor")
     public Mono<ResponseEntity<Map<String, Object>>> getSharedMentorInfo(@PathVariable String shareToken,
-                                                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-                                                                          @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+                                                                           @RequestParam(name = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                                                                           @RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return mentorRepository.findByShareToken(shareToken)
                 .flatMap(mentor -> {
                     Map<String, Object> body = new HashMap<>();
@@ -320,9 +392,12 @@ public class CoachAvailabilityController {
 
     @GetMapping("/api/v1/shared/{shareToken}/image")
     public Mono<ResponseEntity<byte[]>> getSharedAvailabilityImage(@PathVariable String shareToken,
-                                                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                                                                        @RequestParam(name = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                                                       @RequestParam(required = false) String timezone) {
         return mentorRepository.findByShareToken(shareToken)
                 .flatMap(mentor -> {
+                    ZoneId viewerZone = timezone != null ? ZoneId.of(timezone)
+                            : ZoneId.of(mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
                     LocalDate today = LocalDate.now();
                     LocalDate startDate = date != null ? date : today;
                     LocalDate endDate = date != null ? date : today.plusDays(13);
@@ -330,9 +405,7 @@ public class CoachAvailabilityController {
                     return dayOffRepository.findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
                             .map(MentorDayOff::getDate)
                             .collectList()
-                            .flatMap(dayOffDates -> availabilityRepository
-                                    .findByMentorIdAndDateBetween(mentor.getId(), startDate, endDate)
-                                    .collectList()
+                            .flatMap(dayOffDates -> loadFreeSlotsForMentor(mentor, startDate, endDate, viewerZone)
                                     .flatMap(slots -> sessionRepository
                                             .findAllByMentorIdAndWorkoutDateBetween(mentor.getId(), startDate, endDate)
                                             .collectList()

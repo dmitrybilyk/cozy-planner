@@ -20,11 +20,30 @@ function calendarApp() {
         hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
         halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
-        coachGrid: [],
-        coachAvailByDate: {},
+        get timeSlots15() {
+            const ws = this.workStart || '09:00';
+            const we = this.workEnd || '21:00';
+            const step = this.availStep || 30;
+            return Array.from({length: 96}, (_, i) => {
+                const h = String(Math.floor(i / 4)).padStart(2, '0');
+                const m = String([0, 15, 30, 45][i % 4]).padStart(2, '0');
+                return `${h}:${m}`;
+            }).filter(t => t >= ws && t <= we)
+              .filter(t => {
+                  if (step === 60) return t.endsWith(':00');
+                  if (step === 30) return t.endsWith(':00') || t.endsWith(':30');
+                  return true;
+              });
+        },
+        get validStartSlots() {
+            return this.computeValidSessionSlots(this.sessionForm.date);
+        },
+        get validEndSlots() {
+            if (!this.sessionForm.startTime) return [];
+            return this.computeValidSessionEndSlots(this.sessionForm.date, this.sessionForm.startTime);
+        },
         selectedTraineeFilters: [], traineeSearch: '',
         sessionForm: { title: '', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
-        selectedCoachSlots: [],
         traineeForm: { name: '', description: '', photoBase64: null },
         locationForm: { name: '', description: '', color: '#3b82f6' },
         confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
@@ -38,7 +57,7 @@ function calendarApp() {
         _nowTimer: null,
         nowTick: 0,
         pastDaysToShow: 0,
-        loading: false,
+        loading: true,
         loadingMore: false,
         agendaReady: false,
         loadedDates: {},
@@ -70,18 +89,17 @@ function calendarApp() {
         loadingMorePast: false,
         coachAvailDate: _today,
         coachAvailDays: [],
-        coachAvailGrid: [],
-        coachCells: {},
+        coachRanges: [],
+        coachRangesByDate: {},
         coachSess: {},
-        coachCurLoc: null,
-        coachBusySession: null,
         coachSaving: false,
+        coachLoaded: false,
         coachDirtyDates: new Set(),
-        coachDirtyDayOffs: [],
         coachCopied: false,
         coachImgCopiedWeek: false,
-        coachLoaded: false,
+        coachSaved: false,
         sessionValidationErrors: null,
+        showAvailPopup: false,
         compactView: true,
         expandedIds: [],
         collapsedIds: [],
@@ -233,6 +251,9 @@ function calendarApp() {
                 await this.fetchDayOffs();
                 console.log('fetchDayOffs done');
 
+                await this.loadCoachAvailabilityData();
+                console.log('loadCoachAvailabilityData done');
+
                 await this.fetchMentorTelegramStatus();
                 console.log('fetchMentorTelegramStatus done');
 
@@ -241,16 +262,14 @@ function calendarApp() {
                 this.connectWebSocket();
                 this.registerPush();
                 setInterval(() => this.loadNotifications(), 30000);
-                this.buildCoachGrid();
-                this.$watch('sessionForm.date', (value) => {
-                    if (value) this.buildCoachGrid(value);
-                });
                 this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
                 this._nowTimer = setInterval(() => { this.nowTick++; }, 30000);
                 console.log('init() complete!');
             } catch (e) {
                 console.error('init() error:', e);
+            } finally {
+                this.loading = false;
             }
         },
 
@@ -275,7 +294,7 @@ function calendarApp() {
                     case 'trainee_changed': this.fetchTrainees(); this.fetchSessionCounts(); this.fetchData(); break;
                     case 'location_changed': this.fetchLocations(); this.fetchSessionCounts(); this.fetchData(); break;
                     case 'availability_changed': this.fetchAvailability(); break;
-                    case 'coach_availability_changed': this.fetchDayOffs(); this.buildCoachGrid(); break;
+                    case 'coach_availability_changed': this.fetchDayOffs(); this.loadCoachAvailabilityData(); break;
                     case 'mentor_changed': this.fetchMentorTelegramStatus(); this.fetchTrainees(); break;
                 }
             };
@@ -439,86 +458,6 @@ function calendarApp() {
             window.open(url, '_blank');
         },
 
-        buildCoachGrid(dateStr) {
-            this.coachGrid = [];
-            const step = this.availStep || 30;
-            const [sh, sm] = (this.workStart || '09:00').split(':').map(Number);
-            const [eh, em] = (this.workEnd || '21:00').split(':').map(Number);
-            const startMin = sh * 60 + sm;
-            const endMin = eh * 60 + em;
-            const now = new Date();
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const today = this.todayStr;
-            for (let m = startMin; m < endMin; m += 60) {
-                const hourEnd = Math.min(m + 60, endMin);
-                const cells = [];
-                for (let t = m; t < hourEnd; t += step) {
-                    let isPast = false;
-                    if (dateStr && dateStr < today) {
-                        isPast = true;
-                    } else if (dateStr === today) {
-                        isPast = t <= currentMinutes;
-                    }
-                    cells.push({ mm: t, isPast });
-                }
-                if (cells.length) {
-                    this.coachGrid.push({ lbl: `${String(Math.floor(m / 60)).padStart(2, '0')}:00`, cells });
-                }
-            }
-            this.loadCoachAvail(dateStr);
-        },
-
-        async loadCoachAvail(dateStr) {
-            if (!dateStr) return;
-            const step = this.availStep || 30;
-            try {
-                const r = await fetch(`/api/v1/coach/availability?startDate=${dateStr}&endDate=${dateStr}`);
-                if (!r.ok) return;
-                const data = (await r.json()).filter(x => x.date === dateStr);
-                const cells = {};
-                for (const item of data) {
-                    const [sh, sm] = item.startTime.split(':').map(Number);
-                    const [eh, em] = item.endTime.split(':').map(Number);
-                    let t = sh * 60 + sm, end = eh * 60 + em;
-                    while (t < end) {
-                        cells[t] = item.locationId || null;
-                        t += step;
-                    }
-                }
-                this.coachAvailByDate[dateStr] = cells;
-            } catch (e) {
-                console.error('loadCoachAvail failed', e);
-            }
-        },
-
-        async loadCoachAvail(dateStr) {
-            if (!dateStr) return;
-            const step = this.availStep || 30;
-            try {
-                const r = await fetch(`/api/v1/coach/availability?startDate=${dateStr}&endDate=${dateStr}`);
-                if (!r.ok) return;
-                const data = (await r.json()).filter(x => x.date === dateStr);
-                const cells = {};
-                for (const item of data) {
-                    const [sh, sm] = item.startTime.split(':').map(Number);
-                    const [eh, em] = item.endTime.split(':').map(Number);
-                    let t = sh * 60 + sm, end = eh * 60 + em;
-                    while (t < end) {
-                        cells[t] = item.locationId || null;
-                        t += step;
-                    }
-                }
-                this.coachAvailByDate[dateStr] = cells;
-            } catch (e) {
-                console.error('loadCoachAvail failed', e);
-            }
-        },
-
-        getCoachAvailLocId(date, mm) {
-            const cells = this.coachAvailByDate[date];
-            if (!cells) return null;
-            return cells[mm] || null;
-        },
         initTouchDrag() {
             const container = document.querySelector('main') || document.body;
             if (!container) return;
@@ -870,16 +809,6 @@ function calendarApp() {
             return false;
         },
 
-        isSlotPast(t) {
-            if (this.sessionForm.date < this.todayStr) return true;
-            if (this.sessionForm.date === this.todayStr) {
-                const now = new Date();
-                const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                return this.slotToMin(t) <= currentMinutes;
-            }
-            return false;
-        },
-
         async fetchSessionCounts() {
             if (!this.mentorId) return;
             const startDate = this.days[0].dateStr;
@@ -1194,7 +1123,6 @@ function calendarApp() {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({workStart: this.workStart, workEnd: this.workEnd})
             });
-            this.buildCoachGrid();
         },
 
         async saveAvailStep() {
@@ -1361,8 +1289,8 @@ function calendarApp() {
             this.updateSessionTitleFromTrainees();
         },
         getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
-        getLocationName(id) { return this.locations.find(l => l.id === id)?.name || ''; },
-        getLocationColor(id) { return this.locations.find(l => l.id === id)?.color || '#3b82f6'; },
+        getLocationName(id) { return this.locations.find(l => l.id == id)?.name || ''; },
+        getLocationColor(id) { return this.locations.find(l => l.id == id)?.color || '#3b82f6'; },
         getTraineeConfirmStatus(traineeId, session) {
             const confirmed = (session.confirmedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
             const rejected = (session.rejectedTraineeIds || '').split(',').map(s => s.trim()).filter(Boolean).map(Number);
@@ -1429,117 +1357,6 @@ function calendarApp() {
             return h * 60 + m;
         },
 
-        pickTime(t) {
-            if (typeof t === 'number') {
-                const h = String(Math.floor(t / 60)).padStart(2, '0');
-                const m = String(t % 60).padStart(2, '0');
-                t = `${h}:${m}`;
-            }
-            if (this.isSlotPast(t)) return;
-            if (this.isSlotOnCoachSession(t)) return;
-            const step = this.availStep || 30;
-            const tm = this.slotToMin(t);
-            const sel = this.selectedCoachSlots;
-            if (sel.length === 0) {
-                this.selectedCoachSlots = [tm];
-            } else {
-                const sorted = [...sel].sort((a, b) => a - b);
-                const min = sorted[0], max = sorted[sorted.length - 1];
-                if (tm === max + step) {
-                    this.selectedCoachSlots = [...sorted, tm];
-                } else if (tm === min - step) {
-                    this.selectedCoachSlots = [tm, ...sorted];
-                } else if (tm >= min && tm <= max) {
-                    this.selectedCoachSlots = [tm];
-                } else {
-                    this.selectedCoachSlots = [tm];
-                }
-            }
-            const sorted = [...this.selectedCoachSlots].sort((a, b) => a - b);
-            if (sorted.length) {
-                const sh = String(Math.floor(sorted[0] / 60)).padStart(2, '0');
-                const sm = String(sorted[0] % 60).padStart(2, '0');
-                const last = sorted[sorted.length - 1] + step;
-                const eh = String(Math.floor(last / 60)).padStart(2, '0');
-                const em = String(last % 60).padStart(2, '0');
-                this.sessionForm.startTime = `${sh}:${sm}`;
-                this.sessionForm.endTime = `${eh}:${em}`;
-                const locId = this.getCoachAvailLocId(this.sessionForm.date, sorted[0]);
-                if (locId != null) {
-                    this.sessionForm.locationId = locId;
-                }
-            } else {
-                this.sessionForm.startTime = null;
-                this.sessionForm.endTime = null;
-            }
-        },
-
-        isSlotOnCoachSession(t) {
-            if (!this.sessionForm.date) return false;
-            const tm = this.slotToMin(t);
-            return this.sessions.some(s => {
-                if (s.date !== this.sessionForm.date) return false;
-                if (this.editingSessionId && s.id === this.editingSessionId) return false;
-                const [sh, sm] = s.time.split(':').map(Number);
-                const [eh, em] = (s.endTime || s.time).split(':').map(Number);
-                return tm >= sh * 60 + sm && tm < eh * 60 + em;
-            });
-        },
-
-        nextSlot(t) {
-            const step = this.availStep || 30;
-            const m = this.slotToMin(t) + step;
-            const h = Math.floor(m / 60) % 24;
-            const mm = m % 60;
-            if (mm === 0) return `${h.toString().padStart(2, '0')}:00`;
-            return `${h.toString().padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-        },
-
-        getTimeClass(t) {
-            if (this.isSlotPast(t)) return 'bg-[#1a1a1a] text-gray-700 line-through cursor-not-allowed opacity-30';
-            if (this.isSlotOnCoachSession(t)) return 'bg-[#1a1a1a] text-gray-700 line-through cursor-not-allowed opacity-30';
-            const tm = this.slotToMin(t);
-            const sel = this.selectedCoachSlots;
-            if (sel.includes(tm)) return 'bg-blue-600 text-white shadow-lg';
-            const sorted = [...sel].sort((a, b) => a - b);
-            if (sorted.length) {
-                const min = sorted[0], max = sorted[sorted.length - 1];
-                if (tm > min && tm < max) return 'bg-blue-500/20 text-blue-300';
-            }
-            if (this.sessionForm.traineeIds.length > 0 && this.hasSlotConflict(t)) return 'bg-red-900/20 text-red-400/60 line-through';
-            return 'bg-[#262626] text-gray-400 hover:bg-[#333]';
-        },
-
-        coachCellStyle(mm) {
-            const t = `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
-            if (this.isSlotPast(t)) return 'background:#1a1a1a; pointer-events:none';
-            if (this.selectedCoachSlots.includes(mm)) return 'background:#3b82f5';
-            if (this.selectedCoachSlots.length > 1) {
-                const sorted = [...this.selectedCoachSlots].sort((a,b) => a-b);
-                if (mm > sorted[0] && mm < sorted[sorted.length-1]) return 'background:rgba(59,130,245,0.25)';
-            }
-            if (this.isSlotOnCoachSession(t)) return 'background:#1a1a1a; pointer-events:none';
-            if (this.sessionForm.traineeIds.length > 0 && this.hasSlotConflict(t)) return 'background:#1a1a1a; pointer-events:none';
-            return 'background:#2a2a2a';
-        },
-
-        hasSlotConflict(t) {
-            if (this.sessionForm.traineeIds.length === 0) return false;
-            const tm = this.slotToMin(t);
-            for (const aId of this.sessionForm.traineeIds) {
-                const key = aId + '|' + this.sessionForm.date;
-                const slots = this.availabilityMap[key];
-                if (!slots) continue;
-                const ok = slots.some(s => {
-                    const ss = this.slotToMin(s.startTime);
-                    const se = this.slotToMin(s.endTime);
-                    return tm >= ss && tm < se;
-                });
-                if (!ok) return true;
-            }
-            return false;
-        },
-
         get isSessionTimeValid() {
             const { startTime, endTime, date, traineeIds } = this.sessionForm;
             if (!startTime || !endTime || traineeIds.length === 0) return true;
@@ -1585,14 +1402,20 @@ function calendarApp() {
                     errors.push((this.labels.err_coach_work_hours || 'Час сесії має бути в межах {ws} — {we}').replace('{ws}', this.workStart).replace('{we}', this.workEnd));
                 }
             }
-            const coachCells = this.coachAvailByDate[date];
-            if (coachCells && Object.keys(coachCells).length > 0) {
-                let within = true;
-                for (let m = sm; m < em; m += 30) {
-                    if (!(m in coachCells)) { within = false; break; }
-                }
-                if (!within) {
-                    errors.push(this.labels.err_coach_avail || 'Час сесії не входить в години доступності тренера');
+            const ranges = this.coachRangesByDate?.[date];
+            if (ranges && ranges.length > 0) {
+                const locId = this.sessionForm.locationId;
+                const filteredRanges = locId ? ranges.filter(r => r.locationId == locId) : ranges;
+                if (filteredRanges.length > 0) {
+                    let within = false;
+                    for (const r of filteredRanges) {
+                        const rs = this.slotToMin(r.startTime);
+                        const re = this.slotToMin(r.endTime);
+                        if (sm >= rs && em <= re) { within = true; break; }
+                    }
+                    if (!within) {
+                        errors.push(this.labels.err_coach_avail || 'Час сесії не входить в години доступності тренера');
+                    }
                 }
             }
             const coachSessions = this.coachSess[date] || [];
@@ -1712,10 +1535,9 @@ function calendarApp() {
                 defaultDate = tomorrow.toISOString().slice(0, 10);
             }
             this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
-            this.selectedCoachSlots = [];
-            this.buildCoachGrid(defaultDate);
             this.showModal = true;
             this.scrollDateIntoView();
+            this.$nextTick(() => this.onSessionStartChange());
         },
 
         editSession(w) {
@@ -1725,17 +1547,6 @@ function calendarApp() {
             this.originalSessionData = { date: w.date, time: w.time, endTime: w.endTime, traineeIds: [...(w.traineeIds || [])], title: w.title, description: w.description || '', locationId: w.locationId || null };
             this.sessionValidationErrors = null;
             this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null };
-            if (w.time && w.endTime) {
-                const step = this.availStep || 30;
-                const slots = [];
-                let t = this.slotToMin(w.time);
-                const end = this.slotToMin(w.endTime);
-                while (t < end) { slots.push(t); t += step; }
-                this.selectedCoachSlots = slots;
-            } else {
-                this.selectedCoachSlots = [];
-            }
-            this.buildCoachGrid(w.date);
             this.showModal = true;
             this.scrollDateIntoView();
         },
@@ -1749,12 +1560,6 @@ function calendarApp() {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
                 this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: null };
-                const step = this.availStep || 30;
-                const slots = [];
-                let t = this.slotToMin(startTime);
-                const end = this.slotToMin(endTime);
-                while (t < end) { slots.push(t); t += step; }
-                this.selectedCoachSlots = slots;
                 this.showModal = true;
                 this.scrollDateIntoView();
             });
@@ -1842,8 +1647,123 @@ function calendarApp() {
             this.editingSessionId = null;
             this.originalSessionData = null;
             this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
-            this.selectedCoachSlots = [];
             this.showModal = true;
+        },
+        computeValidSessionSlots(date) {
+            if (!date) return [];
+            const allSlots = this.timeSlots15;
+            const we = this.workEnd || '21:00';
+            const busyMinRanges = this.getBusyMinuteRanges(date);
+            const dateRanges = this.coachRangesByDate?.[date] || [];
+            const hasAvail = dateRanges.length > 0;
+            const now = new Date();
+            const isToday = date === now.toISOString().slice(0, 10);
+            const todayMin = now.getHours() * 60 + now.getMinutes();
+            const step = this.availStep || 30;
+
+            return allSlots.filter(t => {
+                if (t >= we) return false;
+                const tm = this.slotToMin(t);
+                if (isToday && tm <= todayMin) return false;
+                if (hasAvail) {
+                    const locId = this.sessionForm.locationId;
+                    const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId) : dateRanges;
+                    if (filteredRanges.length === 0) return false;
+                    const inRange = filteredRanges.some(r =>
+                        tm >= this.slotToMin(r.startTime) && tm + step <= this.slotToMin(r.endTime)
+                    );
+                    if (!inRange) return false;
+                }
+                for (const [bs, be] of busyMinRanges) {
+                    if (tm < be && tm + step > bs) return false;
+                }
+                return true;
+            });
+        },
+        computeValidSessionEndSlots(date, startTime) {
+            if (!date || !startTime) return [];
+            const allSlots = this.timeSlots15;
+            const busyMinRanges = this.getBusyMinuteRanges(date);
+            const dateRanges = this.coachRangesByDate?.[date] || [];
+            const hasAvail = dateRanges.length > 0;
+            const sm = this.slotToMin(startTime);
+            const step = this.availStep || 30;
+
+            return allSlots.filter(t => {
+                const tm = this.slotToMin(t);
+                if (tm <= sm) return false;
+                if (hasAvail) {
+                    const locId = this.sessionForm.locationId;
+                    const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId) : dateRanges;
+                    if (filteredRanges.length === 0) return false;
+                    const inRange = filteredRanges.some(r =>
+                        tm <= this.slotToMin(r.endTime) && sm >= this.slotToMin(r.startTime)
+                    );
+                    if (!inRange) return false;
+                }
+                for (const [bs, be] of busyMinRanges) {
+                    if (tm > bs && sm < be) return false;
+                }
+                return true;
+            });
+        },
+        getBusyMinuteRanges(date) {
+            const ranges = [];
+            const coachSessions = this.coachSess[date] || [];
+            const allSessions = this.sessions || [];
+            const seen = new Set();
+            for (const s of [...coachSessions, ...allSessions]) {
+                if (s.date && s.date !== date) continue;
+                if (this.editingSessionId && s.id === this.editingSessionId) continue;
+                if (seen.has(s.id)) continue;
+                seen.add(s.id);
+                const st = s.startTime || s.time;
+                const et = s.endTime || st;
+                if (!st) continue;
+                ranges.push([this.slotToMin(st), this.slotToMin(et)]);
+            }
+            return ranges;
+        },
+        onSessionDateChange(date) {
+            this.sessionForm.date = date;
+            this.sessionForm.startTime = null;
+            this.sessionForm.endTime = null;
+            this.$nextTick(() => this.onSessionStartChange());
+        },
+        onSessionStartChange() {
+            const slots = this.validEndSlots;
+            if (slots.length > 0) {
+                this.sessionForm.endTime = slots[0];
+            } else {
+                this.sessionForm.endTime = null;
+            }
+        },
+        onSessionLocationChange() {
+            this.sessionForm.startTime = null;
+            this.sessionForm.endTime = null;
+        },
+        coachHasLocationAvail(date, locId) {
+            if (!locId) return true;
+            const ranges = this.coachRangesByDate?.[date] || [];
+            return ranges.some(r => r.locationId == locId);
+        },
+        getAvailPopupRanges() {
+            const date = this.sessionForm.date;
+            const ranges = this.coachRangesByDate?.[date] || [];
+            const locId = this.sessionForm.locationId;
+            const filtered = locId ? ranges.filter(r => r.locationId == locId) : ranges;
+            const groups = {};
+            for (const r of filtered) {
+                if (!r.startTime && !r.endTime) continue;
+                const key = r.locationId ?? '__none__';
+                if (!groups[key]) groups[key] = { locationId: r.locationId, ranges: [] };
+                groups[key].ranges.push(r);
+            }
+            return Object.values(groups).map(g => ({
+                ...g,
+                locationName: g.locationId ? this.getLocationName(g.locationId) : null,
+                locationColor: g.locationId ? this.getLocationColor(g.locationId) : null
+            }));
         },
         openTraineeForm(a) { this.editingTraineeId = a.id; this.traineeForm = { name: a.name, description: a.description, photoBase64: a.photoBase64 || null }; this.showTraineeFormModal = true; },
          askDeleteTrainee(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_trainee || 'Дані зникнуть.', onConfirm: async () => { await fetch(`/api/v1/trainees/${id}`, { method: 'DELETE' }); await this.fetchTrainees(); await this.fetchData(); } }; },
@@ -2125,181 +2045,167 @@ function calendarApp() {
             const titles = { sport:'Доступність тренера', studying:'Доступність вчителя', psychology:'Доступність психолога', other:'Доступність ментора' };
             return titles[this.mentorProfile] || titles.sport;
         },
-        get coachIsDayOff() { return this.dayOffs.includes(this.coachAvailDate); },
-        get coachAvailHasUnsaved() { return this.coachDirtyDates.size > 0 || this.coachDirtyDayOffs.length > 0; },
+        get coachAvailHasUnsaved() { return this.coachDirtyDates.size > 0; },
 
-        coachAvailHasSlots(ds) { return (this.coachCells[ds] || []).length > 0; },
-
-        coachGetCurCells() { return this.coachCells[this.coachAvailDate] || []; },
-
-        coachCellAt(mm) { return this.coachGetCurCells().find(x => x.mm === mm); },
-
-        coachInSess(mm) {
-            return (this.coachSess[this.coachAvailDate] || []).some(s => {
-                const [sh,sm] = s.startTime.split(':').map(Number);
-                const [eh,em] = (s.endTime || s.startTime).split(':').map(Number);
-                return mm >= sh*60+sm && mm < eh*60+em;
+        get coachAllCovered() {
+            const we = this.workEnd || '21:00';
+            const ws = this.workStart || '09:00';
+            const valid = this.timeSlots15.filter(t => t >= ws && t < we);
+            const covered = valid.filter(t => {
+                const tm = this.slotToMin(t);
+                return this.coachRanges.some(r => {
+                    if (!r.startTime || !r.endTime) return false;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    return tm >= rs && tm < re;
+                });
             });
+            return valid.length > 0 && covered.length === valid.length;
         },
 
-        coachAvailSessionAt(mm) {
-            return (this.coachSess[this.coachAvailDate] || []).find(s => {
-                const [sh,sm] = s.startTime.split(':').map(Number);
-                const [eh,em] = (s.endTime || s.startTime).split(':').map(Number);
-                return mm >= sh*60+sm && mm < eh*60+em;
-            }) || null;
-        },
+        coachHasRanges(date) { return (this.coachRangesByDate[date] || []).length > 0; },
+        coachNormTime(t) { return t ? t.replace(/:00$/, '') : t; },
 
-        coachAvailTitleAt(mm) {
-            return `${String(Math.floor(mm/60)).padStart(2,'0')}:${String(mm%60).padStart(2,'0')}`;
-        },
-
-        coachAvailSel(ds) { this.coachAvailDate = ds; },
-
-        coachAvailToggleRow(lbl) {
-            const hour = parseInt(lbl);
-            const row = this.coachAvailGrid.find(r => parseInt(r.lbl) === hour);
-            if (!row) return;
-            row.cells.forEach(c => this.coachAvailTap(c.mm));
-        },
-
-        coachBuildGrid() {
-            const step = this.availStep || 30;
-            const [sh, sm] = this.workStart.split(':').map(Number);
-            const [eh, em] = this.workEnd.split(':').map(Number);
-            const startMin = sh * 60 + sm;
-            const endMin = eh * 60 + em;
-            const arr = [];
-            for (let m = startMin; m < endMin; m += 60) {
-                const hourEnd = Math.min(m + 60, endMin);
-                const cells = [];
-                for (let t = m; t < hourEnd; t += step) {
-                    cells.push({ mm: t });
-                }
-                if (cells.length) {
-                    arr.push({ lbl: this.coachAvailTitleAt(m), cells });
-                }
-            }
-            this.coachAvailGrid = arr;
-        },
-
-        async coachAvailTap(mm) {
-            const busy = this.coachAvailSessionAt(mm);
-            if (busy) { this.coachBusySession = busy; return; }
-            const arr = this.coachGetCurCells();
-            const idx = arr.findIndex(x => x.mm === mm);
-            if (idx >= 0) {
-                arr.splice(idx, 1);
+        coachAvailSel(ds) {
+            this.coachAvailDate = ds;
+            this.coachRanges = this.coachRangesByDate[ds] || [];
+            if (!this.coachRangesByDate[ds]) {
+                this.coachRangesByDate[ds] = this.coachRanges;
             } else {
-                arr.push({ mm, locId: this.coachCurLoc ? Number(this.coachCurLoc) : null });
+                for (const r of this.coachRanges) r._new = false;
             }
-            this.coachCells[this.coachAvailDate] = [...arr];
+            this.coachSortRanges();
+        },
+
+        coachSortRanges() {
+            this.coachRanges.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+        },
+
+        coachAddRange() {
+            this.coachRanges.forEach(r => r._new = false);
+            this.coachRanges.unshift({ startTime: '', endTime: '', locationId: null, _new: true });
             this.coachDirtyDates.add(this.coachAvailDate);
         },
 
-        coachAvailCellStyle(mm) {
-            if (this.coachIsDayOff) return 'background:#2a1a1a';
-            if (this.coachInSess(mm)) return 'background:#dc2626';
-            const c = this.coachCellAt(mm);
-            if (!c) return 'background:#2a2a2a';
-            if (c.locId != null && this.locations.length) {
-                const l = this.locations.find(x => Number(x.id) === Number(c.locId));
-                if (l && l.color) return `background:${l.color}`;
-            }
-            return 'background:#3b82f6';
+        coachRemoveRange(i) {
+            this.coachRanges.splice(i, 1);
+            this.coachDirtyDates.add(this.coachAvailDate);
         },
 
-        coachToggleDayOff() {
-            const wasDayOff = this.coachIsDayOff;
-            if (wasDayOff) {
-                this.dayOffs = this.dayOffs.filter(d => d !== this.coachAvailDate);
-                this.coachDirtyDayOffs.push({ date: this.coachAvailDate, action: 'remove' });
-            } else {
-                this.dayOffs.push(this.coachAvailDate);
-                this.coachCells[this.coachAvailDate] = [];
-                this.coachDirtyDayOffs.push({ date: this.coachAvailDate, action: 'add' });
-            }
-            this.coachDirtyDates.delete(this.coachAvailDate);
+        onCoachAvailStartChange(i) {
+            this.coachSortRanges();
+            this.coachDirtyDates.add(this.coachAvailDate);
         },
 
-        coachFillAllDay() {
-            const step = this.availStep || 30;
-            const [sh, sm] = this.workStart.split(':').map(Number);
-            const [eh, em] = this.workEnd.split(':').map(Number);
-            const startMin = sh * 60 + sm;
-            const endMin = eh * 60 + em;
-            const cur = this.coachGetCurCells();
-            const freeSlots = [];
-            for (let m = startMin; m < endMin; m += step) {
-                if (!this.coachInSess(m)) freeSlots.push(m);
-            }
-            const allFilled = freeSlots.every(mm => cur.some(c => c.mm === mm));
-            if (allFilled) {
-                this.coachCells[this.coachAvailDate] = cur.filter(c => this.coachInSess(c.mm));
-                this.coachDirtyDates.add(this.coachAvailDate);
-            } else {
-                const filled = cur.filter(c => this.coachInSess(c.mm));
-                for (const mm of freeSlots) {
-                    if (!filled.some(c => c.mm === mm)) {
-                        filled.push({ mm, locId: this.coachCurLoc ? Number(this.coachCurLoc) : null });
-                    }
+        coachMarkDirty() { this.coachDirtyDates.add(this.coachAvailDate); },
+
+        timeOptionsAfter(startTime) {
+            if (!startTime) return this.timeSlots15;
+            return this.timeSlots15.filter(t => t > startTime);
+        },
+
+        coachStartSlots(excludeIndex) {
+            const we = this.workEnd || '21:00';
+            const result = this.timeSlots15.filter(t => {
+                if (t >= we) return false;
+                const tm = this.slotToMin(t);
+                for (let i = 0; i < this.coachRanges.length; i++) {
+                    if (i === excludeIndex) continue;
+                    const r = this.coachRanges[i];
+                    if (!r.startTime || !r.endTime) continue;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    if (tm >= rs && tm < re) return false;
                 }
-                this.coachCells[this.coachAvailDate] = filled;
-                this.coachDirtyDates.add(this.coachAvailDate);
-            }
+                return true;
+            });
+            return result;
         },
+
+        coachEndSlots(startTime, excludeIndex) {
+            if (!startTime) return this.timeOptionsAfter(startTime);
+            const sm = this.slotToMin(startTime);
+            const afterOpts = this.timeOptionsAfter(startTime);
+            const result = afterOpts.filter(t => {
+                const tm = this.slotToMin(t);
+                for (let i = 0; i < this.coachRanges.length; i++) {
+                    if (i === excludeIndex) continue;
+                    const r = this.coachRanges[i];
+                    if (!r.startTime || !r.endTime) continue;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    if (sm < re && tm > rs) return false;
+                }
+                return true;
+            });
+            return result;
+        },
+
+        getLocName(id) { return this.getLocationName(id); },
+        getLocColor(id) { return id ? this.getLocationColor(id) : null; },
 
         async coachSaveAll() {
             if (this.coachSaving) return;
             this.coachSaving = true;
             try {
-                for (const { date } of this.coachDirtyDayOffs) {
-                    await fetch('/api/v1/coach/day-off', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ date })
-                    });
-                }
                 for (const date of this.coachDirtyDates) {
-                    const arr = this.coachCells[date] || [];
-                    if (!arr.length) {
+                    const ranges = this.coachRangesByDate[date] || [];
+                    const body = [];
+                    for (const r of ranges) {
+                        if (r.startTime && r.endTime) {
+                            body.push({ date, startTime: r.startTime, endTime: r.endTime, locationId: r.locationId || null });
+                        }
+                    }
+                    if (body.length === 0) {
                         await fetch(`/api/v1/coach/availability?dates=${date}`, { method: 'DELETE' });
                     } else {
-                        const step = this.availStep || 30;
-                        const sorted = [...arr].sort((a,b) => a.mm - b.mm);
-                        const merged = [];
-                        let cs = sorted[0].mm, ce = sorted[0].mm + step, cl = sorted[0].locId;
-                        for (let i = 1; i < sorted.length; i++) {
-                            if (sorted[i].mm === ce && sorted[i].locId === cl) {
-                                ce = sorted[i].mm + step;
-                            } else {
-                                const sh = String(Math.floor(cs / 60)).padStart(2, '0');
-                                const sm = String(cs % 60).padStart(2, '0');
-                                const eh = String(Math.floor(ce / 60)).padStart(2, '0');
-                                const em = String(ce % 60).padStart(2, '0');
-                                merged.push({ date, startTime: sh + ':' + sm, endTime: eh + ':' + em, locationId: cl || null });
-                                cs = sorted[i].mm; ce = sorted[i].mm + step; cl = sorted[i].locId;
-                            }
-                        }
-                        const sh = String(Math.floor(cs / 60)).padStart(2, '0');
-                        const sm = String(cs % 60).padStart(2, '0');
-                        const eh = String(Math.floor(ce / 60)).padStart(2, '0');
-                        const em = String(ce % 60).padStart(2, '0');
-                        merged.push({ date, startTime: sh + ':' + sm, endTime: eh + ':' + em, locationId: cl || null });
                         await fetch('/api/v1/coach/availability', {
                             method:'POST',
                             headers:{'Content-Type':'application/json'},
-                            body:JSON.stringify(merged)
+                            body:JSON.stringify(body)
                         });
                     }
                 }
                 this.coachDirtyDates.clear();
-                this.coachDirtyDayOffs = [];
+                for (const date of Object.keys(this.coachRangesByDate)) {
+                    for (const r of this.coachRangesByDate[date]) r._new = false;
+                }
                 if (!this.shareToken) await this.mkShareToken();
             } catch(e) { console.error('[coach] saveAll error', e); }
             finally { this.coachSaving = false; }
         },
 
+        async loadCoachAvailabilityData() {
+            const sd = this.days[0]?.dateStr;
+            const ed = this.days[this.days.length - 1]?.dateStr;
+            if (!sd || !ed) return;
+            try {
+                const [ar, sr] = await Promise.all([
+                    fetch(`/api/v1/coach/availability?startDate=${sd}&endDate=${ed}`),
+                    fetch(`/api/v1/coach/sessions?startDate=${sd}&endDate=${ed}`),
+                ]);
+                if (ar.ok) {
+                    const apiData = await ar.json();
+                    const g = {};
+                    for (const i of apiData) {
+                        if (!g[i.date]) g[i.date] = [];
+                        g[i.date].push({ startTime: this.coachNormTime(i.startTime), endTime: this.coachNormTime(i.endTime), locationId: i.locationId });
+                    }
+                    this.coachRangesByDate = g;
+                }
+                if (sr.ok) {
+                    const apiData = await sr.json();
+                    const g = {};
+                    for (const i of apiData) {
+                        if (!g[i.date]) g[i.date] = [];
+                        g[i.date].push(i);
+                    }
+                    this.coachSess = g;
+                }
+            } catch(e) {
+                console.error('[coach] load error', e);
+            }
+        },
         async loadCoachAvailability() {
             if (this.coachLoaded) return;
             const now = new Date();
@@ -2312,45 +2218,10 @@ function calendarApp() {
                 this.coachAvailDays.push({ ds, wd: WD[(d.getDay()+6)%7], num: d.getDate(), mo: MON[d.getMonth()], isToday: ds === this.todayStr, isWeekend: d.getDay() === 0 || d.getDay() === 6 });
             }
             this.coachAvailDate = this.todayStr;
-            this.coachBuildGrid();
-            const sd = this.coachAvailDays[0].ds;
-            const ed = this.coachAvailDays[this.coachAvailDays.length-1].ds;
-            try {
-                const [ar, sr, dr] = await Promise.all([
-                    fetch(`/api/v1/coach/availability?startDate=${sd}&endDate=${ed}`),
-                    fetch(`/api/v1/coach/sessions?startDate=${sd}&endDate=${ed}`),
-                    fetch(`/api/v1/coach/day-off?startDate=${sd}&endDate=${ed}`)
-                ]);
-                if (ar.ok) {
-                    const g = {};
-                    const step = this.availStep || 30;
-                    for (const i of await ar.json()) {
-                        if (!g[i.date]) g[i.date] = [];
-                        const [sh,sm] = i.startTime.split(':').map(Number);
-                        const [eh,em] = i.endTime.split(':').map(Number);
-                        let t = sh*60+sm, end = eh*60+em;
-                        while (t < end) {
-                            g[i.date].push({ mm: t, locId: i.locationId });
-                            t += step;
-                        }
-                    }
-                    this.coachCells = g;
-                }
-                if (sr.ok) {
-                    const g = {};
-                    for (const i of await sr.json()) {
-                        if (!g[i.date]) g[i.date] = [];
-                        g[i.date].push(i);
-                    }
-                    this.coachSess = g;
-                }
-                if (dr.ok) this.dayOffs = await dr.json();
-            } catch(e) {
-                console.error('[coach] load error', e);
-            }
+            await this.loadCoachAvailabilityData();
             this.coachDirtyDates.clear();
-            this.coachDirtyDayOffs = [];
             this.coachLoaded = true;
+            this.coachAvailSel(this.coachAvailDate);
         },
 
         coachCopyLink() {

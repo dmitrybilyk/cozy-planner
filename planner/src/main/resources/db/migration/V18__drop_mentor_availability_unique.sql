@@ -1,2 +1,0 @@
-ALTER TABLE mentor_availability DROP CONSTRAINT IF EXISTS mentor_availability_mentor_id_date_start_time_key;
-CREATE INDEX idx_mentor_availability_mentor_date ON mentor_availability(mentor_id, date);
