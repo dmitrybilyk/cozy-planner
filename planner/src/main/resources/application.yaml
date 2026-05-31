@@ -76,7 +76,7 @@ management:
 
 app:
   flyway:
-    clean-on-start: false
+    clean-on-start: true
   base-url: ${APP_BASE_URL:https://footwork-lid-attendee.ngrok-free.dev}
   notification-service: ${APP_NOTIFICATION_SERVICE:kafka}
   notification-topic: ${APP_NOTIFICATION_TOPIC:notification-events}
