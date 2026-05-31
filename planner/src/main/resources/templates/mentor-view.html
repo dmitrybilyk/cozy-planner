@@ -861,7 +861,7 @@
                             <select x-model="r.locationId" @change="coachMarkDirty()"
                                     x-effect="$nextTick(() => $el.value = r.locationId)"
                                     class="bg-[#333] text-gray-300 text-xs rounded-lg px-1.5 py-1.5 border border-[#444] focus:outline-none max-w-[80px]">
-                                <option :value="null">Місце</option>
+                                <option :value="null" x-show="!locations.length">Місце</option>
                                 <template x-for="loc in locations" :key="loc.id">
                                     <option :value="loc.id" x-text="loc.name" :style="'color:' + (loc.color || '#3b82f6')"></option>
                                 </template>
@@ -938,15 +938,13 @@
                     <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_location || 'Локація'"></label>
                     <div class="flex items-center gap-2">
                         <select x-model="sessionForm.locationId" class="flex-1 text-base" @change="onSessionLocationChange()">
-                            <option :value="null" x-text="labels.no_location || 'Без місця'"></option>
-                            <template x-for="location in locations" :key="location.id">
+                            <option :value="null" x-show="!locations.length" x-text="labels.no_location || 'Без місця'"></option>
+                            <template x-for="location in availableLocations" :key="location.id">
                                 <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
                             </template>
                         </select>
                         <button @click="showAvailPopup = true" type="button"
-                                :disabled="sessionForm.locationId && !coachHasLocationAvail(sessionForm.date, sessionForm.locationId)"
-                                class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition"
-                                :class="(sessionForm.locationId && !coachHasLocationAvail(sessionForm.date, sessionForm.locationId)) ? 'text-gray-600 bg-gray-800/30 cursor-not-allowed' : 'text-blue-400 bg-blue-900/30 hover:bg-blue-900/50'"
+                                class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition text-blue-400 bg-blue-900/30 hover:bg-blue-900/50"
                                 x-text="labels.availability || 'Доступність'">
                         </button>
                     </div>
@@ -961,7 +959,7 @@
                     <div class="flex items-center gap-2 bg-[#1a1a1a] rounded-xl border border-[#2a2a2a] p-3">
                         <select x-model="sessionForm.startTime" @change="onSessionStartChange()"
                                 class="flex-1 bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500">
-                            <option value="" disabled>Від</option>
+                            <option value="">Від</option>
                             <template x-for="t in validStartSlots" :key="t">
                                 <option :value="t" x-text="t" :class="t.endsWith(':00') ? 'font-semibold text-blue-400' : ''"></option>
                             </template>
@@ -969,7 +967,7 @@
                         <span class="text-gray-500 text-xs">—</span>
                         <select x-model="sessionForm.endTime"
                                 class="flex-1 bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-blue-500">
-                            <option value="" disabled>До</option>
+                            <option value="">До</option>
                             <template x-for="t in validEndSlots" :key="t">
                                 <option :value="t" x-text="t" :class="t.endsWith(':00') ? 'font-semibold text-blue-400' : ''"></option>
                             </template>

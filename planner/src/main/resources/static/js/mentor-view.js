@@ -1476,7 +1476,7 @@ function calendarApp() {
 
         get saveBtnClass() {
             const base = 'flex-[2] text-white py-4 rounded-2xl font-bold text-sm shadow-lg ';
-            if (this.sessionForm.traineeIds.length === 0 || this.isTimePassed() || !this.sessionForm.endTime) {
+            if (this.sessionForm.traineeIds.length === 0 || this.isTimePassed() || !this.sessionForm.endTime || (this.locations.length > 0 && !this.sessionForm.locationId)) {
                 return base + 'bg-gray-600 opacity-30';
             }
             if (this.sessionForm.startTime && this.sessionForm.endTime && this.getSessionValidationErrors().length > 0) {
@@ -1534,7 +1534,7 @@ function calendarApp() {
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 defaultDate = tomorrow.toISOString().slice(0, 10);
             }
-            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: null };
+            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: this.defaultLocationId(defaultDate) };
             this.showModal = true;
             this.scrollDateIntoView();
             this.$nextTick(() => this.onSessionStartChange());
@@ -1559,7 +1559,7 @@ function calendarApp() {
             this.$nextTick(() => {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
-                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: null };
+                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: this.defaultLocationId(date) };
                 this.showModal = true;
                 this.scrollDateIntoView();
             });
@@ -1569,6 +1569,7 @@ function calendarApp() {
             const { startTime, endTime, date, title, description, traineeIds, locationId } = this.sessionForm;
             if (!startTime || !endTime) return;
             if (date < this.todayStr) return;
+            if (this.locations.length > 0 && !locationId) return;
             const errors = this.getSessionValidationErrors();
             if (errors.length > 0) { this.sessionValidationErrors = errors; return; }
             this.sessionValidationErrors = null;
@@ -1646,7 +1647,7 @@ function calendarApp() {
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.originalSessionData = null;
-            this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: null };
+            this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: this.defaultLocationId(this.selectedDate) };
             this.showModal = true;
         },
         computeValidSessionSlots(date) {
@@ -1656,6 +1657,7 @@ function calendarApp() {
             const busyMinRanges = this.getBusyMinuteRanges(date);
             const dateRanges = this.coachRangesByDate?.[date] || [];
             const hasAvail = dateRanges.length > 0;
+            if (hasAvail && this.locations.length > 0 && !this.sessionForm.locationId) return [];
             const now = new Date();
             const isToday = date === now.toISOString().slice(0, 10);
             const todayMin = now.getHours() * 60 + now.getMinutes();
@@ -1686,6 +1688,7 @@ function calendarApp() {
             const busyMinRanges = this.getBusyMinuteRanges(date);
             const dateRanges = this.coachRangesByDate?.[date] || [];
             const hasAvail = dateRanges.length > 0;
+            if (hasAvail && this.locations.length > 0 && !this.sessionForm.locationId) return [];
             const sm = this.slotToMin(startTime);
             const step = this.availStep || 30;
 
@@ -1728,6 +1731,7 @@ function calendarApp() {
             this.sessionForm.date = date;
             this.sessionForm.startTime = null;
             this.sessionForm.endTime = null;
+            this.sessionForm.locationId = this.defaultLocationId(date);
             this.$nextTick(() => this.onSessionStartChange());
         },
         onSessionStartChange() {
@@ -1742,18 +1746,30 @@ function calendarApp() {
             this.sessionForm.startTime = null;
             this.sessionForm.endTime = null;
         },
-        coachHasLocationAvail(date, locId) {
-            if (!locId) return true;
+        defaultLocationId(date) {
+            if (this.locations.length === 0) return null;
             const ranges = this.coachRangesByDate?.[date] || [];
-            return ranges.some(r => r.locationId == locId);
+            if (ranges.length === 0) return this.locations[0].id;
+            const availLocIds = new Set(ranges.map(r => r.locationId));
+            if (availLocIds.has(null)) return this.locations[0].id;
+            const firstAvail = this.locations.find(l => availLocIds.has(l.id));
+            return firstAvail ? firstAvail.id : this.locations[0].id;
+        },
+        get availableLocations() {
+            const date = this.sessionForm.date;
+            if (!date) return this.locations;
+            const ranges = this.coachRangesByDate?.[date] || [];
+            if (ranges.length === 0) return this.locations;
+            const availLocIds = new Set(ranges.map(r => r.locationId));
+            if (availLocIds.has(null)) return this.locations;
+            const currentLocId = this.sessionForm.locationId;
+            return this.locations.filter(l => availLocIds.has(l.id) || l.id === currentLocId);
         },
         getAvailPopupRanges() {
             const date = this.sessionForm.date;
             const ranges = this.coachRangesByDate?.[date] || [];
-            const locId = this.sessionForm.locationId;
-            const filtered = locId ? ranges.filter(r => r.locationId == locId) : ranges;
             const groups = {};
-            for (const r of filtered) {
+            for (const r of ranges) {
                 if (!r.startTime && !r.endTime) continue;
                 const key = r.locationId ?? '__none__';
                 if (!groups[key]) groups[key] = { locationId: r.locationId, ranges: [] };
@@ -2083,7 +2099,8 @@ function calendarApp() {
 
         coachAddRange() {
             this.coachRanges.forEach(r => r._new = false);
-            this.coachRanges.unshift({ startTime: '', endTime: '', locationId: null, _new: true });
+            const defaultLocId = this.locations.length > 0 ? this.locations[0].id : null;
+            this.coachRanges.unshift({ startTime: '', endTime: '', locationId: defaultLocId, _new: true });
             this.coachDirtyDates.add(this.coachAvailDate);
         },
 
@@ -2152,7 +2169,7 @@ function calendarApp() {
                     const ranges = this.coachRangesByDate[date] || [];
                     const body = [];
                     for (const r of ranges) {
-                        if (r.startTime && r.endTime) {
+                        if (r.startTime && r.endTime && (!this.locations.length || r.locationId != null)) {
                             body.push({ date, startTime: r.startTime, endTime: r.endTime, locationId: r.locationId || null });
                         }
                     }
