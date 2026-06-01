@@ -153,12 +153,18 @@ public class PlannerController {
             r.put("mentorShareToken", mentor.getShareToken());
             r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
             r.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
+            r.put("mentorAvailStep", mentor.getAvailStep() != null ? mentor.getAvailStep() : 30);
+            r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
+            r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
         } else {
             r.put("mentorName", null);
             r.put("mentorTelegramConnected", false);
             r.put("mentorShareToken", null);
             r.put("mentorProfile", "sport");
             r.put("mentorTimezone", "Europe/Kiev");
+            r.put("mentorAvailStep", 30);
+            r.put("mentorWorkStart", "06:00");
+            r.put("mentorWorkEnd", "22:00");
         }
         r.put("locations", locations);
         return r;

@@ -52,7 +52,11 @@ public class UnifiedAvailabilityController {
                 .flatMapMany(zoneId ->
                         rangeRepository.findByUserIdAndUserTypeAndDateBetween(userId, userType, startDate, endDate)
                                 .map(range -> toResponseMap(range, zoneId))
-                );
+                )
+                .onErrorResume(e -> {
+                    log.error("Error loading availability ranges: userId={}, userType={}", userId, userType, e);
+                    return Flux.empty();
+                });
     }
 
     @PutMapping("/api/v1/availability/ranges")

@@ -48,6 +48,10 @@ spring:
             client-id: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID:743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com}
             client-secret: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: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}
             scope: openid, profile, email
+            authorization-grant-type: authorization_code
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth?access_type=offline
 
   jackson:
     serialization:

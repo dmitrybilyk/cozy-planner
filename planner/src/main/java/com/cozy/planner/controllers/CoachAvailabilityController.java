@@ -23,6 +23,14 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import javax.imageio.ImageIO;
 import java.security.SecureRandom;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -449,7 +457,7 @@ public class CoachAvailabilityController {
                             );
                 })
                 .map(bytes -> ResponseEntity.ok()
-                        .header("Content-Type", "image/svg+xml")
+                        .header("Content-Type", date != null ? "image/png" : "image/svg+xml")
                         .body(bytes))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
@@ -595,117 +603,146 @@ public class CoachAvailabilityController {
                                                     Map<Long, Map<String, Object>> locMap, LocalDate date,
                                                     List<LocalDate> dayOffDates) {
         return Mono.fromCallable(() -> {
-            int hourH = 56;
-            int timeLabelW = 72;
-            int step = mentor.getAvailStep() != null ? mentor.getAvailStep() : 30;
-            int cellsPerHour = 60 / step;
-            int subCellW = 260;
-            int startHour = mentor.getWorkStart() != null ? LocalTime.parse(mentor.getWorkStart()).getHour() : 9;
-            int endHour = mentor.getWorkEnd() != null ? LocalTime.parse(mentor.getWorkEnd()).getHour() : 21;
-            int rows = endHour - startHour;
-            int topMargin = 90, bottomMargin = 50;
-            int totalW = timeLabelW + cellsPerHour * subCellW;
-            int totalH = topMargin + rows * hourH + bottomMargin;
+            int width = 600;
+            int padX = 16;
+            int headerH = 80;
+            int cardH = 72;
+            int cardGap = 8;
+            int padBottom = 16;
+
+            List<MentorAvailability> daySlots = slots.stream()
+                    .filter(s -> s.getDate().equals(date))
+                    .sorted(Comparator.comparing(MentorAvailability::getStartTime))
+                    .toList();
+
+            boolean isDayOff = dayOffDates.contains(date);
+            int rangesCount = isDayOff ? 0 : daySlots.size();
+            int contentH = Math.max(rangesCount == 0 ? 180 : rangesCount * (cardH + cardGap) - cardGap, 180);
+            int height = headerH + contentH + padBottom;
+
+            BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = img.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g.setColor(new Color(0x1a, 0x1a, 0x1a));
+            g.fillRect(0, 0, width, height);
 
             String[] days = {"Пн","Вт","Ср","Чт","Пт","Сб","Нд"};
             String[] months = {"січ","лют","бер","кві","тра","чер","лип","сер","вер","жов","лис","гру"};
             int dayIdx = (date.getDayOfWeek().getValue() + 6) % 7;
             String dateStr = days[dayIdx] + ", " + date.getDayOfMonth() + " " + months[date.getMonthValue() - 1];
 
-            StringBuilder svg = new StringBuilder();
-            svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"").append(totalW).append("\" height=\"").append(totalH).append("\">\n");
-            svg.append("<rect width=\"").append(totalW).append("\" height=\"").append(totalH).append("\" fill=\"#1a1a1a\"/>\n");
+            Font bold18 = new Font(Font.SANS_SERIF, Font.BOLD, 18);
+            Font bold13 = new Font(Font.SANS_SERIF, Font.BOLD, 13);
+            Font bold9 = new Font(Font.SANS_SERIF, Font.BOLD, 9);
 
-            svg.append("<text x=\"16\" y=\"30\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"16\" font-weight=\"bold\">")
-                .append(xmlEscape(mentor.getName())).append("</text>\n");
-            svg.append("<text x=\"16\" y=\"50\" fill=\"#bbbbbb\" font-family=\"Arial,sans-serif\" font-size=\"13\" font-weight=\"bold\">")
-                .append(dateStr).append("</text>\n");
+            g.setFont(bold18);
+            g.setColor(Color.WHITE);
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString(mentor.getName(), padX, 30);
+
+            g.setFont(bold13);
+            g.setColor(new Color(0xbb, 0xbb, 0xbb));
+            g.drawString(dateStr, padX, 50);
 
             if (date.equals(LocalDate.now())) {
-                svg.append("<rect x=\"16\" y=\"58\" width=\"54\" height=\"14\" rx=\"7\" ry=\"7\" fill=\"#3b82f6\"/>\n");
-                svg.append("<text x=\"43\" y=\"68\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"8\" font-weight=\"bold\" text-anchor=\"middle\">СЬОГОДНІ</text>\n");
+                g.setColor(new Color(0x3b, 0x82, 0xf6));
+                g.fillRoundRect(padX, 56, 62, 18, 7, 7);
+                g.setFont(bold9);
+                g.setColor(Color.WHITE);
+                String todayText = "СЬОГОДНІ";
+                int tw = g.getFontMetrics().stringWidth(todayText);
+                g.drawString(todayText, padX + (62 - tw) / 2, 69);
             }
 
-            for (int hi = 0; hi < rows; hi++) {
-                int hh = startHour + hi;
-                int y = topMargin + hi * hourH;
+            int y = headerH;
+            int centerX = width / 2;
 
-                svg.append("<text x=\"").append(timeLabelW - 10).append("\" y=\"").append(y + hourH / 2 + 6).append("\" fill=\"#cccccc\" font-family=\"Arial,sans-serif\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"end\">")
-                    .append(String.valueOf(hh)).append("</text>\n");
-
-                svg.append("<line x1=\"").append(timeLabelW).append("\" y1=\"").append(y).append("\" x2=\"").append(totalW).append("\" y2=\"").append(y).append("\" stroke=\"#2a2a2a\"/>\n");
-
-                for (int ci = 0; ci < cellsPerHour; ci++) {
-                    int cx = timeLabelW + ci * subCellW;
-                    svg.append("<rect x=\"").append(cx).append("\" y=\"").append(y).append("\" width=\"").append(subCellW).append("\" height=\"").append(hourH).append("\" fill=\"#2a2a2a\"/>\n");
-                    if (ci > 0) {
-                        svg.append("<line x1=\"").append(cx).append("\" y1=\"").append(y).append("\" x2=\"").append(cx).append("\" y2=\"").append(y + hourH).append("\" stroke=\"#2a2a2a\"/>\n");
-                    }
-                    if (ci < cellsPerHour - 1) {
-                        int mm = (ci + 1) * step;
-                        svg.append("<text x=\"").append(cx + subCellW - 4).append("\" y=\"").append(y + 12).append("\" fill=\"#555555\" font-family=\"Arial,sans-serif\" font-size=\"9\" text-anchor=\"end\">:")
-                            .append(String.valueOf(mm)).append("</text>\n");
-                    }
-                }
-            }
-
-            int dayW = cellsPerHour * subCellW;
-            boolean isDayOff = dayOffDates.contains(date);
             if (isDayOff) {
-                svg.append("<rect x=\"").append(timeLabelW + 4).append("\" y=\"").append(topMargin + 4).append("\" width=\"").append(dayW - 8).append("\" height=\"").append(rows * hourH - 8).append("\" rx=\"10\" ry=\"10\" fill=\"#2a1a1a\" opacity=\"0.5\"/>\n");
-                svg.append("<text x=\"").append(timeLabelW + dayW / 2).append("\" y=\"").append(topMargin + rows * hourH / 2 + 6).append("\" fill=\"#ef4444\" font-family=\"Arial,sans-serif\" font-size=\"20\" font-weight=\"bold\" text-anchor=\"middle\">ВИХІДНИЙ</text>\n");
-            }
+                g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
+                g.setColor(new Color(0xef, 0x44, 0x44));
+                String dayOffText = "ВИХІДНИЙ";
+                int tw = g.getFontMetrics().stringWidth(dayOffText);
+                g.drawString(dayOffText, (width - tw) / 2, y + 70);
+                g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 13));
+                g.setColor(new Color(0x99, 0x99, 0x99));
+                String subText = "Тренер не працює цього дня";
+                int sw = g.getFontMetrics().stringWidth(subText);
+                g.drawString(subText, (width - sw) / 2, y + 95);
+            } else if (rangesCount == 0) {
+                g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
+                g.setColor(new Color(0x99, 0x99, 0x99));
+                String emptyText = "На цей день доступні години відсутні";
+                int tw = g.getFontMetrics().stringWidth(emptyText);
+                g.drawString(emptyText, (width - tw) / 2, y + 70);
+            } else {
+                Font bold20 = new Font(Font.SANS_SERIF, Font.BOLD, 20);
+                Font semi13 = new Font(Font.SANS_SERIF, Font.BOLD, 13);
 
-            for (MentorAvailability s : slots) {
-                if (!s.getDate().equals(date)) continue;
-                int sStart = s.getStartTime().getHour() * 60 + s.getStartTime().getMinute();
-                int sEnd = s.getEndTime().getHour() * 60 + s.getEndTime().getMinute();
-
-                String colorStr = "#3b82f6";
-                String locName = "";
-                if (s.getLocationId() != null && locMap.containsKey(s.getLocationId())) {
-                    Map<String, Object> loc = locMap.get(s.getLocationId());
-                    colorStr = (String) loc.getOrDefault("color", "#3b82f6");
-                    locName = (String) loc.getOrDefault("name", "");
-                }
-
-                boolean labelPlaced = false;
-                for (int t = sStart; t < sEnd; t += step) {
-                    int hourIdx = (t / 60) - startHour;
-                    int cellIdx = (t % 60) / step;
-                    if (hourIdx < 0 || hourIdx >= rows) continue;
-                    int y = topMargin + hourIdx * hourH;
-                    int cx = timeLabelW + cellIdx * subCellW;
-                    svg.append("<rect x=\"").append(cx + 2).append("\" y=\"").append(y + 2).append("\" width=\"").append(subCellW - 4).append("\" height=\"").append(hourH - 4).append("\" rx=\"6\" ry=\"6\" fill=\"").append(colorStr).append("\"/>\n");
-                    if (!labelPlaced && !locName.isEmpty()) {
-                        svg.append("<text x=\"").append(cx + 8).append("\" y=\"").append(y + hourH / 2 + 6).append("\" fill=\"#ffffff\" font-family=\"Arial,sans-serif\" font-size=\"14\" font-weight=\"bold\">")
-                            .append(xmlEscape(locName)).append("</text>\n");
-                        labelPlaced = true;
+                for (MentorAvailability s : daySlots) {
+                    String colorStr = "#3b82f6";
+                    String locName = "";
+                    if (s.getLocationId() != null && locMap.containsKey(s.getLocationId())) {
+                        Map<String, Object> loc = locMap.get(s.getLocationId());
+                        colorStr = (String) loc.getOrDefault("color", "#3b82f6");
+                        locName = (String) loc.getOrDefault("name", "");
                     }
+                    Color accentColor = parseHexColor(colorStr);
+
+                    g.setColor(new Color(0x2a, 0x2a, 0x2a));
+                    g.drawRoundRect(padX, y, width - 2 * padX, cardH, 12, 12);
+
+                    g.setColor(new Color(0x1a, 0x1a, 0x1a));
+                    g.fillRect(padX + 1, y + 1, width - 2 * padX - 2, cardH - 2);
+
+                    g.setColor(accentColor);
+                    g.fillRoundRect(padX, y, 3, cardH, 2, 2);
+                    g.setColor(new Color(0x1a, 0x1a, 0x1a));
+                    g.fillRect(padX + 3, y, 2, cardH);
+
+                    g.setFont(bold20);
+                    g.setColor(Color.WHITE);
+                    String timeStr = s.getStartTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+                            + " — " + s.getEndTime().format(DateTimeFormatter.ofPattern("HH:mm"));
+                    int tw = g.getFontMetrics().stringWidth(timeStr);
+                    g.drawString(timeStr, (width - tw) / 2, y + 30);
+
+                    if (!locName.isEmpty()) {
+                        g.setFont(semi13);
+                        g.setColor(new Color(0x99, 0x99, 0x99));
+                        String locText = locName;
+                        int lw = g.getFontMetrics().stringWidth(locText);
+                        int pinSize = 8;
+                        int dotX = (width - lw) / 2 - pinSize - 4;
+                        int dotY = y + 52 - pinSize / 2;
+
+                        g.setColor(accentColor);
+                        g.fillOval(dotX, dotY, pinSize, pinSize);
+                        int tx = dotX + pinSize + 4;
+                        g.setColor(new Color(0x99, 0x99, 0x99));
+                        g.drawString(locText, tx, y + 52);
+                    }
+
+                    y += cardH + cardGap;
                 }
             }
 
-            int legendY = totalH - 22;
-            svg.append("<line x1=\"").append(timeLabelW).append("\" y1=\"").append(topMargin + rows * hourH).append("\" x2=\"").append(totalW).append("\" y2=\"").append(topMargin + rows * hourH).append("\" stroke=\"#3c3c3c\"/>\n");
-            svg.append("<rect x=\"16\" y=\"").append(legendY - 4).append("\" width=\"12\" height=\"12\" rx=\"2\" ry=\"2\" fill=\"#3b82f6\"/>\n");
-            svg.append("<text x=\"33\" y=\"").append(legendY + 6).append("\" fill=\"#d0d0d0\" font-family=\"Arial,sans-serif\" font-size=\"11\" font-weight=\"bold\">Вільно</text>\n");
+            g.dispose();
 
-            int lx = 100;
-            for (Map.Entry<Long, Map<String, Object>> e : locMap.entrySet()) {
-                Map<String, Object> loc = e.getValue();
-                String name = (String) loc.getOrDefault("name", "");
-                String colorStr = (String) loc.getOrDefault("color", "#3b82f6");
-                if (name.isEmpty()) continue;
-                svg.append("<rect x=\"").append(lx).append("\" y=\"").append(legendY - 4).append("\" width=\"12\" height=\"12\" rx=\"2\" ry=\"2\" fill=\"").append(colorStr).append("\"/>\n");
-                svg.append("<text x=\"").append(lx + 17).append("\" y=\"").append(legendY + 6).append("\" fill=\"#d0d0d0\" font-family=\"Arial,sans-serif\" font-size=\"11\" font-weight=\"bold\">Вільно на ").append(xmlEscape(name)).append("</text>\n");
-                lx += textWidth("Вільно на " + name, 11) + 26;
-            }
-
-            svg.append("<text x=\"").append(lx + 8).append("\" y=\"").append(legendY + 6).append("\" fill=\"#666666\" font-family=\"Arial,sans-serif\" font-size=\"11\">· крок ").append(String.valueOf(step)).append(" хв</text>\n");
-
-            svg.append("</svg>");
-            return svg.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(img, "png", baos);
+            return baos.toByteArray();
         });
+    }
+
+    private Color parseHexColor(String hex) {
+        if (hex == null || hex.length() < 7) return new Color(0x3b, 0x82, 0xf6);
+        try {
+            return Color.decode(hex);
+        } catch (NumberFormatException e) {
+            return new Color(0x3b, 0x82, 0xf6);
+        }
     }
 
     private String xmlEscape(String s) {

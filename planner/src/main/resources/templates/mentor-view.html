@@ -30,7 +30,7 @@
 </div>
 
 <!-- ВЕРХНЯ СЕКЦІЯ: навігація та кнопки -->
-<header class="flex-shrink-0 bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#333] shadow-md">
+<header x-show="!loading" class="flex-shrink-0 bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#333] shadow-md">
     <!-- Ряд 1: Профіль, Історія, День/План -->
     <div class="px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
         <div @click="activeTab = 'profile'" class="flex items-center space-x-2 sm:space-x-3 min-w-0 cursor-pointer rounded-lg px-2 py-1.5 transition"
@@ -120,18 +120,24 @@
 </header>
 
 <!-- НИЖНЯ СЕКЦІЯ: контент -->
-<main class="flex-1 overflow-y-auto">
+<main x-show="!loading" class="flex-1 overflow-y-auto">
 
     <!-- ДЕНЬ -->
     <div x-show="activeTab === 'feed'" class="max-w-2xl mx-auto p-4 pb-24">
-        <div class="sticky top-0 z-10 bg-[#121212] pt-4 pb-3 flex justify-between items-center">
-            <h2 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest" x-text="formatDisplayDate(selectedDate)"></h2>
-            <div class="flex items-center gap-2">
-                <button @click="toggleConfirmedFilter()" class="p-1.5 rounded-lg transition" :class="showConfirmedOnly ? 'bg-green-600/30 ring-2 ring-green-500' : 'bg-[#2a2a2a] hover:bg-[#333]'" title="Показати лише підтверджені">
-                    <svg class="w-4 h-4" :class="showConfirmedOnly ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                </button>
-                <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤' : '▣'"></button>
-                <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-xs sm:text-sm font-bold text-blue-400" x-text="labels.today || 'Сьогодні'"></button>
+        <div class="sticky top-0 z-10 bg-[#121212] pt-4 pb-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest" x-text="formatDisplayDate(selectedDate)"></h2>
+                </div>
+                <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤ Детальний режим' : '▣ Компактний режим'"></button>
+            </div>
+            <div class="flex items-center gap-1.5 mt-3">
+                <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Показувати:</span>
+                <div class="flex bg-[#2a2a2a] rounded-lg overflow-hidden">
+                    <button @click="sessionFilter = 'all'" class="px-3 py-1.5 text-xs font-bold transition" :class="sessionFilter === 'all' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-300'">Всі</button>
+                    <button @click="sessionFilter = 'confirmed'" class="px-3 py-1.5 text-xs font-bold transition" :class="sessionFilter === 'confirmed' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-300'">Підтверджені</button>
+                    <button @click="sessionFilter = 'pending'" class="px-3 py-1.5 text-xs font-bold transition" :class="sessionFilter === 'pending' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-300'">Очікують</button>
+                </div>
             </div>
         </div>
         <div class="space-y-4">
@@ -156,7 +162,7 @@
                             <div class="flex items-center gap-2">
                                 <span class="text-sm font-black flex-shrink-0" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
                             <span class="text-xs font-semibold text-gray-300">
-                                <template x-for="(aId, i) in session.traineeIds"><span><span x-show="i > 0" class="text-gray-500">,</span><span :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : ''" x-text="getTraineeName(aId)"></span></span></template>
+                                <template x-for="(aId, i) in session.traineeIds"><span><span x-show="i > 0" class="text-gray-500">,</span><span :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : ''" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3 h-3 ml-0.5 text-green-400 inline flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3 h-3 ml-0.5 text-red-400 inline flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></span></span></template>
                             </span>
                             <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0 ml-auto">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
@@ -164,7 +170,7 @@
                             </div>
                         </div>
                         <!-- Full card -->
-                        <div @click.stop="handleCardClick(session, index)" x-show="!compactView && !isCollapsed(session.id) || compactView && isExpanded(session.id)" class="p-5">
+                        <div x-show="!compactView && !isCollapsed(session.id) || compactView && isExpanded(session.id)" class="p-5">
                             <div class="flex items-center gap-2">
                                 <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
                                 <span x-show="isSessionNow(session)" 
@@ -187,7 +193,7 @@
                                 <span class="text-xs text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <template x-for="aId in session.traineeIds"><span @click.stop="toggleTraineeConfirm(aId, session)" class="flex items-center w-full text-xs sm:text-sm bg-[#333] px-3 py-1.5 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><span class="flex items-center justify-center w-8 h-8 rounded-lg mr-2.5 flex-shrink-0 pointer-events-none" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'border-2 border-green-500' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'border-2 border-red-500' : 'border border-[#555]'"><svg class="w-5 h-5" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><span class="ml-auto flex items-center"><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="text-xs font-bold text-yellow-500 whitespace-nowrap">Запитати</button></span></span></template>
+                                <template x-for="aId in session.traineeIds"><div class="flex flex-col w-full text-xs sm:text-sm bg-[#333] px-3 py-2 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><div class="flex items-center w-full"><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3.5 h-3.5 ml-1 text-green-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3.5 h-3.5 ml-1 text-red-400 flex-shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button></div><div class="flex items-center w-full mt-1.5"><button x-show="getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="confirmTrainee(aId, session)" class="text-xs font-bold text-green-400 bg-green-400/15 px-3 py-1 rounded-lg border border-green-500/30 hover:bg-green-400/25 transition whitespace-nowrap">Підтвердити</button><button x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" @click.stop="unconfirmTrainee(aId, session)" class="text-xs font-bold text-gray-400 bg-gray-400/15 px-3 py-1 rounded-lg border border-gray-500/30 hover:bg-gray-400/25 transition whitespace-nowrap">Відмінити</button><span class="ml-auto text-xs font-bold" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : 'text-gray-400'" x-text="'Статус: ' + (getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'Підтверджено' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'Відхилено спортсменом' : 'Не підтверджено')"></span></div></div></template>
                             </div>
                             <div class="flex items-center justify-between mt-2">
                                 <div class="flex items-center">
@@ -200,17 +206,11 @@
                                     <button @click.stop="editSession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Редагувати">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                                     </button>
-                                    <button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="p-1 text-blue-400 hover:text-blue-300 transition" title="Додати в Google Календар">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"/></svg>
+<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
+                                        <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
+                                        <span>Експорт в Google Calendar</span>
                                     </button>
-                                    <div x-show="session.createdBy === 'TRAINEE' && session.confirmationStatus === 'PENDING'" class="flex gap-2">
-                                        <button @click.stop="confirmSession(session.id)" class="flex items-center justify-center w-9 h-9 bg-green-600/30 text-green-400 rounded-xl hover:bg-green-600/50 transition" title="Підтвердити">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                                        </button>
-                                        <button @click.stop="rejectSession(session.id)" class="flex items-center justify-center w-9 h-9 bg-red-600/30 text-red-400 rounded-xl hover:bg-red-600/50 transition" title="Відмінити">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                        </button>
-                                    </div>
+
                                 </div>
                                 <div class="flex items-center">
                                     <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition p-1 -mr-1" title="Копіювати">
@@ -229,13 +229,19 @@
 
     <!-- ПЛАН -->
     <div x-show="activeTab === 'agenda'" class="max-w-2xl mx-auto p-4 pb-24 bg-[#0f0f0f]">
-        <div class="sticky top-0 z-10 bg-[#0f0f0f] pt-4 pb-3 flex justify-center items-center">
-            <div class="flex items-center gap-2">
-                <button @click="toggleConfirmedFilter()" class="p-1.5 rounded-lg transition" :class="showConfirmedOnly ? 'bg-green-600/30 ring-2 ring-green-500' : 'bg-[#2a2a2a] hover:bg-[#333]'" title="Показати лише підтверджені">
-                    <svg class="w-4 h-4" :class="showConfirmedOnly ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                </button>
-                <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤' : '▣'"></button>
-                <button @click="selectedDate = todayStr; $nextTick(() => scrollToToday())" class="text-xs sm:text-sm font-bold text-blue-400" x-text="labels.today || 'Сьогодні'"></button>
+        <div class="sticky top-0 z-10 bg-[#0f0f0f] pt-4 pb-3">
+            <div class="text-center mb-2">
+                <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="compactView ? '▤ Детальний режим' : '▣ Компактний режим'"></button>
+            </div>
+            <div class="flex justify-center">
+                <div class="flex items-center gap-1.5">
+                    <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Показувати:</span>
+                    <div class="flex bg-[#2a2a2a] rounded-lg overflow-hidden">
+                        <button @click="sessionFilter = 'all'" class="px-3 py-1.5 text-xs font-bold transition" :class="sessionFilter === 'all' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-300'">Всі</button>
+                        <button @click="sessionFilter = 'confirmed'" class="px-3 py-1.5 text-xs font-bold transition" :class="sessionFilter === 'confirmed' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-300'">Підтверджені</button>
+                        <button @click="sessionFilter = 'pending'" class="px-3 py-1.5 text-xs font-bold transition" :class="sessionFilter === 'pending' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-300'">Очікують</button>
+                    </div>
+                </div>
             </div>
         </div>
         <div x-show="!agendaReady" class="flex flex-col items-center justify-center py-20">
@@ -244,10 +250,10 @@
         </div>
         <template x-for="dateGroup in agendaGroups" :key="dateGroup.date">
             <div class="space-y-3 mb-6">
-                <div class="py-2 flex items-center gap-2">
-                    <div class="h-px flex-1 bg-[#333]"></div>
-                    <span class="text-xs font-black text-blue-400 uppercase tracking-widest flex-shrink-0" x-text="formatDisplayDate(dateGroup.date)"></span>
-                    <div class="h-px flex-1 bg-[#333]"></div>
+                <div class="py-2 flex items-center gap-2" :class="isWeekend(dateGroup.date) ? 'bg-purple-500/5 rounded-lg px-3 -mx-3' : ''">
+                    <div class="h-px flex-1" :class="isWeekend(dateGroup.date) ? 'bg-purple-500/20' : 'bg-[#333]'"></div>
+                    <span class="text-xs font-black uppercase tracking-widest flex-shrink-0" :class="isWeekend(dateGroup.date) ? 'text-purple-400' : 'text-blue-400'" x-text="formatDisplayDate(dateGroup.date)"></span>
+                    <div class="h-px flex-1" :class="isWeekend(dateGroup.date) ? 'bg-purple-500/20' : 'bg-[#333]'"></div>
                 </div>
                 <div class="space-y-3">
                     <template x-for="(session, index) in dateGroup.items" :key="session.id">
@@ -261,7 +267,7 @@
                                 <div class="flex items-center gap-2">
                                     <span class="text-sm font-black flex-shrink-0" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
                                     <span class="text-xs font-semibold text-gray-300">
-                                        <template x-for="(aId, i) in session.traineeIds"><span><span x-show="i > 0" class="text-gray-500">,</span><span :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : ''" x-text="getTraineeName(aId)"></span></span></template>
+                                        <template x-for="(aId, i) in session.traineeIds"><span><span x-show="i > 0" class="text-gray-500">,</span><span :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : ''" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3 h-3 ml-0.5 text-green-400 inline flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3 h-3 ml-0.5 text-red-400 inline flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></span></span></template>
                                     </span>
                                     <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0 ml-auto">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
@@ -269,7 +275,7 @@
                                 </div>
                             </div>
                             <!-- Full card -->
-                        <div @click.stop="handleCardClick(session, index)" x-show="!compactView && !isCollapsed(session.id) || compactView && isExpanded(session.id)" class="p-5 flex flex-col gap-2.5">
+                        <div x-show="!compactView && !isCollapsed(session.id) || compactView && isExpanded(session.id)" class="p-5 flex flex-col gap-2.5">
                                 <div class="flex items-center gap-2">
                                     <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
                                     <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="ml-auto p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0" title="Згорнути">
@@ -291,12 +297,20 @@
                                 </div>
                                 <div class="flex flex-col gap-1.5">
                                     <template x-for="aId in session.traineeIds">
-                                        <span @click.stop="toggleTraineeConfirm(aId, session)" class="flex items-center w-full text-xs sm:text-sm bg-[#333] px-3 py-1.5 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation">
-                                            <span class="flex items-center justify-center w-8 h-8 rounded-lg mr-2.5 flex-shrink-0 pointer-events-none" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'border-2 border-green-500' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'border-2 border-red-500' : 'border border-[#555]'"><svg class="w-5 h-5" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : 'text-gray-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span>
-                                            <span class="pointer-events-none" x-text="getTraineeName(aId)"></span>
-                                            <svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                                            <span class="ml-auto flex items-center"><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="text-xs font-bold text-yellow-500 whitespace-nowrap">Запитати</button></span>
-                                        </span>
+                                        <div class="flex flex-col w-full text-xs sm:text-sm bg-[#333] px-3 py-2 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation">
+                                            <div class="flex items-center w-full">
+                                                <span class="pointer-events-none" x-text="getTraineeName(aId)"></span>
+                                                <svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3.5 h-3.5 ml-1 text-green-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                                <svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3.5 h-3.5 ml-1 text-red-400 flex-shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                <svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                                                <button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button>
+                                            </div>
+                                            <div class="flex items-center w-full mt-1.5">
+                                                <button x-show="getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="confirmTrainee(aId, session)" class="text-xs font-bold text-green-400 bg-green-400/15 px-3 py-1 rounded-lg border border-green-500/30 hover:bg-green-400/25 transition whitespace-nowrap">Підтвердити</button>
+                                                <button x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" @click.stop="unconfirmTrainee(aId, session)" class="text-xs font-bold text-gray-400 bg-gray-400/15 px-3 py-1 rounded-lg border border-gray-500/30 hover:bg-gray-400/25 transition whitespace-nowrap">Відмінити</button>
+                                                <span class="ml-auto text-xs font-bold" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : 'text-gray-400'" x-text="'Статус: ' + (getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'Підтверджено' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'Відхилено спортсменом' : 'Не підтверджено')"></span>
+                                            </div>
+                                        </div>
                                     </template>
                                 </div>
                                 <div class="flex items-center justify-between mt-2">
@@ -310,9 +324,14 @@
                                         <button @click.stop="editSession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Редагувати">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                                         </button>
-                                        <button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="p-1 text-blue-400 hover:text-blue-300 transition" title="Додати в Google Календар">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"/></svg>
+<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="p-1 text-blue-400 hover:text-blue-300 transition" title="Експорт в Google Calendar">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"/></svg>
+                                    </button>
+                                    <div class="flex items-center">
+                                        <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition p-1 -mr-1" title="Копіювати">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                         </button>
+                                        <svg class="w-4 h-4 text-green-400/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                     </div>
                                     <div class="flex items-center">
                                         <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition p-1 -mr-1" title="Копіювати">
@@ -395,8 +414,47 @@
 
 <!-- ПРОФІЛЬ -->
 <div x-show="activeTab === 'profile'" class="max-w-2xl mx-auto p-4 pb-24">
+    <div x-show="!isStandalone" class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+        <button @click="installPwa()" class="w-full flex items-center justify-center gap-3 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-white/5 active:scale-[0.97]">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+            <span>Встановити додаток</span>
+        </button>
+    </div>
+    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4"><span class="mr-1">📱</span> Telegram</h4>
+        <template x-if="!mentorTg.enabled">
+            <p class="text-gray-500 text-sm">Telegram не налаштовано.</p>
+        </template>
+        <template x-if="mentorTg.enabled && mentorTg.connected">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 bg-green-500 rounded-full"></span>
+                    <span class="text-green-400 font-medium">Підключено</span>
+                    <span x-show="mentorTg.username" class="text-gray-500" x-text="'@' + mentorTg.username"></span>
+                </div>
+            </div>
+        </template>
+        <template x-if="mentorTg.enabled && !mentorTg.connected">
+            <div class="space-y-3">
+                <p class="text-gray-400 text-sm" x-text="labels.tg_connect_prompt || 'Підключить телеграм, щоб вмикнути сповіщення'"></p>
+                <button @click="generateMentorTelegramToken()" 
+                        :class="mentorTg.copied ? 'bg-green-600' : (mentorTg.connectLink ? 'bg-orange-500' : 'bg-blue-600')"
+                        class="w-full flex items-center justify-center gap-2 text-white py-3 rounded-xl font-bold transition active:scale-[0.97]">
+                    <span x-show="mentorTg.copied">✓</span>
+                    <span x-show="!mentorTg.copied && mentorTg.connectLink">🔗</span>
+                    <span x-show="!mentorTg.copied && !mentorTg.connectLink">📲</span>
+                    <span x-show="mentorTg.copied">Скопійовано!</span>
+                    <span x-show="!mentorTg.copied && mentorTg.connectLink">Копіювати посилання</span>
+                    <span x-show="!mentorTg.copied && !mentorTg.connectLink">Під'єднати Телеграм</span>
+                </button>
+                <p x-show="mentorTg.connectLink && !mentorTg.copied" class="text-gray-600 text-xs text-center">
+                    Натисніть, щоб скопіювати посилання для підключення
+                </p>
+            </div>
+        </template>
+    </div>
     <!-- Photo -->
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
         <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">📷 Фото</h4>
         <div class="flex items-center gap-4">
             <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-[#262626] flex-shrink-0">
@@ -462,7 +520,7 @@
         </div>
     </div>
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Крок сітки</h4>
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Крок сітки часу</h4>
         <p class="text-xs text-gray-600 mb-3">Виберіть інтервал часу для сітки доступності</p>
         <div class="flex bg-[#262626] rounded-xl p-1 gap-1">
             <button @click="availStep = 15; saveAvailStep()"
@@ -484,45 +542,6 @@
                 <span class="block text-xs font-medium opacity-70">година</span>
             </button>
         </div>
-    </div>
-    <div x-show="!isStandalone" class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <button @click="installPwa()" class="w-full flex items-center justify-center gap-3 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-white/5 active:scale-[0.97]">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-            <span>Встановити додаток</span>
-        </button>
-    </div>
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4"><span class="mr-1">📱</span> Telegram</h4>
-        <template x-if="!mentorTg.enabled">
-            <p class="text-gray-500 text-sm">Telegram не налаштовано.</p>
-        </template>
-        <template x-if="mentorTg.enabled && mentorTg.connected">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 bg-green-500 rounded-full"></span>
-                    <span class="text-green-400 font-medium">Підключено</span>
-                    <span x-show="mentorTg.username" class="text-gray-500" x-text="'@' + mentorTg.username"></span>
-                </div>
-            </div>
-        </template>
-        <template x-if="mentorTg.enabled && !mentorTg.connected">
-            <div class="space-y-3">
-                <p class="text-gray-400 text-sm" x-text="labels.tg_connect_prompt || 'Підключить телеграм, щоб вмикнути сповіщення'"></p>
-                <button @click="generateMentorTelegramToken()" 
-                        :class="mentorTg.copied ? 'bg-green-600' : (mentorTg.connectLink ? 'bg-orange-500' : 'bg-blue-600')"
-                        class="w-full flex items-center justify-center gap-2 text-white py-3 rounded-xl font-bold transition active:scale-[0.97]">
-                    <span x-show="mentorTg.copied">✓</span>
-                    <span x-show="!mentorTg.copied && mentorTg.connectLink">🔗</span>
-                    <span x-show="!mentorTg.copied && !mentorTg.connectLink">📲</span>
-                    <span x-show="mentorTg.copied">Скопійовано!</span>
-                    <span x-show="!mentorTg.copied && mentorTg.connectLink">Копіювати посилання</span>
-                    <span x-show="!mentorTg.copied && !mentorTg.connectLink">Під'єднати Телеграм</span>
-                </button>
-                <p x-show="mentorTg.connectLink && !mentorTg.copied" class="text-gray-600 text-xs text-center">
-                    Натисніть, щоб скопіювати посилання для підключення
-                </p>
-            </div>
-        </template>
     </div>
     <div class="pt-4 space-y-3">
         <form method="POST" action="/logout" class="w-full">
@@ -551,7 +570,7 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                 <span x-text="(labels.add_trainee_short || 'Додати ' + (labels.trainee_gen || labels.trainee || 'учня'))"></span>
                             </button>
-                    <button @click="toggleTraineeView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="traineeCompactView ? '▤' : '▣'"></button>
+                    <button @click="toggleTraineeView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="traineeCompactView ? '▤ Детальний режим' : '▣ Компактний режим'"></button>
                 </div>
             </div>
             <input type="text" x-model="traineeSearch" :placeholder="'🔍 ' + (labels.trainee_search || 'Пошук учнів...')" class="w-full bg-[#262626] text-gray-200 text-sm px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500 mb-3">
@@ -814,12 +833,10 @@
                         <span x-text="coachCopied ? '✓ Скопійовано' : 'Посиланням'"></span>
                     </button>
                     <button @click="coachCopyImageWeek()" class="px-2.5 py-1 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-xs font-bold transition" :class="coachImgCopiedWeek ? 'text-green-400' : 'text-gray-300'">
-                        <span x-text="coachImgCopiedWeek ? '✓ Скопійовано' : 'Картинкою'"></span>
+                        <span x-text="coachImgCopiedWeek ? '✓ Скопійовано' : 'Картинкою на день'"></span>
                     </button>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span x-show="coachAvailDate === todayStr" class="text-[10px] font-black uppercase bg-blue-600 text-white px-2 py-0.5 rounded-full">Сьогодні</span>
-                </div>
+                <div class="flex items-center gap-2"></div>
             </div>
             <div class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between">
                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Інтервали доступності по локаціях</span>
@@ -916,16 +933,20 @@
             <button x-show="editingSessionId" @click="askDeleteSession()" class="text-red-500 font-bold text-xs ">Видалити</button>
         </div>
         <div class="border-b border-[#333] px-6 py-3">
-            <div x-ref="dateScroller" class="flex overflow-x-auto no-scrollbar space-x-2">
+            <div x-ref="dateScroller" class="flex overflow-x-auto no-scrollbar space-x-3 scroll-smooth">
                 <template x-for="day in futureDays" :key="day.dateStr">
                     <button :data-date="day.dateStr" @click="onSessionDateChange(day.dateStr)"
-                            class="flex-shrink-0 flex flex-col items-center px-2 py-1.5 rounded-xl transition-all min-w-[36px] relative"
-                            :class="day.dateStr === sessionForm.date ? 'bg-blue-600 text-white shadow-lg' : (dayOffs.includes(day.dateStr) ? 'bg-[#3a1a1a] text-red-400' : (day.isWeekend ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400'))">
-                        <span class="text-[10px] font-bold uppercase" x-text="day.weekday"></span>
-                        <span class="text-sm font-black leading-tight" x-text="day.dayNum"></span>
-                        <span class="text-[10px] font-bold mt-0.5" x-text="day.shortMonth || ''"></span>
-                        <span x-show="day.dateStr === todayStr" class="text-[8px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1 py-0.5 rounded-full">Сьогодні</span>
-                        <span x-show="dayOffs.includes(day.dateStr)" class="absolute top-0.5 right-1 text-[8px] font-black text-red-500">✕</span>
+                            class="flex-shrink-0 flex flex-col items-center min-w-[56px]"
+                            :class="day.isMonday ? 'week-start' : ''">
+                        <div class="w-12 h-12 rounded-xl p-[2px] flex items-center justify-center transition-all relative"
+                             :class="[day.dateStr === sessionForm.date ? 'ig-gradient shadow-lg' : (day.isWeekend || dayOffs.includes(day.dateStr) ? 'bg-[#5a2525]' : 'bg-[#333]'), day.dateStr === todayStr ? 'today-marker' : '']">
+                            <div class="w-full h-full rounded-xl bg-black flex flex-col items-center justify-center border-2 border-black">
+                                <span class="text-xs font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
+                                <span class="text-xs font-bold text-white" x-text="day.dayNum"></span>
+                            </div>
+                        </div>
+                        <span x-show="day.dateStr === todayStr" class="text-[9px] font-black text-white uppercase mt-1 tracking-tighter" x-text="labels.today || 'Сьогодні'"></span>
+                        <div x-show="dayOffs.includes(day.dateStr)" class="text-[9px] font-black text-red-400 uppercase mt-0.5">✕</div>
                     </button>
                 </template>
             </div>
@@ -945,7 +966,7 @@
                         </select>
                         <button @click="showAvailPopup = true" type="button"
                                 class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition text-blue-400 bg-blue-900/30 hover:bg-blue-900/50"
-                                x-text="labels.availability || 'Доступність'">
+                                x-text="labels.availability || 'Доступність тренера'">
                         </button>
                     </div>
                 </div>
@@ -1028,7 +1049,7 @@
                 </button>
             </div>
             <div x-show="getAvailPopupRanges().length === 0" class="text-center py-8 text-gray-500 text-sm">
-                <span x-text="labels.no_avail || 'Немає встановленої доступності на цей день'"></span>
+                <span x-text="labels.no_avail || 'Доступний весь день'"></span>
             </div>
             <div class="space-y-3 max-h-64 overflow-y-auto no-scrollbar pr-1">
                 <template x-for="group in getAvailPopupRanges()" :key="group.locationId || '__none__'">
@@ -1095,7 +1116,7 @@
     </div>
 </div>
 
-<div x-show="notifyModal.show" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition>
+<div x-show="notifyModal.show" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm" x-cloak x-transition.opacity.duration.200ms>
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-3xl overflow-hidden shadow-2xl">
         <div class="p-6">
             <h4 class="text-lg font-bold text-white mb-1" x-text="labels.request_availability_title || '📲 Запросити доступність'"></h4>
@@ -1151,6 +1172,10 @@
             </div>
         </div>
     </div>
+</div>
+
+<div x-show="toast.show" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-[#1c1c1c] border border-[#333] px-6 py-3 rounded-2xl shadow-2xl text-sm text-white text-center max-w-[90vw]" x-cloak x-transition>
+    <span x-text="toast.message"></span>
 </div>
 
 </body>

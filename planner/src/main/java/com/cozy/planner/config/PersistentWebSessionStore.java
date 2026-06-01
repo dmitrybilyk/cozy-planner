@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+
+
 public class PersistentWebSessionStore implements WebSessionStore {
 
     private static final Logger log = LoggerFactory.getLogger(PersistentWebSessionStore.class);
@@ -41,7 +43,7 @@ public class PersistentWebSessionStore implements WebSessionStore {
         data.id = id;
         data.creationTime = now;
         data.lastAccessTime = now;
-        data.maxIdleSeconds = 86400L;
+        data.maxIdleSeconds = Duration.ofDays(30).toSeconds();
         data.attributesJson = "{}";
         return Mono.just(new PersistentWebSession(data));
     }

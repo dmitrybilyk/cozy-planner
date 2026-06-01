@@ -10,11 +10,22 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.logout.RedirectServerLogoutSuccessHandler;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 
+import org.springframework.web.server.session.CookieWebSessionIdResolver;
+import org.springframework.web.server.session.WebSessionIdResolver;
+
 import java.net.URI;
+import java.time.Duration;
 
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
+
+    @Bean
+    public WebSessionIdResolver webSessionIdResolver() {
+        var resolver = new CookieWebSessionIdResolver();
+        resolver.setCookieMaxAge(Duration.ofDays(30));
+        return resolver;
+    }
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {

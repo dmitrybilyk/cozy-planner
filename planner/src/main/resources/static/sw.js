@@ -72,19 +72,26 @@ self.addEventListener('notificationclick', (event) => {
             } else if (actionType === 'coach_confirm_session') {
                 endpoint = `/api/v1/sessions/${sessionId}/${isConfirm ? 'confirm' : 'reject'}`;
             }
+            let success = false;
+            let statusCode = 0;
             if (endpoint) {
                 try {
-                    await fetch(endpoint, { method: 'POST' });
+                    const resp = await fetch(endpoint, { method: 'POST', credentials: 'same-origin' });
+                    statusCode = resp.status;
+                    success = resp.ok;
                 } catch (e) {
-                    console.error('[sw] action failed', e);
+                    console.error('[sw] action fetch error:', e.message);
                 }
             }
-            const url = '/';
             const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+            const msg = { type: 'session_changed', action: event.action, actionType, sessionId, success, statusCode };
             for (const c of clientList) {
-                if (c.url.includes(self.location.host) && 'focus' in c) { await c.focus(); return; }
+                c.postMessage(msg);
+                if (c.url.includes(self.location.host) && 'focus' in c) { await c.focus(); }
             }
-            await clients.openWindow(url);
+            if (clientList.length === 0) {
+                await clients.openWindow('/');
+            }
         })());
         return;
     }

@@ -9,3 +9,5 @@ body {
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 input, select, textarea { background: #262626 !important; color: white !important; border: 1px solid #363636 !important; border-radius: 12px !important; padding: 10px !important; }
 .modal-backdrop { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
+.ig-gradient { background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); }
+.today-marker { border: 2px solid #ffffff !important; box-shadow: 0 0 12px rgba(255, 255, 255, 0.4); }

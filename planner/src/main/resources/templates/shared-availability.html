@@ -16,22 +16,53 @@
     <link rel="apple-touch-icon" href="/icon.svg">
     <link rel="stylesheet" href="/css/shared.css" th:href="@{/css/shared.css(v=${appVersion})}">
 </head>
-<body class="antialiased" x-data="sharedAvailabilityApp()">
+<body class="antialiased h-screen flex flex-col overflow-hidden" x-data="sharedAvailabilityApp()">
 
-<header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-14 flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm" x-text="mentorName.charAt(0).toUpperCase()"></div>
-        <div>
-            <h1 class="text-base font-bold" x-text="mentorName"></h1>
-            <p class="text-xs text-gray-500">Графік доступності</p>
+<div class="sticky top-0 z-10 bg-[#1a1a1a] border-b border-[#333]">
+    <!-- Coach + install + days panel (non-scrolling) -->
+    <div class="px-4 pt-3 pb-2">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-sm" x-text="mentorName.charAt(0).toUpperCase()"></div>
+                <div>
+                    <h1 class="text-base font-bold" x-text="mentorName"></h1>
+                    <p class="text-xs text-gray-500">Графік доступності</p>
+                </div>
+            </div>
         </div>
-        <button @click="installPwa()" class="text-sm" title="Встановити додаток">
-            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-        </button>
+        <div x-show="!loading && hasData && !isStandalone" class="mb-2">
+            <button @click="installPwa()" class="w-full flex items-center justify-center gap-2 text-blue-400 py-2 rounded-xl font-bold transition hover:bg-white/5 active:scale-[0.97] text-sm border border-blue-500/30">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                <span>Встановити додаток</span>
+            </button>
+        </div>
+        <div x-show="!loading && hasData">
+            <div class="flex items-center gap-1">
+                <div class="flex-1 flex overflow-x-auto no-scrollbar space-x-3 scroll-smooth">
+                    <template x-for="day in days" :key="day.dateStr">
+                        <button @click="selectedDate = day.dateStr"
+                                class="flex-shrink-0 flex flex-col items-center min-w-[56px]">
+                            <div class="w-12 h-12 rounded-xl p-[2px] flex items-center justify-center transition-all relative"
+                                 :class="[selectedDate === day.dateStr ? 'ig-gradient shadow-lg' : (day.isWeekend || isDayOff(day.dateStr) ? 'bg-[#5a2525]' : 'bg-[#333]'), day.isToday ? 'today-marker' : '']">
+                                <div class="w-full h-full rounded-xl bg-black flex flex-col items-center justify-center border-2 border-black">
+                                    <span class="text-xs font-bold text-gray-500 uppercase" x-text="day.weekday"></span>
+                                    <span class="text-xs font-bold text-white" x-text="day.dayNum"></span>
+                                </div>
+                            </div>
+                            <span x-show="day.isToday" class="text-[9px] font-black text-white uppercase mt-1 tracking-tighter">Сьогодні</span>
+                            <div x-show="isDayOff(day.dateStr)" class="text-[9px] font-black text-red-400 uppercase mt-0.5">✕</div>
+                            <div x-show="rangesByDate[day.dateStr]?.length && !isDayOff(day.dateStr)" class="mt-0.5 flex items-center gap-0.5">
+                                <span class="w-1 h-1 rounded-full bg-blue-400"></span>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </div>
     </div>
-</header>
+</div>
 
-<main class="max-w-lg mx-auto p-4 pb-24">
+<main class="max-w-2xl mx-auto p-4 pb-24 flex-1 overflow-y-auto w-full">
     <div x-show="loading" class="text-center py-16">
         <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
         <p class="text-gray-500 text-sm">Завантаження...</p>
@@ -44,26 +75,8 @@
     </div>
 
     <div x-show="!loading && hasData">
-        <!-- multi-day navigation -->
-        <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] mb-4">
-            <div class="flex overflow-x-auto no-scrollbar space-x-2 p-2.5">
-                <template x-for="day in days" :key="day.dateStr">
-                    <button @click="selectedDate = day.dateStr"
-                            class="flex-shrink-0 flex flex-col items-center px-1.5 py-1 rounded-lg transition-all min-w-[28px] relative"
-                            :class="day.dateStr === selectedDate ? 'bg-blue-600 text-white shadow-lg' : (day.isWeekend || isDayOff(day.dateStr) ? 'bg-[#5a2020] text-red-300' : 'bg-[#262626] text-gray-400')">
-                        <span class="text-[9px] font-bold uppercase" x-text="day.weekday"></span>
-                        <span class="text-xs font-black leading-tight" x-text="day.dayNum"></span>
-                        <span class="text-[9px] font-bold" x-text="day.month"></span>
-                        <span x-show="day.isToday" class="text-[7px] font-black uppercase mt-0.5 bg-blue-500 text-white px-1 py-0.5 rounded-full">Сьогодні</span>
-                        <span x-show="rangesByDate[day.dateStr]?.length && !isDayOff(day.dateStr)" class="w-0.5 h-0.5 rounded-full bg-blue-400 mt-0.5"></span>
-                        <span x-show="isDayOff(day.dateStr)" class="text-[7px] font-black text-red-400 uppercase">✕</span>
-                    </button>
-                </template>
-            </div>
-        </div>
-
         <!-- selected date header -->
-        <div x-show="!isDayOff(selectedDate)" class="mb-3">
+        <div x-show="!isDayOff(selectedDate)" class="mb-3 text-center">
             <h2 class="text-lg font-bold text-white" x-text="dayName(selectedDate)"></h2>
             <p x-show="isTodaySelected" class="text-xs font-bold text-blue-400 uppercase tracking-wider mt-0.5">Сьогодні</p>
         </div>
@@ -89,13 +102,13 @@
                     <div class="rounded-2xl border border-[#2a2a2a] overflow-hidden transition-all hover:border-blue-500/30">
                         <div class="flex items-stretch">
                             <div class="w-2 flex-shrink-0" :style="'background:' + (r.locColor || '#3b82f6')"></div>
-                            <div class="flex-1 px-4 py-3.5">
-                                <div class="flex items-baseline gap-2">
+                            <div class="flex-1 px-4 py-3.5 text-center">
+                                <div class="flex items-baseline justify-center gap-2">
                                     <span class="text-lg font-black text-white tracking-wide" x-text="r.startTime?.slice(0,5)"></span>
                                     <span class="text-sm text-gray-500">—</span>
                                     <span class="text-lg font-black text-white tracking-wide" x-text="r.endTime?.slice(0,5)"></span>
                                 </div>
-                                <div x-show="r.locName" class="flex items-center gap-1.5 mt-1.5">
+                                <div x-show="r.locName" class="flex items-center justify-center gap-1.5 mt-1.5">
                                     <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
                                     <span class="text-xs font-semibold text-gray-400" x-text="r.locName"></span>
                                 </div>
@@ -103,14 +116,6 @@
                         </div>
                     </div>
                 </template>
-            </div>
-
-            <div x-show="selectedRanges.length > 0" class="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-[#222] text-xs text-gray-500">
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" style="background:#3b82f6"></span> Вільно</span>
-                <template x-for="loc in locations" :key="loc.name">
-                    <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full" :style="'background:' + (loc.color || '#3b82f6')"></span> <span x-text="loc.name"></span></span>
-                </template>
-                <span class="text-gray-600">· крок <span x-text="availStep || 30"></span> хв</span>
             </div>
         </div>
     </div>

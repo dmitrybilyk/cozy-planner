@@ -29,7 +29,7 @@ function traineeApp() {
         todayStr: today,
         showAllFuture: false,
         form: { title: '', description: '', date: today, time: '', endTime: '', locationId: '' },
-        formPickStart: null,
+        _bookingSlot: null,
         selectedModalSlots: [],
         locations: [],
         confirmModal: { show: false, sessionId: null, title: '', message: '' },
@@ -167,6 +167,60 @@ function traineeApp() {
             return rows;
         },
 
+        get validModalStartSlots() {
+            const step = this.mentorAvailStep || 30;
+            const slot = this._bookingSlot;
+            let startMm, endMm;
+            if (slot) {
+                const [sh, sm] = slot.startTime.split(':').map(Number);
+                const [eh, em] = slot.endTime.split(':').map(Number);
+                startMm = sh * 60 + sm;
+                endMm = eh * 60 + em;
+            } else {
+                const ws = this.mentorWorkStart || '06:00';
+                const we = this.mentorWorkEnd || '21:00';
+                const [wh, wm] = ws.split(':').map(Number);
+                const [eh, em] = we.split(':').map(Number);
+                startMm = wh * 60 + wm;
+                endMm = eh * 60 + em;
+            }
+            const slots = [];
+            for (let m = startMm; m < endMm; m += 15) {
+                const h = String(Math.floor(m / 60)).padStart(2, '0');
+                const min = String(m % 60).padStart(2, '0');
+                slots.push(`${h}:${min}`);
+            }
+            if (step === 60) return slots.filter(t => t.endsWith(':00'));
+            if (step === 30) return slots.filter(t => t.endsWith(':00') || t.endsWith(':30'));
+            return slots;
+        },
+
+        get validModalEndSlots() {
+            if (!this.form.time) return [];
+            const step = this.mentorAvailStep || 30;
+            const [sh, sm] = this.form.time.split(':').map(Number);
+            const startMm = sh * 60 + sm;
+            const slot = this._bookingSlot;
+            let endBoundary;
+            if (slot) {
+                const [eh, em] = slot.endTime.split(':').map(Number);
+                endBoundary = eh * 60 + em;
+            } else {
+                const we = this.mentorWorkEnd || '21:00';
+                const [eh, em] = we.split(':').map(Number);
+                endBoundary = eh * 60 + em;
+            }
+            const slots = [];
+            for (let m = startMm + 15; m <= endBoundary; m += 15) {
+                const h = String(Math.floor(m / 60)).padStart(2, '0');
+                const min = String(m % 60).padStart(2, '0');
+                slots.push(`${h}:${min}`);
+            }
+            if (step === 60) return slots.filter(t => t.endsWith(':00'));
+            if (step === 30) return slots.filter(t => t.endsWith(':00') || t.endsWith(':30'));
+            return slots;
+        },
+
         async init() {
             this.initAudioContext();
             if (_deferredInstall) this.deferredInstallPrompt = _deferredInstall;
@@ -208,12 +262,49 @@ function traineeApp() {
             await this.loadAvailability();
             await this.loadNotifications();
             this.connectWebSocket();
+            this.listenForSWMessages();
             this.requestNotificationPermission();
             this.registerPush();
             setInterval(() => this.loadNotifications(), 30000);
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden) { this.loadSessions(); this.loadAvailability(); if (this.me.mentorShareToken) this.loadMentorAvailability(); this.loadNotifications(); }
             });
+            this.$watch('showModal', (val) => {
+                if (val) history.pushState({modal: true}, '');
+                if (!val) this._bookingSlot = null;
+            });
+            window.addEventListener('popstate', () => {
+                if (this.showModal) this.showModal = false;
+            });
+            this.$watch('form.time', () => {
+                const slots = this.validModalEndSlots;
+                if (slots.length > 0) {
+                    if (!slots.includes(this.form.endTime)) {
+                        this.form.endTime = slots[0];
+                    }
+                } else {
+                    this.form.endTime = '';
+                }
+            });
+        },
+
+        listenForSWMessages() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data?.type === 'session_changed') {
+                        this.loadSessions();
+                        this.loadNotifications();
+                    }
+                    if (event.data.action) {
+                        console.log('[sw] notification action result:', event.data.action, 'success:', event.data.success, 'status:', event.data.statusCode);
+                        if (event.data.success === false) {
+                            this.savedMessage = event.data.action === 'confirm' ? 'Помилка підтвердження' : 'Помилка відхилення';
+                            this.saved = true;
+                            setTimeout(() => this.saved = false, 5000);
+                        }
+                    }
+                });
+            }
         },
 
         connectWebSocket() {
@@ -380,9 +471,8 @@ function traineeApp() {
 
         openCreateModal() {
             const traineeName = this.me.name || '';
-            this.form = { title: traineeName ? 'Сесія — ' + traineeName : 'Сесія', description: '', date: today, time: '', endTime: '', locationId: '' };
-            this.formPickStart = null;
-            this.selectedModalSlots = [];
+            this.form = { title: 'Тренування', description: '', date: today, time: '', endTime: '', locationId: '' };
+            this._bookingSlot = null;
             this.showModal = true;
         },
 
@@ -519,6 +609,11 @@ function traineeApp() {
             return (session.traineeIds || []).map(id => this.getTraineeName(id, session)).join(', ');
         },
 
+        formatDateCompact(dateStr) {
+            const d = new Date(dateStr + 'T12:00:00');
+            return WD[(d.getDay() + 6) % 7] + ' ' + d.getDate() + ' ' + MON[d.getMonth()];
+        },
+
         async toggleTraineeConfirm(session) {
             const status = this.getTraineeConfirmStatus(this.traineeId, session);
             if (status === 'confirmed') {
@@ -608,7 +703,21 @@ function traineeApp() {
         },
 
         bookSlot(slot) {
-            this.form = { title: 'Сесія', description: '', date: slot.date, time: slot.startTime, endTime: slot.endTime, locationId: slot.locationId || '' };
+            this._bookingSlot = slot;
+            const [sh, sm] = slot.startTime.split(':').map(Number);
+            const [eh, em] = slot.endTime.split(':').map(Number);
+            const step = this.mentorAvailStep || 30;
+            const slotStartMm = sh * 60 + sm;
+            const slotEndMm = eh * 60 + em;
+            const startMm = Math.ceil(slotStartMm / step) * step;
+            if (startMm >= slotEndMm) return;
+            let endMm = startMm + step;
+            if (endMm > slotEndMm) endMm = slotEndMm;
+            const startH = String(Math.floor(startMm / 60)).padStart(2, '0');
+            const startM = String(startMm % 60).padStart(2, '0');
+            const endH = String(Math.floor(endMm / 60)).padStart(2, '0');
+            const endM = String(endMm % 60).padStart(2, '0');
+            this.form = { title: 'Тренування', description: '', date: slot.date, time: `${startH}:${startM}`, endTime: `${endH}:${endM}`, locationId: slot.locationId || '' };
             this.tab = 'sessions';
             this.showModal = true;
         },
@@ -635,19 +744,25 @@ function traineeApp() {
                 const [eh, em] = s.endTime.split(':').map(Number);
                 return mm >= sh * 60 + sm && mm < eh * 60 + em;
             });
-            const startTime = `${sh}:${sm}`;
-            let endMm = mm + 60;
-            if (slot) {
-                const [eh, em] = slot.endTime.split(':').map(Number);
-                const slotEnd = eh * 60 + em;
-                if (endMm > slotEnd) endMm = slotEnd;
-            }
+            if (!slot) return;
+            this._bookingSlot = slot;
+            const [sh, sm] = slot.startTime.split(':').map(Number);
+            const [eh, em] = slot.endTime.split(':').map(Number);
+            const step = this.mentorAvailStep || 30;
+            const slotStartMm = sh * 60 + sm;
+            const slotEndMm = eh * 60 + em;
+            const startMm = Math.ceil(slotStartMm / step) * step;
+            if (startMm >= slotEndMm) return;
+            const startH = String(Math.floor(startMm / 60)).padStart(2, '0');
+            const startM = String(startMm % 60).padStart(2, '0');
+            const startTime = `${startH}:${startM}`;
+            let endMm = startMm + step;
+            if (endMm > slotEndMm) endMm = slotEndMm;
             const endH = String(Math.floor(endMm / 60)).padStart(2, '0');
             const endM = String(endMm % 60).padStart(2, '0');
             const endTime = `${endH}:${endM}`;
-            const locationId = c.locId || (slot ? slot.locationId : '') || '';
-            this.form = { title: 'Сесія', description: '', date: this.coachSelectedDate, time: startTime, endTime, locationId };
-            this.selectedModalSlots = this.slotSlides(startTime, endTime);
+            const locationId = c.locId || slot.locationId || '';
+            this.form = { title: 'Тренування', description: '', date: this.coachSelectedDate, time: startTime, endTime, locationId };
             this.tab = 'sessions';
             this.showModal = true;
         },
@@ -826,7 +941,10 @@ function traineeApp() {
         },
 
         availMarkDirty() {
-            this.availDirtyDates.add(this.availDate);
+            const s = new Set(this.availDirtyDates);
+            s.add(this.availDate);
+            this.availDirtyDates = s;
+            this.saved = false;
         },
 
         onAvailFreeAllDayToggle() {
@@ -847,12 +965,20 @@ function traineeApp() {
 
         async loadAvailability() {
             if (!this.traineeId) return;
+            if (this.availDirtyDates.size > 0) {
+                console.log('[avail] skip reload, user has unsaved changes');
+                return;
+            }
             const start = this.days[0].dateStr;
             const end = this.days[this.days.length - 1].dateStr;
             const url = `/api/v1/availability/ranges?userId=${this.traineeId}&userType=TRAINEE&startDate=${start}&endDate=${end}`;
             console.log('[avail] loadAvailability', url);
             const res = await fetch(url);
             console.log('[avail] load status:', res.status);
+            if (this.availDirtyDates.size > 0) {
+                console.log('[avail] user made changes during fetch, skip overwrite');
+                return;
+            }
             const rangesByDate = {};
             const freeAllDayByDate = {};
             for (const d of this.days) {
@@ -893,7 +1019,7 @@ function traineeApp() {
                 let allOk = true;
                 for (const date of this.availDirtyDates) {
                     const cached = this.availRangesByDate[date];
-                    const isFreeAllDay = this.availFreeAllDayByDate[date] !== undefined ? this.availFreeAllDayByDate[date] : true;
+                    const isFreeAllDay = this.availFreeAllDayByDate[date] !== undefined ? this.availFreeAllDayByDate[date] : false;
                     const ranges = isFreeAllDay ? [] : (cached || []);
                     console.log('[avail] saving', date, ranges.length, 'ranges');
                     const res = await fetch('/api/v1/availability/ranges', {

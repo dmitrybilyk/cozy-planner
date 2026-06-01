@@ -48,6 +48,7 @@ function calendarApp() {
         locationForm: { name: '', description: '', color: '#3b82f6' },
         confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
         notifyModal: { show: false, traineeId: null, traineeName: '', customMessage: '', dayType: 'tomorrow', targetDate: '' },
+        toast: { show: false, message: '' },
         mentorTg: { enabled: false, connected: false, username: '', connectLink: '', copied: false },
         inviteUrls: {},
         traineeLinks: {},
@@ -103,7 +104,7 @@ function calendarApp() {
         compactView: true,
         expandedIds: [],
         collapsedIds: [],
-        showConfirmedOnly: false,
+        sessionFilter: 'all',
         showRefreshModal: false,
 
         async loadNotifications() {
@@ -260,16 +261,36 @@ function calendarApp() {
                 await this.loadNotifications();
                 this.requestNotificationPermission();
                 this.connectWebSocket();
+                this.listenForSWMessages();
                 this.registerPush();
                 setInterval(() => this.loadNotifications(), 30000);
                 this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
                 this._nowTimer = setInterval(() => { this.nowTick++; }, 30000);
                 console.log('init() complete!');
+
+                this.$watch('showModal', (val) => {
+                    if (val) history.pushState({modal: true}, '');
+                });
+                window.addEventListener('popstate', () => {
+                    if (this.showModal) this.showModal = false;
+                });
             } catch (e) {
                 console.error('init() error:', e);
             } finally {
                 this.loading = false;
+            }
+        },
+
+        listenForSWMessages() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('message', (event) => {
+                    if (event.data?.type === 'session_changed') {
+                        this.fetchSessionCounts();
+                        this.fetchData();
+                        this.loadNotifications();
+                    }
+                });
             }
         },
 
@@ -589,7 +610,9 @@ function calendarApp() {
 
         get filteredSessions() {
             let result = this.sessions.filter(w => w.date === this.selectedDate);
-            if (this.showConfirmedOnly) result = result.filter(w => w.confirmationStatus === 'CONFIRMED' || this.allTraineesConfirmed(w));
+            if (this.sessionFilter === 'all' || (!this.sessionFilter)) return result;
+            if (this.sessionFilter === 'confirmed') result = result.filter(w => w.confirmationStatus === 'CONFIRMED' || (w.traineeIds && w.traineeIds.some(id => this.getTraineeConfirmStatus(id, w) === 'confirmed')));
+            if (this.sessionFilter === 'pending') result = result.filter(w => w.confirmationStatus !== 'REJECTED' && w.traineeIds && w.traineeIds.every(id => this.getTraineeConfirmStatus(id, w) === 'none'));
             return result;
         },
 
@@ -689,7 +712,10 @@ function calendarApp() {
         get agendaGroups() {
             const loadedList = Object.keys(this.loadedDates).sort();
             let filtered = this.sessions.filter(w => loadedList.includes(w.date));
-            if (this.showConfirmedOnly) filtered = filtered.filter(w => w.confirmationStatus === 'CONFIRMED' || this.allTraineesConfirmed(w));
+            if (this.sessionFilter !== 'all' && this.sessionFilter) {
+                if (this.sessionFilter === 'confirmed') filtered = filtered.filter(w => w.confirmationStatus === 'CONFIRMED' || (w.traineeIds && w.traineeIds.some(id => this.getTraineeConfirmStatus(id, w) === 'confirmed')));
+                if (this.sessionFilter === 'pending') filtered = filtered.filter(w => w.confirmationStatus !== 'REJECTED' && w.traineeIds && w.traineeIds.every(id => this.getTraineeConfirmStatus(id, w) === 'none'));
+            }
             if (this.selectedTraineeFilters.length > 0) filtered = filtered.filter(w => w.traineeIds.some(id => this.selectedTraineeFilters.includes(id)));
             const groups = filtered.reduce((acc, w) => { if (!acc[w.date]) acc[w.date] = []; acc[w.date].push(w); return acc; }, {});
             return loadedList.map(date => ({ date, items: groups[date] || [] }));
@@ -755,7 +781,7 @@ function calendarApp() {
         get pastSessionsGroups() {
             const filtered = this.pastSessions.filter(s => s.date < this.todayStr);
             const groups = filtered.reduce((acc, w) => { if (!acc[w.date]) acc[w.date] = []; acc[w.date].push(w); return acc; }, {});
-            return Object.keys(groups).sort().reverse().map(date => ({ date, items: groups[date] }));
+            return Object.keys(groups).sort().reverse().map(date => ({ date, items: groups[date].sort((a, b) => a.time.localeCompare(b.time)) }));
         },
 
         async loadPastSessions() {
@@ -1289,6 +1315,7 @@ function calendarApp() {
             this.updateSessionTitleFromTrainees();
         },
         getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
+        isWeekend(dateStr) { const d = new Date(dateStr + 'T12:00:00'); const day = d.getDay(); return day === 0 || day === 6; },
         getLocationName(id) { return this.locations.find(l => l.id == id)?.name || ''; },
         getLocationColor(id) { return this.locations.find(l => l.id == id)?.color || '#3b82f6'; },
         getTraineeConfirmStatus(traineeId, session) {
@@ -1529,7 +1556,7 @@ function calendarApp() {
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
             const workEndMinutes = weh * 60 + wem;
             let defaultDate = this.selectedDate;
-            if (currentMinutes >= workEndMinutes) {
+            if (defaultDate === this.todayStr && currentMinutes >= workEndMinutes) {
                 const tomorrow = new Date(now);
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 defaultDate = tomorrow.toISOString().slice(0, 10);
@@ -1712,14 +1739,10 @@ function calendarApp() {
         },
         getBusyMinuteRanges(date) {
             const ranges = [];
-            const coachSessions = this.coachSess[date] || [];
             const allSessions = this.sessions || [];
-            const seen = new Set();
-            for (const s of [...coachSessions, ...allSessions]) {
+            for (const s of allSessions) {
                 if (s.date && s.date !== date) continue;
                 if (this.editingSessionId && s.id === this.editingSessionId) continue;
-                if (seen.has(s.id)) continue;
-                seen.add(s.id);
                 const st = s.startTime || s.time;
                 const et = s.endTime || st;
                 if (!st) continue;
@@ -1902,10 +1925,13 @@ function calendarApp() {
                return t && t.telegramConnected;
           },
 
-          async requestTraineeConfirmationForTrainee(traineeId, session) {
-               await fetch(`/api/v1/sessions/${session.id}/request-trainee-confirmation/${traineeId}`, { method: 'POST' });
-               await this.fetchData();
-           },
+           async requestTraineeConfirmationForTrainee(traineeId, session) {
+                await fetch(`/api/v1/sessions/${session.id}/request-trainee-confirmation/${traineeId}`, { method: 'POST' });
+                const name = this.getTraineeName(traineeId);
+                this.toast = { show: true, message: `Запит на підтвердження надіслано спортсмену ${name}` };
+                setTimeout(() => { this.toast.show = false; }, 3000);
+                await this.fetchData();
+            },
 
           async confirmSession(sessionId) {
               await fetch(`/api/v1/sessions/${sessionId}/confirm`, { method: 'POST' });
@@ -2253,7 +2279,7 @@ function calendarApp() {
         coachCopyImageWeek() {
             if (!this.shareToken) return this.mkShareToken().then(() => this.coachCopyImageWeek());
             if (!this.shareToken) return;
-            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image';
+            const imgUrl = window.location.origin + '/api/v1/shared/' + this.shareToken + '/image?date=' + this.coachAvailDate;
             navigator.clipboard.writeText(imgUrl).then(() => {
                 this.coachImgCopiedWeek = true;
                 setTimeout(() => this.coachImgCopiedWeek = false, 3000);
