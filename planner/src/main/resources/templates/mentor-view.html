@@ -294,28 +294,35 @@
                 </div>
                 <div class="space-y-3">
                     <template x-for="(session, index) in dateGroup.items" :key="session.id">
-                        <div :data-session-id="session.id"
-                             :id="'agenda-card-' + session.id"
-                             class="rounded-2xl shadow-sm card-hover fade-in relative overflow-hidden"
-                             :class="getAgendaCardClass(session)"
-                             :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
-                            <!-- Compact card -->
-                        <div @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" x-show="compactView && !isExpanded(session.id) || !compactView && isCollapsed(session.id)" class="p-3">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-sm font-black flex-shrink-0" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
-                                    <span class="text-xs font-semibold text-gray-300">
-                                        <template x-for="(aId, i) in session.traineeIds"><span><span x-show="i > 0" class="text-gray-500">,</span><span :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : ''" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3 h-3 ml-0.5 text-green-400 inline flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3 h-3 ml-0.5 text-red-400 inline flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></span></span></template>
-                                    </span>
-                                    <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0 ml-auto">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                                    </button>
+                        <div>
+                            <div :data-session-id="session.id"
+                                 :id="'agenda-card-' + session.id"
+                                 class="rounded-2xl shadow-sm card-hover fade-in relative overflow-hidden"
+                                 :class="getAgendaCardClass(session)"
+                                 :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
+                                <div x-show="isSessionNow(session)" 
+                                     class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
+                                <!-- Compact card -->
+                            <div @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" x-show="compactView && !isExpanded(session.id) || !compactView && isCollapsed(session.id)" class="p-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm font-black flex-shrink-0" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
+                                        <span class="text-xs font-semibold text-gray-300">
+                                            <template x-for="(aId, i) in session.traineeIds"><span><span x-show="i > 0" class="text-gray-500">,</span><span :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : ''" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3 h-3 ml-0.5 text-green-400 inline flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3 h-3 ml-0.5 text-red-400 inline flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></span></span></template>
+                                        </span>
+                                        <span x-show="isSessionNow(session)"
+                                              class="text-[11px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● В процесі</span>
+                                        <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0 ml-auto">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                            <!-- Full card -->
-                        <div x-show="!compactView && !isCollapsed(session.id) || compactView && isExpanded(session.id)" class="p-5 flex flex-col gap-2.5">
-                                <div class="flex items-center gap-2">
-                                    <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
-                                    <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="ml-auto p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0" title="Згорнути">
+                                <!-- Full card -->
+                            <div x-show="!compactView && !isCollapsed(session.id) || compactView && isExpanded(session.id)" class="p-5 flex flex-col gap-2.5">
+                                    <div class="flex items-center gap-2">
+                                        <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
+                                        <span x-show="isSessionNow(session)" 
+                                              class="text-[11px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● В процесі</span>
+                                        <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="ml-auto p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0" title="Згорнути">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
                                     </button>
                                 </div>
@@ -378,6 +385,12 @@
                                     </div>
                                 </div>
                             </div>
+                             <div x-show="showNowLineAfter(session, dateGroup.date)"
+                                  class="my-3 flex items-center gap-2">
+                                 <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                                 <span class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1 tabular-nums" x-text="nowCountdown(session, dateGroup.date)"></span>
+                                 <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                             </div>
                         </div>
                     </template>
                 </div>

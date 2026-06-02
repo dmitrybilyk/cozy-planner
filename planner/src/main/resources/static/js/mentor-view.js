@@ -56,8 +56,6 @@ function calendarApp() {
         notifyErrors: {},
         notifySuccess: {},
         _nowTimer: null,
-        _countdownTimer: null,
-        _countdownTick: 0,
         nowTick: 0,
         pastDaysToShow: 0,
         loading: true,
@@ -266,8 +264,7 @@ function calendarApp() {
                 setInterval(() => this.loadNotifications(), 30000);
                 this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
-                this._nowTimer = setInterval(() => { this.nowTick++; }, 30000);
-                this._countdownTimer = setInterval(() => { this._countdownTick++; }, 1000);
+                this._nowTimer = setInterval(() => { this.nowTick++; }, 1000);
                 console.log('init() complete!');
 
                 this.$watch('showModal', (val) => {
@@ -1412,40 +1409,59 @@ function calendarApp() {
             const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.timezone) : start + 60;
             return nowUtc >= start && nowUtc < end;
         },
-        showNowLineAfter(session, allSessions) {
-            if (!session.time || !session.date) return false;
-            this.nowTick;
-            const nowUtc = Date.now() / 60000;
-            const dayStart = this.toUtcMin('00:00', session.date, this.timezone);
-            if (nowUtc < dayStart || nowUtc >= dayStart + 1440) return false;
-            const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.timezone) : this.toUtcMin(session.time, session.date, this.timezone) + 60;
-            const sessionStartUtc = this.toUtcMin(session.time, session.date, this.timezone);
-            const sorted = allSessions
-                .filter(s => s.id !== session.id && s.date === session.date)
-                .slice()
-                .sort((a, b) => this.toUtcMin(a.time, a.date, this.timezone) - this.toUtcMin(b.time, b.date, this.timezone));
-            const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, this.timezone) > sessionStartUtc);
-            if (!nextSession) return false;
-            const nextStart = this.toUtcMin(nextSession.time, nextSession.date, this.timezone);
-            return end <= nowUtc && nowUtc < nextStart;
+        _agendaSessionsForDate(date) {
+            const result = this.sessions.filter(s => s.date === date);
+            console.log(`[agenda] sessionsForDate(${date}) → ${result.length} sessions (total ${this.sessions.length})`);
+            return result;
         },
-        nowCountdown(session, allSessions) {
-            if (!this.showNowLineAfter(session, allSessions)) return '';
-            this._countdownTick;
+        showNowLineAfter(session, dateOrArray) {
+            try {
+                if (!session.time || !session.date) { console.log(`[nowline] SKIP: no time/date for session ${session.id}`); return false; }
+                this.nowTick;
+                const nowUtc = Date.now() / 60000;
+                const dayStart = this.toUtcMin('00:00', session.date, this.timezone);
+                if (nowUtc < dayStart || nowUtc >= dayStart + 1440) { console.log(`[nowline] SKIP session ${session.id}: now=${nowUtc} outside day ${dayStart}-${dayStart+1440}`); return false; }
+                const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.timezone) : this.toUtcMin(session.time, session.date, this.timezone) + 60;
+                const allSessions = Array.isArray(dateOrArray) ? dateOrArray : this._agendaSessionsForDate(dateOrArray);
+                console.log(`[nowline] session ${session.id} (${session.time}-${session.endTime}), endUtc=${end}, nowUtc=${nowUtc}, passedEnd=${end <= nowUtc}`);
+                if (nowUtc < end) { console.log(`[nowline] SKIP session ${session.id}: session still active`); return false; }
+                const sessionStartUtc = this.toUtcMin(session.time, session.date, this.timezone);
+                const sorted = allSessions
+                    .filter(s => s.id !== session.id && s.date === session.date)
+                    .slice()
+                    .sort((a, b) => this.toUtcMin(a.time, a.date, this.timezone) - this.toUtcMin(b.time, b.date, this.timezone));
+                console.log(`[nowline] sorted sessions for date: ${sorted.map(s => `${s.id}:${s.time}-${s.endTime}`).join(', ')}`);
+                const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, this.timezone) > sessionStartUtc);
+                if (!nextSession) { console.log(`[nowline] SKIP session ${session.id}: no next session found`); return false; }
+                const nextStart = this.toUtcMin(nextSession.time, nextSession.date, this.timezone);
+                const show = end <= nowUtc && nowUtc < nextStart;
+                console.log(`[nowline] session ${session.id} → next=${nextSession.id} at ${nextSession.time}, nextStart=${nextStart}, show=${show}`);
+                return show;
+            } catch (e) {
+                console.error(`[nowline] ERROR session ${session.id}:`, e);
+                return false;
+            }
+        },
+        nowCountdown(session, dateOrArray) {
+            this.nowTick;
+            if (!this.showNowLineAfter(session, dateOrArray)) { console.log(`[cntdn] SKIP session ${session.id}: showNowLineAfter false`); return ''; }
+            const allSessions = Array.isArray(dateOrArray) ? dateOrArray : this._agendaSessionsForDate(dateOrArray);
             const sessionStartUtc = this.toUtcMin(session.time, session.date, this.timezone);
             const sorted = allSessions
                 .filter(s => s.id !== session.id && s.date === session.date)
                 .slice()
                 .sort((a, b) => this.toUtcMin(a.time, a.date, this.timezone) - this.toUtcMin(b.time, b.date, this.timezone));
             const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, this.timezone) > sessionStartUtc);
-            if (!nextSession) return '';
+            if (!nextSession) { console.log(`[cntdn] SKIP session ${session.id}: no next`); return ''; }
             const nextStartUtc = this.toUtcMin(nextSession.time, nextSession.date, this.timezone);
             const diffMs = nextStartUtc * 60000 - Date.now();
-            if (diffMs <= 0) return '';
+            if (diffMs <= 0) { console.log(`[cntdn] SKIP session ${session.id}: diffMs=${diffMs} <= 0`); return ''; }
             const h = Math.floor(diffMs / 3600000);
             const m = Math.floor((diffMs % 3600000) / 60000);
             const s = Math.floor((diffMs % 60000) / 1000);
-            return `● ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            const text = `● ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            console.log(`[cntdn] session ${session.id} → "${text}"`);
+            return text;
         },
         hasSessionOn(date) {
             if (date < addDays(this.todayStr, -14)) return false;

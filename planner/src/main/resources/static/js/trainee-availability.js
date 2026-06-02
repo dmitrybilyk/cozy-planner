@@ -109,7 +109,8 @@ function availabilityApp() {
         },
 
         pickSlot(t) {
-            if (this.isBlockedBySession(t)) return;
+            console.log(`[avail] pickSlot(${t}), pickStart=${this.pickStart}, date=${this.selectedDate}, slots=${(this.slotsByDate[this.selectedDate]||[]).length}`);
+            if (this.isBlockedBySession(t)) { console.log(`[avail] blocked by session`); return; }
             const slots = this.slotsByDate[this.selectedDate] || [];
             if (this.pickStart === null) {
                 if (this.isBlockedBySession(t)) return;
@@ -207,6 +208,7 @@ function availabilityApp() {
         },
 
         async saveAll() {
+            console.log(`[avail] saveAll called, dirty=${[...this._dirtyDates].join(',')}, saving=${this.saving}`);
             if (this.saving) return;
             this.saving = true;
             try {

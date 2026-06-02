@@ -1027,7 +1027,7 @@ function traineeApp() {
             const freeAllDayByDate = {};
             for (const d of this.days) {
                 rangesByDate[d.dateStr] = [];
-                freeAllDayByDate[d.dateStr] = false;
+                freeAllDayByDate[d.dateStr] = this.availFreeAllDayByDate?.[d.dateStr] ?? false;
             }
             if (res.ok) {
                 let items;
@@ -1129,7 +1129,7 @@ function traineeApp() {
                     setTimeout(() => this.saved = false, 3000);
                 }
             } catch(e) { console.error('[avail] save error', e); this.savedMessage = 'Помилка збереження'; setTimeout(() => this.saved = false, 3000); }
-            finally { this.availSaving = false; this.loadAvailability(); }
+            finally { this.availSaving = false; }
         },
 
         timeOptionsAfter(fromTime) {
