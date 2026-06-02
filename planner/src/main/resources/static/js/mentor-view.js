@@ -1323,12 +1323,12 @@ function calendarApp() {
             if (dateStr !== this.todayStr) return slots;
             const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
-            return slots.filter(s => this.slotToMin(s.endTime) > currentMin);
+            return slots.filter(s => s.endTime === 'all_day' || this.slotToMin(s.endTime) > currentMin);
         },
 
         getAvailLabel(slots) {
             if (!slots || slots.length === 0) return '';
-            return slots.map(s => s.startTime.slice(0,5) + '-' + s.endTime.slice(0,5)).join(', ');
+            return slots.map(s => s.startTime === 'all_day' ? 'Весь день' : s.startTime.slice(0,5) + '-' + s.endTime.slice(0,5)).join(', ');
         },
 
         toggleTraineeSelection(id) {
@@ -1689,7 +1689,14 @@ function calendarApp() {
             this.$nextTick(() => {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
-                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: startTime.slice(0,5), endTime: endTime.slice(0,5), traineeIds: [traineeId], locationId: this.defaultLocationId(date) };
+                let st = startTime;
+                let et = endTime;
+                if (st === 'all_day') {
+                    st = this.mentorWorkStart || '09:00';
+                    const min = this.slotToMin(st) + (this.availStep || 60);
+                    et = String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
+                }
+                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: st.slice(0,5), endTime: et.slice(0,5), traineeIds: [traineeId], locationId: this.defaultLocationId(date) };
                 this.showModal = true;
                 this.scrollDateIntoView();
             });

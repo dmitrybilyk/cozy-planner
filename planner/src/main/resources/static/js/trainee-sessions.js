@@ -895,7 +895,7 @@ function traineeApp() {
 
         availHasRanges(ds) {
             const fr = this.availFreeAllDayByDate[ds];
-            if (fr === true) return false;
+            if (fr === true) return true;
             const rr = this.availRangesByDate[ds];
             return rr && rr.length > 0;
         },
@@ -1042,6 +1042,11 @@ function traineeApp() {
                 try { items = await res.json(); } catch (e) { console.warn('[avail] json parse error', e); items = []; }
                 console.log('[avail] items count:', items.length);
                 for (const item of items) {
+                    if (item.freeAllDay) {
+                        freeAllDayByDate[item.date] = true;
+                        if (!rangesByDate[item.date]) rangesByDate[item.date] = [];
+                        continue;
+                    }
                     if (!rangesByDate[item.date]) rangesByDate[item.date] = [];
                     rangesByDate[item.date].push({
                         startTime: item.startTime || '',
@@ -1101,7 +1106,8 @@ function traineeApp() {
                                 userId: this.traineeId,
                                 userType: 'TRAINEE',
                                 date,
-                                ranges: []
+                                ranges: [],
+                                freeAllDay: true
                             })
                         });
                         if (!res.ok) allOk = false;

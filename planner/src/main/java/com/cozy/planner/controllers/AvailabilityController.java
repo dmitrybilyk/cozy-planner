@@ -127,12 +127,19 @@ public class AvailabilityController {
                             });
                     Flux<Map<String, String>> newSlots = rangeRepository
                             .findByUserIdAndUserTypeAndDateBetween(trainee.getId(), "TRAINEE", startDate, endDate)
-                            .map(r -> {
+                            .flatMap(r -> {
+                                if (r.getFreeAllDay() != null && r.getFreeAllDay()) {
+                                    Map<String, String> slot = new HashMap<>();
+                                    slot.put("date", r.getDate().toString());
+                                    slot.put("startTime", "all_day");
+                                    slot.put("endTime", "all_day");
+                                    return Flux.just(slot);
+                                }
                                 Map<String, String> slot = new HashMap<>();
                                 slot.put("date", r.getDate().toString());
                                 slot.put("startTime", r.getStartTime().atZoneSameInstant(zone).toLocalTime().toString());
                                 slot.put("endTime", r.getEndTime().atZoneSameInstant(zone).toLocalTime().toString());
-                                return slot;
+                                return Flux.just(slot);
                             });
                     return Flux.concat(oldSlots, newSlots)
                             .distinct(s -> s.get("date") + "|" + s.get("startTime") + "|" + s.get("endTime"))

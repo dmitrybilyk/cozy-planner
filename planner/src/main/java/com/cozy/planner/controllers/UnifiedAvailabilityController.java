@@ -68,6 +68,7 @@ public class UnifiedAvailabilityController {
         String userType = (String) body.get("userType");
         String dateStr = (String) body.get("date");
         LocalDate date = LocalDate.parse(dateStr);
+        Boolean freeAllDay = body.get("freeAllDay") instanceof Boolean ? (Boolean) body.get("freeAllDay") : false;
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> ranges = (List<Map<String, Object>>) body.get("ranges");
 
@@ -76,6 +77,19 @@ public class UnifiedAvailabilityController {
                     ZoneId z = zoneId != null ? zoneId : ZoneId.of("Europe/Kiev");
                     return rangeRepository.deleteByUserIdAndUserTypeAndDate(userId, userType, date)
                             .then(Mono.defer(() -> {
+                                if (freeAllDay) {
+                                    AvailabilityRange freeDay = AvailabilityRange.builder()
+                                            .userId(userId)
+                                            .userType(userType)
+                                            .date(date)
+                                            .freeAllDay(true)
+                                            .build();
+                                    return rangeRepository.save(freeDay)
+                                            .then(Mono.defer(() -> {
+                                                eventService.broadcast("availability_changed");
+                                                return Mono.just(ResponseEntity.ok(Map.of("success", true)));
+                                            }));
+                                }
                                 if (ranges == null || ranges.isEmpty()) {
                                     return Mono.just(ResponseEntity.ok(Map.of("success", true)));
                                 }
@@ -139,6 +153,7 @@ public class UnifiedAvailabilityController {
         m.put("startTime", formatInZone(range.getStartTime(), zone));
         m.put("endTime", formatInZone(range.getEndTime(), zone));
         if (range.getLocationId() != null) m.put("locationId", range.getLocationId());
+        m.put("freeAllDay", range.getFreeAllDay() != null && range.getFreeAllDay());
         return m;
     }
 }

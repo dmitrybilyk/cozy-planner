@@ -8,6 +8,7 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.logout.RedirectServerLogoutSuccessHandler;
+import org.springframework.security.web.server.context.WebSessionServerSecurityContextRepository;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 
 import org.springframework.web.server.session.CookieWebSessionIdResolver;
@@ -33,6 +34,7 @@ public class SecurityConfig {
         logoutHandler.setLogoutSuccessUrl(URI.create("/signin"));
 
         return http
+                .securityContextRepository(new WebSessionServerSecurityContextRepository())
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers("/", "/css/**", "/js/**", "/signin", "/login**", "/demo-login", "/k6-login", "/oauth2/**", "/webjars/**", "/error**", "/api/v1/events", "/api/v1/ws", "/trainee/**", "/api/v1/trainee/**", "/api/v1/trainee/invite", "/api/v1/me", "/api/v1/trainees/*/availability", "/api/v1/availability/**", "/api/v1/notifications/**", "/api/v1/push/**", "/api/v1/telegram/webhook", "/api/v1/telegram/webhook/**", "/api/v1/telegram/config", "/actuator/**", "/shared/**", "/api/v1/shared/**")
                         .permitAll()

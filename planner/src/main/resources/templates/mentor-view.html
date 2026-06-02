@@ -713,7 +713,7 @@
                                 <span class="text-xs font-bold w-14 flex-shrink-0 pt-0.5" :class="day.isWeekend ? 'text-red-400' : 'text-gray-500'" x-text="day.weekday + ' ' + day.dayNum"></span>
                                 <div class="flex flex-wrap gap-1">
                                     <template x-for="slot in getFutureSlots(t.id, day.dateStr)" :key="slot.startTime">
-                                        <button @click="createFromAvailability(t.id, day.dateStr, slot.startTime, slot.endTime)" type="button" class="bg-blue-900/30 text-blue-300 text-xs font-bold px-2 py-0.5 rounded-full border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all"><span x-text="slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span></button>
+                                        <button @click="createFromAvailability(t.id, day.dateStr, slot.startTime, slot.endTime)" type="button" class="bg-blue-900/30 text-blue-300 text-xs font-bold px-2 py-0.5 rounded-full border border-blue-500/30 hover:bg-blue-800/40 active:scale-95 transition-all"><span x-text="slot.startTime === 'all_day' ? 'Весь день' : slot.startTime.slice(0,5) + '—' + slot.endTime.slice(0,5)"></span></button>
                                     </template>
                                 </div>
                             </div>

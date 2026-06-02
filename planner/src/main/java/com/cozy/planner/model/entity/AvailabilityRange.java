@@ -33,4 +33,7 @@ public class AvailabilityRange {
 
     @Column("location_id")
     private Long locationId;
+
+    @Column("free_all_day")
+    private Boolean freeAllDay;
 }
