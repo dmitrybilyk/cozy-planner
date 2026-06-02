@@ -26,7 +26,7 @@ telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN:8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY}
   bot-username: ${TELEGRAM_BOT_USERNAME:CozyPlannerBot}
   webhook-url: ${TELEGRAM_WEBHOOK_URL:}
-  mentor-bot-token: ${TELEGRAM_BOT_TOKEN:8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c}
+  mentor-bot-token: ${MENTOR_TELEGRAM_BOT_TOKEN:8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c}
   mentor-bot-username: ${MENTOR_TELEGRAM_BOT_USERNAME:CozyPlannerCoachBot}
   mentor-webhook-url: ${MENTOR_TELEGRAM_WEBHOOK_URL:}
 

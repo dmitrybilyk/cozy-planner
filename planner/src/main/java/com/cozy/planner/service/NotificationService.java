@@ -28,7 +28,7 @@ public interface NotificationService {
 
     Mono<Boolean> sendMentorTraineeAvailabilityUpdateNotification(Mentor mentor, Trainee trainee);
 
-    Mono<Boolean> sendSessionReminderToTrainee(Trainee trainee, String sessionTitle, String sessionDate, String sessionTime, String locationName);
+    Mono<Boolean> sendSessionReminderToTrainee(Trainee trainee, Long sessionId, String sessionTitle, String sessionDate, String sessionTime, String locationName);
 
     Mono<Boolean> sendSessionReminderToMentor(Mentor mentor, String sessionTitle, String sessionDate, String sessionTime, String locationName, int minutesBefore);
 }

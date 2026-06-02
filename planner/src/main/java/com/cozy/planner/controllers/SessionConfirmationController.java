@@ -80,14 +80,16 @@ public class SessionConfirmationController {
     public Mono<ResponseEntity<Map<String, Object>>> confirmSession(@PathVariable("sessionId") Long sessionId) {
         traineeLog.info("[confirmSession] sessionId={}", sessionId);
         return sessionRepository.findById(sessionId)
-                .flatMap(session -> {
-                    traineeLog.info("[confirmSession] found session sessionId={}, mentorId={}, date={}, time={}, status={}",
-                            sessionId, session.getMentorId(), session.getWorkoutDate(), session.getStartTime(), session.getConfirmationStatus());
-                    session.setConfirmationStatus("CONFIRMED");
-                    session.setConfirmedTraineeIds("");
-                    return sessionRepository.save(session)
-                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
-                })
+                .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(sessionId)
+                        .collectList()
+                        .flatMap(traineeIds -> {
+                            traineeLog.info("[confirmSession] found session sessionId={}, mentorId={}, date={}, time={}, status={}",
+                                    sessionId, session.getMentorId(), session.getWorkoutDate(), session.getStartTime(), session.getConfirmationStatus());
+                            session.setConfirmationStatus("CONFIRMED");
+                            session.setConfirmedTraineeIds(traineeIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                            return sessionRepository.save(session)
+                                    .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
+                        }))
                 .flatMap(saved -> notifyOtherParty(saved, true))
                 .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                 .map(saved -> {
@@ -105,12 +107,15 @@ public class SessionConfirmationController {
     public Mono<ResponseEntity<Map<String, Object>>> rejectSession(@PathVariable("sessionId") Long sessionId) {
         traineeLog.info("[rejectSession] sessionId={}", sessionId);
         return sessionRepository.findById(sessionId)
-                .flatMap(session -> {
-                    traineeLog.info("[rejectSession] found session sessionId={}, status={}", sessionId, session.getConfirmationStatus());
-                    session.setConfirmationStatus("REJECTED");
-                    return sessionRepository.save(session)
-                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
-                })
+                .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(sessionId)
+                        .collectList()
+                        .flatMap(traineeIds -> {
+                            traineeLog.info("[rejectSession] found session sessionId={}, status={}", sessionId, session.getConfirmationStatus());
+                            session.setConfirmationStatus("REJECTED");
+                            session.setRejectedTraineeIds(traineeIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                            return sessionRepository.save(session)
+                                    .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
+                        }))
                 .flatMap(saved -> notifyOtherParty(saved, false))
                 .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                 .map(saved -> {
@@ -415,7 +420,8 @@ public class SessionConfirmationController {
                                     .flatMap(trainee -> createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, "SESSION_CREATED", saved.getId(), "trainee_confirm_session")
                                             .then(Mono.defer(() -> {
                                                 if (trainee.hasTelegram()) {
-                                                    String tmpl = String.format(
+                                                    String greeting = "👋 <b>" + (trainee.getName() != null ? trainee.getName() : "") + "</b>!\n\n";
+                                                    String tmpl = greeting + String.format(
                                                             ProfileLabels.get(profile, "telegram_session_confirmation_request"),
                                                             saved.getWorkoutDate().toString(),
                                                             saved.getStartTime().toString(),
@@ -460,22 +466,23 @@ public class SessionConfirmationController {
                                         if (traineeIds.isEmpty()) return Flux.just(saved);
                                         return Flux.fromIterable(traineeIds)
                                                 .flatMap(traineeId -> traineeRepository.findById(traineeId))
-                                                .flatMap(trainee -> {
-                                                    return createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, "SESSION_CREATED", saved.getId(), "trainee_confirm_session")
-                                                            .then(Mono.defer(() -> {
-                                                                if (trainee.hasTelegram()) {
-                                                                    String tmpl = String.format(
-                                                                            ProfileLabels.get(profile, "telegram_session_confirmation_request"),
-                                                                            saved.getWorkoutDate().toString(),
-                                                                            saved.getStartTime().toString(),
-                                                                            saved.getEndTime() != null ? saved.getEndTime().toString() : "",
-                                                                            saved.getTitle() != null ? saved.getTitle() : "");
-                                                                    Map<String, Object> keyboard = createTraineeConfirmRejectKeyboard(saved.getId());
-                                                                    return notificationService.sendMessage(trainee.getTelegramChatId(), tmpl, keyboard);
-                                                                }
-                                                                return Mono.just(true);
-                                                            })).thenReturn(saved);
-                                                });
+                                                    .flatMap(trainee -> {
+                                                                 return createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, "SESSION_CREATED", saved.getId(), "trainee_confirm_session")
+                                                                         .then(Mono.defer(() -> {
+                                                                             if (trainee.hasTelegram()) {
+                                                                                 String greeting = "👋 <b>" + (trainee.getName() != null ? trainee.getName() : "") + "</b>!\n\n";
+                                                                                 String tmpl = greeting + String.format(
+                                                                                         ProfileLabels.get(profile, "telegram_session_confirmation_request"),
+                                                                                         saved.getWorkoutDate().toString(),
+                                                                                         saved.getStartTime().toString(),
+                                                                                         saved.getEndTime() != null ? saved.getEndTime().toString() : "",
+                                                                                         saved.getTitle() != null ? saved.getTitle() : "");
+                                                                                 Map<String, Object> keyboard = createTraineeConfirmRejectKeyboard(saved.getId());
+                                                                                 return notificationService.sendMessage(trainee.getTelegramChatId(), tmpl, keyboard);
+                                                                             }
+                                                                             return Mono.just(true);
+                                                                         })).thenReturn(saved);
+                                                             });
                                     })
                                     .then(Mono.just(saved));
                         })

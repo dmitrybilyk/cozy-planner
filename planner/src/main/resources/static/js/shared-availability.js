@@ -41,19 +41,22 @@ function sharedAvailabilityApp() {
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         today: '',
         mentorTimezone: '',
+        locationFilter: null,
 
         isDayOff(dateStr) { return this.dayOffs.includes(dateStr); },
 
         get selectedRanges() {
-            return (this.rangesByDate[this.selectedDate] || []).slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+            let result = (this.rangesByDate[this.selectedDate] || []).slice().sort((a, b) => a.startTime.localeCompare(b.startTime));
+            if (this.locationFilter) result = result.filter(r => r.locId == this.locationFilter);
+            return result;
         },
 
         get locations() {
             const seen = {};
             for (const date in this.rangesByDate) {
                 for (const r of this.rangesByDate[date]) {
-                    if (r.locName && !seen[r.locName]) {
-                        seen[r.locName] = { name: r.locName, color: r.locColor || '#3b82f6' };
+                    if (r.locName && r.locId != null && !seen[r.locId]) {
+                        seen[r.locId] = { id: r.locId, name: r.locName, color: r.locColor || '#3b82f6' };
                     }
                 }
             }

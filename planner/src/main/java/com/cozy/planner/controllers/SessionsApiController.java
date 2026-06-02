@@ -179,9 +179,10 @@ public class SessionsApiController implements SessionsApi {
                                                                       eventBroadcastService.broadcastJson(evt);
                                                                       pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
                                                                       return traineeRepository.findById(tId)
-                                                                              .filter(t -> t.hasTelegram())
+                                                                              .filter(Trainee::hasTelegram)
                                                                               .flatMap(t -> {
-                                                                                  String tmpl = String.format(
+                                                                                  String greeting = "👋 <b>" + (t.getName() != null ? t.getName() : "") + "</b>!\n\n";
+                                                                                  String tmpl = greeting + String.format(
                                                                                           ProfileLabels.get(profile, "telegram_session_confirmation_request"),
                                                                                           s.getWorkoutDate().toString(),
                                                                                           s.getStartTime().toString(),
@@ -303,9 +304,10 @@ public class SessionsApiController implements SessionsApi {
                                             eventBroadcastService.broadcastJson(evt);
                                             pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
                                             return traineeRepository.findById(tId)
-                                                    .filter(t -> t.hasTelegram())
+                                                    .filter(Trainee::hasTelegram)
                                                     .flatMap(t -> {
-                                                        String tmpl = String.format(
+                                                        String greeting = "👋 <b>" + (t.getName() != null ? t.getName() : "") + "</b>!\n\n";
+                                                        String tmpl = greeting + String.format(
                                                                 ProfileLabels.get(profile, "telegram_session_confirmation_request"),
                                                                 s.getWorkoutDate().toString(),
                                                                 s.getStartTime().toString(),

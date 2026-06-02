@@ -100,9 +100,10 @@ public class KafkaNotificationService implements NotificationService {
     }
 
     @Override
-    public Mono<Boolean> sendSessionReminderToTrainee(Trainee trainee, String sessionTitle, String sessionDate, String sessionTime, String locationName) {
+    public Mono<Boolean> sendSessionReminderToTrainee(Trainee trainee, Long sessionId, String sessionTitle, String sessionDate, String sessionTime, String locationName) {
         if (!trainee.hasTelegram()) return Mono.just(false);
         StringBuilder text = new StringBuilder();
+        text.append("👋 <b>").append(escapeHtml(trainee.getName())).append("</b>!\n\n");
         text.append("⏰ <b>Нагадування про сесію</b>\n\n");
         text.append("<b>").append(escapeHtml(sessionTitle)).append("</b>\n");
         text.append("📅 ").append(sessionDate).append("\n");
@@ -110,8 +111,18 @@ public class KafkaNotificationService implements NotificationService {
         if (locationName != null && !locationName.isBlank()) {
             text.append("📍 ").append(escapeHtml(locationName)).append("\n");
         }
-        text.append("\n<i>Сесія розпочнеться за 1 годину. Будь ласка, не спізнюйтесь!</i>");
-        return publish("send", trainee.getTelegramChatId(), text.toString(), null);
+        text.append("\n<i>Сесія розпочнеться за 1 годину.</i>");
+
+        Map<String, Object> confirmBtn = new HashMap<>();
+        confirmBtn.put("text", "✅ Підтвердити");
+        confirmBtn.put("callback_data", "trainee_confirm_session:" + sessionId);
+        Map<String, Object> rejectBtn = new HashMap<>();
+        rejectBtn.put("text", "❌ Відхилити");
+        rejectBtn.put("callback_data", "trainee_reject_session:" + sessionId);
+        Map<String, Object> keyboard = new HashMap<>();
+        keyboard.put("inline_keyboard", List.of(List.of(confirmBtn, rejectBtn)));
+
+        return publish("send", trainee.getTelegramChatId(), text.toString(), keyboard);
     }
 
     @Override

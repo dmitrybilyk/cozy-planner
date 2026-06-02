@@ -41,6 +41,8 @@ function traineeApp() {
         pageTitle: 'Мої сесії',
         coachTimezone: 'Europe/Kiev',
         timezone: 'Europe/Kiev',
+        nowTick: 0,
+        nowTickInterval: null,
         deferredInstallPrompt: null,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         notifications: [],
@@ -241,7 +243,7 @@ function traineeApp() {
             this.timezone = me.timezone || 'Europe/Kiev';
             this.locations = me.locations || [];
             this.mentorAvailStep = me.mentorAvailStep || 30;
-
+            this.nowTickInterval = setInterval(() => { this.nowTick++; }, 30000);
 
             const profile = me.mentorProfile || 'sport';
             const tabLabelSets = {
@@ -549,6 +551,7 @@ function traineeApp() {
         },
 
         getCardClass(session) {
+            if (this.isSessionNow(session)) return 'bg-[#1c1c1c] ring-4 ring-red-500/30 border-red-500/20 shadow-lg shadow-red-500/10';
             if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500/50';
             if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/20 border-red-500/30 opacity-60';
             if (session.confirmationStatus === 'PENDING') return 'bg-yellow-900/10 border-yellow-500/30';
@@ -597,6 +600,36 @@ function traineeApp() {
             if (confirmed.includes(traineeId)) return 'confirmed';
             if (rejected.includes(traineeId)) return 'rejected';
             return 'none';
+        },
+
+        get nowMinutes() {
+            this.nowTick;
+            const now = new Date();
+            return now.getHours() * 60 + now.getMinutes();
+        },
+
+        toUtcMin(timeStr, dateStr, tz) {
+            if (!timeStr || !dateStr) return 0;
+            const [h, m] = timeStr.split(':').map(Number);
+            const [y, mo, d] = dateStr.split('-').map(Number);
+            if (isNaN(h) || isNaN(m) || isNaN(y) || isNaN(mo) || isNaN(d)) return 0;
+            const naiveUtc = Date.UTC(y, mo - 1, d, h, m);
+            const f = new Intl.DateTimeFormat('en', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+            const p = f.formatToParts(new Date(naiveUtc));
+            const v = (t) => parseInt(p.find(x => x.type === t)?.value || '0');
+            const actualUtc = Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute'));
+            return (naiveUtc - (actualUtc - naiveUtc)) / 60000;
+        },
+
+        isSessionNow(session) {
+            if (!session.time || !session.date) return false;
+            this.nowTick;
+            const nowUtc = Date.now() / 60000;
+            const dayStart = this.toUtcMin('00:00', session.date, this.coachTimezone);
+            if (nowUtc < dayStart || nowUtc >= dayStart + 1440) return false;
+            const start = this.toUtcMin(session.time, session.date, this.coachTimezone);
+            const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.coachTimezone) : start + 60;
+            return nowUtc >= start && nowUtc < end;
         },
 
         getTraineeName(traineeId, session) {

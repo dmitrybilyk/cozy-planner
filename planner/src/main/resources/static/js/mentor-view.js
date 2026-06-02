@@ -56,6 +56,8 @@ function calendarApp() {
         notifyErrors: {},
         notifySuccess: {},
         _nowTimer: null,
+        _countdownTimer: null,
+        _countdownTick: 0,
         nowTick: 0,
         pastDaysToShow: 0,
         loading: true,
@@ -105,13 +107,18 @@ function calendarApp() {
         expandedIds: [],
         collapsedIds: [],
         sessionFilter: 'all',
+        locationFilter: null,
         showRefreshModal: false,
 
         async loadNotifications() {
-            const res = await fetch('/api/v1/notifications');
-            if (res.ok) {
-                this.notifications = await res.json();
-                this.unreadCount = this.notifications.filter(n => !n.isRead).length;
+            try {
+                const res = await fetch('/api/v1/notifications');
+                if (res.ok) {
+                    this.notifications = await res.json();
+                    this.unreadCount = this.notifications.filter(n => !n.isRead).length;
+                }
+            } catch (e) {
+                // endpoint may not exist
             }
         },
         async markNotificationRead(id) {
@@ -260,6 +267,7 @@ function calendarApp() {
                 this.initTouchDrag();
                 setTimeout(() => this.scrollToToday(), 200);
                 this._nowTimer = setInterval(() => { this.nowTick++; }, 30000);
+                this._countdownTimer = setInterval(() => { this._countdownTick++; }, 1000);
                 console.log('init() complete!');
 
                 this.$watch('showModal', (val) => {
@@ -605,11 +613,10 @@ function calendarApp() {
 
         get filteredSessions() {
             let result = this.sessions.filter(w => w.date === this.selectedDate);
-            console.log(`[filteredSessions] selectedDate=${this.selectedDate}, total sessions=${this.sessions.length}, raw for date=${result.length}, filter=${this.sessionFilter}`);
-            if (this.sessionFilter === 'all' || (!this.sessionFilter)) return result;
+            if (this.locationFilter) result = result.filter(w => w.locationId == this.locationFilter);
+            if (this.sessionFilter === 'all' || (!this.sessionFilter)) { return result; }
             if (this.sessionFilter === 'confirmed') result = result.filter(w => w.confirmationStatus === 'CONFIRMED' || (w.traineeIds && w.traineeIds.some(id => this.getTraineeConfirmStatus(id, w) === 'confirmed')));
             if (this.sessionFilter === 'pending') result = result.filter(w => w.confirmationStatus !== 'REJECTED' && w.traineeIds && w.traineeIds.every(id => this.getTraineeConfirmStatus(id, w) === 'none'));
-            console.log(`[filteredSessions] after filter count=${result.length}`);
             return result;
         },
 
@@ -709,14 +716,15 @@ function calendarApp() {
         get agendaGroups() {
             const loadedList = Object.keys(this.loadedDates).sort();
             let filtered = this.sessions.filter(w => loadedList.includes(w.date));
+            if (this.locationFilter) filtered = filtered.filter(w => w.locationId == this.locationFilter);
             if (this.sessionFilter !== 'all' && this.sessionFilter) {
                 if (this.sessionFilter === 'confirmed') filtered = filtered.filter(w => w.confirmationStatus === 'CONFIRMED' || (w.traineeIds && w.traineeIds.some(id => this.getTraineeConfirmStatus(id, w) === 'confirmed')));
                 if (this.sessionFilter === 'pending') filtered = filtered.filter(w => w.confirmationStatus !== 'REJECTED' && w.traineeIds && w.traineeIds.every(id => this.getTraineeConfirmStatus(id, w) === 'none'));
             }
             if (this.selectedTraineeFilters.length > 0) filtered = filtered.filter(w => w.traineeIds.some(id => this.selectedTraineeFilters.includes(id)));
             const groups = filtered.reduce((acc, w) => { if (!acc[w.date]) acc[w.date] = []; acc[w.date].push(w); return acc; }, {});
-            const result = loadedList.map(date => ({ date, items: groups[date] || [] }));
-            console.log(`[agendaGroups] loadedDates=${loadedList.length} days, grouped dates=${Object.keys(groups).length}, result dates with items=${result.filter(r => r.items.length > 0).length}`);
+            const result = loadedList.map(date => ({ date, items: groups[date] || [] })).filter(g => g.items.length > 0);
+            console.log(`[agendaGroups] loadedDates=${loadedList.length} days, grouped dates=${Object.keys(groups).length}, result dates with items=${result.length}`);
             return result;
         },
 
@@ -853,7 +861,6 @@ function calendarApp() {
             if (this._fetchPromise) {
                 console.log('[fetchData] concurrent call detected, waiting for in-progress fetch');
                 await this._fetchPromise;
-                return;
             }
             this._fetchPromise = this._doFetch();
             try {
@@ -893,6 +900,7 @@ function calendarApp() {
             } else {
                 console.log(`[fetchData] selectedDate ${this.selectedDate} in loadedDates: ${!!this.loadedDates[this.selectedDate]}, sessions for date: ${this.sessions.filter(s => s.date === this.selectedDate).length}`);
             }
+            await this.loadCoachAvailabilityData();
             this.agendaReady = true;
         },
 
@@ -1382,23 +1390,62 @@ function calendarApp() {
             const [h, m] = (session.endTime || session.time || '0:00').split(':').map(Number);
             return h * 60 + (m || 0);
         },
+        toUtcMin(timeStr, dateStr, tz) {
+            if (!timeStr || !dateStr) return 0;
+            const [h, m] = timeStr.split(':').map(Number);
+            const [y, mo, d] = dateStr.split('-').map(Number);
+            if (isNaN(h) || isNaN(m) || isNaN(y) || isNaN(mo) || isNaN(d)) return 0;
+            const naiveUtc = Date.UTC(y, mo - 1, d, h, m);
+            const f = new Intl.DateTimeFormat('en', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+            const p = f.formatToParts(new Date(naiveUtc));
+            const v = (t) => parseInt(p.find(x => x.type === t)?.value || '0');
+            const actualUtc = Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute'));
+            return (naiveUtc - (actualUtc - naiveUtc)) / 60000;
+        },
         isSessionNow(session) {
-            if (session.date !== this.todayStr) return false;
-            const now = this.nowMinutes;
-            const start = this.sessionStartMin(session);
-            const end = this.sessionEndMin(session);
-            return now >= start && now < end;
+            if (!session.time || !session.date) return false;
+            this.nowTick;
+            const nowUtc = Date.now() / 60000;
+            const dayStart = this.toUtcMin('00:00', session.date, this.timezone);
+            if (nowUtc < dayStart || nowUtc >= dayStart + 1440) return false;
+            const start = this.toUtcMin(session.time, session.date, this.timezone);
+            const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.timezone) : start + 60;
+            return nowUtc >= start && nowUtc < end;
         },
         showNowLineAfter(session, allSessions) {
-            const now = this.nowMinutes;
-            const end = this.sessionEndMin(session);
+            if (!session.time || !session.date) return false;
+            this.nowTick;
+            const nowUtc = Date.now() / 60000;
+            const dayStart = this.toUtcMin('00:00', session.date, this.timezone);
+            if (nowUtc < dayStart || nowUtc >= dayStart + 1440) return false;
+            const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.timezone) : this.toUtcMin(session.time, session.date, this.timezone) + 60;
+            const sessionStartUtc = this.toUtcMin(session.time, session.date, this.timezone);
             const sorted = allSessions
                 .filter(s => s.id !== session.id && s.date === session.date)
                 .slice()
-                .sort((a, b) => this.sessionStartMin(a) - this.sessionStartMin(b));
-            const nextSession = sorted.find(s => this.sessionStartMin(s) > this.sessionStartMin(session));
+                .sort((a, b) => this.toUtcMin(a.time, a.date, this.timezone) - this.toUtcMin(b.time, b.date, this.timezone));
+            const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, this.timezone) > sessionStartUtc);
             if (!nextSession) return false;
-            return end <= now && now < this.sessionStartMin(nextSession);
+            const nextStart = this.toUtcMin(nextSession.time, nextSession.date, this.timezone);
+            return end <= nowUtc && nowUtc < nextStart;
+        },
+        nowCountdown(session, allSessions) {
+            if (!this.showNowLineAfter(session, allSessions)) return '';
+            this._countdownTick;
+            const sessionStartUtc = this.toUtcMin(session.time, session.date, this.timezone);
+            const sorted = allSessions
+                .filter(s => s.id !== session.id && s.date === session.date)
+                .slice()
+                .sort((a, b) => this.toUtcMin(a.time, a.date, this.timezone) - this.toUtcMin(b.time, b.date, this.timezone));
+            const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, this.timezone) > sessionStartUtc);
+            if (!nextSession) return '';
+            const nextStartUtc = this.toUtcMin(nextSession.time, nextSession.date, this.timezone);
+            const diffMs = nextStartUtc * 60000 - Date.now();
+            if (diffMs <= 0) return '';
+            const h = Math.floor(diffMs / 3600000);
+            const m = Math.floor((diffMs % 3600000) / 60000);
+            const s = Math.floor((diffMs % 60000) / 1000);
+            return `● ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         },
         hasSessionOn(date) {
             if (date < addDays(this.todayStr, -14)) return false;
@@ -1906,7 +1953,7 @@ function calendarApp() {
           },
 
          getCardBorderClass(session) {
-             const base = this.isSessionNow(session) ? 'bg-[#1c1c1c] ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'bg-[#1c1c1c] border border-[#333]';
+             if (this.isSessionNow(session)) return 'bg-[#1c1c1c] ring-4 ring-red-500/30 border-red-500/20 shadow-lg shadow-red-500/10';
              if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500';
              if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/10 border-red-500/30 opacity-70';
              if (session.confirmationStatus === 'PENDING' && session.createdBy === 'TRAINEE') return 'bg-yellow-900/10 border-yellow-500/30';
@@ -1916,11 +1963,11 @@ function calendarApp() {
                  if (confirmed > 0) return 'bg-yellow-900/15 border-yellow-600/40';
                  return 'bg-yellow-900/10 border-yellow-500/20';
              }
-             return base;
+             return 'bg-[#1c1c1c] border border-[#333]';
          },
 
          getAgendaCardClass(session) {
-             const base = this.isSessionNow(session) ? 'bg-[#1c1c1c] ring-2 ring-red-500/50 shadow-lg shadow-red-500/10' : 'bg-[#1c1c1c] border border-[#333]';
+             if (this.isSessionNow(session)) return 'bg-[#1c1c1c] ring-4 ring-red-500/30 border-red-500/20 shadow-lg shadow-red-500/10';
              if (session.confirmationStatus === 'CONFIRMED') return 'bg-green-900/20 border-green-500';
              if (session.confirmationStatus === 'REJECTED') return 'bg-red-900/10 border-red-500/30 opacity-70';
              if (session.confirmationStatus === 'PENDING' && session.createdBy === 'TRAINEE') return 'bg-yellow-900/10 border-yellow-500/30';
@@ -1930,7 +1977,7 @@ function calendarApp() {
                  if (confirmed > 0) return 'bg-yellow-900/15 border-yellow-600/40';
                  return 'bg-yellow-900/10 border-yellow-500/20';
              }
-             return base;
+             return 'bg-[#1c1c1c] border border-[#333]';
          },
 
          getConfirmationBadgeClass(status) {

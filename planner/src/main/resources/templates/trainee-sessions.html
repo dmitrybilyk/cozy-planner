@@ -94,6 +94,8 @@
                     <div class="rounded-3xl shadow-sm card-hover fade-in relative overflow-hidden"
                          :class="getCardClass(session)"
                          :style="'border-left: 5px solid ' + (session.confirmationStatus === 'CONFIRMED' ? '#22c55e' : session.confirmationStatus === 'REJECTED' ? '#ef4444' : '#eab308')">
+                        <div x-show="isSessionNow(session)"
+                             class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
                         <!-- Compact card -->
                         <div @click.stop="toggleExpand(session)" x-show="compactView && !isExpanded(session.id)" class="p-3">
                             <div class="flex items-center gap-2">
@@ -109,6 +111,8 @@
                                         </span>
                                     </template>
                                 </span>
+                                <span x-show="isSessionNow(session)"
+                                      class="text-[11px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● В процесі</span>
                                 <button @click.stop="toggleExpand(session)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0 ml-auto">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
@@ -119,6 +123,8 @@
                             <div class="flex items-start">
                                 <div class="flex-1 min-w-0">
                                     <p class="text-base sm:text-lg font-bold text-gray-100 truncate" x-text="session.title"></p>
+                                    <span x-show="isSessionNow(session)"
+                                          class="text-[11px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● В процесі</span>
                                     <p class="text-sm text-gray-500 mt-1 truncate" x-text="session.description" :title="session.description"></p>
                                     <div class="flex items-center gap-2 mt-2 text-sm text-gray-400 flex-wrap">
                                         <span>📅 <span x-text="session.date"></span></span>

@@ -173,13 +173,15 @@ public class TelegramController {
             Long sessionId = parseSessionId(data);
             if (sessionId == null) return ack.thenReturn(ResponseEntity.ok().build());
             Mono<Void> logic = sessionRepository.findById(sessionId)
-                    .flatMap(session -> {
-                        session.setConfirmationStatus("CONFIRMED");
-                        session.setConfirmedTraineeIds("");
-                        session.setRejectedTraineeIds("");
-                        return sessionRepository.save(session)
-                                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
-                    })
+                    .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(session.getId())
+                            .collectList()
+                            .flatMap(traineeIds -> {
+                                session.setConfirmationStatus("CONFIRMED");
+                                session.setConfirmedTraineeIds(traineeIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                                session.setRejectedTraineeIds("");
+                                return sessionRepository.save(session)
+                                        .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
+                            }))
                     .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                     .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
                             .defaultIfEmpty(Mentor.builder().profile("sport").build())
@@ -202,13 +204,15 @@ public class TelegramController {
             Long sessionId = parseSessionId(data);
             if (sessionId == null) return ack.thenReturn(ResponseEntity.ok().build());
             Mono<Void> logic = sessionRepository.findById(sessionId)
-                    .flatMap(session -> {
-                        session.setConfirmationStatus("REJECTED");
-                        session.setConfirmedTraineeIds("");
-                        session.setRejectedTraineeIds("");
-                        return sessionRepository.save(session)
-                                .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
-                    })
+                    .flatMap(session -> sessionRepository.findTraineeIdsBySessionId(session.getId())
+                            .collectList()
+                            .flatMap(traineeIds -> {
+                                session.setConfirmationStatus("REJECTED");
+                                session.setConfirmedTraineeIds("");
+                                session.setRejectedTraineeIds(traineeIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+                                return sessionRepository.save(session)
+                                        .flatMap(saved -> searchEventPublisher.publishSessionEvent("UPDATED", saved).thenReturn(saved));
+                            }))
                     .doOnSuccess(v -> eventBroadcastService.broadcast("session_changed"))
                     .flatMap(saved -> mentorRepository.findById(saved.getMentorId())
                             .defaultIfEmpty(Mentor.builder().profile("sport").build())

@@ -196,6 +196,7 @@ public class ScheduledNotificationService {
 
                     return notificationService.sendSessionReminderToTrainee(
                                     trainee,
+                                    session.getId(),
                                     session.getTitle(),
                                     formattedDate,
                                     formattedTime,
