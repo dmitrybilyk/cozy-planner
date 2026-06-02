@@ -170,8 +170,27 @@ function rangeApp() {
             });
         },
 
+        mergeRanges(raw) {
+            if (!raw || raw.length < 2) return raw;
+            const sorted = [...raw].sort((a, b) => a.startTime < b.startTime ? -1 : a.startTime > b.startTime ? 1 : 0);
+            const out = [];
+            for (const r of sorted) {
+                const prev = out[out.length - 1];
+                const sameLoc = prev && (prev.locationId === r.locationId || (!prev.locationId && !r.locationId));
+                if (prev && sameLoc && r.startTime <= prev.endTime) {
+                    if (r.endTime > prev.endTime) prev.endTime = r.endTime;
+                } else {
+                    out.push({ startTime: r.startTime, endTime: r.endTime, locationId: r.locationId });
+                }
+            }
+            return out;
+        },
+
         async saveAll() {
             if (this.saving) return;
+            console.log('[avail] saveAll start ranges:', JSON.stringify(this.ranges));
+            this.ranges = this.mergeRanges(this.ranges);
+            console.log('[avail] saveAll after merge:', JSON.stringify(this.ranges));
             this.saving = true;
             this.rangesByDate[this.curDate] = [...this.ranges];
             this.freeAllDayByDate[this.curDate] = this.freeAllDay;
@@ -184,9 +203,21 @@ function rangeApp() {
                     });
                 }
                 for (const date of this._dirtyDates) {
-                    const cached = this.rangesByDate[date];
                     const isFreeAllDay = this.freeAllDayByDate[date] !== undefined ? this.freeAllDayByDate[date] : true;
-                    const ranges = isFreeAllDay ? [] : (cached || []);
+                    if (isFreeAllDay) {
+                        await fetch('/api/v1/availability/ranges', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: this.mentorId,
+                                userType: 'COACH',
+                                date,
+                                ranges: []
+                            })
+                        });
+                        continue;
+                    }
+                    const ranges = this.rangesByDate[date] || [];
                     await fetch('/api/v1/availability/ranges', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -208,7 +239,7 @@ function rangeApp() {
                 this.savedMessage = 'Збережено!';
                 setTimeout(() => this.saved = false, 3000);
             } catch(e) { console.error('[save] error', e); }
-            finally { this.saving = false; }
+            finally { this.saving = false; this.load(); }
         },
 
         async load() {

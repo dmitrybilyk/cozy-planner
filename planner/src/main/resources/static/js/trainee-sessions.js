@@ -30,6 +30,7 @@ function traineeApp() {
         showAllFuture: false,
         form: { title: '', description: '', date: today, time: '', endTime: '', locationId: '' },
         _bookingSlot: null,
+        _prevTab: null,
         selectedModalSlots: [],
         locations: [],
         confirmModal: { show: false, sessionId: null, title: '', message: '' },
@@ -172,13 +173,15 @@ function traineeApp() {
             const slot = this._bookingSlot;
             let startMm, endMm;
             if (slot) {
-                const [sh, sm] = slot.startTime.split(':').map(Number);
-                const [eh, em] = slot.endTime.split(':').map(Number);
+                const ss = this.convertTz(slot.startTime, slot.date, this.coachTimezone, this.timezone);
+                const se = this.convertTz(slot.endTime, slot.date, this.coachTimezone, this.timezone);
+                const [sh, sm] = ss.split(':').map(Number);
+                const [eh, em] = se.split(':').map(Number);
                 startMm = sh * 60 + sm;
                 endMm = eh * 60 + em;
             } else {
-                const ws = this.mentorWorkStart || '06:00';
-                const we = this.mentorWorkEnd || '21:00';
+                const ws = this.convertTz(this.mentorWorkStart || '06:00', this.form.date, this.coachTimezone, this.timezone);
+                const we = this.convertTz(this.mentorWorkEnd || '21:00', this.form.date, this.coachTimezone, this.timezone);
                 const [wh, wm] = ws.split(':').map(Number);
                 const [eh, em] = we.split(':').map(Number);
                 startMm = wh * 60 + wm;
@@ -203,10 +206,11 @@ function traineeApp() {
             const slot = this._bookingSlot;
             let endBoundary;
             if (slot) {
-                const [eh, em] = slot.endTime.split(':').map(Number);
+                const se = this.convertTz(slot.endTime, slot.date, this.coachTimezone, this.timezone);
+                const [eh, em] = se.split(':').map(Number);
                 endBoundary = eh * 60 + em;
             } else {
-                const we = this.mentorWorkEnd || '21:00';
+                const we = this.convertTz(this.mentorWorkEnd || '21:00', this.form.date, this.coachTimezone, this.timezone);
                 const [eh, em] = we.split(':').map(Number);
                 endBoundary = eh * 60 + em;
             }
@@ -274,7 +278,7 @@ function traineeApp() {
                 if (!val) this._bookingSlot = null;
             });
             window.addEventListener('popstate', () => {
-                if (this.showModal) this.showModal = false;
+                if (this.showModal) this.closeModal();
             });
             this.$watch('form.time', () => {
                 const slots = this.validModalEndSlots;
@@ -364,19 +368,12 @@ function traineeApp() {
         },
         showBrowserNotification(msg) {
             if (Notification.permission === 'granted') {
+                const body = (msg.message || '') + ' — натисніть, щоб відкрити додаток';
                 const options = {
-                    body: msg.message || '',
+                    body: body,
                     tag: 'cozy-notification',
                     icon: '/favicon.svg'
                 };
-                if (msg.actionType && msg.sessionId) {
-                    options.tag = 'cozy-actionable-' + msg.sessionId;
-                    options.data = { sessionId: msg.sessionId, actionType: msg.actionType };
-                    options.actions = [
-                        { action: 'confirm', title: '✅ Підтвердити' },
-                        { action: 'reject', title: '❌ Відхилити' }
-                    ];
-                }
                 if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                     navigator.serviceWorker.ready.then(reg => {
                         reg.showNotification(msg.title || 'Сповіщення', options);
@@ -473,6 +470,7 @@ function traineeApp() {
             const traineeName = this.me.name || '';
             this.form = { title: 'Тренування', description: '', date: today, time: '', endTime: '', locationId: '' };
             this._bookingSlot = null;
+            this._prevTab = this.tab;
             this.showModal = true;
         },
 
@@ -484,6 +482,7 @@ function traineeApp() {
                 body: JSON.stringify({ title: this.form.title, description: this.form.description, date: this.form.date, time: this.form.time, endTime: this.form.endTime, locationId: this.form.locationId })
             });
             if (res.ok) {
+                this._prevTab = null;
                 this.showModal = false;
                 this.saved = true;
                 this.savedMessage = 'Сесію створено! ' + (this.me.mentorName || 'Тренер') + ' отримає сповіщення.';
@@ -704,8 +703,12 @@ function traineeApp() {
 
         bookSlot(slot) {
             this._bookingSlot = slot;
-            const [sh, sm] = slot.startTime.split(':').map(Number);
-            const [eh, em] = slot.endTime.split(':').map(Number);
+            const coachStart = slot.startTime;
+            const coachEnd = slot.endTime;
+            const start = this.convertTz(coachStart, slot.date, this.coachTimezone, this.timezone);
+            const end = this.convertTz(coachEnd, slot.date, this.coachTimezone, this.timezone);
+            const [sh, sm] = start.split(':').map(Number);
+            const [eh, em] = end.split(':').map(Number);
             const step = this.mentorAvailStep || 30;
             const slotStartMm = sh * 60 + sm;
             const slotEndMm = eh * 60 + em;
@@ -718,6 +721,7 @@ function traineeApp() {
             const endH = String(Math.floor(endMm / 60)).padStart(2, '0');
             const endM = String(endMm % 60).padStart(2, '0');
             this.form = { title: 'Тренування', description: '', date: slot.date, time: `${startH}:${startM}`, endTime: `${endH}:${endM}`, locationId: slot.locationId || '' };
+            this._prevTab = this.tab;
             this.tab = 'sessions';
             this.showModal = true;
         },
@@ -763,8 +767,15 @@ function traineeApp() {
             const endTime = `${endH}:${endM}`;
             const locationId = c.locId || slot.locationId || '';
             this.form = { title: 'Тренування', description: '', date: this.coachSelectedDate, time: startTime, endTime, locationId };
+            this._prevTab = this.tab;
             this.tab = 'sessions';
             this.showModal = true;
+        },
+
+        closeModal() {
+            if (this._prevTab) this.tab = this._prevTab;
+            this._prevTab = null;
+            this.showModal = false;
         },
 
         slotSlides(startTime, endTime) {
@@ -1010,18 +1021,52 @@ function traineeApp() {
             this.availDirtyDates.clear();
         },
 
+        availMergeRanges(ranges) {
+            if (!ranges || ranges.length < 2) return ranges || [];
+            const sorted = [...ranges].sort((a, b) => {
+                if (a.startTime !== b.startTime) return a.startTime < b.startTime ? -1 : 1;
+                return a.endTime < b.endTime ? -1 : 1;
+            });
+            const merged = [];
+            for (const r of sorted) {
+                const prev = merged[merged.length - 1];
+                const sameLoc = prev && (prev.locationId === r.locationId || (!prev.locationId && !r.locationId));
+                if (prev && sameLoc && r.startTime <= prev.endTime) {
+                    if (r.endTime > prev.endTime) prev.endTime = r.endTime;
+                } else {
+                    merged.push({ ...r });
+                }
+            }
+            return merged;
+        },
+
         async availSaveAll() {
             if (this.availSaving) return;
+            console.log('[avail] saveAll start ranges:', JSON.stringify(this.availRanges));
+            this.availRanges = this.availMergeRanges(this.availRanges);
+            console.log('[avail] saveAll after merge:', JSON.stringify(this.availRanges));
             this.availSaving = true;
             this.availRangesByDate[this.availDate] = [...this.availRanges];
             this.availFreeAllDayByDate[this.availDate] = this.availFreeAllDay;
             try {
                 let allOk = true;
                 for (const date of this.availDirtyDates) {
-                    const cached = this.availRangesByDate[date];
                     const isFreeAllDay = this.availFreeAllDayByDate[date] !== undefined ? this.availFreeAllDayByDate[date] : false;
-                    const ranges = isFreeAllDay ? [] : (cached || []);
-                    console.log('[avail] saving', date, ranges.length, 'ranges');
+                    if (isFreeAllDay) {
+                        const res = await fetch('/api/v1/availability/ranges', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: this.traineeId,
+                                userType: 'TRAINEE',
+                                date,
+                                ranges: []
+                            })
+                        });
+                        if (!res.ok) allOk = false;
+                        continue;
+                    }
+                    const ranges = this.availRangesByDate[date] || [];
                     const res = await fetch('/api/v1/availability/ranges', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -1029,11 +1074,11 @@ function traineeApp() {
                             userId: this.traineeId,
                             userType: 'TRAINEE',
                             date,
-                                ranges: ranges.map(r => ({
-                                    startTime: r.startTime,
-                                    endTime: r.endTime,
-                                    locationId: null
-                                }))
+                            ranges: ranges.map(r => ({
+                                startTime: r.startTime,
+                                endTime: r.endTime,
+                                locationId: null
+                            }))
                         })
                     });
                     if (!res.ok) {
@@ -1051,7 +1096,7 @@ function traineeApp() {
                     setTimeout(() => this.saved = false, 3000);
                 }
             } catch(e) { console.error('[avail] save error', e); this.savedMessage = 'Помилка збереження'; setTimeout(() => this.saved = false, 3000); }
-            finally { this.availSaving = false; }
+            finally { this.availSaving = false; this.loadAvailability(); }
         },
 
         timeOptionsAfter(fromTime) {

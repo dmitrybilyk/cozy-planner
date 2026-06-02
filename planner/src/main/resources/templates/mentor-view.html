@@ -926,8 +926,8 @@
 </main>
 
 <!-- МОДАЛКА ТРЕНУВАННЯ -->
-<div x-show="showModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition>
-    <div class="modal-container" @click.away="showModal = false; sessionValidationErrors = null">
+<div x-show="showModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition @keydown.escape.window="closeModal()">
+    <div class="modal-container" @click.away="closeModal()">
         <div class="p-6 border-b border-[#333] flex justify-between items-center">
             <h3 class="text-2xl sm:text-3xl font-bold text-white" x-text="editingSessionId ? (labels.edit || 'Редагувати') : (labels.new_session || 'Нова сесія')"></h3>
             <button x-show="editingSessionId" @click="askDeleteSession()" class="text-red-500 font-bold text-xs ">Видалити</button>
@@ -1030,7 +1030,7 @@
             </div>
         </div>
         <div class="modal-footer flex space-x-3">
-            <button @click="showModal = false; sessionValidationErrors = null" class="flex-1 py-4 font-bold text-gray-500 text-sm" x-text="labels.cancel || 'Скасувати'"></button>
+            <button @click="closeModal()" class="flex-1 py-4 font-bold text-gray-500 text-sm" x-text="labels.cancel || 'Скасувати'"></button>
             <button @click="saveSession()" :class="saveBtnClass" x-text="labels.save || 'Зберегти'"></button>
         </div>
     </div>

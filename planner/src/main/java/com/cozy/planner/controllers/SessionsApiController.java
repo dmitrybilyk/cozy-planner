@@ -29,6 +29,8 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -39,6 +41,8 @@ import java.util.Map;
 
 @RestController
 public class SessionsApiController implements SessionsApi {
+
+    private static final Logger log = LoggerFactory.getLogger(SessionsApiController.class);
 
     private final SessionRepository sessionRepository;
     private final MentorRepository mentorRepository;
@@ -76,6 +80,9 @@ public class SessionsApiController implements SessionsApi {
         return createSessionRequest
                 .flatMap(request -> {
                     Long sessionId = request.getId();
+                    log.info("[createSession] id={}, mentorId={}, date={}, time={}, title={}, isUpdate={}",
+                            sessionId, request.getMentorId(), request.getDate(), request.getTime(), request.getTitle(),
+                            sessionId != null && sessionId > 0);
                     
                     if (sessionId != null && sessionId > 0) {
                         return sessionRepository.findById(sessionId)
@@ -85,6 +92,8 @@ public class SessionsApiController implements SessionsApi {
                         return createNewSession(request, baseUrl);
                     }
                 })
+                .doOnSuccess(resp -> log.info("[createSession] success"))
+                .doOnError(e -> log.error("[createSession] error", e))
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
 
@@ -302,16 +311,23 @@ public class SessionsApiController implements SessionsApi {
 
     @Override
     public Mono<ResponseEntity<Void>> deleteSession(Long sessionId, ServerWebExchange exchange) {
+        log.info("[deleteSession] sessionId={}", sessionId);
         return sessionRepository.findById(sessionId)
-                .flatMap(session -> sessionRepository.deleteTraineeLinks(sessionId)
-                        .then(sessionRepository.delete(session))
-                        .then(Mono.fromRunnable(() -> eventBroadcastService.broadcast("session_changed")))
-                        .then(Mono.just(ResponseEntity.noContent().<Void>build())))
+                .flatMap(session -> {
+                    log.info("[deleteSession] found session: mentorId={}, date={}, time={}", session.getMentorId(), session.getWorkoutDate(), session.getStartTime());
+                    return sessionRepository.deleteTraineeLinks(sessionId)
+                            .then(sessionRepository.delete(session))
+                            .then(Mono.fromRunnable(() -> eventBroadcastService.broadcast("session_changed")))
+                            .then(Mono.just(ResponseEntity.noContent().<Void>build()));
+                })
+                .doOnSuccess(v -> log.info("[deleteSession] success sessionId={}", sessionId))
+                .doOnError(e -> log.error("[deleteSession] error sessionId={}", sessionId, e))
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
     @Override
     public Mono<ResponseEntity<Flux<SessionDTO>>> getSessions(LocalDate startDate, LocalDate endDate, Long mentorId, Long traineeId, ServerWebExchange exchange) {
+        log.info("[getSessions] mentorId={}, traineeId={}, start={}, end={}", mentorId, traineeId, startDate, endDate);
         Flux<Session> sessionFlux;
         
         if (traineeId != null && mentorId != null) {
@@ -324,7 +340,11 @@ public class SessionsApiController implements SessionsApi {
         
         Flux<SessionDTO> dtoFlux = sessionFlux
                 .collectList()
-                .flatMapMany(sessions -> loadTraineeIdsBatch(sessions).map(this::mapToDto));
+                .doOnNext(sessions -> log.info("[getSessions] fetched {} raw sessions for mentorId={}, start={}, end={}", sessions.size(), mentorId, startDate, endDate))
+                .flatMapMany(sessions -> loadTraineeIdsBatch(sessions).map(this::mapToDto))
+                .collectList()
+                .doOnNext(dtos -> log.info("[getSessions] returning {} DTOs for mentorId={}", dtos.size(), mentorId))
+                .flatMapMany(Flux::fromIterable);
         
         return Mono.just(ResponseEntity.ok(dtoFlux));
     }
@@ -334,6 +354,7 @@ public class SessionsApiController implements SessionsApi {
             @RequestParam Long mentorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        log.info("[getSessionCounts] mentorId={}, start={}, end={}", mentorId, startDate, endDate);
         return sessionRepository.findDatesByMentorAndPeriod(mentorId, startDate, endDate)
                 .collectList()
                 .map(dates -> {
@@ -341,8 +362,10 @@ public class SessionsApiController implements SessionsApi {
                     for (LocalDate date : dates) {
                         counts.merge(date.toString(), 1L, Long::sum);
                     }
+                    log.info("[getSessionCounts] returning {} dates for mentorId={}: {} unique dates", counts.size(), mentorId, dates.size());
                     return ResponseEntity.ok(counts);
-                });
+                })
+                .doOnError(e -> log.error("[getSessionCounts] error mentorId={}", mentorId, e));
     }
 
     private Flux<Session> loadTraineeIdsBatch(List<Session> sessions) {

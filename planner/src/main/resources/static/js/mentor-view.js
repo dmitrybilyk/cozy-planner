@@ -13,7 +13,7 @@ function addDays(dateStr, n) {
 function calendarApp() {
     const _today = localDateStr();
     return {
-        activeTab: 'feed', showModal: false,
+        activeTab: 'feed', showModal: false, _prevTab: null,
         editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false, showTraineeFormModal: false, showLocationFormModal: false, traineeCompactView: true, traineeExpandedIds: [], _ref: 0,
         selectedDate: _today, todayStr: _today,
         days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport',
@@ -124,19 +124,12 @@ function calendarApp() {
         },
         showBrowserNotification(msg) {
             if (Notification.permission === 'granted') {
+                const body = (msg.message || '') + ' — натисніть, щоб відкрити додаток';
                 const options = {
-                    body: msg.message || '',
+                    body: body,
                     tag: 'cozy-notification',
                     icon: '/favicon.svg'
                 };
-                if (msg.actionType && msg.sessionId) {
-                    options.tag = 'cozy-actionable-' + msg.sessionId;
-                    options.data = { sessionId: msg.sessionId, actionType: msg.actionType };
-                    options.actions = [
-                        { action: 'confirm', title: '✅ Підтвердити' },
-                        { action: 'reject', title: '❌ Відхилити' }
-                    ];
-                }
                 if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                     navigator.serviceWorker.ready.then(reg => {
                         reg.showNotification(msg.title || 'Сповіщення', options);
@@ -273,7 +266,7 @@ function calendarApp() {
                     if (val) history.pushState({modal: true}, '');
                 });
                 window.addEventListener('popstate', () => {
-                    if (this.showModal) this.showModal = false;
+                    if (this.showModal) this.closeModal();
                 });
             } catch (e) {
                 console.error('init() error:', e);
@@ -286,6 +279,7 @@ function calendarApp() {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.addEventListener('message', (event) => {
                     if (event.data?.type === 'session_changed') {
+                        console.log(`[SW] session_changed action=${event.data.action}, actionType=${event.data.actionType}, sessionId=${event.data.sessionId}, success=${event.data.success}`);
                         this.fetchSessionCounts();
                         this.fetchData();
                         this.loadNotifications();
@@ -310,10 +304,11 @@ function calendarApp() {
                     } catch (e) {}
                     return;
                 }
+                console.log(`[WS] received: ${event.data}`);
                 switch(event.data) {
-                    case 'session_changed': this.fetchSessionCounts(); this.fetchData(); break;
-                    case 'trainee_changed': this.fetchTrainees(); this.fetchSessionCounts(); this.fetchData(); break;
-                    case 'location_changed': this.fetchLocations(); this.fetchSessionCounts(); this.fetchData(); break;
+                    case 'session_changed': console.log('[WS] session_changed -> fetchSessionCounts + fetchData'); this.fetchSessionCounts(); this.fetchData(); break;
+                    case 'trainee_changed': console.log('[WS] trainee_changed'); this.fetchTrainees(); this.fetchSessionCounts(); this.fetchData(); break;
+                    case 'location_changed': console.log('[WS] location_changed'); this.fetchLocations(); this.fetchSessionCounts(); this.fetchData(); break;
                     case 'availability_changed': this.fetchAvailability(); break;
                     case 'coach_availability_changed': this.fetchDayOffs(); this.loadCoachAvailabilityData(); break;
                     case 'mentor_changed': this.fetchMentorTelegramStatus(); this.fetchTrainees(); break;
@@ -610,9 +605,11 @@ function calendarApp() {
 
         get filteredSessions() {
             let result = this.sessions.filter(w => w.date === this.selectedDate);
+            console.log(`[filteredSessions] selectedDate=${this.selectedDate}, total sessions=${this.sessions.length}, raw for date=${result.length}, filter=${this.sessionFilter}`);
             if (this.sessionFilter === 'all' || (!this.sessionFilter)) return result;
             if (this.sessionFilter === 'confirmed') result = result.filter(w => w.confirmationStatus === 'CONFIRMED' || (w.traineeIds && w.traineeIds.some(id => this.getTraineeConfirmStatus(id, w) === 'confirmed')));
             if (this.sessionFilter === 'pending') result = result.filter(w => w.confirmationStatus !== 'REJECTED' && w.traineeIds && w.traineeIds.every(id => this.getTraineeConfirmStatus(id, w) === 'none'));
+            console.log(`[filteredSessions] after filter count=${result.length}`);
             return result;
         },
 
@@ -718,7 +715,9 @@ function calendarApp() {
             }
             if (this.selectedTraineeFilters.length > 0) filtered = filtered.filter(w => w.traineeIds.some(id => this.selectedTraineeFilters.includes(id)));
             const groups = filtered.reduce((acc, w) => { if (!acc[w.date]) acc[w.date] = []; acc[w.date].push(w); return acc; }, {});
-            return loadedList.map(date => ({ date, items: groups[date] || [] }));
+            const result = loadedList.map(date => ({ date, items: groups[date] || [] }));
+            console.log(`[agendaGroups] loadedDates=${loadedList.length} days, grouped dates=${Object.keys(groups).length}, result dates with items=${result.filter(r => r.items.length > 0).length}`);
+            return result;
         },
 
         get hasMoreAgenda() {
@@ -837,17 +836,37 @@ function calendarApp() {
 
         async fetchSessionCounts() {
             if (!this.mentorId) return;
+            console.log(`[fetchSessionCounts] calling... mentorId=${this.mentorId}`);
             const startDate = this.days[0].dateStr;
             const endDate = this.days[this.days.length - 1].dateStr;
             const res = await fetch(`/api/v1/sessions/counts?mentorId=${this.mentorId}&startDate=${startDate}&endDate=${endDate}`);
             if (res.ok) {
                 this.sessionCounts = await res.json();
+                const count = Object.keys(this.sessionCounts).length;
+                console.log(`[fetchSessionCounts] received ${count} dates, sample:`, JSON.stringify(Object.fromEntries(Object.entries(this.sessionCounts).slice(0, 5))));
+            } else {
+                console.warn(`[fetchSessionCounts] HTTP ${res.status} for mentorId=${this.mentorId}`);
             }
         },
 
         async fetchData() {
+            if (this._fetchPromise) {
+                console.log('[fetchData] concurrent call detected, waiting for in-progress fetch');
+                await this._fetchPromise;
+                return;
+            }
+            this._fetchPromise = this._doFetch();
+            try {
+                await this._fetchPromise;
+            } finally {
+                this._fetchPromise = null;
+            }
+        },
+
+        async _doFetch() {
             const today = this.todayStr;
             if (!this.mentorId) { console.warn('[agenda] no mentorId'); this.agendaReady = true; return; }
+            console.log(`[fetchData] calling... selectedDate=${this.selectedDate}, sessions before=${this.sessions.length}`);
             this.loadedDates = {};
             const pastStart = addDays(today, -3);
             for (let i = 0; i < 6; i++) {
@@ -858,31 +877,43 @@ function calendarApp() {
                 const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${pastStart}&endDate=${end}`);
                 if (res.ok) {
                     this.sessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
+                    console.log(`[fetchData] received ${this.sessions.length} sessions for ${pastStart}..${end}`);
                     for (const w of this.sessions) {
                         w.color = this.getLocationColor(w.locationId);
                     }
+                } else {
+                    console.warn(`[fetchData] HTTP ${res.status} for mentorId=${this.mentorId}`);
                 }
             } catch (e) {
                 console.error('[agenda] fetch error:', e);
             }
             if (this.selectedDate && !this.loadedDates[this.selectedDate]) {
+                console.log(`[fetchData] selectedDate ${this.selectedDate} not in loadedDates, calling loadDaySessions`);
                 await this.loadDaySessions(this.selectedDate);
+            } else {
+                console.log(`[fetchData] selectedDate ${this.selectedDate} in loadedDates: ${!!this.loadedDates[this.selectedDate]}, sessions for date: ${this.sessions.filter(s => s.date === this.selectedDate).length}`);
             }
             this.agendaReady = true;
         },
 
         async loadDaySessions(dateStr) {
-            if (!this.mentorId || this.loadedDates[dateStr]) return;
+            if (!this.mentorId || this.loadedDates[dateStr]) { console.log(`[loadDaySessions] skipped for ${dateStr}: mentorId=${!!this.mentorId}, alreadyLoaded=${!!this.loadedDates[dateStr]}`); return; }
+            console.log(`[loadDaySessions] loading ${dateStr}, sessions before=${this.sessions.length}`);
             this.loading = true;
             try {
                 const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${dateStr}&endDate=${dateStr}`);
                 if (res.ok) {
                     const daySessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
+                    console.log(`[loadDaySessions] received ${daySessions.length} sessions for ${dateStr}`);
                     for (const w of daySessions) {
                         w.color = this.getLocationColor(w.locationId);
                     }
+                    const removed = this.sessions.filter(s => s.date !== dateStr).length;
                     this.sessions = [...this.sessions.filter(s => s.date !== dateStr), ...daySessions];
                     this.loadedDates[dateStr] = true;
+                    console.log(`[loadDaySessions] sessions after=${this.sessions.length}, removed ${removed} for other dates, kept ${this.sessions.length - removed}, date ${dateStr} now has ${daySessions.length}`);
+                } else {
+                    console.warn(`[loadDaySessions] HTTP ${res.status} for ${dateStr}`);
                 }
             } catch (e) {
                 console.error('Failed to load sessions for', dateStr, e);
@@ -1578,7 +1609,17 @@ function calendarApp() {
             this.scrollDateIntoView();
         },
 
+        closeModal() {
+            if (this._prevTab) {
+                this.activeTab = this._prevTab;
+                this._prevTab = null;
+            }
+            this.showModal = false;
+            this.sessionValidationErrors = null;
+        },
+
         createFromAvailability(traineeId, date, startTime, endTime) {
+            this._prevTab = this.activeTab;
             this.activeTab = 'feed';
             this.traineeSearch = '';
             this.editingSessionId = null;
@@ -1608,7 +1649,7 @@ function calendarApp() {
                     traineeIds.length === this.originalSessionData.traineeIds.length &&
                     traineeIds.every(id => this.originalSessionData.traineeIds.includes(id));
                 if (sameDate && sameTime && sameEndTime && sameTrainees && title === this.originalSessionData.title && description === this.originalSessionData.description && locationId === this.originalSessionData.locationId) {
-                    this.showModal = false; return;
+                    this._prevTab = null; this.showModal = false; return;
                 }
             }
             const newTime = startTime;
@@ -1623,12 +1664,14 @@ function calendarApp() {
                 time: newTime, endTime,
                 traineeIds, locationId
             };
-            await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            this.showModal = false; await this.fetchData();
+            console.log(`[saveSession] creating session: date=${payload.date}, time=${payload.time}, endTime=${payload.endTime}, editingId=${payload.id}`);
+            const res = await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            console.log(`[saveSession] save done, status=${res.status}`);
+            this._prevTab = null; this.showModal = false; await this.fetchData();
         },
 
         askDeleteSession() {
-            this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_session || 'Дію неможливо скасувати.', onConfirm: async () => { await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' }); this.showModal = false; await this.fetchData(); } };
+            this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_session || 'Дію неможливо скасувати.', onConfirm: async () => { await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' }); this._prevTab = null; this.showModal = false; await this.fetchData(); } };
         },
 
         async saveTrainee() {
@@ -1670,6 +1713,7 @@ function calendarApp() {
             this.sessionForm.title = names ? base + ' — ' + names : base;
         },
         createSessionForTrainee(trainee) {
+            this._prevTab = this.activeTab;
             this.activeTab = 'feed';
             this.traineeSearch = '';
             this.editingSessionId = null;
@@ -1888,25 +1932,34 @@ function calendarApp() {
                }
            },
 
-         async confirmTrainee(traineeId, session) {
-              await fetch(`/api/v1/sessions/${session.id}/confirm-trainee/${traineeId}`, { method: 'POST' });
-              await this.fetchData();
-          },
+          async confirmTrainee(traineeId, session) {
+               console.log(`[confirmTrainee] sessionId=${session.id}, traineeId=${traineeId}, date=${session.date}, time=${session.time}`);
+               const r = await fetch(`/api/v1/sessions/${session.id}/confirm-trainee/${traineeId}`, { method: 'POST' });
+               console.log(`[confirmTrainee] POST done, status=${r.status}`);
+               await this.fetchData();
+               console.log(`[confirmTrainee] fetchData done`);
+           },
 
-         async unconfirmTrainee(traineeId, session) {
-              await fetch(`/api/v1/sessions/${session.id}/unconfirm-trainee/${traineeId}`, { method: 'POST' });
-              await this.fetchData();
-          },
+          async unconfirmTrainee(traineeId, session) {
+               console.log(`[unconfirmTrainee] sessionId=${session.id}, traineeId=${traineeId}, date=${session.date}, time=${session.time}`);
+               const r = await fetch(`/api/v1/sessions/${session.id}/unconfirm-trainee/${traineeId}`, { method: 'POST' });
+               console.log(`[unconfirmTrainee] POST done, status=${r.status}`);
+               await this.fetchData();
+           },
 
-          async rejectTrainee(traineeId, session) {
-              await fetch(`/api/v1/sessions/${session.id}/reject-trainee/${traineeId}`, { method: 'POST' });
-              await this.fetchData();
-          },
+           async rejectTrainee(traineeId, session) {
+               console.log(`[rejectTrainee] sessionId=${session.id}, traineeId=${traineeId}, date=${session.date}, time=${session.time}`);
+               const r = await fetch(`/api/v1/sessions/${session.id}/reject-trainee/${traineeId}`, { method: 'POST' });
+               console.log(`[rejectTrainee] POST done, status=${r.status}`);
+               await this.fetchData();
+           },
 
-          async unrejectTrainee(traineeId, session) {
-              await fetch(`/api/v1/sessions/${session.id}/unreject-trainee/${traineeId}`, { method: 'POST' });
-              await this.fetchData();
-          },
+           async unrejectTrainee(traineeId, session) {
+               console.log(`[unrejectTrainee] sessionId=${session.id}, traineeId=${traineeId}, date=${session.date}, time=${session.time}`);
+               const r = await fetch(`/api/v1/sessions/${session.id}/unreject-trainee/${traineeId}`, { method: 'POST' });
+               console.log(`[unrejectTrainee] POST done, status=${r.status}`);
+               await this.fetchData();
+           },
 
           allTraineesConfirmed(session) {
                const ids = session.traineeIds || [];
@@ -1933,15 +1986,19 @@ function calendarApp() {
                 await this.fetchData();
             },
 
-          async confirmSession(sessionId) {
-              await fetch(`/api/v1/sessions/${sessionId}/confirm`, { method: 'POST' });
-              await this.fetchData();
-          },
+           async confirmSession(sessionId) {
+               console.log(`[confirmSession] sessionId=${sessionId}`);
+               const r = await fetch(`/api/v1/sessions/${sessionId}/confirm`, { method: 'POST' });
+               console.log(`[confirmSession] POST done, status=${r.status}`);
+               await this.fetchData();
+           },
 
-          async rejectSession(sessionId) {
-              await fetch(`/api/v1/sessions/${sessionId}/reject`, { method: 'POST' });
-              await this.fetchData();
-          },
+           async rejectSession(sessionId) {
+               console.log(`[rejectSession] sessionId=${sessionId}`);
+               const r = await fetch(`/api/v1/sessions/${sessionId}/reject`, { method: 'POST' });
+               console.log(`[rejectSession] POST done, status=${r.status}`);
+               await this.fetchData();
+           },
 
           deleteSessionConfirm(session) {
               this.editingSessionId = session.id;
@@ -1950,7 +2007,9 @@ function calendarApp() {
                   title: this.labels.confirm_delete_title || 'Видалити?',
                   message: this.labels.confirm_delete_session || 'Дію неможливо скасувати.',
                   onConfirm: async () => {
-                      await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' });
+                      console.log(`[deleteSession] sessionId=${this.editingSessionId}, date=${session.date}, time=${session.time}`);
+                      const r = await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' });
+                      console.log(`[deleteSession] DELETE done, status=${r.status}`);
                       this.editingSessionId = null;
                       await this.fetchData();
                   }

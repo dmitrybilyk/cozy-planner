@@ -188,6 +188,24 @@ function availabilityApp() {
             this._dirtyDates.clear();
         },
 
+        mergeSlots(slots) {
+            if (!slots || slots.length < 2) return slots || [];
+            const sorted = [...slots].sort((a, b) => {
+                if (a.startTime !== b.startTime) return a.startTime < b.startTime ? -1 : 1;
+                return a.endTime < b.endTime ? -1 : 1;
+            });
+            const merged = [];
+            for (const s of sorted) {
+                const prev = merged[merged.length - 1];
+                if (prev && s.startTime <= prev.endTime) {
+                    if (s.endTime > prev.endTime) prev.endTime = s.endTime;
+                } else {
+                    merged.push({ ...s });
+                }
+            }
+            return merged;
+        },
+
         async saveAll() {
             if (this.saving) return;
             this.saving = true;
@@ -195,10 +213,12 @@ function availabilityApp() {
                 const entries = [];
                 const deletes = [];
                 for (const date of this._dirtyDates) {
-                    const slots = this.slotsByDate[date] || [];
+                    let slots = this.slotsByDate[date] || [];
                     if (slots.length === 0) {
                         deletes.push(date);
                     } else {
+                        slots = this.mergeSlots(slots);
+                        this.slotsByDate[date] = [...slots];
                         for (const s of slots) {
                             entries.push({ date, startTime: s.startTime, endTime: s.endTime });
                         }

@@ -278,6 +278,7 @@ public class CoachAvailabilityController {
         LocalTime ws = LocalTime.parse(mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
         LocalTime we = LocalTime.parse(mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "21:00");
         long mentorId = mentor.getId();
+        ZoneId coachZone = ZoneId.of(mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
 
         return rangeRepository.findByUserIdAndUserTypeAndDateBetween(mentorId, "COACH", startDate, endDate)
                 .collectList()
@@ -289,7 +290,7 @@ public class CoachAvailabilityController {
                                         ? makeDefaultSlots(mentorId, startDate, endDate, ws, we)
                                         : old);
                     }
-                    return Mono.just(mergeRanges(mentorId, startDate, endDate, ws, we, ranges, targetZone));
+                    return Mono.just(mergeRanges(mentorId, startDate, endDate, ws, we, ranges, coachZone));
                 });
     }
 
@@ -304,7 +305,7 @@ public class CoachAvailabilityController {
 
     private static List<MentorAvailability> mergeRanges(long mentorId, LocalDate start, LocalDate end,
                                                          LocalTime ws, LocalTime we,
-                                                         List<AvailabilityRange> ranges, ZoneId targetZone) {
+                                                         List<AvailabilityRange> ranges, ZoneId coachZone) {
         Map<LocalDate, List<AvailabilityRange>> byDate = new HashMap<>();
         for (AvailabilityRange r : ranges) {
             byDate.computeIfAbsent(r.getDate(), k -> new ArrayList<>()).add(r);
@@ -314,8 +315,8 @@ public class CoachAvailabilityController {
             List<AvailabilityRange> dayRanges = byDate.get(d);
             if (dayRanges != null) {
                 for (AvailabilityRange r : dayRanges) {
-                    LocalTime localStart = r.getStartTime().atZoneSameInstant(targetZone).toLocalTime();
-                    LocalTime localEnd = r.getEndTime().atZoneSameInstant(targetZone).toLocalTime();
+                    LocalTime localStart = r.getStartTime().atZoneSameInstant(coachZone).toLocalTime();
+                    LocalTime localEnd = r.getEndTime().atZoneSameInstant(coachZone).toLocalTime();
                     result.add(newSlot(mentorId, d, localStart, localEnd, r.getLocationId()));
                 }
             } else {
