@@ -1,0 +1,511 @@
+.863 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:40:53.863 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:40:53.873 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=d75cad08-9ece-48a1-80af-c14608f41fac, rows=1
+00:40:55.571 INFO  [reactor-http-epoll-5] c.c.p.c.PersistentWebSessionStore - createWebSession id=e277fcb8-e666-49bf-8cab-c49a2ae6377e
+00:40:55.571 INFO  [reactor-http-epoll-5] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=e277fcb8-e666-49bf-8cab-c49a2ae6377e
+00:40:55.571 INFO  [reactor-http-epoll-5] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=e277fcb8-e666-49bf-8cab-c49a2ae6377e, attrsKeys=[], started=true
+00:40:55.571 INFO  [reactor-http-epoll-5] c.c.p.c.PersistentWebSessionStore - retrieveSession id=5a450316-d5c9-4092-905e-552a8c37689e
+00:40:55.573 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=5a450316-d5c9-4092-905e-552a8c37689e
+00:40:55.573 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=5a450316-d5c9-4092-905e-552a8c37689e
+00:40:55.573 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=5a450316-d5c9-4092-905e-552a8c37689e, attrsKeys=[], started=true
+00:40:55.575 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=5a450316-d5c9-4092-905e-552a8c37689e, started=true, expired=false
+00:40:55.575 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=5a450316-d5c9-4092-905e-552a8c37689e, expired=false
+00:40:55.575 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:40:55.576 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:40:55.585 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=5a450316-d5c9-4092-905e-552a8c37689e, rows=1
+00:40:55.586 INFO  [reactor-tcp-epoll-6] c.cozy.planner.config.LoggingFilter - GET /api/v1/notifications → 200 (12ms)
+00:40:55.703 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - createWebSession id=186b21c2-a2e1-48ee-b656-f3d21cc4fa35
+00:40:55.703 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=186b21c2-a2e1-48ee-b656-f3d21cc4fa35
+00:40:55.703 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=186b21c2-a2e1-48ee-b656-f3d21cc4fa35, attrsKeys=[], started=true
+00:40:55.703 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - retrieveSession id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:55.705 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:55.705 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:55.705 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=d75cad08-9ece-48a1-80af-c14608f41fac, attrsKeys=[], started=true
+00:40:55.706 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=d75cad08-9ece-48a1-80af-c14608f41fac, started=true, expired=false
+00:40:55.706 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=d75cad08-9ece-48a1-80af-c14608f41fac, expired=false
+00:40:55.706 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: [org.springframework.security.oauth2.client.web.server.WebSessionOAuth2ServerAuthorizationRequestRepository.AUTHORIZATION_REQUEST]
+00:40:55.707 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=1461
+00:40:55.717 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=d75cad08-9ece-48a1-80af-c14608f41fac, rows=1
+00:40:56.328 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - createWebSession id=cdf6ae6c-f0d8-480c-b2bc-c1272344c234
+00:40:56.328 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=cdf6ae6c-f0d8-480c-b2bc-c1272344c234
+00:40:56.328 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=cdf6ae6c-f0d8-480c-b2bc-c1272344c234, attrsKeys=[], started=true
+00:40:56.328 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - retrieveSession id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.330 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.330 WARN  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - Failed to parse session attributes for d75cad08-9ece-48a1-80af-c14608f41fac
+com.fasterxml.jackson.databind.exc.MismatchedInputException: Cannot construct instance of `org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationResponseType` (although at least one Creator exists): cannot deserialize from Object value (no delegate- or property-based Creator)
+ at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 337] (through reference chain: java.util.HashMap["org.springframework.security.oauth2.client.web.server.WebSessionOAuth2ServerAuthorizationRequestRepository.AUTHORIZATION_REQUEST"]->org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest["responseType"])
+	at com.fasterxml.jackson.databind.exc.MismatchedInputException.from(MismatchedInputException.java:76)
+	at com.fasterxml.jackson.databind.DeserializationContext.reportInputMismatch(DeserializationContext.java:1801)
+	at com.fasterxml.jackson.databind.DeserializationContext.handleMissingInstantiator(DeserializationContext.java:1426)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializerBase.deserializeFromObjectUsingNonDefault(BeanDeserializerBase.java:1514)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserializeFromObject(BeanDeserializer.java:340)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:177)
+	at com.fasterxml.jackson.databind.deser.impl.FieldProperty.deserializeAndSet(FieldProperty.java:137)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.vanillaDeserialize(BeanDeserializer.java:302)
+	at com.fasterxml.jackson.databind.deser.BeanDeserializer.deserialize(BeanDeserializer.java:169)
+	at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer._deserialize(AsArrayTypeDeserializer.java:122)
+	at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer.deserializeTypedFromAny(AsArrayTypeDeserializer.java:73)
+	at com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializerNR.deserializeWithType(UntypedObjectDeserializerNR.java:111)
+	at com.fasterxml.jackson.databind.deser.std.MapDeserializer._deserializeNoNullChecks(MapDeserializer.java:893)
+	at com.fasterxml.jackson.databind.deser.std.MapDeserializer._readAndBindStringKeyMap(MapDeserializer.java:623)
+	at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserialize(MapDeserializer.java:450)
+	at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserialize(MapDeserializer.java:31)
+	at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer._deserialize(AsArrayTypeDeserializer.java:122)
+	at com.fasterxml.jackson.databind.jsontype.impl.AsArrayTypeDeserializer.deserializeTypedFromObject(AsArrayTypeDeserializer.java:63)
+	at com.fasterxml.jackson.databind.deser.std.MapDeserializer.deserializeWithType(MapDeserializer.java:493)
+	at com.fasterxml.jackson.databind.deser.impl.TypeWrappedDeserializer.deserialize(TypeWrappedDeserializer.java:74)
+	at com.fasterxml.jackson.databind.deser.DefaultDeserializationContext.readRootValue(DefaultDeserializationContext.java:342)
+	at com.fasterxml.jackson.databind.ObjectMapper._readMapAndClose(ObjectMapper.java:5052)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:3954)
+	at com.fasterxml.jackson.databind.ObjectMapper.readValue(ObjectMapper.java:3937)
+	at com.cozy.planner.config.PersistentWebSessionStore$PersistentWebSession.parseAttributes(PersistentWebSessionStore.java:199)
+	at com.cozy.planner.config.PersistentWebSessionStore$PersistentWebSession.<init>(PersistentWebSessionStore.java:186)
+	at com.cozy.planner.config.PersistentWebSessionStore.lambda$retrieveSession$0(PersistentWebSessionStore.java:72)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onNext(MonoFlatMap.java:132)
+	at reactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onNext(FluxOnErrorResume.java:79)
+	at reactor.core.publisher.Operators$MonoInnerProducerBase.complete(Operators.java:2864)
+	at reactor.core.publisher.MonoSingle$SingleSubscriber.onComplete(MonoSingle.java:180)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onComplete(Operators.java:2230)
+	at reactor.core.publisher.FluxUsingWhen$UsingWhenSubscriber.deferredComplete(FluxUsingWhen.java:397)
+	at reactor.core.publisher.FluxUsingWhen$CommitInner.onComplete(FluxUsingWhen.java:532)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onComplete(Operators.java:2230)
+	at reactor.core.publisher.FluxPeek$PeekSubscriber.onComplete(FluxPeek.java:260)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onComplete(Operators.java:2230)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:210)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:210)
+	at reactor.pool.SimpleDequePool.maybeRecycleAndDrain(SimpleDequePool.java:547)
+	at reactor.pool.SimpleDequePool$QueuePoolRecyclerInner.onComplete(SimpleDequePool.java:791)
+	at reactor.core.publisher.Operators.complete(Operators.java:137)
+	at reactor.core.publisher.MonoEmpty.subscribe(MonoEmpty.java:46)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.pool.SimpleDequePool$QueuePoolRecyclerMono.subscribe(SimpleDequePool.java:904)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:241)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:204)
+	at reactor.core.publisher.FluxPeek$PeekSubscriber.onComplete(FluxPeek.java:260)
+	at reactor.core.publisher.Operators.complete(Operators.java:137)
+	at reactor.core.publisher.MonoEmpty.subscribe(MonoEmpty.java:46)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:265)
+	at reactor.core.publisher.MonoIgnoreThen.subscribe(MonoIgnoreThen.java:51)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:241)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:204)
+	at reactor.core.publisher.MonoIgnoreElements$IgnoreElementsSubscriber.onComplete(MonoIgnoreElements.java:89)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.onComplete(FluxHandleFuseable.java:239)
+	at reactor.core.publisher.MonoSupplier$MonoSupplierSubscription.request(MonoSupplier.java:148)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.request(FluxHandleFuseable.java:260)
+	at reactor.core.publisher.MonoIgnoreElements$IgnoreElementsSubscriber.onSubscribe(MonoIgnoreElements.java:72)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.onSubscribe(FluxHandleFuseable.java:164)
+	at reactor.core.publisher.MonoSupplier.subscribe(MonoSupplier.java:48)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:265)
+	at reactor.core.publisher.MonoIgnoreThen.subscribe(MonoIgnoreThen.java:51)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onError(FluxOnErrorResume.java:103)
+	at reactor.core.publisher.MonoIgnoreElements$IgnoreElementsSubscriber.onError(MonoIgnoreElements.java:84)
+	at reactor.core.publisher.FluxMap$MapSubscriber.onError(FluxMap.java:134)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onError(FluxFilter.java:157)
+	at reactor.core.publisher.FluxFilter$FilterConditionalSubscriber.onError(FluxFilter.java:291)
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onError(FluxMap.java:265)
+	at reactor.core.publisher.Operators.error(Operators.java:198)
+	at reactor.core.publisher.MonoError.subscribe(MonoError.java:53)
+	at reactor.core.publisher.MonoDeferContextual.subscribe(MonoDeferContextual.java:55)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxUsingWhen$UsingWhenSubscriber.onComplete(FluxUsingWhen.java:389)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.checkTerminated(FluxFlatMap.java:850)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.drainLoop(FluxFlatMap.java:612)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.innerComplete(FluxFlatMap.java:898)
+	at reactor.core.publisher.FluxFlatMap$FlatMapInner.onComplete(FluxFlatMap.java:1001)
+	at reactor.core.publisher.FluxHandle$HandleSubscriber.onComplete(FluxHandle.java:223)
+	at reactor.core.publisher.MonoFlatMapMany$FlatMapManyInner.onComplete(MonoFlatMapMany.java:261)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.onComplete(FluxHandleFuseable.java:239)
+	at reactor.core.publisher.FluxFilterFuseable$FilterFuseableConditionalSubscriber.onComplete(FluxFilterFuseable.java:391)
+	at reactor.core.publisher.FluxContextWrite$ContextWriteSubscriber.onComplete(FluxContextWrite.java:126)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onComplete(FluxPeekFuseable.java:940)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onComplete(FluxPeekFuseable.java:940)
+	at io.r2dbc.postgresql.util.FluxDiscardOnCancel$FluxDiscardOnCancelSubscriber.onComplete(FluxDiscardOnCancel.java:104)
+	at reactor.core.publisher.FluxDoFinally$DoFinallySubscriber.onComplete(FluxDoFinally.java:128)
+	at reactor.core.publisher.FluxHandle$HandleSubscriber.onComplete(FluxHandle.java:223)
+	at reactor.core.publisher.FluxCreate$BaseSink.complete(FluxCreate.java:465)
+	at reactor.core.publisher.FluxCreate$BufferAsyncSink.drain(FluxCreate.java:871)
+	at reactor.core.publisher.FluxCreate$BufferAsyncSink.complete(FluxCreate.java:819)
+	at reactor.core.publisher.FluxCreate$SerializedFluxSink.drainLoop(FluxCreate.java:249)
+	at reactor.core.publisher.FluxCreate$SerializedFluxSink.drain(FluxCreate.java:215)
+	at reactor.core.publisher.FluxCreate$SerializedFluxSink.complete(FluxCreate.java:206)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$Conversation.complete(ReactorNettyClient.java:683)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$BackendMessageSubscriber.emit(ReactorNettyClient.java:949)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$BackendMessageSubscriber.onNext(ReactorNettyClient.java:825)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$BackendMessageSubscriber.onNext(ReactorNettyClient.java:731)
+	at reactor.core.publisher.FluxHandle$HandleSubscriber.onNext(FluxHandle.java:129)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onNext(FluxPeekFuseable.java:854)
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onNext(FluxMap.java:224)
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onNext(FluxMap.java:224)
+	at reactor.netty.channel.FluxReceive.drainReceiver(FluxReceive.java:292)
+	at reactor.netty.channel.FluxReceive.onInboundNext(FluxReceive.java:401)
+	at reactor.netty.channel.ChannelOperations.onInboundNext(ChannelOperations.java:444)
+	at reactor.netty.channel.ChannelOperationsHandler.channelRead(ChannelOperationsHandler.java:115)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:361)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:325)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1357)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:440)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:868)
+	at io.netty.channel.epoll.AbstractEpollStreamChannel$EpollStreamUnsafe.epollInReady(AbstractEpollStreamChannel.java:805)
+	at io.netty.channel.epoll.EpollEventLoop.processReady(EpollEventLoop.java:501)
+	at io.netty.channel.epoll.EpollEventLoop.run(EpollEventLoop.java:399)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+00:40:56.330 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=d75cad08-9ece-48a1-80af-c14608f41fac, attrsKeys=[], started=true
+00:40:56.331 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=d75cad08-9ece-48a1-80af-c14608f41fac, started=true, expired=false
+00:40:56.331 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=d75cad08-9ece-48a1-80af-c14608f41fac, expired=false
+00:40:56.331 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:40:56.331 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:40:56.341 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=d75cad08-9ece-48a1-80af-c14608f41fac, rows=1
+00:40:56.519 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - createWebSession id=6fd6666e-8c1a-42f2-9239-1afc76b75036
+00:40:56.519 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=6fd6666e-8c1a-42f2-9239-1afc76b75036
+00:40:56.519 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=6fd6666e-8c1a-42f2-9239-1afc76b75036, attrsKeys=[], started=true
+00:40:56.519 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - retrieveSession id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.521 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.521 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.521 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=d75cad08-9ece-48a1-80af-c14608f41fac, attrsKeys=[], started=true
+00:40:56.523 ERROR [reactor-tcp-epoll-6] c.cozy.planner.config.LoggingFilter - GET /login?error failed: 404 NOT_FOUND "No static resource login."
+org.springframework.web.reactive.resource.NoResourceFoundException: 404 NOT_FOUND "No static resource login."
+	at org.springframework.web.reactive.resource.ResourceWebHandler.lambda$handle$1(ResourceWebHandler.java:434)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:45)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onComplete(FluxSwitchIfEmpty.java:82)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onComplete(MonoFlatMap.java:189)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onComplete(MonoNext.java:102)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.onComplete(FluxConcatMapNoPrefetch.java:241)
+	at reactor.core.publisher.FluxIterable$IterableSubscription.slowPath(FluxIterable.java:357)
+	at reactor.core.publisher.FluxIterable$IterableSubscription.request(FluxIterable.java:294)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.request(FluxConcatMapNoPrefetch.java:337)
+	at reactor.core.publisher.MonoNext$NextSubscriber.request(MonoNext.java:108)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.request(MonoFlatMap.java:194)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.set(Operators.java:2366)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onSubscribe(Operators.java:2240)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onSubscribe(MonoFlatMap.java:117)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onSubscribe(MonoNext.java:70)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.onSubscribe(FluxConcatMapNoPrefetch.java:164)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:201)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:83)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:265)
+	at reactor.core.publisher.MonoIgnoreThen.subscribe(MonoIgnoreThen.java:51)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onNext(MonoFlatMap.java:165)
+	at reactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onNext(FluxOnErrorResume.java:79)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onNext(FluxSwitchIfEmpty.java:74)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onNext(MonoNext.java:82)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.innerNext(FluxConcatMapNoPrefetch.java:259)
+	at reactor.core.publisher.FluxConcatMap$ConcatMapInner.onNext(FluxConcatMap.java:865)
+	at reactor.core.publisher.FluxMapFuseable$MapFuseableSubscriber.onNext(FluxMapFuseable.java:129)
+	at reactor.core.publisher.Operators$ScalarSubscription.request(Operators.java:2570)
+	at reactor.core.publisher.FluxMapFuseable$MapFuseableSubscriber.request(FluxMapFuseable.java:171)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.request(Operators.java:2330)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.request(FluxConcatMapNoPrefetch.java:339)
+	at reactor.core.publisher.MonoNext$NextSubscriber.request(MonoNext.java:108)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.set(Operators.java:2366)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onSubscribe(Operators.java:2240)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onSubscribe(MonoNext.java:70)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.onSubscribe(FluxConcatMapNoPrefetch.java:164)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:201)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:83)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDeferContextual.subscribe(MonoDeferContextual.java:55)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onComplete(FluxSwitchIfEmpty.java:82)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.onComplete(MonoPeekTerminal.java:299)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.onComplete(MonoPeekTerminal.java:299)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onNext(MonoFlatMap.java:155)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onNext(FluxSwitchIfEmpty.java:74)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onNext(FluxFilter.java:113)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.onNext(MonoPeekTerminal.java:180)
+	at reactor.core.publisher.FluxPeekFuseable$PeekFuseableConditionalSubscriber.onNext(FluxPeekFuseable.java:503)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.onNext(MonoPeekTerminal.java:180)
+	at reactor.core.publisher.FluxDefaultIfEmpty$DefaultIfEmptySubscriber.onNext(FluxDefaultIfEmpty.java:122)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onNext(MonoNext.java:82)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.innerNext(FluxConcatMapNoPrefetch.java:259)
+	at reactor.core.publisher.FluxConcatMap$ConcatMapInner.onNext(FluxConcatMap.java:865)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onNext(MonoFlatMap.java:158)
+	at reactor.core.publisher.FluxMap$MapSubscriber.onNext(FluxMap.java:122)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onNext(FluxFilter.java:113)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onNext(FluxPeekFuseable.java:854)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onNext(FluxSwitchIfEmpty.java:74)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onNext(MonoNext.java:82)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onNext(FluxFilter.java:113)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.drainLoop(FluxFlatMap.java:639)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.drain(FluxFlatMap.java:592)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.request(FluxFlatMap.java:349)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.request(FluxFilter.java:186)
+	at reactor.core.publisher.MonoNext$NextSubscriber.request(MonoNext.java:108)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.request(Operators.java:2330)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.request(FluxPeekFuseable.java:783)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.request(FluxFilter.java:186)
+	at reactor.core.publisher.FluxMap$MapSubscriber.request(FluxMap.java:164)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.request(MonoFlatMap.java:194)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.request(Operators.java:2330)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.request(FluxConcatMapNoPrefetch.java:339)
+	at reactor.core.publisher.MonoNext$NextSubscriber.request(MonoNext.java:108)
+	at reactor.core.publisher.FluxDefaultIfEmpty$DefaultIfEmptySubscriber.request(FluxDefaultIfEmpty.java:98)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.request(MonoPeekTerminal.java:139)
+	at reactor.core.publisher.FluxPeekFuseable$PeekFuseableConditionalSubscriber.request(FluxPeekFuseable.java:437)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.request(MonoPeekTerminal.java:139)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.request(FluxFilter.java:186)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.set(Operators.java:2366)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onSubscribe(Operators.java:2240)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onSubscribe(FluxFilter.java:85)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.onSubscribe(MonoPeekTerminal.java:152)
+	at reactor.core.publisher.FluxPeekFuseable$PeekFuseableConditionalSubscriber.onSubscribe(FluxPeekFuseable.java:471)
+	at reactor.core.publisher.MonoPeekTerminal$MonoTerminalPeekSubscriber.onSubscribe(MonoPeekTerminal.java:152)
+	at reactor.core.publisher.Operators$BaseFluxToMonoOperator.onSubscribe(Operators.java:2050)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onSubscribe(MonoNext.java:70)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.onSubscribe(FluxConcatMapNoPrefetch.java:164)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:201)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:83)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDeferContextual.subscribe(MonoDeferContextual.java:55)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:265)
+	at reactor.core.publisher.MonoIgnoreThen.subscribe(MonoIgnoreThen.java:51)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onComplete(FluxSwitchIfEmpty.java:82)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onComplete(FluxFilter.java:166)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onComplete(FluxPeekFuseable.java:940)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onComplete(FluxSwitchIfEmpty.java:85)
+	at reactor.core.publisher.Operators$ScalarSubscription.request(Operators.java:2572)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.set(Operators.java:2366)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onSubscribe(Operators.java:2240)
+	at reactor.core.publisher.MonoJust.subscribe(MonoJust.java:55)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onComplete(FluxSwitchIfEmpty.java:82)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onComplete(MonoNext.java:102)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onComplete(FluxFilter.java:166)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.checkTerminated(FluxFlatMap.java:850)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.drainLoop(FluxFlatMap.java:612)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.drain(FluxFlatMap.java:592)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.onComplete(FluxFlatMap.java:469)
+	at reactor.core.publisher.FluxPeekFuseable$PeekFuseableSubscriber.onComplete(FluxPeekFuseable.java:277)
+	at reactor.core.publisher.FluxIterable$IterableSubscription.slowPath(FluxIterable.java:357)
+	at reactor.core.publisher.FluxIterable$IterableSubscription.request(FluxIterable.java:294)
+	at reactor.core.publisher.FluxPeekFuseable$PeekFuseableSubscriber.request(FluxPeekFuseable.java:144)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.onSubscribe(FluxFlatMap.java:373)
+	at reactor.core.publisher.FluxPeekFuseable$PeekFuseableSubscriber.onSubscribe(FluxPeekFuseable.java:178)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:201)
+	at reactor.core.publisher.FluxIterable.subscribe(FluxIterable.java:83)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onNext(MonoFlatMap.java:165)
+	at reactor.core.publisher.Operators$BaseFluxToMonoOperator.completePossiblyEmpty(Operators.java:2096)
+	at reactor.core.publisher.FluxDefaultIfEmpty$DefaultIfEmptySubscriber.onComplete(FluxDefaultIfEmpty.java:134)
+	at reactor.core.publisher.FluxMap$MapSubscriber.onComplete(FluxMap.java:144)
+	at reactor.core.publisher.FluxMap$MapSubscriber.onComplete(FluxMap.java:144)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onComplete(FluxFilter.java:166)
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onComplete(FluxMap.java:275)
+	at reactor.core.publisher.Operators$MonoSubscriber.complete(Operators.java:1865)
+	at reactor.core.publisher.MonoCacheTime$CoordinatorSubscriber.signalCached(MonoCacheTime.java:337)
+	at reactor.core.publisher.MonoCacheTime$CoordinatorSubscriber.onNext(MonoCacheTime.java:354)
+	at reactor.core.publisher.FluxPeek$PeekSubscriber.onNext(FluxPeek.java:200)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onNext(FluxSwitchIfEmpty.java:74)
+	at reactor.core.publisher.MonoNext$NextSubscriber.onNext(MonoNext.java:82)
+	at reactor.core.publisher.FluxConcatMapNoPrefetch$FluxConcatMapNoPrefetchSubscriber.innerNext(FluxConcatMapNoPrefetch.java:259)
+	at reactor.core.publisher.FluxConcatMap$ConcatMapInner.onNext(FluxConcatMap.java:865)
+	at reactor.core.publisher.FluxSwitchIfEmpty$SwitchIfEmptySubscriber.onNext(FluxSwitchIfEmpty.java:74)
+	at reactor.core.publisher.MonoFlatMap$FlatMapMain.onNext(MonoFlatMap.java:158)
+	at reactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onNext(FluxOnErrorResume.java:79)
+	at reactor.core.publisher.Operators$MonoInnerProducerBase.complete(Operators.java:2864)
+	at reactor.core.publisher.MonoSingle$SingleSubscriber.onComplete(MonoSingle.java:180)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onComplete(Operators.java:2230)
+	at reactor.core.publisher.FluxUsingWhen$UsingWhenSubscriber.deferredComplete(FluxUsingWhen.java:397)
+	at reactor.core.publisher.FluxUsingWhen$CommitInner.onComplete(FluxUsingWhen.java:532)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onComplete(Operators.java:2230)
+	at reactor.core.publisher.FluxPeek$PeekSubscriber.onComplete(FluxPeek.java:260)
+	at reactor.core.publisher.Operators$MultiSubscriptionSubscriber.onComplete(Operators.java:2230)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:210)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:210)
+	at reactor.pool.SimpleDequePool.maybeRecycleAndDrain(SimpleDequePool.java:547)
+	at reactor.pool.SimpleDequePool$QueuePoolRecyclerInner.onComplete(SimpleDequePool.java:791)
+	at reactor.core.publisher.Operators.complete(Operators.java:137)
+	at reactor.core.publisher.MonoEmpty.subscribe(MonoEmpty.java:46)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.pool.SimpleDequePool$QueuePoolRecyclerMono.subscribe(SimpleDequePool.java:904)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:241)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:204)
+	at reactor.core.publisher.FluxPeek$PeekSubscriber.onComplete(FluxPeek.java:260)
+	at reactor.core.publisher.Operators.complete(Operators.java:137)
+	at reactor.core.publisher.MonoEmpty.subscribe(MonoEmpty.java:46)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:265)
+	at reactor.core.publisher.MonoIgnoreThen.subscribe(MonoIgnoreThen.java:51)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:241)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.onComplete(MonoIgnoreThen.java:204)
+	at reactor.core.publisher.MonoIgnoreElements$IgnoreElementsSubscriber.onComplete(MonoIgnoreElements.java:89)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.onComplete(FluxHandleFuseable.java:239)
+	at reactor.core.publisher.MonoSupplier$MonoSupplierSubscription.request(MonoSupplier.java:148)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.request(FluxHandleFuseable.java:260)
+	at reactor.core.publisher.MonoIgnoreElements$IgnoreElementsSubscriber.onSubscribe(MonoIgnoreElements.java:72)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.onSubscribe(FluxHandleFuseable.java:164)
+	at reactor.core.publisher.MonoSupplier.subscribe(MonoSupplier.java:48)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain.subscribeNext(MonoIgnoreThen.java:265)
+	at reactor.core.publisher.MonoIgnoreThen.subscribe(MonoIgnoreThen.java:51)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxOnErrorResume$ResumeSubscriber.onError(FluxOnErrorResume.java:103)
+	at reactor.core.publisher.MonoIgnoreElements$IgnoreElementsSubscriber.onError(MonoIgnoreElements.java:84)
+	at reactor.core.publisher.FluxMap$MapSubscriber.onError(FluxMap.java:134)
+	at reactor.core.publisher.FluxFilter$FilterSubscriber.onError(FluxFilter.java:157)
+	at reactor.core.publisher.FluxFilter$FilterConditionalSubscriber.onError(FluxFilter.java:291)
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onError(FluxMap.java:265)
+	at reactor.core.publisher.Operators.error(Operators.java:198)
+	at reactor.core.publisher.MonoError.subscribe(MonoError.java:53)
+	at reactor.core.publisher.MonoDeferContextual.subscribe(MonoDeferContextual.java:55)
+	at reactor.core.publisher.InternalMonoOperator.subscribe(InternalMonoOperator.java:76)
+	at reactor.core.publisher.MonoDefer.subscribe(MonoDefer.java:53)
+	at reactor.core.publisher.Mono.subscribe(Mono.java:4576)
+	at reactor.core.publisher.FluxUsingWhen$UsingWhenSubscriber.onComplete(FluxUsingWhen.java:389)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.checkTerminated(FluxFlatMap.java:850)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.drainLoop(FluxFlatMap.java:612)
+	at reactor.core.publisher.FluxFlatMap$FlatMapMain.innerComplete(FluxFlatMap.java:898)
+	at reactor.core.publisher.FluxFlatMap$FlatMapInner.onComplete(FluxFlatMap.java:1001)
+	at reactor.core.publisher.FluxHandle$HandleSubscriber.onComplete(FluxHandle.java:223)
+	at reactor.core.publisher.MonoFlatMapMany$FlatMapManyInner.onComplete(MonoFlatMapMany.java:261)
+	at reactor.core.publisher.FluxHandleFuseable$HandleFuseableSubscriber.onComplete(FluxHandleFuseable.java:239)
+	at reactor.core.publisher.FluxFilterFuseable$FilterFuseableConditionalSubscriber.onComplete(FluxFilterFuseable.java:391)
+	at reactor.core.publisher.FluxContextWrite$ContextWriteSubscriber.onComplete(FluxContextWrite.java:126)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onComplete(FluxPeekFuseable.java:940)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onComplete(FluxPeekFuseable.java:940)
+	at io.r2dbc.postgresql.util.FluxDiscardOnCancel$FluxDiscardOnCancelSubscriber.onComplete(FluxDiscardOnCancel.java:104)
+	at reactor.core.publisher.FluxDoFinally$DoFinallySubscriber.onComplete(FluxDoFinally.java:128)
+	at reactor.core.publisher.FluxHandle$HandleSubscriber.onComplete(FluxHandle.java:223)
+	at reactor.core.publisher.FluxCreate$BaseSink.complete(FluxCreate.java:465)
+	at reactor.core.publisher.FluxCreate$BufferAsyncSink.drain(FluxCreate.java:871)
+	at reactor.core.publisher.FluxCreate$BufferAsyncSink.complete(FluxCreate.java:819)
+	at reactor.core.publisher.FluxCreate$SerializedFluxSink.drainLoop(FluxCreate.java:249)
+	at reactor.core.publisher.FluxCreate$SerializedFluxSink.drain(FluxCreate.java:215)
+	at reactor.core.publisher.FluxCreate$SerializedFluxSink.complete(FluxCreate.java:206)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$Conversation.complete(ReactorNettyClient.java:683)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$BackendMessageSubscriber.emit(ReactorNettyClient.java:949)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$BackendMessageSubscriber.onNext(ReactorNettyClient.java:825)
+	at io.r2dbc.postgresql.client.ReactorNettyClient$BackendMessageSubscriber.onNext(ReactorNettyClient.java:731)
+	at reactor.core.publisher.FluxHandle$HandleSubscriber.onNext(FluxHandle.java:129)
+	at reactor.core.publisher.FluxPeekFuseable$PeekConditionalSubscriber.onNext(FluxPeekFuseable.java:854)
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onNext(FluxMap.java:224)
+	at reactor.core.publisher.FluxMap$MapConditionalSubscriber.onNext(FluxMap.java:224)
+	at reactor.netty.channel.FluxReceive.drainReceiver(FluxReceive.java:292)
+	at reactor.netty.channel.FluxReceive.onInboundNext(FluxReceive.java:401)
+	at reactor.netty.channel.ChannelOperations.onInboundNext(ChannelOperations.java:444)
+	at reactor.netty.channel.ChannelOperationsHandler.channelRead(ChannelOperationsHandler.java:115)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.handler.codec.ByteToMessageDecoder.fireChannelRead(ByteToMessageDecoder.java:361)
+	at io.netty.handler.codec.ByteToMessageDecoder.channelRead(ByteToMessageDecoder.java:325)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:444)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.AbstractChannelHandlerContext.fireChannelRead(AbstractChannelHandlerContext.java:412)
+	at io.netty.channel.DefaultChannelPipeline$HeadContext.channelRead(DefaultChannelPipeline.java:1357)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:440)
+	at io.netty.channel.AbstractChannelHandlerContext.invokeChannelRead(AbstractChannelHandlerContext.java:420)
+	at io.netty.channel.DefaultChannelPipeline.fireChannelRead(DefaultChannelPipeline.java:868)
+	at io.netty.channel.epoll.AbstractEpollStreamChannel$EpollStreamUnsafe.epollInReady(AbstractEpollStreamChannel.java:805)
+	at io.netty.channel.epoll.EpollEventLoop.processReady(EpollEventLoop.java:501)
+	at io.netty.channel.epoll.EpollEventLoop.run(EpollEventLoop.java:399)
+	at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:998)
+	at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+	at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+00:40:56.526 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=d75cad08-9ece-48a1-80af-c14608f41fac, started=true, expired=false
+00:40:56.526 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=d75cad08-9ece-48a1-80af-c14608f41fac, expired=false
+00:40:56.526 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:40:56.526 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:40:56.526 WARN  [reactor-tcp-epoll-6] c.cozy.planner.config.LoggingFilter - GET /login?error → 404 (4ms)
+00:40:56.536 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=d75cad08-9ece-48a1-80af-c14608f41fac, rows=1
+00:40:56.872 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - createWebSession id=67c6a285-9e32-4cc1-8191-ee90e1a644a2
+00:40:56.872 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=67c6a285-9e32-4cc1-8191-ee90e1a644a2
+00:40:56.872 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=67c6a285-9e32-4cc1-8191-ee90e1a644a2, attrsKeys=[], started=true
+00:40:56.872 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - retrieveSession id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.875 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.875 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:56.875 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=d75cad08-9ece-48a1-80af-c14608f41fac, attrsKeys=[], started=true
+00:40:56.877 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=d75cad08-9ece-48a1-80af-c14608f41fac, started=true, expired=false
+00:40:56.877 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=d75cad08-9ece-48a1-80af-c14608f41fac, expired=false
+00:40:56.877 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:40:56.877 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:40:56.880 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=d75cad08-9ece-48a1-80af-c14608f41fac, rows=1
+00:40:57.058 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - createWebSession id=74cfdae3-9e87-4fc9-adcd-a88630a8f675
+00:40:57.058 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=74cfdae3-9e87-4fc9-adcd-a88630a8f675
+00:40:57.058 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=74cfdae3-9e87-4fc9-adcd-a88630a8f675, attrsKeys=[], started=true
+00:40:57.058 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - retrieveSession id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:57.063 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:57.063 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:57.063 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=d75cad08-9ece-48a1-80af-c14608f41fac, attrsKeys=[], started=true
+00:40:57.070 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=d75cad08-9ece-48a1-80af-c14608f41fac, started=true, expired=false
+00:40:57.070 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=d75cad08-9ece-48a1-80af-c14608f41fac, expired=false
+00:40:57.070 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:40:57.070 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:40:57.102 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=d75cad08-9ece-48a1-80af-c14608f41fac, rows=1
+00:40:57.105 INFO  [reactor-tcp-epoll-6] c.cozy.planner.config.LoggingFilter - GET /signin → 200 (41ms)
+00:40:58.446 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - createWebSession id=b7fb5cd1-676c-4c19-81a3-915a832bcb79
+00:40:58.446 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=b7fb5cd1-676c-4c19-81a3-915a832bcb79
+00:40:58.446 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=b7fb5cd1-676c-4c19-81a3-915a832bcb79, attrsKeys=[], started=true
+00:40:58.446 INFO  [reactor-http-epoll-4] c.c.p.c.PersistentWebSessionStore - retrieveSession id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:58.451 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:58.451 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=d75cad08-9ece-48a1-80af-c14608f41fac
+00:40:58.452 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=d75cad08-9ece-48a1-80af-c14608f41fac, attrsKeys=[], started=true
+00:40:58.454 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=d75cad08-9ece-48a1-80af-c14608f41fac, started=true, expired=false
+00:40:58.454 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=d75cad08-9ece-48a1-80af-c14608f41fac, expired=false
+00:40:58.454 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:40:58.454 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:40:58.464 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=d75cad08-9ece-48a1-80af-c14608f41fac, rows=1
+00:41:04.119 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - createWebSession id=d5810be9-f80f-4979-acb2-5eb381f3f64e
+00:41:04.119 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=d5810be9-f80f-4979-acb2-5eb381f3f64e
+00:41:04.119 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=d5810be9-f80f-4979-acb2-5eb381f3f64e, attrsKeys=[], started=true
+00:41:04.119 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - retrieveSession id=91b0208b-4fec-4703-b405-b2e282a96baf
+00:41:04.121 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=91b0208b-4fec-4703-b405-b2e282a96baf
+00:41:04.121 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=91b0208b-4fec-4703-b405-b2e282a96baf
+00:41:04.121 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=91b0208b-4fec-4703-b405-b2e282a96baf, attrsKeys=[], started=true
+00:41:04.125 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=91b0208b-4fec-4703-b405-b2e282a96baf, started=true, expired=false
+00:41:04.125 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=91b0208b-4fec-4703-b405-b2e282a96baf, expired=false
+00:41:04.125 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:41:04.125 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:41:04.128 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=91b0208b-4fec-4703-b405-b2e282a96baf, rows=1
+00:41:04.129 INFO  [reactor-tcp-epoll-6] c.cozy.planner.config.LoggingFilter - GET /api/v1/notifications → 200 (7ms)
+00:41:08.438 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - createWebSession id=2368b02b-939b-4627-91eb-19cd5f3ee738
+00:41:08.438 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - parseAttributes empty json for id=2368b02b-939b-4627-91eb-19cd5f3ee738
+00:41:08.438 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=2368b02b-939b-4627-91eb-19cd5f3ee738, attrsKeys=[], started=true
+00:41:08.438 INFO  [reactor-http-epoll-7] c.c.p.c.PersistentWebSessionStore - retrieveSession id=91b0208b-4fec-4703-b405-b2e282a96baf
+00:41:08.440 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - retrieveSession found row for id=91b0208b-4fec-4703-b405-b2e282a96baf
+00:41:08.440 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - parseAttributes parsed 0 keys for id=91b0208b-4fec-4703-b405-b2e282a96baf
+00:41:08.441 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession created id=91b0208b-4fec-4703-b405-b2e282a96baf, attrsKeys=[], started=true
+00:41:08.443 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - PersistentWebSession.save() id=91b0208b-4fec-4703-b405-b2e282a96baf, started=true, expired=false
+00:41:08.443 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession id=91b0208b-4fec-4703-b405-b2e282a96baf, expired=false
+00:41:08.443 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attribute keys before serialization: []
+00:41:08.443 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession attributes size=24
+00:41:08.453 INFO  [reactor-tcp-epoll-6] c.c.p.c.PersistentWebSessionStore - storeWebSession upserted id=91b0208b-4fec-4703-b405-b2e282a96baf, rows=1
+00:41:08.453 INFO  [reactor-tcp-epoll-6] c.cozy.planner.config.LoggingFilter - GET /api/v1/notifications → 200 (12ms)
