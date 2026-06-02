@@ -89,8 +89,8 @@
         <button @click="activeTab = 'coach-availability'; loadCoachAvailability()"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'coach-availability' ? 'bg-[#333] ring-2 ring-violet-400' : 'bg-[#262626] hover:bg-[#333]'"
-                :title="'Доступність тренера'">
-            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-violet-400" x-text="'Доступність тренера'"></span>
+                :title="'Доступність майстра'">
+            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-violet-400" x-text="'Доступність майстра'"></span>
         </button>
     </div>
     <!-- Ряд 3: Смуга днів -->
@@ -368,14 +368,10 @@
                                         <button @click.stop="editSession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Редагувати">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                                         </button>
-<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="p-1 text-blue-400 hover:text-blue-300 transition" title="Експорт в Google Calendar">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z"/></svg>
+<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
+                                        <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
+                                        <span>Експорт в Google Calendar</span>
                                     </button>
-                                    <div class="flex items-center">
-                                        <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition p-1 -mr-1" title="Копіювати">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                                        </button>
-                                        <svg class="w-4 h-4 text-green-400/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                                     </div>
                                     <div class="flex items-center">
                                         <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition p-1 -mr-1" title="Копіювати">
@@ -487,19 +483,11 @@
         <template x-if="mentorTg.enabled && !mentorTg.connected">
             <div class="space-y-3">
                 <p class="text-gray-400 text-sm" x-text="labels.tg_connect_prompt || 'Підключить телеграм, щоб вмикнути сповіщення'"></p>
-                <button @click="generateMentorTelegramToken()" 
-                        :class="mentorTg.copied ? 'bg-green-600' : (mentorTg.connectLink ? 'bg-orange-500' : 'bg-blue-600')"
-                        class="w-full flex items-center justify-center gap-2 text-white py-3 rounded-xl font-bold transition active:scale-[0.97]">
-                    <span x-show="mentorTg.copied">✓</span>
-                    <span x-show="!mentorTg.copied && mentorTg.connectLink">🔗</span>
-                    <span x-show="!mentorTg.copied && !mentorTg.connectLink">📲</span>
-                    <span x-show="mentorTg.copied">Скопійовано!</span>
-                    <span x-show="!mentorTg.copied && mentorTg.connectLink">Копіювати посилання</span>
-                    <span x-show="!mentorTg.copied && !mentorTg.connectLink">Під'єднати Телеграм</span>
+                <button @click="openMentorTelegramLink()" 
+                        class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition active:scale-[0.97]">
+                    <span>📲</span>
+                    <span>Під'єднати телеграм</span>
                 </button>
-                <p x-show="mentorTg.connectLink && !mentorTg.copied" class="text-gray-600 text-xs text-center">
-                    Натисніть, щоб скопіювати посилання для підключення
-                </p>
             </div>
         </template>
     </div>
@@ -743,9 +731,14 @@
     <!-- Модалка створення/редагування учня -->
     <div x-show="showTraineeFormModal" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="showTraineeFormModal = false">
         <div class="w-full max-w-md bg-[#1a1a1a] rounded-3xl p-6 border border-[#333] shadow-2xl space-y-4">
-            <div class="flex items-center justify-between">
-                <span class="text-sm font-black text-gray-300 uppercase tracking-widest" x-text="editingTraineeId ? (labels.edit_trainee || 'Редагувати учня') : (labels.add_trainee || 'Додати учня')"></span>
-                <button @click="showTraineeFormModal = false" class="text-gray-500 hover:text-gray-300 text-xl leading-none">&times;</button>
+            <div class="flex items-center gap-3">
+                <button @click="showTraineeFormModal = false" class="text-gray-400 hover:text-white transition p-1 -ml-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <span class="text-sm font-black text-gray-300 uppercase tracking-widest flex-1" x-text="editingTraineeId ? (labels.edit_trainee || 'Редагувати учня') : (labels.add_trainee || 'Додати учня')"></span>
+                <button @click="showTraineeFormModal = false" class="text-gray-500 hover:text-gray-300 transition p-1 -mr-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
             <div class="flex items-center gap-4">
                 <div class="relative flex-shrink-0">
@@ -1016,7 +1009,7 @@
                         </select>
                         <button @click="showAvailPopup = true" type="button"
                                 class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition text-blue-400 bg-blue-900/30 hover:bg-blue-900/50"
-                                x-text="labels.availability || 'Доступність тренера'">
+                                x-text="labels.availability || 'Доступність майстра'">
                         </button>
                     </div>
                 </div>
@@ -1099,7 +1092,7 @@
                 </button>
             </div>
             <div x-show="getAvailPopupRanges().length === 0" class="text-center py-8 text-gray-500 text-sm">
-                <span x-text="labels.no_avail || 'Доступний весь день'"></span>
+                <span x-text="labels.no_avail || 'Немає доступності'"></span>
             </div>
             <div class="space-y-3 max-h-64 overflow-y-auto no-scrollbar pr-1">
                 <template x-for="group in getAvailPopupRanges()" :key="group.locationId || '__none__'">

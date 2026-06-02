@@ -936,6 +936,7 @@ public class SessionConfirmationController {
                     evt.put("sessionId", saved.getSessionId());
                     evt.put("isRead", saved.getIsRead());
                     evt.put("createdAt", saved.getCreatedAt() != null ? saved.getCreatedAt().toString() : null);
+                    evt.put("url", "/");
                     if (actionType != null) {
                         evt.put("actionType", actionType);
                     }

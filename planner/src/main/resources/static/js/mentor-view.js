@@ -49,7 +49,7 @@ function calendarApp() {
         confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
         notifyModal: { show: false, traineeId: null, traineeName: '', customMessage: '', dayType: 'tomorrow', targetDate: '' },
         toast: { show: false, message: '' },
-        mentorTg: { enabled: false, connected: false, username: '', connectLink: '', copied: false },
+        mentorTg: { enabled: false, connected: false, username: '', connectLink: '' },
         inviteUrls: {},
         traineeLinks: {},
         notifyingTrainees: {},
@@ -130,10 +130,12 @@ function calendarApp() {
         showBrowserNotification(msg) {
             if (Notification.permission === 'granted') {
                 const body = (msg.message || '') + ' — натисніть, щоб відкрити додаток';
+                const url = msg.url || '/';
                 const options = {
                     body: body,
                     tag: 'cozy-notification',
-                    icon: '/favicon.svg'
+                    icon: '/favicon.svg',
+                    data: { url }
                 };
                 if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                     navigator.serviceWorker.ready.then(reg => {
@@ -1242,17 +1244,9 @@ function calendarApp() {
             catch(e) { prompt('Скопіюйте посилання на картинку:', imgUrl); }
         },
         
-        async generateMentorTelegramToken() {
+        async openMentorTelegramLink() {
             if (this.mentorTg.connectLink && this.mentorTg.connectLink.length > 0) {
-                try {
-                    await navigator.clipboard?.writeText(this.mentorTg.connectLink);
-                    this.mentorTg.copied = true;
-                    setTimeout(() => { 
-                        this.mentorTg.copied = false; 
-                    }, 2000);
-                } catch (e) {
-                    console.error('Failed to copy mentor telegram link:', e);
-                }
+                window.open(this.mentorTg.connectLink, '_blank');
                 return;
             }
             try {
@@ -1262,11 +1256,7 @@ function calendarApp() {
                     if (data.success) {
                         this.mentorTg.connectLink = data.connectLink;
                         if (data.connectLink) {
-                            await navigator.clipboard?.writeText(data.connectLink);
-                            this.mentorTg.copied = true;
-                            setTimeout(() => { 
-                                this.mentorTg.copied = false; 
-                            }, 2000);
+                            window.open(data.connectLink, '_blank');
                         }
                     }
                 }
@@ -1521,7 +1511,7 @@ function calendarApp() {
             const sm = this.slotToMin(startTime);
             const em = this.slotToMin(endTime);
             if (this.dayOffs.includes(date)) {
-                errors.push(this.labels.err_coach_day_off || 'Цей день є вихідним для тренера');
+                errors.push(this.labels.err_coach_day_off || 'Цей день є вихідним для майстра');
             }
             if (this.workStart && this.workEnd) {
                 const [wsh, wsm] = this.workStart.split(':').map(Number);
@@ -1544,7 +1534,7 @@ function calendarApp() {
                         if (sm >= rs && em <= re) { within = true; break; }
                     }
                     if (!within) {
-                        errors.push(this.labels.err_coach_avail || 'Час сесії не входить в години доступності тренера');
+                        errors.push(this.labels.err_coach_avail || 'Час сесії не входить в години доступності майстра');
                     }
                 }
             }
@@ -2232,7 +2222,7 @@ function calendarApp() {
             }
         },
         get coachAvailTitle() {
-            const titles = { sport:'Доступність тренера', studying:'Доступність вчителя', psychology:'Доступність психолога', other:'Доступність ментора' };
+            const titles = { sport:'Доступність майстра', studying:'Доступність майстра', psychology:'Доступність майстра', other:'Доступність майстра' };
             return titles[this.mentorProfile] || titles.sport;
         },
         get coachAvailHasUnsaved() { return this.coachDirtyDates.size > 0; },

@@ -67,6 +67,7 @@ public class PushService {
             try {
                 StringBuilder json = new StringBuilder();
                 json.append("{\"title\":\"").append(esc(title)).append("\",\"message\":\"").append(esc(message)).append("\"");
+                json.append(",\"url\":\"/\"");
                 if (sessionId != null) {
                     json.append(",\"sessionId\":").append(sessionId);
                 }

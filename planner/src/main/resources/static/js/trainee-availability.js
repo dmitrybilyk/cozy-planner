@@ -39,8 +39,8 @@ function availabilityApp() {
 
         get mentorDative() {
             const profile = this.me.mentorProfile || 'sport';
-            const labels = { sport: 'тренеру', studying: 'репетитору', psychology: 'терапевту', other: 'виконавцю' };
-            return labels[profile] || 'тренеру';
+            const labels = { sport: 'майстру', studying: 'майстру', psychology: 'майстру', other: 'майстру' };
+            return labels[profile] || 'майстру';
         },
 
         get currentSlots() {

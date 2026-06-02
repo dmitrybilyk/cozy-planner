@@ -42,12 +42,13 @@ public class UnifiedAvailabilityController {
     }
 
     @GetMapping("/api/v1/availability/ranges")
-    public Flux<Map<String, Object>> getRanges(
+    public Mono<List<Map<String, Object>>> getRanges(
             @RequestParam("userId") Long userId,
             @RequestParam("userType") String userType,
             @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
+        log.info("getRanges userId={}, userType={}, start={}, end={}", userId, userType, startDate, endDate);
         return resolveZoneId(userId, userType)
                 .flatMapMany(zoneId ->
                         rangeRepository.findByUserIdAndUserTypeAndDateBetween(userId, userType, startDate, endDate)
@@ -56,7 +57,9 @@ public class UnifiedAvailabilityController {
                 .onErrorResume(e -> {
                     log.error("Error loading availability ranges: userId={}, userType={}", userId, userType, e);
                     return Flux.empty();
-                });
+                })
+                .collectList()
+                .doOnNext(list -> log.info("getRanges found {} items", list.size()));
     }
 
     @PutMapping("/api/v1/availability/ranges")

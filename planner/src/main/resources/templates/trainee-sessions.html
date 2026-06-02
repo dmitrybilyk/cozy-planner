@@ -31,8 +31,8 @@
             </template>
             <template x-if="!me.telegramConnected && me.telegramConnectLink">
                 <a :href="me.telegramConnectLink" target="_blank"
-                   class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg text-xs font-bold uppercase whitespace-nowrap transition active:scale-[0.97]">
-                    📲 TG
+                   class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition active:scale-[0.97]">
+                    📲 Під'єднати телеграм
                 </a>
             </template>
             <template x-if="!me.telegramConnected && !me.telegramConnectLink">
@@ -56,7 +56,7 @@
         </button>
         <button @click="showCoachSchedule()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                  :class="tab === 'schedule' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
-             <span x-text="tabLabels.schedule || 'Доступність тренера'">Доступність тренера</span>
+             <span x-text="tabLabels.schedule || 'Доступність майстра'">Доступність майстра</span>
          </button>
         <button @click="tab = 'availability'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                 :class="tab === 'availability' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
@@ -254,7 +254,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                     <p class="text-red-400 text-lg font-black">ВИХІДНИЙ</p>
-                    <p class="text-gray-500 text-sm mt-1">Тренер не працює цього дня</p>
+                    <p class="text-gray-500 text-sm mt-1">Майстер не працює цього дня</p>
                 </div>
 
                 <div x-show="!coachDayOffs.includes(coachSelectedDate)">
@@ -262,7 +262,7 @@
                         <svg class="w-8 h-8 text-gray-600 mx-auto mb-2" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
                         </svg>
-                        <p class="text-sm text-gray-500">Тренер не доступний цього дня</p>
+                        <p class="text-sm text-gray-500">Майстер не доступний цього дня</p>
                     </div>
                     <div x-show="coachSlotsOnDate.length">
                         <div class="px-4 py-2 border-b border-[#2a2a2a] bg-[#161616] flex items-center justify-between">

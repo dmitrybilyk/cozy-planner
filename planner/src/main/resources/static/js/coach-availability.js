@@ -61,7 +61,7 @@ function rangeApp() {
         },
 
         get mentorTitle() {
-            const titles = { sport:'Доступність тренера', studying:'Доступність вчителя', psychology:'Доступність психолога', other:'Доступність ментора' };
+            const titles = { sport:'Доступність майстра', studying:'Доступність майстра', psychology:'Доступність майстра', other:'Доступність майстра' };
             return titles[this.mentorProfile] || titles.sport;
         },
 
@@ -79,7 +79,7 @@ function rangeApp() {
             this.curDate = d;
             const cached = this.rangesByDate[d];
             this.ranges = cached ? [...cached] : [];
-            this.freeAllDay = this.freeAllDayByDate[d] !== undefined ? this.freeAllDayByDate[d] : true;
+            this.freeAllDay = this.freeAllDayByDate[d] !== undefined ? this.freeAllDayByDate[d] : false;
             console.log('[avail] sel done, new ranges:', JSON.parse(JSON.stringify(this.ranges)));
         },
 
@@ -203,7 +203,7 @@ function rangeApp() {
                     });
                 }
                 for (const date of this._dirtyDates) {
-                    const isFreeAllDay = this.freeAllDayByDate[date] !== undefined ? this.freeAllDayByDate[date] : true;
+                    const isFreeAllDay = this.freeAllDayByDate[date] !== undefined ? this.freeAllDayByDate[date] : false;
                     if (isFreeAllDay) {
                         await fetch('/api/v1/availability/ranges', {
                             method: 'PUT',
@@ -269,7 +269,7 @@ function rangeApp() {
             const freeAllDayByDate = {};
             for (const d of this.days) {
                 rangesByDate[d.ds] = [];
-                freeAllDayByDate[d.ds] = true;
+                freeAllDayByDate[d.ds] = false;
             }
             if (rr.ok) {
                 const data = await rr.json();
@@ -281,7 +281,6 @@ function rangeApp() {
                         endTime: (item.endTime || '').replace(/:00$/, ''),
                         locationId: item.locationId
                     });
-                    freeAllDayByDate[item.date] = false;
                 }
             }
             this.rangesByDate = rangesByDate;

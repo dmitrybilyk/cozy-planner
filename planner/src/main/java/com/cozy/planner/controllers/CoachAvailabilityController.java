@@ -308,7 +308,7 @@ public class CoachAvailabilityController {
                         return availabilityRepository.findByMentorIdAndDateBetween(mentorId, startDate, endDate)
                                 .collectList()
                                 .map(old -> old.isEmpty()
-                                        ? makeDefaultSlots(mentorId, startDate, endDate, ws, we)
+                                        ? List.of()
                                         : old);
                     }
                     return Mono.just(mergeRanges(mentorId, startDate, endDate, ws, we, ranges, coachZone));

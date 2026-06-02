@@ -247,10 +247,10 @@ function traineeApp() {
 
             const profile = me.mentorProfile || 'sport';
             const tabLabelSets = {
-                sport: { sessions: 'Тренування', schedule: 'Доступність тренера', availability: 'Моя доступність', no_sessions: 'У тебе ще немає тренувань.', past_sessions: '— Минулі тренування —' },
-                studying: { sessions: 'Уроки', schedule: 'Доступність репетитора', availability: 'Моя доступність', no_sessions: 'У тебе ще немає уроків.', past_sessions: '— Минулі уроки —' },
-                psychology: { sessions: 'Сесії', schedule: 'Доступність терапевта', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' },
-                other: { sessions: 'Сесії', schedule: 'Доступність виконавця', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' }
+                sport: { sessions: 'Тренування', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає тренувань.', past_sessions: '— Минулі тренування —' },
+                studying: { sessions: 'Уроки', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає уроків.', past_sessions: '— Минулі уроки —' },
+                psychology: { sessions: 'Сесії', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' },
+                other: { sessions: 'Сесії', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' }
             };
             this.tabLabels = tabLabelSets[profile] || tabLabelSets.sport;
             this.pageTitle = 'Мої ' + this.tabLabels.sessions.toLowerCase();
@@ -546,7 +546,7 @@ function traineeApp() {
             if (!id) return;
             this.error = '';
             const res = await fetch(`/api/v1/trainee/sessions/${id}/request-coach-confirmation`, { method: 'POST' });
-            if (res.ok) { this.saved = true; this.savedMessage = 'Запит на підтвердження надіслано ' + (this.me.mentorName || 'тренеру') + '!'; setTimeout(() => this.saved = false, 4000); await this.loadSessions(); }
+            if (res.ok) { this.saved = true; this.savedMessage = 'Запит на підтвердження надіслано ' + (this.me.mentorName || 'майстру') + '!'; setTimeout(() => this.saved = false, 4000); await this.loadSessions(); }
             else { this.error = 'Помилка при надсиланні запиту'; }
         },
 
@@ -912,25 +912,33 @@ function traineeApp() {
         availAddRange() {
             const defStart = this.mentorWorkStart || '09:00';
             const defEnd = this.mentorWorkEnd || '18:00';
-            this.availRanges.push({ startTime: defStart, endTime: defEnd });
+            this.availRanges = [...this.availRanges, { startTime: defStart, endTime: defEnd }];
             this.availSortRanges();
             this.availMarkDirty();
         },
 
         availRemoveRange(i) {
-            this.availRanges.splice(i, 1);
+            const copy = [...this.availRanges];
+            copy.splice(i, 1);
+            this.availRanges = copy;
             this.availMarkDirty();
         },
 
         onTraineeAvailStartChange(i) {
             this.availMarkDirty();
-            const r = this.availRanges[i];
+            const ranges = [...this.availRanges];
+            const r = ranges[i];
             if (!r || !r.startTime) return;
             if (!r.endTime || r.endTime <= r.startTime) {
                 const next = this.timeSlots15.find(t => t > r.startTime);
                 r.endTime = next || '';
             }
-            this.availSortRanges();
+            ranges.sort((a, b) => {
+                if (!a.startTime) return -1;
+                if (!b.startTime) return 1;
+                return a.startTime.localeCompare(b.startTime);
+            });
+            this.availRanges = ranges;
         },
 
         slotToMin(t) {
@@ -977,7 +985,7 @@ function traineeApp() {
         },
 
         availSortRanges() {
-            this.availRanges.sort((a, b) => {
+            this.availRanges = [...this.availRanges].sort((a, b) => {
                 if (!a.startTime) return -1;
                 if (!b.startTime) return 1;
                 return a.startTime.localeCompare(b.startTime);
@@ -998,7 +1006,7 @@ function traineeApp() {
                 if (this.availRanges.length === 0) {
                     const defStart = this.mentorWorkStart || '09:00';
                     const defEnd = this.mentorWorkEnd || '18:00';
-                    this.availRanges.push({ startTime: defStart, endTime: defEnd, locationId: null });
+                    this.availRanges = [{ startTime: defStart, endTime: defEnd, locationId: null }];
                 }
             }
             this.availMarkDirty();
@@ -1125,11 +1133,12 @@ function traineeApp() {
                     this.savedMessage = 'Збережено!';
                     setTimeout(() => this.saved = false, 3000);
                 } else {
+                    this.saved = true;
                     this.savedMessage = 'Помилка збереження';
                     setTimeout(() => this.saved = false, 3000);
                 }
-            } catch(e) { console.error('[avail] save error', e); this.savedMessage = 'Помилка збереження'; setTimeout(() => this.saved = false, 3000); }
-            finally { this.availSaving = false; }
+            } catch(e) { console.error('[avail] save error', e); this.savedMessage = 'Помилка збереження'; this.saved = true; setTimeout(() => this.saved = false, 3000); }
+            finally { this.availSaving = false; this.loadAvailability(); }
         },
 
         timeOptionsAfter(fromTime) {
