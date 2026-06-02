@@ -12,6 +12,7 @@ import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.NotificationService;
+import com.cozy.planner.service.AvailabilityMergeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -149,15 +150,15 @@ public class AvailabilityController {
     }
 
     @PostMapping(path = {"/api/v1/trainees/{traineeId}/availability"})
-    public Mono<ResponseEntity<Void>> setAvailabilityById(@PathVariable Long traineeId,
-                                                           @RequestBody List<SlotEntry> entries,
-                                                           ServerWebExchange exchange) {
+    public Mono<ResponseEntity<List<Map<String, Object>>>> setAvailabilityById(@PathVariable Long traineeId,
+                                                            @RequestBody List<SlotEntry> entries,
+                                                            ServerWebExchange exchange) {
         return saveAvailabilityInternal(traineeId, entries, baseUrl(exchange));
     }
 
     @PostMapping(path = {"/api/v1/trainee/availability"})
-    public Mono<ResponseEntity<Void>> setAvailability(@RequestBody List<SlotEntry> entries,
-                                                        ServerWebExchange exchange) {
+    public Mono<ResponseEntity<List<Map<String, Object>>>> setAvailability(@RequestBody List<SlotEntry> entries,
+                                                         ServerWebExchange exchange) {
         return getTraineeId(exchange)
                 .flatMap(traineeId -> saveAvailabilityInternal(traineeId, entries, baseUrl(exchange)));
     }
@@ -183,22 +184,29 @@ public class AvailabilityController {
         return scheme + "://" + host + (port > 0 ? ":" + port : "");
     }
 
-    private Mono<ResponseEntity<Void>> saveAvailabilityInternal(Long traineeId, List<SlotEntry> entries, String baseUrl) {
+    private Mono<ResponseEntity<List<Map<String, Object>>>> saveAvailabilityInternal(Long traineeId, List<SlotEntry> entries, String baseUrl) {
         Set<LocalDate> uniqueDates = entries.stream()
                 .map(SlotEntry::date)
                 .collect(Collectors.toSet());
 
         if (uniqueDates.isEmpty()) {
-            return Mono.just(ResponseEntity.ok().<Void>build());
+            return Mono.just(ResponseEntity.ok(List.of()));
         }
 
-        List<TraineeAvailability> toSave = entries.stream()
-                .map(e -> {
+        // Convert to TraineeSlot, merge, then convert to TraineeAvailability
+        List<AvailabilityMergeService.TraineeSlot> traineeSlots = entries.stream()
+                .map(e -> new AvailabilityMergeService.TraineeSlot(e.date, e.startTime, e.endTime))
+                .toList();
+        
+        List<AvailabilityMergeService.TraineeSlot> mergedSlots = AvailabilityMergeService.mergeTraineeIntervals(traineeSlots);
+
+        List<TraineeAvailability> toSave = mergedSlots.stream()
+                .map(slot -> {
                     TraineeAvailability ta = new TraineeAvailability();
                     ta.setTraineeId(traineeId);
-                    ta.setDate(e.date);
-                    ta.setStartTime(e.startTime);
-                    ta.setEndTime(e.endTime);
+                    ta.setDate(slot.date());
+                    ta.setStartTime(slot.startTime());
+                    ta.setEndTime(slot.endTime());
                     return ta;
                 })
                 .toList();
@@ -210,10 +218,22 @@ public class AvailabilityController {
                         .flatMap(availabilityRepository::delete)
                         .thenMany(Flux.fromIterable(toSave))
                         .flatMap(availabilityRepository::save)
-                        .then()
-                        .then(Mono.fromRunnable(() -> eventService.broadcast("availability_changed")))
-                        .then(createAvailabilityNotification(trainee.getMentorId(), trainee.getName(), baseUrl))
-                        .then(Mono.just(ResponseEntity.ok().<Void>build())));
+                        .collectList()
+                        .flatMap(savedList -> {
+                            eventService.broadcast("availability_changed");
+                            List<Map<String, Object>> response = savedList.stream()
+                                    .map(s -> {
+                                        Map<String, Object> slot = new HashMap<>();
+                                        slot.put("id", s.getId());
+                                        slot.put("date", s.getDate().toString());
+                                        slot.put("startTime", s.getStartTime().toString());
+                                        slot.put("endTime", s.getEndTime().toString());
+                                        return slot;
+                                    })
+                                    .toList();
+                            return createAvailabilityNotification(trainee.getMentorId(), trainee.getName(), baseUrl)
+                                    .then(Mono.just(ResponseEntity.ok(response)));
+                        }));
     }
 
     private Mono<ResponseEntity<Void>> clearAvailabilityInternal(Long traineeId, String dates, String baseUrl) {

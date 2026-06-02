@@ -1344,6 +1344,15 @@ function calendarApp() {
                 this.sessionForm.traineeIds = [...this.sessionForm.traineeIds, id];
             }
             this.updateSessionTitleFromTrainees();
+            this.$nextTick(() => {
+                const validStarts = this.validStartSlots;
+                if (this.sessionForm.startTime && !validStarts.includes(this.sessionForm.startTime)) {
+                    this.sessionForm.startTime = null;
+                    this.sessionForm.endTime = null;
+                } else if (this.sessionForm.startTime) {
+                    this.onSessionStartChange();
+                }
+            });
         },
         getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
         isWeekend(dateStr) { const d = new Date(dateStr + 'T12:00:00'); const day = d.getDay(); return day === 0 || day === 6; },
@@ -1721,6 +1730,21 @@ function calendarApp() {
             this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: this.defaultLocationId(this.selectedDate) };
             this.showModal = true;
         },
+        _isSlotInAllTraineeAvail(fromMin, toMin, date) {
+            const traineeIds = this.sessionForm.traineeIds || [];
+            for (const tId of traineeIds) {
+                const slots = this.availabilityMap[tId + '|' + date];
+                if (slots && slots.length > 0) {
+                    const ok = slots.some(s => {
+                        const ss = this.slotToMin(s.startTime);
+                        const se = this.slotToMin(s.endTime);
+                        return fromMin >= ss && toMin <= se;
+                    });
+                    if (!ok) return false;
+                }
+            }
+            return true;
+        },
         computeValidSessionSlots(date) {
             if (!date) return [];
             const allSlots = this.timeSlots15;
@@ -1750,6 +1774,7 @@ function calendarApp() {
                 for (const [bs, be] of busyMinRanges) {
                     if (tm < be && tm + step > bs) return false;
                 }
+                if (!this._isSlotInAllTraineeAvail(tm, tm + step, date)) return false;
                 return true;
             });
         },
@@ -1778,6 +1803,7 @@ function calendarApp() {
                 for (const [bs, be] of busyMinRanges) {
                     if (tm > bs && sm < be) return false;
                 }
+                if (!this._isSlotInAllTraineeAvail(sm, tm, date)) return false;
                 return true;
             });
         },

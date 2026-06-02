@@ -47,4 +47,7 @@ public interface SessionRepository extends ReactiveCrudRepository<Session, Long>
 
     @Query("DELETE FROM meetings WHERE mentor_id = :mentorId")
     Mono<Void> deleteAllByMentorId(Long mentorId);
+
+    @Query("SELECT * FROM meetings WHERE mentor_id = :mentorId AND meeting_date = :date")
+    Flux<Session> findAllByMentorIdAndWorkoutDate(Long mentorId, LocalDate date);
 }

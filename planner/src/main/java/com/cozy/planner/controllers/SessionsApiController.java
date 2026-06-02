@@ -15,6 +15,7 @@ import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
 import com.cozy.planner.service.NotificationService;
 import com.cozy.planner.service.SearchEventPublisher;
+import com.cozy.planner.service.SessionCreationSuggestionService;
 import com.planner.api.SessionsApi;
 import com.planner.model.CreateSessionRequest;
 import com.planner.model.SessionDTO;
@@ -53,6 +54,7 @@ public class SessionsApiController implements SessionsApi {
     private final NotificationService notificationService;
     private final MentorDayOffRepository mentorDayOffRepository;
     private final SearchEventPublisher searchEventPublisher;
+    private final SessionCreationSuggestionService sessionCreationSuggestionService;
 
     public SessionsApiController(SessionRepository sessionRepository,
                                   MentorRepository mentorRepository,
@@ -62,7 +64,8 @@ public class SessionsApiController implements SessionsApi {
                                   PushService pushService,
                                   NotificationService notificationService,
                                   MentorDayOffRepository mentorDayOffRepository,
-                                  SearchEventPublisher searchEventPublisher) {
+                                  SearchEventPublisher searchEventPublisher,
+                                  SessionCreationSuggestionService sessionCreationSuggestionService) {
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.traineeRepository = traineeRepository;
@@ -72,6 +75,7 @@ public class SessionsApiController implements SessionsApi {
         this.notificationService = notificationService;
         this.mentorDayOffRepository = mentorDayOffRepository;
         this.searchEventPublisher = searchEventPublisher;
+        this.sessionCreationSuggestionService = sessionCreationSuggestionService;
     }
 
     @Override
@@ -102,6 +106,22 @@ public class SessionsApiController implements SessionsApi {
         int port = exchange.getRequest().getURI().getPort();
         String scheme = exchange.getRequest().getURI().getScheme();
         return scheme + "://" + host + (port > 0 ? ":" + port : "");
+    }
+
+    /**
+     * Get session creation suggestions when coach clicks on trainee availability.
+     * Returns available time slots (excluding existing sessions) and pre-filled times.
+     */
+    @GetMapping("/api/v1/sessions/suggestion")
+    public Mono<ResponseEntity<Map<String, Object>>> getSessionSuggestion(
+            @RequestParam Long traineeId,
+            @RequestParam Long mentorId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime clickedStartTime) {
+        
+        return sessionCreationSuggestionService.generateSessionSuggestion(traineeId, mentorId, date, clickedStartTime)
+                .map(ResponseEntity::ok)
+                .doOnError(e -> log.error("Error generating session suggestion", e));
     }
 
     private Mono<SessionDTO> createNewSession(CreateSessionRequest request, String baseUrl) {

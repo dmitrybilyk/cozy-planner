@@ -13,6 +13,7 @@ import com.cozy.planner.repositories.MentorDayOffRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.SessionRepository;
 import com.cozy.planner.service.EventBroadcastService;
+import com.cozy.planner.service.AvailabilityMergeService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -83,7 +84,7 @@ public class CoachAvailabilityController {
     }
 
     @PostMapping("/api/v1/coach/availability")
-    public Mono<ResponseEntity<Void>> setCoachAvailability(@RequestBody List<SlotEntry> entries,
+    public Mono<ResponseEntity<List<Map<String, Object>>>> setCoachAvailability(@RequestBody List<SlotEntry> entries,
                                                             ServerWebExchange exchange) {
         return getMentorId(exchange).flatMap(mentorId -> {
             Set<LocalDate> uniqueDates = entries.stream()
@@ -91,17 +92,24 @@ public class CoachAvailabilityController {
                     .collect(java.util.stream.Collectors.toSet());
 
             if (uniqueDates.isEmpty()) {
-                return Mono.just(ResponseEntity.ok().<Void>build());
+                return Mono.just(ResponseEntity.ok(List.of()));
             }
 
-            List<MentorAvailability> toSave = entries.stream()
-                    .map(e -> {
+            // Convert to CoachSlot, merge, then convert to MentorAvailability
+            List<AvailabilityMergeService.CoachSlot> coachSlots = entries.stream()
+                    .map(e -> new AvailabilityMergeService.CoachSlot(e.date, e.startTime, e.endTime, e.locationId))
+                    .toList();
+            
+            List<AvailabilityMergeService.CoachSlot> mergedSlots = AvailabilityMergeService.mergeCoachIntervals(coachSlots);
+
+            List<MentorAvailability> toSave = mergedSlots.stream()
+                    .map(slot -> {
                         MentorAvailability ma = new MentorAvailability();
                         ma.setMentorId(mentorId);
-                        ma.setDate(e.date);
-                        ma.setStartTime(e.startTime);
-                        ma.setEndTime(e.endTime);
-                        ma.setLocationId(e.locationId);
+                        ma.setDate(slot.date());
+                        ma.setStartTime(slot.startTime());
+                        ma.setEndTime(slot.endTime());
+                        ma.setLocationId(slot.locationId());
                         return ma;
                     })
                     .toList();
@@ -111,9 +119,22 @@ public class CoachAvailabilityController {
                     .flatMap(availabilityRepository::delete)
                     .thenMany(Flux.fromIterable(toSave))
                     .flatMap(availabilityRepository::save)
-                    .then()
-                    .then(Mono.fromRunnable(() -> eventService.broadcast("coach_availability_changed")))
-                    .then(Mono.just(ResponseEntity.ok().<Void>build()));
+                    .collectList()
+                    .flatMap(savedList -> {
+                        eventService.broadcast("coach_availability_changed");
+                        List<Map<String, Object>> response = savedList.stream()
+                                .map(s -> {
+                                    Map<String, Object> slot = new HashMap<>();
+                                    slot.put("id", s.getId());
+                                    slot.put("date", s.getDate().toString());
+                                    slot.put("startTime", s.getStartTime().toString());
+                                    slot.put("endTime", s.getEndTime().toString());
+                                    slot.put("locationId", s.getLocationId());
+                                    return slot;
+                                })
+                                .toList();
+                        return Mono.just(ResponseEntity.ok(response));
+                    });
         });
     }
 

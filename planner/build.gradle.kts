@@ -56,11 +56,11 @@ dependencies {
 	// Flyway
 	implementation("org.flywaydb:flyway-core")
 	runtimeOnly("org.flywaydb:flyway-database-postgresql")
-//	testImplementation("org.springframework.boot:spring-boot-starter-test")
-//	testImplementation("io.projectreactor:reactor-test")
-//	testImplementation("org.springframework.kafka:spring-kafka-test")
-//	testImplementation("org.springframework.security:spring-security-test")
-//	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("io.projectreactor:reactor-test")
+	testImplementation("org.springframework.kafka:spring-kafka-test")
+	testImplementation("org.springframework.security:spring-security-test")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 openApiGenerate {
