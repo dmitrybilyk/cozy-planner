@@ -24,3 +24,35 @@
 .bottom-nav { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .fade-in { animation: fadeIn 0.2s ease-out; }
+
+/* ── Theme: Для чоловіків (dark steel-blue) ── */
+.theme-male body { background-color: #07111c !important; }
+.theme-male header { background-color: rgba(12, 28, 44, 0.95) !important; }
+.theme-male .modal-container,
+.theme-male .modal-footer { background: #0f2032 !important; border-color: #1c3550 !important; }
+.theme-male .bg-\[\#121212\] { background-color: #07111c !important; }
+.theme-male .bg-\[\#1a1a1a\] { background-color: #0c1e2e !important; }
+.theme-male .bg-\[\#0f0f0f\] { background-color: #050d18 !important; }
+.theme-male .bg-\[\#1c1c1c\] { background-color: #0f2032 !important; }
+.theme-male .bg-\[\#262626\] { background-color: #152b3c !important; }
+.theme-male .bg-\[\#2a2a2a\] { background-color: #182e40 !important; }
+.theme-male .bg-\[\#333\] { background-color: #1c3550 !important; }
+.theme-male .border-\[\#333\] { border-color: #1c3550 !important; }
+.theme-male .border-\[\#2a2a2a\] { border-color: #1c3048 !important; }
+.theme-male .border-\[\#444\] { border-color: #264260 !important; }
+
+/* ── Theme: Для жінок (dark rose-plum) ── */
+.theme-female body { background-color: #0f0712 !important; }
+.theme-female header { background-color: rgba(28, 11, 34, 0.95) !important; }
+.theme-female .modal-container,
+.theme-female .modal-footer { background: #200d28 !important; border-color: #38164a !important; }
+.theme-female .bg-\[\#121212\] { background-color: #0f0712 !important; }
+.theme-female .bg-\[\#1a1a1a\] { background-color: #1e0d26 !important; }
+.theme-female .bg-\[\#0f0f0f\] { background-color: #0b0510 !important; }
+.theme-female .bg-\[\#1c1c1c\] { background-color: #200d28 !important; }
+.theme-female .bg-\[\#262626\] { background-color: #281332 !important; }
+.theme-female .bg-\[\#2a2a2a\] { background-color: #2c1438 !important; }
+.theme-female .bg-\[\#333\] { background-color: #38164a !important; }
+.theme-female .border-\[\#333\] { border-color: #38164a !important; }
+.theme-female .border-\[\#2a2a2a\] { border-color: #321540 !important; }
+.theme-female .border-\[\#444\] { border-color: #4a1e60 !important; }

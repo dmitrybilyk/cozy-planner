@@ -47,6 +47,9 @@ public class Mentor {
     @Builder.Default
     private String profile = "sport";
 
+    @Builder.Default
+    private String theme = "default";
+
     @Column("share_token")
     private String shareToken;
 

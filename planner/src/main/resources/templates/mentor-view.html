@@ -12,6 +12,7 @@
     <meta name="apple-mobile-web-app-title" content="Cozy Planner">
     <link rel="apple-touch-icon" href="/icon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>(function(){var t=localStorage.getItem('cpTheme')||'default';document.documentElement.classList.add('theme-'+t);})();</script>
     <script defer src="/js/mentor-view.js" th:src="@{/js/mentor-view.js(v=${appVersion})}"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="/css/shared.css" th:href="@{/css/shared.css(v=${appVersion})}">
@@ -89,8 +90,8 @@
         <button @click="activeTab = 'coach-availability'; loadCoachAvailability()"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'coach-availability' ? 'bg-[#333] ring-2 ring-violet-400' : 'bg-[#262626] hover:bg-[#333]'"
-                :title="'Доступність майстра'">
-            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-violet-400" x-text="'Доступність майстра'"></span>
+                :title="'Моя доступність'">
+            <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-violet-400" x-text="'Моя доступність'"></span>
         </button>
     </div>
     <!-- Ряд 3: Смуга днів -->
@@ -159,6 +160,12 @@
         <div class="space-y-4">
             <template x-for="(session, index) in filteredSessions" :key="session.id">
                 <div>
+                    <div x-show="showNowLineBefore(session)"
+                         class="my-3 flex items-center gap-2">
+                        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                        <span class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1 tabular-nums" x-text="nowCountdownBefore(session)"></span>
+                        <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                    </div>
                      <div draggable="true" @dragstart="dragStart($event, index)" @dragend="dragEnd" @dragover.prevent @drop="drop($event, targetIndex(session.id))"
                          :data-session-id="session.id"
                          :id="'session-card-' + session.id"
@@ -295,6 +302,12 @@
                 <div class="space-y-3">
                     <template x-for="(session, index) in dateGroup.items" :key="session.id">
                         <div>
+                            <div x-show="showNowLineBefore(session)"
+                                 class="my-3 flex items-center gap-2">
+                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                                <span class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0 px-1 tabular-nums" x-text="nowCountdownBefore(session)"></span>
+                                <div class="h-px flex-1 bg-gradient-to-r from-transparent via-red-500 to-transparent"></div>
+                            </div>
                             <div :data-session-id="session.id"
                                  :id="'agenda-card-' + session.id"
                                  class="rounded-2xl shadow-sm card-hover fade-in relative overflow-hidden"
@@ -515,7 +528,6 @@
     <!-- Work hours -->
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
         <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏰ Робочі години</h4>
-        <p class="text-xs text-gray-600 mb-3">Діапазон часу, який буде показано в сітці доступності</p>
         <div class="flex items-center gap-3">
             <div class="flex-1">
                 <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">Від</label>
@@ -558,8 +570,8 @@
         </div>
     </div>
     <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Крок сітки часу</h4>
-        <p class="text-xs text-gray-600 mb-3">Виберіть інтервал часу для сітки доступності</p>
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Інтервал вибору часу</h4>
+        <p class="text-xs text-gray-600 mb-3">Крок для вибору доступного часу</p>
         <div class="flex bg-[#262626] rounded-xl p-1 gap-1">
             <button @click="availStep = 15; saveAvailStep()"
                     class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
@@ -581,6 +593,51 @@
             </button>
         </div>
     </div>
+    <!-- Theme -->
+    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🎨 Тема оформлення</h4>
+        <div class="grid grid-cols-3 gap-2">
+            <button @click="saveTheme('default')"
+                    class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                    :class="theme === 'default' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
+                <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1a1a1a 0%, #262626 40%, #121212 100%)">
+                    <div class="h-2 w-full" style="background: #333"></div>
+                    <div class="flex gap-1 p-1.5">
+                        <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
+                        <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
+                    </div>
+                </div>
+                <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'default' ? 'text-blue-400' : 'text-gray-400'">Стандартна</span>
+                <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'default' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
+            </button>
+            <button @click="saveTheme('male')"
+                    class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                    :class="theme === 'male' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
+                <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #0c1e2e 0%, #152b3c 40%, #07111c 100%)">
+                    <div class="h-2 w-full" style="background: #1c3550"></div>
+                    <div class="flex gap-1 p-1.5">
+                        <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
+                        <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
+                    </div>
+                </div>
+                <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'male' ? 'text-blue-400' : 'text-gray-400'">Кобальт</span>
+                <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'male' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
+            </button>
+            <button @click="saveTheme('female')"
+                    class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                    :class="theme === 'female' ? 'border-pink-500 bg-pink-500/10' : 'border-[#333] hover:border-[#555]'">
+                <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1e0d26 0%, #281332 40%, #0f0712 100%)">
+                    <div class="h-2 w-full" style="background: #38164a"></div>
+                    <div class="flex gap-1 p-1.5">
+                        <div class="h-3 rounded flex-1" style="background: #200d28"></div>
+                        <div class="h-3 rounded flex-1" style="background: #200d28"></div>
+                    </div>
+                </div>
+                <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'female' ? 'text-pink-400' : 'text-gray-400'">Аметист</span>
+                <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'female' ? 'bg-pink-500 opacity-100' : 'opacity-0'"></div>
+            </button>
+        </div>
+    </div>
     <div class="pt-4 space-y-3">
         <form method="POST" action="/logout" class="w-full">
             <button type="submit" class="w-full flex items-center justify-center gap-2 bg-red-900/30 text-red-400 py-3 rounded-xl font-bold transition hover:bg-red-900/50 active:scale-[0.97]">
@@ -593,7 +650,7 @@
         <button @click="startFresh()" 
                 class="w-full flex items-center justify-center gap-2 bg-orange-900/30 text-orange-400 py-3 rounded-xl font-bold transition hover:bg-orange-900/50 active:scale-[0.97]">
             <span>🔄</span>
-            <span>Почати спочатку</span>
+            <span>Видалити всі дані</span>
         </button>
     </div>
 </div>
@@ -779,6 +836,14 @@
                     <div class="min-w-0 flex-1">
                         <p class="text-base font-bold text-gray-100" x-text="location.name"></p>
                         <p class="text-sm text-gray-500 truncate" x-show="location.description" x-text="location.description"></p>
+                        <div x-show="location.googleMapsUrl" class="flex items-center gap-1 mt-1">
+                            <a :href="location.googleMapsUrl" target="_blank" rel="noopener noreferrer"
+                               class="text-xs text-blue-400 hover:text-blue-300 truncate underline underline-offset-2" x-text="location.googleMapsUrl"></a>
+                            <button @click="copyGoogleMapsUrl(location.googleMapsUrl)" type="button"
+                                    class="flex-shrink-0 p-1 text-gray-500 hover:text-blue-400 transition" title="Копіювати">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0 ml-2">
                         <button @click="editLocation(location)" class="p-1 text-blue-400 hover:text-blue-300 transition" title="Правка">
@@ -804,6 +869,18 @@
             <div class="space-y-3">
                 <input type="text" x-model="locationForm.name" :placeholder="labels.location_name_placeholder || 'Назва місця'" class="w-full text-base bg-[#262626] text-gray-200 px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500">
                 <input type="text" x-model="locationForm.description" :placeholder="labels.location_description_placeholder || 'Опис'" class="w-full text-base bg-[#262626] text-gray-200 px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 mb-2 block">📍 Google Maps</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" x-model="locationForm.googleMapsUrl" placeholder="Вставте посилання з Google Maps"
+                               class="flex-1 text-sm bg-[#262626] text-gray-200 px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500">
+                        <button @click="copyGoogleMapsUrl(locationForm.googleMapsUrl)" type="button"
+                                class="flex-shrink-0 p-2.5 rounded-xl bg-[#262626] border border-[#444] text-gray-400 hover:text-blue-400 hover:border-blue-500 transition"
+                                title="Копіювати">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
                 <div>
                     <label class="text-xs font-bold text-gray-500 mb-2 block">Колір</label>
                     <div class="flex flex-wrap gap-2">
@@ -1009,7 +1086,7 @@
                         </select>
                         <button @click="showAvailPopup = true" type="button"
                                 class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition text-blue-400 bg-blue-900/30 hover:bg-blue-900/50"
-                                x-text="labels.availability || 'Доступність майстра'">
+                                x-text="labels.availability || 'Моя доступність'">
                         </button>
                     </div>
                 </div>
@@ -1092,7 +1169,7 @@
                 </button>
             </div>
             <div x-show="getAvailPopupRanges().length === 0" class="text-center py-8 text-gray-500 text-sm">
-                <span x-text="labels.no_avail || 'Немає доступності'"></span>
+                <span x-text="labels.no_avail || 'Немає встановленої доступності'"></span>
             </div>
             <div class="space-y-3 max-h-64 overflow-y-auto no-scrollbar pr-1">
                 <template x-for="group in getAvailPopupRanges()" :key="group.locationId || '__none__'">

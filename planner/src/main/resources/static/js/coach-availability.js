@@ -61,7 +61,7 @@ function rangeApp() {
         },
 
         get mentorTitle() {
-            const titles = { sport:'Доступність майстра', studying:'Доступність майстра', psychology:'Доступність майстра', other:'Доступність майстра' };
+            const titles = { sport:'Моя доступність', studying:'Моя доступність', psychology:'Моя доступність', other:'Моя доступність' };
             return titles[this.mentorProfile] || titles.sport;
         },
 

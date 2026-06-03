@@ -1,13 +1,22 @@
 package com.cozy.planner.config;
 
+import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.security.jackson2.CoreJackson2Module;
+import org.springframework.security.oauth2.client.jackson2.OAuth2ClientJackson2Module;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationResponseType;
 import org.springframework.web.server.WebSession;
 import org.springframework.web.server.session.WebSessionStore;
 import reactor.core.publisher.Mono;
@@ -30,24 +39,43 @@ public class PersistentWebSessionStore implements WebSessionStore {
         this.template = template;
         this.objectMapper = new ObjectMapper();
         this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper.registerModule(new CoreJackson2Module());
+        this.objectMapper.registerModule(new OAuth2ClientJackson2Module());
         this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         this.objectMapper.activateDefaultTyping(
                 BasicPolymorphicTypeValidator.builder()
                         .allowIfSubType("java.util")
                         .allowIfSubType("java.time")
+                        .allowIfSubType("java.lang")
+                        .allowIfSubType("java.net")
                         .allowIfSubType("org.springframework.security")
                         .allowIfSubType("com.cozy.planner")
                         .build(),
                 ObjectMapper.DefaultTyping.NON_FINAL
         );
-        log.info("PersistentWebSessionStore constructor, template={}", template != null ? "present" : "null");
+        SimpleModule authModule = new SimpleModule();
+        authModule.addDeserializer(OAuth2AuthorizationResponseType.class, new JsonDeserializer<>() {
+            @Override
+            public OAuth2AuthorizationResponseType deserialize(JsonParser p, DeserializationContext ctxt) throws java.io.IOException {
+                JsonNode node = p.getCodec().readTree(p);
+                return new OAuth2AuthorizationResponseType(node.get("value").asText());
+            }
+        });
+        authModule.addDeserializer(AuthorizationGrantType.class, new JsonDeserializer<>() {
+            @Override
+            public AuthorizationGrantType deserialize(JsonParser p, DeserializationContext ctxt) throws java.io.IOException {
+                JsonNode node = p.getCodec().readTree(p);
+                return new AuthorizationGrantType(node.get("value").asText());
+            }
+        });
+        this.objectMapper.registerModule(authModule);
+        log.debug("PersistentWebSessionStore initialized, template={}", template != null ? "present" : "null");
     }
 
     @Override
     public Mono<WebSession> createWebSession() {
         String id = UUID.randomUUID().toString();
         Instant now = Instant.now();
-        log.info("createWebSession id={}", id);
         SessionData data = new SessionData();
         data.id = id;
         data.creationTime = now;
@@ -59,7 +87,7 @@ public class PersistentWebSessionStore implements WebSessionStore {
 
     @Override
     public Mono<WebSession> retrieveSession(String sessionId) {
-        log.info("retrieveSession id={}", sessionId);
+        log.debug("retrieveSession id={}", sessionId);
         return template.getDatabaseClient().sql(
             "SELECT id, creation_time, last_access_time, max_idle_seconds, attributes FROM user_sessions WHERE id = $1"
         )
@@ -67,29 +95,29 @@ public class PersistentWebSessionStore implements WebSessionStore {
         .fetch()
         .one()
         .flatMap(row -> {
-            log.info("retrieveSession found row for id={}", sessionId);
+            log.debug("retrieveSession found row for id={}", sessionId);
             SessionData data = mapRow(row);
             WebSession session = new PersistentWebSession(data);
             if (session.isExpired()) {
-                log.info("retrieveSession session expired, removing id={}", sessionId);
+                log.debug("retrieveSession session expired, removing id={}", sessionId);
                 return removeSession(sessionId).then(Mono.empty());
             }
             return Mono.just(session);
         })
         .switchIfEmpty(Mono.defer(() -> {
-            log.info("retrieveSession no row found for id={}", sessionId);
+            log.debug("retrieveSession no row found for id={}", sessionId);
             return Mono.empty();
         }));
     }
 
     @Override
     public Mono<Void> removeSession(String sessionId) {
-        log.info("removeSession id={}", sessionId);
+        log.debug("removeSession id={}", sessionId);
         return template.getDatabaseClient().sql("DELETE FROM user_sessions WHERE id = $1")
                 .bind("$1", sessionId)
                 .fetch()
                 .rowsUpdated()
-                .doOnNext(count -> log.info("removeSession deleted {} rows for id={}", count, sessionId))
+                .doOnNext(count -> log.debug("removeSession deleted {} rows for id={}", count, sessionId))
                 .then();
     }
 
@@ -103,16 +131,13 @@ public class PersistentWebSessionStore implements WebSessionStore {
     }
 
     private Mono<Void> storeWebSession(WebSession session) {
-        log.info("storeWebSession id={}, expired={}", session.getId(), session.isExpired());
+        log.debug("storeWebSession id={}, expired={}", session.getId(), session.isExpired());
         if (session.isExpired()) {
             return removeSession(session.getId());
         }
         return Mono.defer(() -> {
             try {
-                Map<String, Object> attrs = session.getAttributes();
-                log.info("storeWebSession attribute keys before serialization: {}", attrs.keySet());
-                String attrsJson = objectMapper.writeValueAsString(attrs);
-                log.info("storeWebSession attributes size={}", attrsJson.length());
+                String attrsJson = objectMapper.writeValueAsString(session.getAttributes());
                 LocalDateTime creationTime = LocalDateTime.ofInstant(session.getCreationTime(), ZoneOffset.UTC);
                 LocalDateTime lastAccessTime = LocalDateTime.ofInstant(session.getLastAccessTime(), ZoneOffset.UTC);
                 long maxIdleSeconds = session.getMaxIdleTime().getSeconds();
@@ -132,10 +157,10 @@ public class PersistentWebSessionStore implements WebSessionStore {
                 .bind("$5", attrsJson)
                 .fetch()
                 .rowsUpdated()
-                .doOnNext(count -> log.info("storeWebSession upserted id={}, rows={}", session.getId(), count))
+                .doOnNext(count -> log.debug("storeWebSession upserted id={}, rows={}", session.getId(), count))
                 .then();
             } catch (Exception e) {
-                log.error("Failed to serialize session attributes", e);
+                log.error("Failed to serialize session attributes for id={}", session.getId(), e);
                 return Mono.empty();
             }
         });
@@ -170,7 +195,7 @@ public class PersistentWebSessionStore implements WebSessionStore {
     }
 
     class PersistentWebSession implements WebSession {
-        private final String id;
+        private volatile String id;
         private final Instant creationTime;
         private volatile Instant lastAccessTime;
         private volatile Duration maxIdleTime;
@@ -186,21 +211,18 @@ public class PersistentWebSessionStore implements WebSessionStore {
             this.attributes = parseAttributes(data.attributesJson);
             this.expired = false;
             this.started = true;
-            log.info("PersistentWebSession created id={}, attrsKeys={}, started={}", id, attributes.keySet(), started);
+            log.debug("PersistentWebSession created id={}, attrsKeys={}, started={}", id, attributes.keySet(), started);
         }
 
         @SuppressWarnings("unchecked")
         private Map<String, Object> parseAttributes(String json) {
             if (json == null || json.isBlank() || "{}".equals(json)) {
-                log.info("parseAttributes empty json for id={}", id);
                 return new HashMap<>();
             }
             try {
-                Map<String, Object> result = (Map<String, Object>) objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
-                log.info("parseAttributes parsed {} keys for id={}", result.size(), id);
-                return result;
+                return (Map<String, Object>) objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
             } catch (Exception e) {
-                log.warn("Failed to parse session attributes for {}", id, e);
+                log.warn("Failed to parse session attributes for {}: {}: {}", id, e.getClass().getSimpleName(), e.getMessage());
                 return new HashMap<>();
             }
         }
@@ -230,7 +252,7 @@ public class PersistentWebSessionStore implements WebSessionStore {
             if (expired) return true;
             if (maxIdleTime != null && maxIdleTime.toMillis() >= 0) {
                 boolean exp = Instant.now().minus(maxIdleTime).compareTo(lastAccessTime) >= 0;
-                if (exp) log.info("PersistentWebSession expired id={}, lastAccess={}, maxIdle={}", id, lastAccessTime, maxIdleTime);
+                if (exp) log.debug("PersistentWebSession expired id={}, lastAccess={}, maxIdle={}", id, lastAccessTime, maxIdleTime);
                 return exp;
             }
             return false;
@@ -244,7 +266,10 @@ public class PersistentWebSessionStore implements WebSessionStore {
 
         @Override
         public Mono<Void> changeSessionId() {
-            return Mono.error(new UnsupportedOperationException("Session ID change not supported"));
+            String oldId = this.id;
+            this.id = UUID.randomUUID().toString();
+            log.info("PersistentWebSession.changeSessionId oldId={}, newId={}", oldId, this.id);
+            return Mono.empty();
         }
 
         @Override

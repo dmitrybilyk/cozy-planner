@@ -16,7 +16,7 @@ function calendarApp() {
         activeTab: 'feed', showModal: false, _prevTab: null,
         editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false, showTraineeFormModal: false, showLocationFormModal: false, traineeCompactView: true, traineeExpandedIds: [], _ref: 0,
         selectedDate: _today, todayStr: _today,
-        days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport',
+        days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport', theme: 'default',
         hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
         halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
@@ -45,7 +45,7 @@ function calendarApp() {
         selectedTraineeFilters: [], traineeSearch: '',
         sessionForm: { title: '', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
         traineeForm: { name: '', description: '', photoBase64: null },
-        locationForm: { name: '', description: '', color: '#3b82f6' },
+        locationForm: { name: '', description: '', color: '#3b82f6', googleMapsUrl: '' },
         confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
         notifyModal: { show: false, traineeId: null, traineeName: '', customMessage: '', dayType: 'tomorrow', targetDate: '' },
         toast: { show: false, message: '' },
@@ -599,6 +599,8 @@ function calendarApp() {
                     this.shareToken = data.mentor?.shareToken || null;
                     this.shareUrl = this.shareToken ? window.location.origin + '/shared/' + this.shareToken : '';
                     this.labels = data.labels || {};
+                    this.theme = data.mentor?.theme || 'default';
+                    this._applyTheme(this.theme);
                     return true;
                 } else {
                     window.location.href = '/setup';
@@ -1207,6 +1209,25 @@ function calendarApp() {
             this.timezone = this.editingTimezone;
         },
 
+        _applyTheme(t) {
+            document.documentElement.classList.remove('theme-default', 'theme-male', 'theme-female');
+            document.documentElement.classList.add('theme-' + t);
+            try { localStorage.setItem('cpTheme', t); } catch {}
+        },
+
+        async saveTheme(t) {
+            if (this.theme === t) return;
+            this.theme = t;
+            this._applyTheme(t);
+            await fetch('/api/v1/mentor/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({theme: t})
+            });
+            this.toast = { show: true, message: 'Тему збережено' };
+            setTimeout(() => { this.toast.show = false; }, 2500);
+        },
+
         cancelTimezone() {
             this.editingTimezone = this.timezone;
         },
@@ -1320,10 +1341,11 @@ function calendarApp() {
         getFutureSlots(traineeId, dateStr) {
             const slots = this.availabilityMap[traineeId + '|' + dateStr];
             if (!slots) return [];
+            if (slots.some(s => s.startTime === 'all_day')) return [{startTime: 'all_day', endTime: 'all_day'}];
             if (dateStr !== this.todayStr) return slots;
             const now = new Date();
             const currentMin = now.getHours() * 60 + now.getMinutes();
-            return slots.filter(s => s.endTime === 'all_day' || this.slotToMin(s.endTime) > currentMin);
+            return slots.filter(s => this.slotToMin(s.endTime) > currentMin);
         },
 
         getAvailLabel(slots) {
@@ -1393,10 +1415,11 @@ function calendarApp() {
             if (!session.time || !session.date) return false;
             this.nowTick;
             const nowUtc = Date.now() / 60000;
-            const dayStart = this.toUtcMin('00:00', session.date, this.timezone);
+            const dz = this.timezone;
+            const dayStart = this.toUtcMin('00:00', session.date, dz);
             if (nowUtc < dayStart || nowUtc >= dayStart + 1440) return false;
-            const start = this.toUtcMin(session.time, session.date, this.timezone);
-            const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.timezone) : start + 60;
+            const start = this.toUtcMin(session.time, session.date, dz);
+            const end = session.endTime ? this.toUtcMin(session.endTime, session.date, dz) : start + 60;
             return nowUtc >= start && nowUtc < end;
         },
         _agendaSessionsForDate(date) {
@@ -1404,29 +1427,54 @@ function calendarApp() {
             console.log(`[agenda] sessionsForDate(${date}) → ${result.length} sessions (total ${this.sessions.length})`);
             return result;
         },
-        showNowLineAfter(session, dateOrArray) {
+        _formatCountdown(targetUtc) {
+            const diffMs = targetUtc * 60000 - Date.now();
+            if (diffMs <= 0) return '';
+            const h = Math.floor(diffMs / 3600000);
+            const m = Math.floor((diffMs % 3600000) / 60000);
+            const s = Math.floor((diffMs % 60000) / 1000);
+            return `● ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        },
+        showNowLineBefore(session) {
             try {
-                if (!session.time || !session.date) { console.log(`[nowline] SKIP: no time/date for session ${session.id}`); return false; }
+                if (!session.time || !session.date) return false;
                 this.nowTick;
                 const nowUtc = Date.now() / 60000;
-                const dayStart = this.toUtcMin('00:00', session.date, this.timezone);
-                if (nowUtc < dayStart || nowUtc >= dayStart + 1440) { console.log(`[nowline] SKIP session ${session.id}: now=${nowUtc} outside day ${dayStart}-${dayStart+1440}`); return false; }
-                const end = session.endTime ? this.toUtcMin(session.endTime, session.date, this.timezone) : this.toUtcMin(session.time, session.date, this.timezone) + 60;
-                const allSessions = Array.isArray(dateOrArray) ? dateOrArray : this._agendaSessionsForDate(dateOrArray);
-                console.log(`[nowline] session ${session.id} (${session.time}-${session.endTime}), endUtc=${end}, nowUtc=${nowUtc}, passedEnd=${end <= nowUtc}`);
-                if (nowUtc < end) { console.log(`[nowline] SKIP session ${session.id}: session still active`); return false; }
-                const sessionStartUtc = this.toUtcMin(session.time, session.date, this.timezone);
+                const dz = this.timezone;
+                const dayStart = this.toUtcMin('00:00', session.date, dz);
+                if (nowUtc < dayStart || nowUtc >= dayStart + 1440) return false;
+                const sessionStartUtc = this.toUtcMin(session.time, session.date, dz);
+                if (nowUtc >= sessionStartUtc) return false;
+                const allSessions = this._agendaSessionsForDate(session.date);
+                const hasPrev = allSessions
+                    .filter(s => s.id !== session.id)
+                    .some(s => this.toUtcMin(s.time, s.date, dz) < sessionStartUtc);
+                return !hasPrev;
+            } catch (e) {
+                console.error(`[nowline-before] ERROR session ${session.id}:`, e);
+                return false;
+            }
+        },
+        showNowLineAfter(session, dateOrArray) {
+            try {
+                if (!session.time || !session.date) return false;
+                this.nowTick;
+                const nowUtc = Date.now() / 60000;
+                const dz = this.timezone;
+                const dayStart = this.toUtcMin('00:00', session.date, dz);
+                if (nowUtc < dayStart || nowUtc >= dayStart + 1440) return false;
+                const sessionStartUtc = this.toUtcMin(session.time, session.date, dz);
+                const end = session.endTime ? this.toUtcMin(session.endTime, session.date, dz) : sessionStartUtc + 60;
+                if (nowUtc < end) return false;
+                const allSessions = this._agendaSessionsForDate(session.date);
                 const sorted = allSessions
-                    .filter(s => s.id !== session.id && s.date === session.date)
+                    .filter(s => s.id !== session.id)
                     .slice()
-                    .sort((a, b) => this.toUtcMin(a.time, a.date, this.timezone) - this.toUtcMin(b.time, b.date, this.timezone));
-                console.log(`[nowline] sorted sessions for date: ${sorted.map(s => `${s.id}:${s.time}-${s.endTime}`).join(', ')}`);
-                const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, this.timezone) > sessionStartUtc);
-                if (!nextSession) { console.log(`[nowline] SKIP session ${session.id}: no next session found`); return false; }
-                const nextStart = this.toUtcMin(nextSession.time, nextSession.date, this.timezone);
-                const show = end <= nowUtc && nowUtc < nextStart;
-                console.log(`[nowline] session ${session.id} → next=${nextSession.id} at ${nextSession.time}, nextStart=${nextStart}, show=${show}`);
-                return show;
+                    .sort((a, b) => this.toUtcMin(a.time, a.date, dz) - this.toUtcMin(b.time, b.date, dz));
+                const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, dz) > sessionStartUtc);
+                if (!nextSession) return false;
+                const nextStart = this.toUtcMin(nextSession.time, nextSession.date, dz);
+                return end <= nowUtc && nowUtc < nextStart;
             } catch (e) {
                 console.error(`[nowline] ERROR session ${session.id}:`, e);
                 return false;
@@ -1434,24 +1482,24 @@ function calendarApp() {
         },
         nowCountdown(session, dateOrArray) {
             this.nowTick;
-            if (!this.showNowLineAfter(session, dateOrArray)) { console.log(`[cntdn] SKIP session ${session.id}: showNowLineAfter false`); return ''; }
-            const allSessions = Array.isArray(dateOrArray) ? dateOrArray : this._agendaSessionsForDate(dateOrArray);
-            const sessionStartUtc = this.toUtcMin(session.time, session.date, this.timezone);
+            if (!this.showNowLineAfter(session, dateOrArray)) return '';
+            const dz = this.timezone;
+            const allSessions = this._agendaSessionsForDate(session.date);
+            const sessionStartUtc = this.toUtcMin(session.time, session.date, dz);
             const sorted = allSessions
-                .filter(s => s.id !== session.id && s.date === session.date)
+                .filter(s => s.id !== session.id)
                 .slice()
-                .sort((a, b) => this.toUtcMin(a.time, a.date, this.timezone) - this.toUtcMin(b.time, b.date, this.timezone));
-            const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, this.timezone) > sessionStartUtc);
-            if (!nextSession) { console.log(`[cntdn] SKIP session ${session.id}: no next`); return ''; }
-            const nextStartUtc = this.toUtcMin(nextSession.time, nextSession.date, this.timezone);
-            const diffMs = nextStartUtc * 60000 - Date.now();
-            if (diffMs <= 0) { console.log(`[cntdn] SKIP session ${session.id}: diffMs=${diffMs} <= 0`); return ''; }
-            const h = Math.floor(diffMs / 3600000);
-            const m = Math.floor((diffMs % 3600000) / 60000);
-            const s = Math.floor((diffMs % 60000) / 1000);
-            const text = `● ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-            console.log(`[cntdn] session ${session.id} → "${text}"`);
-            return text;
+                .sort((a, b) => this.toUtcMin(a.time, a.date, dz) - this.toUtcMin(b.time, b.date, dz));
+            const nextSession = sorted.find(s => this.toUtcMin(s.time, s.date, dz) > sessionStartUtc);
+            if (!nextSession) return '';
+            return this._formatCountdown(this.toUtcMin(nextSession.time, nextSession.date, dz));
+        },
+        nowCountdownBefore(session) {
+            this.nowTick;
+            if (!this.showNowLineBefore(session)) return '';
+            const dz = this.timezone;
+            const sessionStartUtc = this.toUtcMin(session.time, session.date, dz);
+            return this._formatCountdown(sessionStartUtc);
         },
         hasSessionOn(date) {
             if (date < addDays(this.todayStr, -14)) return false;
@@ -1485,6 +1533,7 @@ function calendarApp() {
             for (const aId of traineeIds) {
                 const slots = this.availabilityMap[aId + '|' + date];
                 if (!slots || slots.length === 0) continue;
+                if (slots.some(s => s.startTime === 'all_day')) continue;
                 const ok = slots.some(s => {
                     const ss = this.slotToMin(s.startTime);
                     const se = this.slotToMin(s.endTime);
@@ -1525,7 +1574,7 @@ function calendarApp() {
             const ranges = this.coachRangesByDate?.[date];
             if (ranges && ranges.length > 0) {
                 const locId = this.sessionForm.locationId;
-                const filteredRanges = locId ? ranges.filter(r => r.locationId == locId) : ranges;
+                const filteredRanges = locId ? ranges.filter(r => r.locationId == locId || r.locationId == null) : ranges;
                 if (filteredRanges.length > 0) {
                     let within = false;
                     for (const r of filteredRanges) {
@@ -1556,6 +1605,7 @@ function calendarApp() {
             for (const aId of traineeIds) {
                 const slots = this.availabilityMap[aId + '|' + date];
                 if (slots && slots.length > 0) {
+                    if (slots.some(s => s.startTime === 'all_day')) continue;
                     const ok = slots.some(s => {
                         const ss = this.slotToMin(s.startTime);
                         const se = this.slotToMin(s.endTime);
@@ -1686,16 +1736,34 @@ function calendarApp() {
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.sessionValidationErrors = null;
+            if (startTime === 'all_day') {
+                const trainee = this.trainees.find(t => t.id === traineeId);
+                const traineeName = trainee ? trainee.name : '';
+                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date, startTime: null, endTime: null, traineeIds: [traineeId], locationId: this.defaultLocationId(date) };
+                this.showModal = true;
+                this.scrollDateIntoView();
+                this.$nextTick(() => {
+                    const slots = this.validStartSlots;
+                    if (slots.length > 0) {
+                        const st = slots[0];
+                        const min = this.slotToMin(st) + (this.availStep || 60);
+                        const et = String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
+                        this.sessionForm.startTime = st;
+                        this.sessionForm.endTime = et;
+                    } else {
+                        const first = this.timeSlots15?.[0] || '08:00';
+                        this.sessionForm.startTime = first;
+                        const min = this.slotToMin(first) + (this.availStep || 60);
+                        this.sessionForm.endTime = String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
+                    }
+                });
+                return;
+            }
             this.$nextTick(() => {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
-                let st = startTime;
-                let et = endTime;
-                if (st === 'all_day') {
-                    st = this.mentorWorkStart || '09:00';
-                    const min = this.slotToMin(st) + (this.availStep || 60);
-                    et = String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
-                }
+                const st = startTime;
+                const et = endTime;
                 this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: st.slice(0,5), endTime: et.slice(0,5), traineeIds: [traineeId], locationId: this.defaultLocationId(date) };
                 this.showModal = true;
                 this.scrollDateIntoView();
@@ -1795,6 +1863,7 @@ function calendarApp() {
             for (const tId of traineeIds) {
                 const slots = this.availabilityMap[tId + '|' + date];
                 if (slots && slots.length > 0) {
+                    if (slots.some(s => s.startTime === 'all_day')) continue;
                     const ok = slots.some(s => {
                         const ss = this.slotToMin(s.startTime);
                         const se = this.slotToMin(s.endTime);
@@ -1824,7 +1893,7 @@ function calendarApp() {
                 if (isToday && tm <= todayMin) return false;
                 if (hasAvail) {
                     const locId = this.sessionForm.locationId;
-                    const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId) : dateRanges;
+                    const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId || r.locationId == null) : dateRanges;
                     if (filteredRanges.length === 0) return false;
                     const inRange = filteredRanges.some(r =>
                         tm >= this.slotToMin(r.startTime) && tm + step <= this.slotToMin(r.endTime)
@@ -1853,7 +1922,7 @@ function calendarApp() {
                 if (tm <= sm) return false;
                 if (hasAvail) {
                     const locId = this.sessionForm.locationId;
-                    const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId) : dateRanges;
+                    const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId || r.locationId == null) : dateRanges;
                     if (filteredRanges.length === 0) return false;
                     const inRange = filteredRanges.some(r =>
                         tm <= this.slotToMin(r.endTime) && sm >= this.slotToMin(r.startTime)
@@ -2200,12 +2269,16 @@ function calendarApp() {
             const method = this.editingLocationId ? 'PUT' : 'POST';
             const url = this.editingLocationId ? `/api/v1/locations/${this.editingLocationId}` : '/api/v1/locations';
             await fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...this.locationForm, mentorId: this.mentorId }) });
-            this.locationForm = { name: '', description: '', color: '#3b82f6' }; this.editingLocationId = null; this.showLocationFormModal = false;
+            this.locationForm = { name: '', description: '', color: '#3b82f6', googleMapsUrl: '' }; this.editingLocationId = null; this.showLocationFormModal = false;
             await this.fetchLocations();
         },
 
-        openCreateLocationForm() { this.editingLocationId = null; this.locationForm = { name: '', description: '', color: '#3b82f6' }; this.showLocationFormModal = true; },
-        editLocation(l) { this.editingLocationId = l.id; this.locationForm = { name: l.name, description: l.description || '', color: l.color || '#3b82f6' }; this.showLocationFormModal = true; },
+        openCreateLocationForm() { this.editingLocationId = null; this.locationForm = { name: '', description: '', color: '#3b82f6', googleMapsUrl: '' }; this.showLocationFormModal = true; },
+        editLocation(l) { this.editingLocationId = l.id; this.locationForm = { name: l.name, description: l.description || '', color: l.color || '#3b82f6', googleMapsUrl: l.googleMapsUrl || '' }; this.showLocationFormModal = true; },
+        copyGoogleMapsUrl(url) {
+            if (!url) return;
+            navigator.clipboard.writeText(url).catch(() => {});
+        },
         askDeleteLocation(id) { this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_location || 'Локація зникне з усіх тренувань.', onConfirm: async () => { await fetch(`/api/v1/locations/${id}`, { method: 'DELETE' }); await this.fetchLocations(); await this.fetchData(); } }; },
 
         snapToMonday(date) {
@@ -2229,7 +2302,7 @@ function calendarApp() {
             }
         },
         get coachAvailTitle() {
-            const titles = { sport:'Доступність майстра', studying:'Доступність майстра', psychology:'Доступність майстра', other:'Доступність майстра' };
+            const titles = { sport:'Моя доступність', studying:'Моя доступність', psychology:'Моя доступність', other:'Моя доступність' };
             return titles[this.mentorProfile] || titles.sport;
         },
         get coachAvailHasUnsaved() { return this.coachDirtyDates.size > 0; },

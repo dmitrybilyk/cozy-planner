@@ -82,6 +82,7 @@ function traineeApp() {
         availFreeAllDayByDate: {},
         availDirtyDates: new Set(),
         availSaving: false,
+        availSaved: false,
 
         get availDirty() { return this.availDirtyDates.size > 0; },
 
@@ -247,9 +248,9 @@ function traineeApp() {
 
             const profile = me.mentorProfile || 'sport';
             const tabLabelSets = {
-                sport: { sessions: 'Тренування', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає тренувань.', past_sessions: '— Минулі тренування —' },
-                studying: { sessions: 'Уроки', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає уроків.', past_sessions: '— Минулі уроки —' },
-                psychology: { sessions: 'Сесії', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' },
+                sport: { sessions: 'Тренування', schedule: 'Доступність тренера', availability: 'Моя доступність', no_sessions: 'У тебе ще немає тренувань.', past_sessions: '— Минулі тренування —' },
+                studying: { sessions: 'Уроки', schedule: 'Доступність викладача', availability: 'Моя доступність', no_sessions: 'У тебе ще немає уроків.', past_sessions: '— Минулі уроки —' },
+                psychology: { sessions: 'Сесії', schedule: 'Доступність терапевта', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' },
                 other: { sessions: 'Сесії', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' }
             };
             this.tabLabels = tabLabelSets[profile] || tabLabelSets.sport;
@@ -340,7 +341,6 @@ function traineeApp() {
                 }
                 if (event.data === 'trainee_changed') this.refreshMe();
                 if (event.data === 'coach_availability_changed' || event.data === 'location_changed') {
-                    console.log('[trainee] coach_avail/location_changed, mentorShareToken:', this.me.mentorShareToken);
                     if (this.me.mentorShareToken) this.loadMentorAvailability();
                 }
             };
@@ -906,39 +906,37 @@ function traineeApp() {
             this.availDate = d;
             const cached = this.availRangesByDate[d];
             this.availRanges = cached ? [...cached] : [];
+            if (this.availRangesByDate[d]) {
+                for (const r of this.availRanges) r._new = false;
+            }
             this.availFreeAllDay = this.availFreeAllDayByDate[d] !== undefined ? this.availFreeAllDayByDate[d] : false;
+            this.availSortRanges();
+            this.availSaved = false;
         },
 
         availAddRange() {
             const defStart = this.mentorWorkStart || '09:00';
             const defEnd = this.mentorWorkEnd || '18:00';
-            this.availRanges = [...this.availRanges, { startTime: defStart, endTime: defEnd }];
+            this.availRanges.forEach(r => r._new = false);
+            this.availRanges.unshift({ startTime: defStart, endTime: defEnd, _new: true });
             this.availSortRanges();
             this.availMarkDirty();
         },
 
         availRemoveRange(i) {
-            const copy = [...this.availRanges];
-            copy.splice(i, 1);
-            this.availRanges = copy;
+            this.availRanges.splice(i, 1);
             this.availMarkDirty();
         },
 
         onTraineeAvailStartChange(i) {
             this.availMarkDirty();
-            const ranges = [...this.availRanges];
-            const r = ranges[i];
+            const r = this.availRanges[i];
             if (!r || !r.startTime) return;
             if (!r.endTime || r.endTime <= r.startTime) {
                 const next = this.timeSlots15.find(t => t > r.startTime);
                 r.endTime = next || '';
             }
-            ranges.sort((a, b) => {
-                if (!a.startTime) return -1;
-                if (!b.startTime) return 1;
-                return a.startTime.localeCompare(b.startTime);
-            });
-            this.availRanges = ranges;
+            this.availSortRanges();
         },
 
         slotToMin(t) {
@@ -996,7 +994,7 @@ function traineeApp() {
             const s = new Set(this.availDirtyDates);
             s.add(this.availDate);
             this.availDirtyDates = s;
-            this.saved = false;
+            this.availSaved = false;
         },
 
         onAvailFreeAllDayToggle() {
@@ -1017,18 +1015,12 @@ function traineeApp() {
 
         async loadAvailability() {
             if (!this.traineeId) return;
-            if (this.availDirtyDates.size > 0) {
-                console.log('[avail] skip reload, user has unsaved changes');
-                return;
-            }
+            if (this.availDirtyDates.size > 0) return;
             const start = this.days[0].dateStr;
             const end = this.days[this.days.length - 1].dateStr;
             const url = `/api/v1/availability/ranges?userId=${this.traineeId}&userType=TRAINEE&startDate=${start}&endDate=${end}`;
-            console.log('[avail] loadAvailability', url);
             const res = await fetch(url);
-            console.log('[avail] load status:', res.status);
             if (this.availDirtyDates.size > 0) {
-                console.log('[avail] user made changes during fetch, skip overwrite');
                 return;
             }
             const rangesByDate = {};
@@ -1039,8 +1031,7 @@ function traineeApp() {
             }
             if (res.ok) {
                 let items;
-                try { items = await res.json(); } catch (e) { console.warn('[avail] json parse error', e); items = []; }
-                console.log('[avail] items count:', items.length);
+                try { items = await res.json(); } catch (e) { items = []; }
                 for (const item of items) {
                     if (item.freeAllDay) {
                         freeAllDayByDate[item.date] = true;
@@ -1055,15 +1046,11 @@ function traineeApp() {
                     });
                     freeAllDayByDate[item.date] = false;
                 }
-            } else {
-                console.warn('[avail] load not OK, body:', await res.text().catch(() => '(no body)'));
             }
             this.availRangesByDate = rangesByDate;
             this.availFreeAllDayByDate = freeAllDayByDate;
-            console.log('[avail] availDate:', this.availDate, 'ranges for date:', rangesByDate[this.availDate]);
             this.availRanges = [...(rangesByDate[this.availDate] || [])];
             this.availFreeAllDay = freeAllDayByDate[this.availDate] !== undefined ? freeAllDayByDate[this.availDate] : false;
-            console.log('[avail] loaded availRanges count:', this.availRanges.length);
             this.availDirtyDates.clear();
         },
 
@@ -1088,9 +1075,7 @@ function traineeApp() {
 
         async availSaveAll() {
             if (this.availSaving) return;
-            console.log('[avail] saveAll start ranges:', JSON.stringify(this.availRanges));
             this.availRanges = this.availMergeRanges(this.availRanges);
-            console.log('[avail] saveAll after merge:', JSON.stringify(this.availRanges));
             this.availSaving = true;
             this.availRangesByDate[this.availDate] = [...this.availRanges];
             this.availFreeAllDayByDate[this.availDate] = this.availFreeAllDay;
@@ -1128,22 +1113,17 @@ function traineeApp() {
                             }))
                         })
                     });
-                    if (!res.ok) {
-                        console.error('[avail] save failed for', date, res.status, await res.text().catch(() => '(no body)'));
-                        allOk = false;
-                    }
+                    if (!res.ok) allOk = false;
                 }
                 if (allOk) {
                     this.availDirtyDates.clear();
-                    this.saved = true;
-                    this.savedMessage = 'Збережено!';
-                    setTimeout(() => this.saved = false, 3000);
+                    this.availSaved = true;
+                    setTimeout(() => this.availSaved = false, 3000);
                 } else {
-                    this.saved = true;
-                    this.savedMessage = 'Помилка збереження';
-                    setTimeout(() => this.saved = false, 3000);
+                    this.availSaved = true;
+                    setTimeout(() => this.availSaved = false, 3000);
                 }
-            } catch(e) { console.error('[avail] save error', e); this.savedMessage = 'Помилка збереження'; this.saved = true; setTimeout(() => this.saved = false, 3000); }
+            } catch(e) { this.availSaved = true; setTimeout(() => this.availSaved = false, 3000); }
             finally { this.availSaving = false; this.loadAvailability(); }
         },
 

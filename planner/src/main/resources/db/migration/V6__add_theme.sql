@@ -1,0 +1,1 @@
+ALTER TABLE mentors ADD COLUMN theme VARCHAR(20) DEFAULT 'default';

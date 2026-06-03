@@ -485,6 +485,8 @@ components:
           type: string
         color:
           type: string
+        googleMapsUrl:
+          type: string
         mentorId:
           type: integer
           format: int64
@@ -498,6 +500,8 @@ components:
         description:
           type: string
         color:
+          type: string
+        googleMapsUrl:
           type: string
         mentorId:
           type: integer

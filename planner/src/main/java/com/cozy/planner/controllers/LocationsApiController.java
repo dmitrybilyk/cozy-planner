@@ -32,6 +32,7 @@ public class LocationsApiController implements LocationsApi {
                             .name(request.getName())
                             .description(request.getDescription())
                             .color(request.getColor())
+                            .googleMapsUrl(request.getGoogleMapsUrl())
                             .mentorId(request.getMentorId())
                             .build();
                     return locationRepository.save(location);
@@ -78,6 +79,9 @@ public class LocationsApiController implements LocationsApi {
                             if (dto.getColor() != null) {
                                 existing.setColor(dto.getColor());
                             }
+                            if (dto.getGoogleMapsUrl() != null) {
+                                existing.setGoogleMapsUrl(dto.getGoogleMapsUrl());
+                            }
                             if (dto.getMentorId() != null) {
                                 existing.setMentorId(dto.getMentorId());
                             }
@@ -94,6 +98,7 @@ public class LocationsApiController implements LocationsApi {
         dto.setName(entity.getName());
         dto.setDescription(entity.getDescription());
         dto.setColor(entity.getColor());
+        dto.setGoogleMapsUrl(entity.getGoogleMapsUrl());
         dto.setMentorId(entity.getMentorId());
         return dto;
     }

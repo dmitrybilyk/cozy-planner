@@ -86,6 +86,7 @@ public class MeController {
                                             mentorMap.put("photoUrl", mentor.getPhotoUrl());
                                             mentorMap.put("timezone", mentor.getTimezone());
                                             mentorMap.put("availStep", mentor.getAvailStep());
+                                            mentorMap.put("theme", mentor.getTheme() != null ? mentor.getTheme() : "default");
                                             r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));
                                             return r;

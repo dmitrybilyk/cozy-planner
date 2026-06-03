@@ -1,5 +1,7 @@
 package com.cozy.planner.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -20,6 +22,8 @@ import java.time.Duration;
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     @Bean
     public WebSessionIdResolver webSessionIdResolver() {
@@ -43,6 +47,8 @@ public class SecurityConfig {
                 .oauth2Login(oauth2 -> oauth2
                         .authenticationSuccessHandler((webFilterExchange, authentication) -> {
                             var principal = (OidcUser) authentication.getPrincipal();
+                            log.info("OAuth2 login SUCCESS: sub={}, email={}, name={}",
+                                    principal.getSubject(), principal.getEmail(), principal.getGivenName());
                             var session = webFilterExchange.getExchange().getSession();
                             return session.flatMap(s -> {
                                 s.getAttributes().put("google_sub", principal.getSubject());
@@ -53,6 +59,13 @@ public class SecurityConfig {
                                 response.getHeaders().setLocation(URI.create("/setup"));
                                 return response.setComplete();
                             });
+                        })
+                        .authenticationFailureHandler((wfe, exception) -> {
+                            log.error("OAuth2 login FAILED for {}: {}", exception.getClass().getSimpleName(), exception.getMessage());
+                            var response = wfe.getExchange().getResponse();
+                            response.getHeaders().setLocation(URI.create("/login?error"));
+                            response.setStatusCode(HttpStatus.FOUND);
+                            return response.setComplete();
                         })
                 )
                 .logout(logout -> logout
