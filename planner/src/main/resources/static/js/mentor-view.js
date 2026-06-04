@@ -69,6 +69,7 @@ function calendarApp() {
         touchJustDragged: false,
         _touchDragCleanup: null,
         deferredInstallPrompt: null,
+        showIosInstall: false,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         workStart: '09:00',
         workEnd: '21:00',
@@ -107,6 +108,164 @@ function calendarApp() {
         sessionFilter: 'all',
         locationFilter: null,
         showRefreshModal: false,
+        showIntro: false,
+        introSlide: 0,
+        introSlides: [
+            {
+                icon: '📅',
+                title: 'Ласкаво просимо до Cozy Planner',
+                body: 'Цей додаток допоможе тобі організувати зустрічі з клієнтами, учнями та спортсменами. Розклад, підтвердження і сповіщення — все в одному місці.'
+            },
+            {
+                icon: '👥',
+                title: 'Клієнти та їх часові зони',
+                body: 'Додавай клієнтів і призначай їм сесії. Кожному можна вказати свій часовий пояс — зручно, якщо клієнт живе в іншій країні: він бачить час у своєму форматі.'
+            },
+            {
+                icon: '📍',
+                title: 'Локації з кольорами',
+                body: 'Створюй локації для зустрічей — зал, майданчик, студія. Кожна локація має свій колір, який видно прямо в розкладі для швидкого орієнтування.'
+            },
+            {
+                icon: '🕐',
+                title: 'Доступність та постійне посилання',
+                body: 'Відмічай дні та час, коли ти вільний. Поділись постійним посиланням на свою доступність — клієнти побачать твій вільний час без реєстрації.'
+            },
+            {
+                icon: '📲',
+                title: 'Клієнт може забронювати сам',
+                body: 'Якщо ти встановив доступність, клієнт може самостійно зарезервувати зручний час зі своєї сторінки. Ти отримаєш сповіщення і підтвердиш або відхилиш.'
+            },
+            {
+                icon: '✅',
+                title: 'Підтвердження та Telegram',
+                body: 'Підтверджуй зустрічі сам або дозволь клієнтові зробити це зі свого боку. Підключи Telegram — і ти, і клієнти отримаєте нагадування про зустрічі.'
+            },
+            {
+                icon: '⏱️',
+                title: 'Тільки реально вільний час',
+                body: 'При створенні або редагуванні сесії показуються лише вільні слоти — ті, що не перетинаються з вже запланованими зустрічами і вписуються у твою доступність.'
+            },
+            {
+                icon: '🗺️',
+                title: 'Показати тур по інтерфейсу?',
+                body: 'Хочеш, щоб ми провели тебе по основних елементах додатку? Займе менше хвилини — ти побачиш, де що знаходиться і як цим користуватись.'
+            }
+        ],
+        showTour: false,
+        tourStep: 0,
+        _tourRect: null,
+        tourSteps: [
+            { target: '[data-tour="profile"]',        tab: null,                  title: 'Твій профіль',                 body: 'Налаштування тренера: фото, тема, крок часу (15/30/60 хв) для вікон доступності, а також твій особистий Telegram для сповіщень про зустрічі.',                           position: 'bottom' },
+            { target: '[data-tour="view-toggle"]',    tab: 'feed',                title: 'Вигляд розкладу',              body: '"День" — детальний список сесій на обрану дату. "План" — хронологічний планер усіх майбутніх зустрічей.',                                                              position: 'bottom' },
+            { target: '[data-session-id]',            tab: 'feed',                title: 'Статус підтвердження',         body: 'Ім\'я клієнта у картці сесії одразу показує статус: зелений — підтверджено, червоний — відхилено, сірий — очікує. Видно без відкривання картки.',                      position: 'bottom' },
+            { target: '[data-tour="day-filter"]',     tab: 'feed',                title: 'Фільтри та режим відображення',body: 'Фільтруй за локацією, статусом (всі / підтверджені / очікують). Перемикай між компактним і детальним режимами карток сесій.',                                        position: 'bottom' },
+            { target: '[data-tour="add-session"]',    tab: 'feed',                title: 'Нова зустріч',                 body: 'При створенні сесії слоти, що збігаються із запланованими або виходять за межі доступності, не відображаються — тільки реально вільний час.',                         position: 'bottom' },
+            { target: '#calendar-container',          tab: 'feed',                title: 'Календар',                     body: 'Вибирай дату. Числа під днем — кількість сесій. Червоний фон — вихідний або день-офф. Поточна дата завжди виділена рамкою.',                                           position: 'bottom' },
+            { target: '[data-tour="trainees"]',       tab: 'feed',                title: 'Клієнти',                      body: 'Список клієнтів, учнів, спортсменів. Тут додаєш нових, редагуєш профілі та бачиш їх доступність.',                                                                    position: 'bottom' },
+            { target: '[data-tour="trainee-site-btn"]',tab: 'trainees',           title: 'Сайт клієнта',                 body: 'Натисни — посилання скопіюється. Надішли клієнту: він відкриє свою сторінку, де може бачити розклад, відмічати свою доступність і самостійно резервувати сесії.',     position: 'bottom' },
+            { target: '[data-tour="trainee-actions"]',tab: 'trainees',            title: 'Telegram для клієнта',         body: 'Клієнт підключає Telegram зі своєї сторінки або ти копіюєш посилання тут і надсилаєш напряму. Якщо клієнт підключений — можеш попросити його відмітити свою доступність прямо з цього меню.',  position: 'bottom' },
+            { target: '[data-tour="locations-btn"]',  tab: 'feed',                title: 'Локації',                      body: 'Місця для зустрічей з власними кольорами — одразу видно у розкладі. Додавай Google Maps посилання і ділись ним з новими або потенційними клієнтами.',                  position: 'bottom' },
+            { target: '[data-tour="locations-list"]', tab: 'locations',           title: 'Список локацій',               body: 'Кожна локація має колір і може мати Google Maps посилання. Натисни на іконку копіювання поруч з посиланням, щоб поділитись з клієнтом.',                              position: 'top'    },
+            { target: '[data-tour="availability"]',   tab: 'feed',                title: 'Моя доступність',              body: 'Відмічай конкретні часові інтервали по локаціях — де і коли ти вільний. Клієнти бачать це і можуть самостійно бронювати вільний час.',                                 position: 'bottom' },
+            { target: '[data-tour="avail-intervals"]',tab: 'coach-availability',  title: 'Інтервали по локаціях',        body: 'Додавай вікна доступності з прив\'язкою до локації: "15:00–18:00 у Залі А". Кілька інтервалів на один день — без проблем.',                                            position: 'top'    },
+            { target: '[data-tour="avail-share"]',    tab: 'coach-availability',  title: 'Постійне посилання',           body: 'Ділись з клієнтами або у соцмережах. Будь-які зміни — нова сесія, нова доступність — відображаються там одразу. Посилання завжди актуальне.',                          position: 'top'    },
+        ],
+        _tourAbove(r, step) {
+            const pad = 8, gap = 14, tipH = 190;
+            const spaceBelow = window.innerHeight - (r.top + r.height + pad + gap);
+            return (step.position === 'top' && r.top - pad - gap >= tipH) || spaceBelow < tipH;
+        },
+        get tourHighlightStyle() {
+            if (!this._tourRect || this._tourRect.width === 0) return 'display:none';
+            const r = this._tourRect;
+            const pad = 8;
+            return `top:${r.top - pad}px; left:${r.left - pad}px; width:${r.width + pad * 2}px; height:${r.height + pad * 2}px;`;
+        },
+        get tourTooltipStyle() {
+            if (!this._tourRect) return 'display:none';
+            const r = this._tourRect;
+            const tipW = 288, tipH = 190;
+            if (r.width === 0) {
+                return `top:${Math.max(12, (window.innerHeight - tipH) / 2)}px; left:${Math.max(12, (window.innerWidth - tipW) / 2)}px; width:${tipW}px;`;
+            }
+            const step = this.tourSteps[this.tourStep] || {};
+            const pad = 8, gap = 14;
+            const cx = r.left + r.width / 2;
+            const left = Math.max(12, Math.min(cx - tipW / 2, window.innerWidth - tipW - 12));
+            const spaceBelow = window.innerHeight - (r.top + r.height + pad + gap);
+            const isAbove = this._tourAbove(r, step);
+            const top = isAbove ? Math.max(12, r.top - pad - gap - tipH) : r.top + r.height + pad + gap;
+            return `top:${top}px; left:${left}px; width:${tipW}px;`;
+        },
+        get tourArrowStyle() {
+            if (!this._tourRect || this._tourRect.width === 0) return 'display:none';
+            const r = this._tourRect;
+            const step = this.tourSteps[this.tourStep] || {};
+            const pad = 8, gap = 14, tipW = 288, tipH = 190;
+            const cx = r.left + r.width / 2;
+            const tipLeft = Math.max(12, Math.min(cx - tipW / 2, window.innerWidth - tipW - 12));
+            const arrowX = Math.max(20, Math.min(cx - tipLeft - 6, tipW - 32));
+            const isAbove = this._tourAbove(r, step);
+            if (isAbove) {
+                return `left:${arrowX}px; bottom:-7px; width:12px; height:12px; background:#1c1c1c; transform:rotate(45deg); border-bottom:1px solid #444; border-right:1px solid #444; border-top:none; border-left:none;`;
+            } else {
+                return `left:${arrowX}px; top:-7px; width:12px; height:12px; background:#1c1c1c; transform:rotate(45deg); border-top:1px solid #444; border-left:1px solid #444; border-bottom:none; border-right:none;`;
+            }
+        },
+
+        async _markIntroSeen() {
+            if (this.mentorId && this.mentorId > 0) {
+                await fetch('/api/v1/mentor/profile', {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({introSeen: 'true'})
+                });
+            }
+        },
+        async dismissIntro() {
+            this.showIntro = false;
+            await this._markIntroSeen();
+        },
+        async startTour() {
+            this.showIntro = false;
+            this._markIntroSeen();
+            this.tourStep = 0;
+            this.showTour = true;
+            setTimeout(() => this._updateTourRect(), 100);
+        },
+        _updateTourRect() {
+            const step = this.tourSteps[this.tourStep];
+            if (!step) { this._tourRect = null; return; }
+            const doMeasure = () => {
+                const el = document.querySelector(step.target);
+                if (!el) {
+                    this._tourRect = { top: window.innerHeight / 2, left: window.innerWidth / 2, width: 0, height: 0 };
+                    return;
+                }
+                const r = el.getBoundingClientRect();
+                this._tourRect = { top: r.top, left: r.left, width: r.width, height: r.height };
+            };
+            if (step.tab && this.activeTab !== step.tab) {
+                if (step.tab === 'coach-availability') this.loadCoachAvailability();
+                this.activeTab = step.tab;
+                setTimeout(doMeasure, 280);
+            } else {
+                doMeasure();
+            }
+        },
+        nextTourStep() {
+            if (this.tourStep < this.tourSteps.length - 1) {
+                this.tourStep++;
+                setTimeout(() => this._updateTourRect(), 50);
+            } else {
+                this.endTour();
+            }
+        },
+        endTour() {
+            this.showTour = false;
+            this._tourRect = null;
+        },
 
         async loadNotifications() {
             try {
@@ -230,6 +389,8 @@ function calendarApp() {
                 const me = await this.fetchMe();
                 console.log('fetchMe result:', me, 'mentorId:', this.mentorId);
                 if (!me) return;
+                const _introSeen = me.introSeen;
+                const _isDemo = me.isDemo;
                 
                 this.generateDays();
                 console.log('generateDays done, days count:', this.days.length);
@@ -268,6 +429,7 @@ function calendarApp() {
                 setTimeout(() => this.scrollToToday(), 200);
                 this._nowTimer = setInterval(() => { this.nowTick++; }, 1000);
                 console.log('init() complete!');
+                if (!_introSeen && !_isDemo) this.showIntro = true;
 
                 this.$watch('showModal', (val) => {
                     if (val) history.pushState({modal: true}, '');
@@ -601,7 +763,7 @@ function calendarApp() {
                     this.labels = data.labels || {};
                     this.theme = data.mentor?.theme || 'default';
                     this._applyTheme(this.theme);
-                    return true;
+                    return { introSeen: data.mentor?.introSeen === true, isDemo: data.mentor?.isDemo === true };
                 } else {
                     window.location.href = '/setup';
                     return false;
@@ -2512,6 +2674,8 @@ function calendarApp() {
         },
 
         async installPwa() {
+            const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+            if (isIos) { this.showIosInstall = true; return; }
             const prompt = this.deferredInstallPrompt || _deferredInstall;
             if (prompt) {
                 prompt.prompt();

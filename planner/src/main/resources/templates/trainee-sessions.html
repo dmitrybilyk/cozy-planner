@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cozy Planner">
-    <link rel="apple-touch-icon" href="/icon.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="/css/shared.css" th:href="@{/css/shared.css(v=${appVersion})}">
     <link rel="stylesheet" href="/css/trainee-sessions.css" th:href="@{/css/trainee-sessions.css(v=${appVersion})}">
 </head>
@@ -76,6 +76,18 @@
 
     <!-- ====== SESSIONS TAB ====== -->
     <div x-show="tab === 'sessions'">
+        <div x-show="me.telegramConnected" class="mb-3 flex items-center justify-between bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3">
+            <div>
+                <div class="text-sm font-bold text-white">🔔 Нагадування за 1 год</div>
+                <div class="text-xs text-gray-500 mt-0.5">Telegram-нагадування про <span x-text="(tabLabels.sessions || 'сесії').toLowerCase()"></span></div>
+            </div>
+            <button @click="toggleSessionReminder()"
+                    class="w-12 h-6 rounded-full transition-all relative flex-shrink-0"
+                    :class="me.sessionReminderEnabled ? 'bg-blue-600' : 'bg-[#333]'">
+                <span class="absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all"
+                      :class="me.sessionReminderEnabled ? 'left-7' : 'left-1'"></span>
+            </button>
+        </div>
         <div x-show="sessions.length === 0" class="text-center py-20 text-gray-600 text-sm">
             <span x-text="tabLabels.no_sessions || 'У тебе ще немає сесій.'">У тебе ще немає сесій.</span> Натисни "+ Нова", щоб створити.
         </div>
@@ -538,6 +550,28 @@
                 Бронювати
             </button>
         </div>
+    </div>
+</div>
+
+<!-- iOS Install Modal -->
+<div x-show="showIosInstall" x-cloak class="fixed inset-0 z-[70] flex items-end justify-center" style="background:rgba(0,0,0,0.6)" @click.self="showIosInstall = false">
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-lg rounded-t-3xl p-6 pb-10">
+        <h3 class="text-lg font-bold text-white mb-5">Встановити на iPhone</h3>
+        <div class="space-y-4 text-sm">
+            <div class="flex items-start gap-3">
+                <span class="text-2xl leading-none">1️⃣</span>
+                <div class="text-gray-300 leading-snug">Натисни кнопку <span class="text-white font-bold">Поділитися</span> (□↑) у нижній панелі Safari</div>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-2xl leading-none">2️⃣</span>
+                <div class="text-gray-300 leading-snug">Прогорни список дій і обери <span class="text-white font-bold">"На початковий екран"</span></div>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-2xl leading-none">3️⃣</span>
+                <div class="text-gray-300 leading-snug">Натисни <span class="text-white font-bold">"Додати"</span> у верхньому правому куті</div>
+            </div>
+        </div>
+        <button @click="showIosInstall = false" class="w-full bg-blue-600 text-white py-3.5 rounded-2xl font-bold text-sm mt-6">Зрозуміло</button>
     </div>
 </div>
 

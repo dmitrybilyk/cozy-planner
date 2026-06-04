@@ -10,7 +10,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cozy Planner">
-    <link rel="apple-touch-icon" href="/icon.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>(function(){var t=localStorage.getItem('cpTheme')||'default';document.documentElement.classList.add('theme-'+t);})();</script>
     <script defer src="/js/mentor-view.js" th:src="@{/js/mentor-view.js(v=${appVersion})}"></script>
@@ -30,11 +30,93 @@
     </div>
 </div>
 
+<!-- ONBOARDING INTRO OVERLAY -->
+<div x-show="showIntro" x-cloak
+     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm"
+     style="display:none">
+    <div class="modal-container w-full sm:mx-4 fade-in">
+        <!-- Slide content -->
+        <div class="modal-body flex flex-col items-center text-center pt-8 pb-4 space-y-4">
+            <div class="text-6xl" x-text="introSlides[introSlide].icon"></div>
+            <h2 class="text-xl font-black tracking-tight" x-text="introSlides[introSlide].title"></h2>
+            <p class="text-gray-400 text-sm leading-relaxed max-w-sm" x-text="introSlides[introSlide].body"></p>
+            <!-- Progress dots -->
+            <div class="flex items-center gap-2 pt-2">
+                <template x-for="(_, i) in introSlides" :key="i">
+                    <div class="rounded-full transition-all duration-300"
+                         :class="i === introSlide ? 'w-5 h-2 ig-gradient' : 'w-2 h-2 bg-[#444]'"></div>
+                </template>
+            </div>
+        </div>
+        <div class="modal-footer flex items-center gap-3">
+            <button @click="dismissIntro()"
+                    class="flex-1 py-3 rounded-2xl text-sm font-bold text-gray-500 hover:text-gray-300 transition">
+                Пропустити
+            </button>
+            <template x-if="introSlide < introSlides.length - 1">
+                <button @click="introSlide++"
+                        class="flex-1 ig-gradient-bg text-white py-3 rounded-2xl text-sm font-bold transition hover:opacity-90 active:scale-[0.97]">
+                    Далі →
+                </button>
+            </template>
+            <template x-if="introSlide === introSlides.length - 1">
+                <button @click="startTour()"
+                        class="flex-1 ig-gradient-bg text-white py-3 rounded-2xl text-sm font-bold transition hover:opacity-90 active:scale-[0.97]">
+                    Почати тур 🗺️
+                </button>
+            </template>
+        </div>
+    </div>
+</div>
+
+<!-- TOUR OVERLAY -->
+<div x-show="showTour" x-cloak style="display:none" class="fixed inset-0 z-[60]">
+    <!-- Spotlight highlight box -->
+    <div x-show="_tourRect && _tourRect.width > 0"
+         :style="tourHighlightStyle"
+         class="fixed rounded-xl"
+         style="border: 2px solid rgba(255,255,255,0.55); box-shadow: 0 0 0 9999px rgba(0,0,0,0.68); transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease; pointer-events: none;"></div>
+    <!-- Tooltip card -->
+    <div x-show="_tourRect"
+         :style="tourTooltipStyle"
+         class="fixed bg-[#1c1c1c] border border-[#444] rounded-2xl p-4 shadow-2xl"
+         style="pointer-events: auto; transition: top 0.25s ease, left 0.25s ease;">
+        <!-- Arrow pointing to highlighted element -->
+        <div :style="tourArrowStyle" class="absolute pointer-events-none"></div>
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wider"
+                  x-text="`${tourStep + 1} / ${tourSteps.length}`"></span>
+            <button @click="endTour()" class="text-gray-500 hover:text-gray-300 transition p-0.5 rounded-lg hover:bg-white/10">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <h3 class="text-sm font-black text-white mb-1" x-text="tourSteps[tourStep].title"></h3>
+        <p class="text-xs text-gray-400 leading-relaxed mb-3" x-text="tourSteps[tourStep].body"></p>
+        <div class="flex items-center gap-1.5 mb-3">
+            <template x-for="(_, i) in tourSteps" :key="i">
+                <div class="rounded-full transition-all duration-300"
+                     :class="i === tourStep ? 'w-4 h-1.5 ig-gradient' : 'w-1.5 h-1.5 bg-[#444]'"></div>
+            </template>
+        </div>
+        <div class="flex gap-2">
+            <button @click="endTour()"
+                    class="flex-1 py-2 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-300 border border-[#444] transition">
+                Пропустити
+            </button>
+            <button @click="nextTourStep()"
+                    class="flex-1 ig-gradient-bg text-white py-2 rounded-xl text-xs font-bold transition hover:opacity-90 active:scale-[0.97]"
+                    x-text="tourStep < tourSteps.length - 1 ? 'Далі →' : 'Завершити ✓'"></button>
+        </div>
+    </div>
+</div>
+
 <!-- ВЕРХНЯ СЕКЦІЯ: навігація та кнопки -->
 <header x-show="!loading" class="flex-shrink-0 bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#333] shadow-md">
     <!-- Ряд 1: Профіль, Історія, День/План -->
     <div class="px-3 sm:px-4 h-14 sm:h-16 flex items-center justify-between">
-        <div @click="activeTab = 'profile'" class="flex items-center space-x-2 sm:space-x-3 min-w-0 cursor-pointer rounded-lg px-2 py-1.5 transition"
+        <div @click="activeTab = 'profile'" data-tour="profile" class="flex items-center space-x-2 sm:space-x-3 min-w-0 cursor-pointer rounded-lg px-2 py-1.5 transition"
              :class="activeTab === 'profile' ? 'bg-white/10' : 'hover:bg-white/5'">
             <div class="ig-ring w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center flex-shrink-0">
                 <template x-if="photoUrl">
@@ -61,7 +143,7 @@
                     title="Історія">
                 <span class="text-sm sm:text-base">🕐</span>
             </button>
-            <div class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl">
+            <div data-tour="view-toggle" class="flex bg-[#262626] p-0.5 sm:p-1 rounded-xl">
                 <button @click="activeTab = 'feed'" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition" :class="activeTab === 'feed' ? 'bg-[#444] text-blue-400' : 'text-gray-500'">
                     <span class="text-[11px] sm:text-sm font-black uppercase tracking-wider" x-text="labels.today_short || 'День'"></span>
                 </button>
@@ -73,21 +155,21 @@
      </div>
     <!-- Ряд 2: Кнопки дій (текстові) -->
     <div class="px-2 sm:px-4 pb-2 sm:pb-3 flex items-center gap-1">
-        <button @click="openSessionModal()" :disabled="selectedDate < todayStr"
+        <button @click="openSessionModal()" :disabled="selectedDate < todayStr" data-tour="add-session"
                 class="flex-1 flex items-center justify-center bg-blue-600 hover:bg-blue-700 active:scale-[0.97] text-white py-2 px-0.5 rounded-2xl shadow-lg transition disabled:opacity-30 disabled:cursor-not-allowed disabled:active:scale-100">
             <span class="text-[11px] sm:text-sm font-bold leading-tight text-center" x-text="labels.create_session || 'Створити сесію'"></span>
         </button>
-        <button @click="activeTab = 'trainees'"
+        <button @click="activeTab = 'trainees'" data-tour="trainees"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'trainees' ? 'bg-[#333] ring-2 ring-emerald-400' : 'bg-[#262626] hover:bg-[#333]'">
             <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-emerald-400" x-text="labels.manage_trainees || 'Учні'"></span>
         </button>
-        <button @click="activeTab = 'locations'"
+        <button @click="activeTab = 'locations'" data-tour="locations-btn"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'locations' ? 'bg-[#333] ring-2 ring-rose-400' : 'bg-[#262626] hover:bg-[#333]'">
             <span class="text-[11px] sm:text-sm font-bold leading-tight text-center text-rose-400" x-text="labels.locations || 'Місця'"></span>
         </button>
-        <button @click="activeTab = 'coach-availability'; loadCoachAvailability()"
+        <button @click="activeTab = 'coach-availability'; loadCoachAvailability()" data-tour="availability"
                 class="flex-1 flex items-center justify-center py-2 px-0.5 rounded-2xl transition"
                 :class="activeTab === 'coach-availability' ? 'bg-[#333] ring-2 ring-violet-400' : 'bg-[#262626] hover:bg-[#333]'"
                 :title="'Моя доступність'">
@@ -125,7 +207,7 @@
 
     <!-- ДЕНЬ -->
     <div x-show="activeTab === 'feed'" class="max-w-2xl mx-auto p-4 pb-24">
-        <div class="sticky top-0 z-10 bg-[#121212] pt-4 pb-3">
+        <div data-tour="day-filter" class="sticky top-0 z-10 bg-[#121212] pt-4 pb-3">
             <div class="flex justify-between items-center gap-2">
                 <div class="relative flex-1 min-w-0" x-data="{ open: false }" @click.outside="open = false">
                     <button @click="open = !open" class="w-full text-xs font-bold bg-[#2a2a2a] text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 flex items-center gap-1.5 text-left">
@@ -719,7 +801,7 @@
                     </div>
                     <p class="text-sm text-gray-500 truncate mt-1 ml-[60px]" x-show="t.description" x-text="t.description"></p>
                     <!-- TG Invite + Timezone + Site link + Create Session row -->
-                    <div class="flex items-center gap-2 mt-3 pt-3 border-t border-[#292929] flex-wrap">
+                    <div data-tour="trainee-actions" class="flex items-center gap-2 mt-3 pt-3 border-t border-[#292929] flex-wrap">
                         <template x-if="t.telegramEnabled && !t.telegramConnected">
                             <button @click="generateInvite(t.id)" class="text-xs font-bold text-green-400 px-2.5 py-1 rounded-lg border border-green-500/30 hover:bg-green-500/10 transition" x-text="inviteUrls[t.id] ? '✓ Скопійовано!' : 'Запросити в TG'"></button>
                         </template>
@@ -743,7 +825,7 @@
                             </select>
                             <button x-show="t._editingTz !== t.timezone" @click="t._editingTz = t.timezone" class="text-gray-500 hover:text-white text-xs font-bold">✕</button>
                         </div>
-                        <button @click="generateTraineeLink(t)" class="text-xs font-bold text-orange-400 px-2.5 py-1 rounded-lg border border-orange-500/30 hover:bg-orange-500/10 transition">
+                        <button @click="generateTraineeLink(t)" data-tour="trainee-site-btn" class="text-xs font-bold text-orange-400 px-2.5 py-1 rounded-lg border border-orange-500/30 hover:bg-orange-500/10 transition">
                             <span x-text="getCopyLinkText(t.id) || '🌐 Сайт ' + (labels.trainee_gen || labels.trainee || 'учня')"></span>
                         </button>
                         <button @click="createSessionForTrainee(t)" class="text-xs font-bold text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
@@ -829,7 +911,7 @@
                 <span x-text="(labels.add_location_short || 'Додати ' + (labels.location || 'локацію'))"></span>
             </button>
         </div>
-        <div class="space-y-3">
+        <div data-tour="locations-list" class="space-y-3">
             <template x-for="location in locations" :key="location.id">
                 <div class="flex items-center justify-between p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl"
                      :style="'border-left: 5px solid ' + (location.color || '#3b82f6')">
@@ -946,7 +1028,7 @@
                     </button>
                 </template>
             </div>
-            <div class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between gap-2">
+            <div data-tour="avail-share" class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-bold text-gray-400 uppercase">Поділитися</span>
                     <button @click="coachCopyLink()" class="px-2.5 py-1 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-xs font-bold transition" :class="coachCopied ? 'text-green-400' : 'text-gray-300'">
@@ -958,7 +1040,7 @@
                 </div>
                 <div class="flex items-center gap-2"></div>
             </div>
-            <div class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between">
+            <div data-tour="avail-intervals" class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between">
                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Інтервали доступності по локаціях</span>
                 <button @click="coachAddRange()" :disabled="coachAllCovered"
                         class="text-xs font-bold flex items-center gap-1 transition"
@@ -1296,6 +1378,28 @@
 
 <div x-show="toast.show" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] bg-[#1c1c1c] border border-[#333] px-6 py-3 rounded-2xl shadow-2xl text-sm text-white text-center max-w-[90vw]" x-cloak x-transition>
     <span x-text="toast.message"></span>
+</div>
+
+<!-- iOS Install Modal -->
+<div x-show="showIosInstall" x-cloak class="fixed inset-0 z-[70] flex items-end justify-center" style="background:rgba(0,0,0,0.6)" @click.self="showIosInstall = false">
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-lg rounded-t-3xl p-6 pb-10">
+        <h3 class="text-lg font-bold text-white mb-5">Встановити на iPhone</h3>
+        <div class="space-y-4 text-sm">
+            <div class="flex items-start gap-3">
+                <span class="text-2xl leading-none">1️⃣</span>
+                <div class="text-gray-300 leading-snug">Натисни кнопку <span class="text-white font-bold">Поділитися</span> (□↑) у нижній панелі Safari</div>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-2xl leading-none">2️⃣</span>
+                <div class="text-gray-300 leading-snug">Прогорни список дій і обери <span class="text-white font-bold">"На початковий екран"</span></div>
+            </div>
+            <div class="flex items-start gap-3">
+                <span class="text-2xl leading-none">3️⃣</span>
+                <div class="text-gray-300 leading-snug">Натисни <span class="text-white font-bold">"Додати"</span> у верхньому правому куті</div>
+            </div>
+        </div>
+        <button @click="showIosInstall = false" class="w-full bg-blue-600 text-white py-3.5 rounded-2xl font-bold text-sm mt-6">Зрозуміло</button>
+    </div>
 </div>
 
 </body>

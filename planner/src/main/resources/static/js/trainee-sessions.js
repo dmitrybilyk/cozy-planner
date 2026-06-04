@@ -44,6 +44,7 @@ function traineeApp() {
         nowTick: 0,
         nowTickInterval: null,
         deferredInstallPrompt: null,
+        showIosInstall: false,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         notifications: [],
         unreadCount: 0,
@@ -1159,6 +1160,8 @@ function traineeApp() {
         },
 
         async installPwa() {
+            const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+            if (isIos) { this.showIosInstall = true; return; }
             const prompt = this.deferredInstallPrompt || _deferredInstall;
             if (prompt) {
                 prompt.prompt();
@@ -1166,6 +1169,18 @@ function traineeApp() {
                 this.deferredInstallPrompt = null;
                 _deferredInstall = null;
             }
+        },
+
+        async toggleSessionReminder() {
+            const newVal = !this.me.sessionReminderEnabled;
+            try {
+                const res = await fetch(`/api/v1/trainees/${this.traineeId}/session-reminder`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: newVal })
+                });
+                if (res.ok) this.me = { ...this.me, sessionReminderEnabled: newVal };
+            } catch (e) { /* ignore */ }
         },
 
         convertTz(timeStr, dateStr, fromTz, toTz) {

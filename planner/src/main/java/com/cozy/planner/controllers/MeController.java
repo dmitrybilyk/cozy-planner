@@ -87,6 +87,8 @@ public class MeController {
                                             mentorMap.put("timezone", mentor.getTimezone());
                                             mentorMap.put("availStep", mentor.getAvailStep());
                                             mentorMap.put("theme", mentor.getTheme() != null ? mentor.getTheme() : "default");
+                                            mentorMap.put("introSeen", Boolean.TRUE.equals(mentor.getIntroSeen()));
+                                            mentorMap.put("isDemo", "demo-seed".equals(googleSub));
                                             r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));
                                             return r;
@@ -139,6 +141,8 @@ public class MeController {
         r.put("name", trainee.getName());
         r.put("inviteToken", trainee.getInviteToken());
         r.put("timezone", trainee.getTimezone() != null ? trainee.getTimezone() : "Europe/Kiev");
+
+        r.put("sessionReminderEnabled", trainee.isSessionReminderEnabled());
 
         boolean tgEnabled = telegramConfig.isEnabled()
                 && telegramConfig.getBotToken() != null

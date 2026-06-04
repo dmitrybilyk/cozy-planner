@@ -50,6 +50,10 @@ public class Mentor {
     @Builder.Default
     private String theme = "default";
 
+    @Column("intro_seen")
+    @Builder.Default
+    private Boolean introSeen = false;
+
     @Column("share_token")
     private String shareToken;
 
