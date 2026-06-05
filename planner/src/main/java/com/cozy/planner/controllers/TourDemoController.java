@@ -52,7 +52,7 @@ public class TourDemoController {
                 return Mono.just(ResponseEntity.badRequest().<Map<String, Object>>build());
             }
 
-            return cleanupDemoIds(session)
+            return cleanupDemoIds(session, mentorId)
                     .then(Mono.defer(() -> {
                         LocalDate today    = LocalDate.now();
                         LocalDate tomorrow = today.plusDays(1);
@@ -66,9 +66,9 @@ public class TourDemoController {
                                     long loc1Id = locs.getT1().getId();
                                     long loc2Id = locs.getT2().getId();
 
-                                    Trainee t1 = Trainee.builder().name("Анна К.").mentorId(mentorId)
+                                    Trainee t1 = Trainee.builder().name("Тур Учень 1").mentorId(mentorId)
                                             .inviteToken("demo-t1-" + mentorId + "-" + ts).build();
-                                    Trainee t2 = Trainee.builder().name("Дмитро М.").mentorId(mentorId)
+                                    Trainee t2 = Trainee.builder().name("Тур Учень 2").mentorId(mentorId)
                                             .inviteToken("demo-t2-" + mentorId + "-" + ts).build();
 
                                     AvailabilityRange r1 = range(mentorId, today, 9, 12, loc1Id);
@@ -127,21 +127,23 @@ public class TourDemoController {
 
     @DeleteMapping("/api/v1/tour/demo")
     public Mono<ResponseEntity<Void>> deleteTourDemo(ServerWebExchange exchange) {
-        return exchange.getSession().flatMap(session ->
-                cleanupDemoIds(session).then(Mono.just(ResponseEntity.ok().build()))
-        );
+        return exchange.getSession().flatMap(session -> {
+            Object mentorIdObj = session.getAttribute("mentor_id");
+            long mentorId = mentorIdObj instanceof Number ? ((Number) mentorIdObj).longValue() : 0;
+            return cleanupDemoIds(session, mentorId).then(Mono.just(ResponseEntity.ok().build()));
+        });
     }
 
     private AvailabilityRange range(long mentorId, LocalDate date, int startHour, int endHour, long locationId) {
         return AvailabilityRange.builder()
-                .userId(mentorId).userType("mentor").date(date)
+                .userId(mentorId).userType("COACH").date(date)
                 .startTime(date.atTime(startHour, 0).atOffset(ZoneOffset.UTC))
                 .endTime(date.atTime(endHour, 0).atOffset(ZoneOffset.UTC))
                 .locationId(locationId).freeAllDay(false)
                 .build();
     }
 
-    private Mono<Void> cleanupDemoIds(WebSession session) {
+    private Mono<Void> cleanupDemoIds(WebSession session, long mentorId) {
         Object sessionIdObj  = session.getAttribute("tour_demo_session_id");
         Object traineeId1Obj = session.getAttribute("tour_demo_trainee_id_1");
         Object traineeId2Obj = session.getAttribute("tour_demo_trainee_id_2");
@@ -172,7 +174,18 @@ public class TourDemoController {
                 work = work.then(locationRepository.deleteById(((Number) lid).longValue())).then();
         }
 
-        return work.doOnSuccess(v -> {
+        // Also clean up orphaned tour demo data by mentor_id + known names/titles
+        Mono<Void> orphanCleanup = sessionRepository.findByMentorIdAndTitle(mentorId, "Демо")
+            .flatMap(s -> sessionRepository.deleteTraineeLinks(s.getId())
+                .then(sessionRepository.deleteById(s.getId())))
+            .then(Mono.defer(() ->
+                traineeRepository.findAllByMentorId(mentorId)
+                    .filter(t -> "Тур Учень 1".equals(t.getName()) || "Тур Учень 2".equals(t.getName()))
+                    .flatMap(t -> traineeRepository.deleteById(t.getId()))
+                    .then()
+            ));
+
+        return work.then(orphanCleanup).doOnSuccess(v -> {
             for (String key : new String[]{
                     "tour_demo_session_id",
                     "tour_demo_trainee_id_1", "tour_demo_trainee_id_2",

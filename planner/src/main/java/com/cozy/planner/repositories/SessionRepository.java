@@ -50,4 +50,7 @@ public interface SessionRepository extends ReactiveCrudRepository<Session, Long>
 
     @Query("SELECT * FROM meetings WHERE mentor_id = :mentorId AND meeting_date = :date")
     Flux<Session> findAllByMentorIdAndWorkoutDate(Long mentorId, LocalDate date);
+
+    @Query("SELECT * FROM meetings WHERE mentor_id = :mentorId AND title = :title")
+    Flux<Session> findByMentorIdAndTitle(Long mentorId, String title);
 }
