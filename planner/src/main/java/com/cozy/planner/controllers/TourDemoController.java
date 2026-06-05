@@ -54,84 +54,69 @@ public class TourDemoController {
 
             return cleanupDemoIds(session)
                     .then(Mono.defer(() -> {
-                        LocalDate today = LocalDate.now();
+                        LocalDate today    = LocalDate.now();
+                        LocalDate tomorrow = today.plusDays(1);
+                        long ts = System.currentTimeMillis();
 
-                        Location loc1 = Location.builder()
-                                .name("Зал А")
-                                .color("#10b981")
-                                .mentorId(mentorId)
-                                .build();
-                        Location loc2 = Location.builder()
-                                .name("Зал Б")
-                                .color("#f97316")
-                                .mentorId(mentorId)
-                                .build();
+                        Location loc1 = Location.builder().name("Зал А").color("#10b981").mentorId(mentorId).build();
+                        Location loc2 = Location.builder().name("Зал Б").color("#f97316").mentorId(mentorId).build();
 
                         return Mono.zip(locationRepository.save(loc1), locationRepository.save(loc2))
                                 .flatMap(locs -> {
-                                    Location savedLoc1 = locs.getT1();
-                                    Location savedLoc2 = locs.getT2();
+                                    long loc1Id = locs.getT1().getId();
+                                    long loc2Id = locs.getT2().getId();
 
-                                    Trainee trainee = Trainee.builder()
-                                            .name("Демо-клієнт")
-                                            .mentorId(mentorId)
-                                            .inviteToken("demo-tour-" + mentorId + "-" + System.currentTimeMillis())
-                                            .build();
+                                    Trainee t1 = Trainee.builder().name("Анна К.").mentorId(mentorId)
+                                            .inviteToken("demo-t1-" + mentorId + "-" + ts).build();
+                                    Trainee t2 = Trainee.builder().name("Дмитро М.").mentorId(mentorId)
+                                            .inviteToken("demo-t2-" + mentorId + "-" + ts).build();
 
-                                    AvailabilityRange range1 = AvailabilityRange.builder()
-                                            .userId(mentorId)
-                                            .userType("mentor")
-                                            .date(today)
-                                            .startTime(today.atTime(9, 0).atOffset(ZoneOffset.UTC))
-                                            .endTime(today.atTime(12, 0).atOffset(ZoneOffset.UTC))
-                                            .locationId(savedLoc1.getId())
-                                            .freeAllDay(false)
-                                            .build();
-
-                                    AvailabilityRange range2 = AvailabilityRange.builder()
-                                            .userId(mentorId)
-                                            .userType("mentor")
-                                            .date(today)
-                                            .startTime(today.atTime(14, 0).atOffset(ZoneOffset.UTC))
-                                            .endTime(today.atTime(18, 0).atOffset(ZoneOffset.UTC))
-                                            .locationId(savedLoc2.getId())
-                                            .freeAllDay(false)
-                                            .build();
+                                    AvailabilityRange r1 = range(mentorId, today, 9, 12, loc1Id);
+                                    AvailabilityRange r2 = range(mentorId, today, 14, 18, loc2Id);
+                                    AvailabilityRange r3 = range(mentorId, tomorrow, 10, 13, loc1Id);
+                                    AvailabilityRange r4 = range(mentorId, tomorrow, 15, 17, loc2Id);
 
                                     return Mono.zip(
-                                            traineeRepository.save(trainee),
-                                            rangeRepository.save(range1),
-                                            rangeRepository.save(range2)
+                                            traineeRepository.save(t1), traineeRepository.save(t2),
+                                            rangeRepository.save(r1), rangeRepository.save(r2),
+                                            rangeRepository.save(r3), rangeRepository.save(r4)
                                     ).flatMap(tuple -> {
-                                        Trainee savedTrainee = tuple.getT1();
-                                        AvailabilityRange savedRange1 = tuple.getT2();
-                                        AvailabilityRange savedRange2 = tuple.getT3();
+                                        Trainee st1 = tuple.getT1();
+                                        Trainee st2 = tuple.getT2();
+                                        AvailabilityRange sr1 = tuple.getT3();
+                                        AvailabilityRange sr2 = tuple.getT4();
+                                        AvailabilityRange sr3 = tuple.getT5();
+                                        AvailabilityRange sr4 = tuple.getT6();
 
                                         Session s = Session.builder()
                                                 .title("Демо")
                                                 .mentorId(mentorId)
-                                                .locationId(savedLoc1.getId())
+                                                .locationId(loc1Id)
                                                 .workoutDate(today)
                                                 .startTime(LocalTime.of(10, 0))
                                                 .endTime(LocalTime.of(11, 0))
                                                 .confirmationStatus("CONFIRMED")
+                                                .confirmedTraineeIds(String.valueOf(st1.getId()))
+                                                .rejectedTraineeIds(String.valueOf(st2.getId()))
                                                 .build();
 
                                         return sessionRepository.save(s).flatMap(savedSession ->
-                                                sessionRepository.linkTraineeToSession(savedSession.getId(), savedTrainee.getId())
-                                                        .then(Mono.fromSupplier(() -> {
-                                                            session.getAttributes().put("tour_demo_session_id", savedSession.getId());
-                                                            session.getAttributes().put("tour_demo_trainee_id", savedTrainee.getId());
-                                                            session.getAttributes().put("tour_demo_location_id_1", savedLoc1.getId());
-                                                            session.getAttributes().put("tour_demo_location_id_2", savedLoc2.getId());
-                                                            session.getAttributes().put("tour_demo_range_id_1", savedRange1.getId());
-                                                            session.getAttributes().put("tour_demo_range_id_2", savedRange2.getId());
+                                                sessionRepository.linkTraineeToSession(savedSession.getId(), st1.getId())
+                                                        .then(sessionRepository.linkTraineeToSession(savedSession.getId(), st2.getId()))
+                                                        .then(Mono.defer(() -> {
+                                                            session.getAttributes().put("tour_demo_session_id",    savedSession.getId());
+                                                            session.getAttributes().put("tour_demo_trainee_id_1",  st1.getId());
+                                                            session.getAttributes().put("tour_demo_trainee_id_2",  st2.getId());
+                                                            session.getAttributes().put("tour_demo_location_id_1", loc1Id);
+                                                            session.getAttributes().put("tour_demo_location_id_2", loc2Id);
+                                                            session.getAttributes().put("tour_demo_range_id_1",    sr1.getId());
+                                                            session.getAttributes().put("tour_demo_range_id_2",    sr2.getId());
+                                                            session.getAttributes().put("tour_demo_range_id_3",    sr3.getId());
+                                                            session.getAttributes().put("tour_demo_range_id_4",    sr4.getId());
                                                             Map<String, Object> result = new HashMap<>();
                                                             result.put("sessionId", savedSession.getId());
-                                                            result.put("traineeId", savedTrainee.getId());
-                                                            result.put("locationId1", savedLoc1.getId());
-                                                            result.put("locationId2", savedLoc2.getId());
-                                                            return ResponseEntity.ok(result);
+                                                            return session.save()
+                                                                    .thenReturn(ResponseEntity.<Map<String, Object>>ok(result));
                                                         }))
                                         );
                                     });
@@ -147,13 +132,25 @@ public class TourDemoController {
         );
     }
 
+    private AvailabilityRange range(long mentorId, LocalDate date, int startHour, int endHour, long locationId) {
+        return AvailabilityRange.builder()
+                .userId(mentorId).userType("mentor").date(date)
+                .startTime(date.atTime(startHour, 0).atOffset(ZoneOffset.UTC))
+                .endTime(date.atTime(endHour, 0).atOffset(ZoneOffset.UTC))
+                .locationId(locationId).freeAllDay(false)
+                .build();
+    }
+
     private Mono<Void> cleanupDemoIds(WebSession session) {
-        Object sessionIdObj = session.getAttribute("tour_demo_session_id");
-        Object traineeIdObj = session.getAttribute("tour_demo_trainee_id");
-        Object locId1Obj    = session.getAttribute("tour_demo_location_id_1");
-        Object locId2Obj    = session.getAttribute("tour_demo_location_id_2");
-        Object rangeId1Obj  = session.getAttribute("tour_demo_range_id_1");
-        Object rangeId2Obj  = session.getAttribute("tour_demo_range_id_2");
+        Object sessionIdObj  = session.getAttribute("tour_demo_session_id");
+        Object traineeId1Obj = session.getAttribute("tour_demo_trainee_id_1");
+        Object traineeId2Obj = session.getAttribute("tour_demo_trainee_id_2");
+        Object locId1Obj     = session.getAttribute("tour_demo_location_id_1");
+        Object locId2Obj     = session.getAttribute("tour_demo_location_id_2");
+        Object rangeId1Obj   = session.getAttribute("tour_demo_range_id_1");
+        Object rangeId2Obj   = session.getAttribute("tour_demo_range_id_2");
+        Object rangeId3Obj   = session.getAttribute("tour_demo_range_id_3");
+        Object rangeId4Obj   = session.getAttribute("tour_demo_range_id_4");
 
         Mono<Void> work = Mono.empty();
 
@@ -162,30 +159,27 @@ public class TourDemoController {
             work = work.then(sessionRepository.deleteTraineeLinks(sid))
                        .then(sessionRepository.deleteById(sid)).then();
         }
-        if (traineeIdObj instanceof Number) {
-            long tid = ((Number) traineeIdObj).longValue();
-            work = work.then(traineeRepository.deleteById(tid)).then();
+        for (Object tid : new Object[]{traineeId1Obj, traineeId2Obj}) {
+            if (tid instanceof Number)
+                work = work.then(traineeRepository.deleteById(((Number) tid).longValue())).then();
         }
-        if (rangeId1Obj instanceof Number) {
-            work = work.then(rangeRepository.deleteById(((Number) rangeId1Obj).longValue())).then();
+        for (Object rid : new Object[]{rangeId1Obj, rangeId2Obj, rangeId3Obj, rangeId4Obj}) {
+            if (rid instanceof Number)
+                work = work.then(rangeRepository.deleteById(((Number) rid).longValue())).then();
         }
-        if (rangeId2Obj instanceof Number) {
-            work = work.then(rangeRepository.deleteById(((Number) rangeId2Obj).longValue())).then();
-        }
-        if (locId1Obj instanceof Number) {
-            work = work.then(locationRepository.deleteById(((Number) locId1Obj).longValue())).then();
-        }
-        if (locId2Obj instanceof Number) {
-            work = work.then(locationRepository.deleteById(((Number) locId2Obj).longValue())).then();
+        for (Object lid : new Object[]{locId1Obj, locId2Obj}) {
+            if (lid instanceof Number)
+                work = work.then(locationRepository.deleteById(((Number) lid).longValue())).then();
         }
 
         return work.doOnSuccess(v -> {
-            session.getAttributes().remove("tour_demo_session_id");
-            session.getAttributes().remove("tour_demo_trainee_id");
-            session.getAttributes().remove("tour_demo_location_id_1");
-            session.getAttributes().remove("tour_demo_location_id_2");
-            session.getAttributes().remove("tour_demo_range_id_1");
-            session.getAttributes().remove("tour_demo_range_id_2");
+            for (String key : new String[]{
+                    "tour_demo_session_id",
+                    "tour_demo_trainee_id_1", "tour_demo_trainee_id_2",
+                    "tour_demo_location_id_1", "tour_demo_location_id_2",
+                    "tour_demo_range_id_1", "tour_demo_range_id_2",
+                    "tour_demo_range_id_3", "tour_demo_range_id_4"
+            }) session.getAttributes().remove(key);
         });
     }
 }

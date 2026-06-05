@@ -162,8 +162,8 @@ function calendarApp() {
                 { target: '[data-tour="copy-session"]',     tab: 'feed',               title: `Копіювати ${session_gen}`,      body: `Копіює ${session_gen} із тими самими параметрами. Залишиться лише змінити дату і час — зручно для регулярних ${sessions_gen}.`,                                                                                                                   fullCards: true,   position: 'bottom' },
                 { target: '[data-tour="history"]',          tab: 'feed',               title: 'Історія',                       body: `Кнопка 🕐 відкриває історію минулих ${sessions_gen}. Можна скопіювати будь-який минулий ${session_gen} і перепризначити на нову дату.`,                                                                                                                                      position: 'bottom' },
                 { target: '[data-tour="trainees"]',         tab: 'feed',               title: manage,                          body: `${manage}: тут додаєш нових, редагуєш профілі, бачиш їх доступність і можеш вручну надіслати ${trainee_dat} запит на доступність через Telegram.`,                                                                                                                                         position: 'bottom' },
-                { target: '[data-tour="trainee-site-btn"]', tab: 'trainees',           title: `Сайт ${trainee_gen}`,           body: `Натисни — посилання скопіюється. Надішли ${trainee_dat}: він відкриє свою сторінку, де може бачити розклад, відмічати свою доступність і самостійно резервувати ${sessions}.`,                                                                                                             position: 'bottom' },
-                { target: '[data-tour="trainee-actions"]',  tab: 'trainees',           title: 'Telegram',                      body: `${l.trainee || 'Клієнт'} підключає Telegram зі своєї сторінки або ти копіюєш посилання тут і надсилаєш напряму. Якщо ${trainee} підключений — можеш попросити його відмітити свою доступність прямо з цього меню.`,                                                                       position: 'bottom' },
+                { target: '[data-tour="trainee-site-btn"]', tab: 'trainees', detailTrainees: true,           title: `Сайт ${trainee_gen}`,           body: `Натисни — посилання скопіюється. Надішли ${trainee_dat}: він відкриє свою сторінку, де може бачити розклад, відмічати свою доступність і самостійно резервувати ${sessions}.`,                                                                                                             position: 'bottom' },
+                { target: '[data-tour="trainee-actions"]',  tab: 'trainees', detailTrainees: true,           title: 'Telegram',                      body: `${l.trainee || 'Клієнт'} підключає Telegram зі своєї сторінки або ти копіюєш посилання тут і надсилаєш напряму. Якщо ${trainee} підключений — можеш попросити його відмітити свою доступність прямо з цього меню.`,                                                                       position: 'bottom' },
                 { target: '[data-tour="locations-btn"]',    tab: 'feed',               title: l.locations || 'Локації',        body: `${l.locations || 'Місця'} для ${sessions_gen} з власними кольорами — одразу видно у розкладі. Додавай Google Maps посилання і ділись ним з новими ${trainees_instr}.`,                                                                                                                     position: 'bottom' },
                 { target: '[data-tour="locations-list"]',   tab: 'locations',          title: `Список ${locations}`,           body: `Кожна ${location} має колір і може мати Google Maps посилання. Скопіюй посилання і поділись напряму з ${trainees_instr}.`,                                                                                                                                                                  position: 'top'    },
                 { target: '[data-tour="availability"]',     tab: 'feed',               title: 'Моя доступність',               body: `Відмічай конкретні часові інтервали по ${locations} — де і коли ти вільний. ${l.trainees || 'Клієнти'} бачать це і можуть самостійно бронювати вільний час.`,                                                                                                                              position: 'bottom' },
@@ -233,9 +233,12 @@ function calendarApp() {
             this._markIntroSeen();
             this.tourStep = 0;
             this.showTour = true;
+            this.selectedDate = this.todayStr;
+            this.activeTab = 'feed';
             setTimeout(() => this._updateTourRect(), 100);
             try {
                 await fetch('/api/v1/tour/demo', { method: 'POST' });
+                this.coachLoaded = false;
                 await Promise.all([this.fetchData(), this.fetchTrainees(), this.fetchLocations()]);
             } catch (e) {}
         },
@@ -248,17 +251,25 @@ function calendarApp() {
                     this._tourRect = { top: window.innerHeight / 2, left: window.innerWidth / 2, width: 0, height: 0 };
                     return;
                 }
-                const r = el.getBoundingClientRect();
-                this._tourRect = { top: r.top, left: r.left, width: r.width, height: r.height };
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                setTimeout(() => {
+                    const r = el.getBoundingClientRect();
+                    this._tourRect = { top: r.top, left: r.left, width: r.width, height: r.height };
+                }, 300);
             };
             if (step.fullCards && this.compactView) {
                 this.compactView = false;
                 this.collapsedIds = [];
             }
+            if (step.detailTrainees && this.traineeCompactView) {
+                this.traineeCompactView = false;
+                this.traineeExpandedIds = [];
+                this._ref++;
+            }
             if (step.tab && this.activeTab !== step.tab) {
-                if (step.tab === 'coach-availability') this.loadCoachAvailability();
+                if (step.tab === 'coach-availability') { this.coachLoaded = false; this.loadCoachAvailability(); }
                 this.activeTab = step.tab;
-                setTimeout(doMeasure, 280);
+                setTimeout(doMeasure, 380);
             } else {
                 doMeasure();
             }
@@ -276,6 +287,7 @@ function calendarApp() {
             this._tourRect = null;
             try {
                 await fetch('/api/v1/tour/demo', { method: 'DELETE' });
+                this.coachLoaded = false;
                 await Promise.all([this.fetchData(), this.fetchTrainees(), this.fetchLocations()]);
             } catch (e) {}
         },

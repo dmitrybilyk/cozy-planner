@@ -10,4 +10,5 @@
         <appender-ref ref="CONSOLE"/>
     </root>
     <logger name="com.cozy.planner" level="DEBUG"/>
+    <logger name="com.cozy.planner.config.PersistentWebSessionStore" level="WARN"/>
 </configuration>
