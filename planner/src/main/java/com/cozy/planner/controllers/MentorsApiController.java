@@ -227,6 +227,7 @@ public class MentorsApiController implements MentorsApi {
                         if (body.containsKey("availStep")) mentor.setAvailStep(Integer.valueOf(body.get("availStep")));
                         if (body.containsKey("theme")) mentor.setTheme(body.get("theme"));
                         if (body.containsKey("introSeen")) mentor.setIntroSeen(Boolean.parseBoolean(body.get("introSeen")));
+                        if (body.containsKey("sessionReminderEnabled")) mentor.setSessionReminderEnabled(Boolean.parseBoolean(body.get("sessionReminderEnabled")));
                         return mentorRepository.save(mentor)
                                 .then(Mono.fromCallable(() -> {
                                     Map<String, Object> r = new HashMap<>();

@@ -76,8 +76,13 @@ public class TourDemoController {
                                     AvailabilityRange r3 = range(mentorId, tomorrow, 10, 13, loc1Id);
                                     AvailabilityRange r4 = range(mentorId, tomorrow, 15, 17, loc2Id);
 
+                                    Mono<Trainee> saveT1 = traineeRepository.findByNameAndMentorId("Тур Учень 1", mentorId)
+                                            .switchIfEmpty(traineeRepository.save(t1));
+                                    Mono<Trainee> saveT2 = traineeRepository.findByNameAndMentorId("Тур Учень 2", mentorId)
+                                            .switchIfEmpty(traineeRepository.save(t2));
+
                                     return Mono.zip(
-                                            traineeRepository.save(t1), traineeRepository.save(t2),
+                                            saveT1, saveT2,
                                             rangeRepository.save(r1), rangeRepository.save(r2),
                                             rangeRepository.save(r3), rangeRepository.save(r4)
                                     ).flatMap(tuple -> {

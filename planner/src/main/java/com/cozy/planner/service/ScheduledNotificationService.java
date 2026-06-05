@@ -23,6 +23,7 @@ import java.time.temporal.ChronoUnit;
 public class ScheduledNotificationService {
 
     private final NotificationService notificationService;
+    private final PushService pushService;
     private final SessionRepository sessionRepository;
     private final MentorRepository mentorRepository;
     private final LocationRepository locationRepository;
@@ -31,12 +32,14 @@ public class ScheduledNotificationService {
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    public ScheduledNotificationService(NotificationService notificationService, 
+    public ScheduledNotificationService(NotificationService notificationService,
+                                         PushService pushService,
                                          SessionRepository sessionRepository,
                                          MentorRepository mentorRepository,
                                          LocationRepository locationRepository,
                                          TraineeRepository traineeRepository) {
         this.notificationService = notificationService;
+        this.pushService = pushService;
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.locationRepository = locationRepository;
@@ -87,7 +90,7 @@ public class ScheduledNotificationService {
         sessionRepository.findUpcomingWithoutReminder(today, tomorrow)
                 .flatMap(session -> mentorRepository.findById(session.getMentorId())
                         .flatMap(mentor -> {
-                            if (!mentor.isSessionReminderEnabled() || !mentor.hasTelegram()) {
+                            if (!mentor.isSessionReminderEnabled()) {
                                 return reactor.core.publisher.Mono.empty();
                             }
 
@@ -132,7 +135,6 @@ public class ScheduledNotificationService {
                                 return sessionRepository.findTraineeIdsBySessionId(session.getId())
                                         .flatMap(traineeId -> traineeRepository.findById(traineeId))
                                         .filter(Trainee::isSessionReminderEnabled)
-                                        .filter(Trainee::hasTelegram)
                                         .flatMap(trainee -> processTraineeSessionReminder(session, trainee));
                             }
 
@@ -156,28 +158,27 @@ public class ScheduledNotificationService {
                 .switchIfEmpty(reactor.core.publisher.Mono.just(com.cozy.planner.model.entity.Location.builder().name(null).build()))
                 .flatMap(location -> {
                     String locationName = location.getName();
-
                     String formattedDate = formatDate(session.getWorkoutDate());
                     String formattedTime = formatTime(session.getStartTime(), session.getEndTime());
 
                     log.info("Sending session reminder to mentor {} for session '{}' at {} ({} minutes)",
                             mentor.getName(), session.getTitle(), formattedTime, minutesUntilSession);
 
-                    return notificationService.sendSessionReminderToMentor(
-                                    mentor,
-                                    session.getTitle(),
-                                    formattedDate,
-                                    formattedTime,
-                                    locationName,
-                                    (int) minutesUntilSession
-                            )
-                            .doOnNext(success -> {
-                                if (success) {
-                                    log.info("Session reminder sent to mentor {}", mentor.getName());
-                                } else {
-                                    log.warn("Failed to send session reminder to mentor {}", mentor.getName());
-                                }
-                            })
+                    String pushTitle = "⏰ Нагадування: " + (session.getTitle() != null ? session.getTitle() : "тренування");
+                    String pushBody  = formattedDate + " о " + formattedTime
+                            + (locationName != null ? " • " + locationName : "");
+
+                    reactor.core.publisher.Mono<Void> telegramMono = mentor.hasTelegram()
+                            ? notificationService.sendSessionReminderToMentor(mentor, session.getTitle(),
+                                    formattedDate, formattedTime, locationName, (int) minutesUntilSession)
+                                    .doOnNext(ok -> { if (!ok) log.warn("Telegram mentor reminder failed for {}", mentor.getName()); })
+                                    .then()
+                            : reactor.core.publisher.Mono.empty();
+
+                    reactor.core.publisher.Mono<Void> pushMono =
+                            pushService.sendToMentor(mentor.getId(), pushTitle, pushBody).then();
+
+                    return reactor.core.publisher.Mono.when(telegramMono, pushMono)
                             .then(markReminderSent(session));
                 });
     }
@@ -187,28 +188,27 @@ public class ScheduledNotificationService {
                 .switchIfEmpty(reactor.core.publisher.Mono.just(com.cozy.planner.model.entity.Location.builder().name(null).build()))
                 .flatMap(location -> {
                     String locationName = location.getName();
-
                     String formattedDate = formatDate(session.getWorkoutDate());
                     String formattedTime = formatTime(session.getStartTime(), session.getEndTime());
 
                     log.info("Sending session reminder to trainee {} for session '{}' at {}",
                             trainee.getName(), session.getTitle(), formattedTime);
 
-                    return notificationService.sendSessionReminderToTrainee(
-                                    trainee,
-                                    session.getId(),
-                                    session.getTitle(),
-                                    formattedDate,
-                                    formattedTime,
-                                    locationName
-                            )
-                            .doOnNext(success -> {
-                                if (success) {
-                                    log.info("Session reminder sent to trainee {}", trainee.getName());
-                                } else {
-                                    log.warn("Failed to send session reminder to trainee {}", trainee.getName());
-                                }
-                            })
+                    String pushTitle = "⏰ Нагадування: " + (session.getTitle() != null ? session.getTitle() : "тренування");
+                    String pushBody  = formattedDate + " о " + formattedTime
+                            + (locationName != null ? " • " + locationName : "");
+
+                    reactor.core.publisher.Mono<Void> telegramMono = trainee.hasTelegram()
+                            ? notificationService.sendSessionReminderToTrainee(trainee, session.getId(),
+                                    session.getTitle(), formattedDate, formattedTime, locationName)
+                                    .doOnNext(ok -> { if (!ok) log.warn("Telegram trainee reminder failed for {}", trainee.getName()); })
+                                    .then()
+                            : reactor.core.publisher.Mono.empty();
+
+                    reactor.core.publisher.Mono<Void> pushMono =
+                            pushService.sendToTrainee(trainee.getId(), pushTitle, pushBody).then();
+
+                    return reactor.core.publisher.Mono.when(telegramMono, pushMono)
                             .then(markTraineeReminderSent(session));
                 });
     }

@@ -88,6 +88,7 @@ public class MeController {
                                             mentorMap.put("availStep", mentor.getAvailStep());
                                             mentorMap.put("theme", mentor.getTheme() != null ? mentor.getTheme() : "default");
                                             mentorMap.put("introSeen", Boolean.TRUE.equals(mentor.getIntroSeen()));
+                                            mentorMap.put("sessionReminderEnabled", Boolean.TRUE.equals(mentor.getSessionReminderEnabled()));
                                             mentorMap.put("isDemo", "demo-seed".equals(googleSub));
                                             r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));

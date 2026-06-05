@@ -10,6 +10,7 @@ import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.NotificationRepository;
 import com.cozy.planner.repositories.SessionRepository;
 import com.cozy.planner.repositories.TraineeRepository;
+import com.cozy.planner.service.AuditService;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.ProfileLabels;
 import com.cozy.planner.service.PushService;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 public class SessionsApiController implements SessionsApi {
@@ -55,6 +57,7 @@ public class SessionsApiController implements SessionsApi {
     private final MentorDayOffRepository mentorDayOffRepository;
     private final SearchEventPublisher searchEventPublisher;
     private final SessionCreationSuggestionService sessionCreationSuggestionService;
+    private final AuditService auditService;
 
     public SessionsApiController(SessionRepository sessionRepository,
                                   MentorRepository mentorRepository,
@@ -65,7 +68,8 @@ public class SessionsApiController implements SessionsApi {
                                   NotificationService notificationService,
                                   MentorDayOffRepository mentorDayOffRepository,
                                   SearchEventPublisher searchEventPublisher,
-                                  SessionCreationSuggestionService sessionCreationSuggestionService) {
+                                  SessionCreationSuggestionService sessionCreationSuggestionService,
+                                  AuditService auditService) {
         this.sessionRepository = sessionRepository;
         this.mentorRepository = mentorRepository;
         this.traineeRepository = traineeRepository;
@@ -76,29 +80,33 @@ public class SessionsApiController implements SessionsApi {
         this.mentorDayOffRepository = mentorDayOffRepository;
         this.searchEventPublisher = searchEventPublisher;
         this.sessionCreationSuggestionService = sessionCreationSuggestionService;
+        this.auditService = auditService;
     }
 
     @Override
     public Mono<ResponseEntity<SessionDTO>> createSession(Mono<CreateSessionRequest> createSessionRequest, ServerWebExchange exchange) {
         String baseUrl = baseUrl(exchange);
-        return createSessionRequest
-                .flatMap(request -> {
-                    Long sessionId = request.getId();
-                    log.info("[createSession] id={}, mentorId={}, date={}, time={}, title={}, isUpdate={}",
-                            sessionId, request.getMentorId(), request.getDate(), request.getTime(), request.getTitle(),
-                            sessionId != null && sessionId > 0);
-                    
-                    if (sessionId != null && sessionId > 0) {
-                        return sessionRepository.findById(sessionId)
-                                .flatMap(existing -> updateSession(existing, request, baseUrl))
-                                .switchIfEmpty(Mono.defer(() -> createNewSession(request, baseUrl)));
-                    } else {
-                        return createNewSession(request, baseUrl);
-                    }
-                })
-                .doOnSuccess(resp -> log.info("[createSession] success"))
-                .doOnError(e -> log.error("[createSession] error", e))
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+        return exchange.getSession().flatMap(webSession -> {
+            String actorEmail = webSession.getAttribute("user_email");
+            return createSessionRequest
+                    .flatMap(request -> {
+                        Long sessionId = request.getId();
+                        log.info("[createSession] id={}, mentorId={}, date={}, time={}, title={}, isUpdate={}",
+                                sessionId, request.getMentorId(), request.getDate(), request.getTime(), request.getTitle(),
+                                sessionId != null && sessionId > 0);
+
+                        if (sessionId != null && sessionId > 0) {
+                            return sessionRepository.findById(sessionId)
+                                    .flatMap(existing -> updateSession(existing, request, baseUrl))
+                                    .switchIfEmpty(Mono.defer(() -> createNewSession(request, baseUrl, actorEmail)));
+                        } else {
+                            return createNewSession(request, baseUrl, actorEmail);
+                        }
+                    })
+                    .doOnSuccess(resp -> log.info("[createSession] success"))
+                    .doOnError(e -> log.error("[createSession] error", e))
+                    .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+        });
     }
 
     private String baseUrl(ServerWebExchange exchange) {
@@ -124,7 +132,10 @@ public class SessionsApiController implements SessionsApi {
                 .doOnError(e -> log.error("Error generating session suggestion", e));
     }
 
-    private Mono<SessionDTO> createNewSession(CreateSessionRequest request, String baseUrl) {
+    private Mono<SessionDTO> createNewSession(CreateSessionRequest request, String baseUrl, String actorEmail) {
+        boolean recurring = Boolean.TRUE.equals(request.getRecurring());
+        String groupId = recurring ? UUID.randomUUID().toString() : null;
+
         return validateSession(request.getMentorId(), request.getDate(), parseTime(request.getTime()), parseTime(request.getEndTime()))
                 .then(Mono.defer(() -> {
                     Session session = Session.builder()
@@ -135,9 +146,36 @@ public class SessionsApiController implements SessionsApi {
                             .endTime(parseTime(request.getEndTime()))
                             .mentorId(request.getMentorId())
                             .locationId(request.getLocationId())
+                            .recurring(recurring)
+                            .recurrenceGroupId(groupId)
                             .build();
                     return sessionRepository.save(session)
-                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("CREATED", saved).thenReturn(saved));
+                            .flatMap(saved -> searchEventPublisher.publishSessionEvent("CREATED", saved).thenReturn(saved))
+                            .flatMap(saved -> auditService.log("SESSION_CREATED", actorEmail, saved.getMentorId(),
+                                    "Session created: \"" + saved.getTitle() + "\" on " + saved.getWorkoutDate()
+                                    + (recurring ? " (recurring)" : "")).thenReturn(saved))
+                            .flatMap(saved -> {
+                                if (!recurring) return Mono.just(saved);
+                                // Create 7 more weekly instances
+                                return Flux.range(1, 7)
+                                        .flatMap(week -> {
+                                            Session copy = Session.builder()
+                                                    .title(request.getTitle())
+                                                    .description(request.getDescription())
+                                                    .workoutDate(request.getDate().plusWeeks(week))
+                                                    .startTime(parseTime(request.getTime()))
+                                                    .endTime(parseTime(request.getEndTime()))
+                                                    .mentorId(request.getMentorId())
+                                                    .locationId(request.getLocationId())
+                                                    .recurring(true)
+                                                    .recurrenceGroupId(groupId)
+                                                    .build();
+                                            return sessionRepository.save(copy)
+                                                    .flatMap(c -> saveTraineeLinks(c.getId(), request.getTraineeIds()).thenReturn(c))
+                                                    .flatMap(c -> searchEventPublisher.publishSessionEvent("CREATED", c).thenReturn(c));
+                                        })
+                                        .then(Mono.just(saved));
+                            });
                 }))
                 .flatMap(saved -> saveTraineeLinks(saved.getId(), request.getTraineeIds())
                         .then(loadTraineeIds(saved))
@@ -478,7 +516,9 @@ public class SessionsApiController implements SessionsApi {
         }
         dto.setConfirmedTraineeIds(entity.getConfirmedTraineeIds());
         dto.setRejectedTraineeIds(entity.getRejectedTraineeIds());
-        
+        dto.setRecurring(Boolean.TRUE.equals(entity.getRecurring()));
+        dto.setRecurrenceGroupId(entity.getRecurrenceGroupId());
+
         return dto;
     }
 }

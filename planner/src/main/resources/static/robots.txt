@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /signin
+Allow: /login
+Disallow: /api/
+Disallow: /admin/
+Disallow: /planner
+Disallow: /setup
+Disallow: /trainee/
+
+Sitemap: https://cozy-planner.app/sitemap.xml

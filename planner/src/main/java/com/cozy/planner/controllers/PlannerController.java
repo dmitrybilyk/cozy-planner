@@ -40,8 +40,14 @@ public class PlannerController {
     }
 
     @GetMapping("/planner")
-    public String getPlanner() {
-        return "mentor-view";
+    public Mono<String> getPlanner(ServerWebExchange exchange) {
+        return exchange.getSession().map(session -> {
+            String email = session.getAttribute("user_email");
+            if ("dmitry.mediastore@gmail.com".equals(email)) {
+                return "redirect:/admin";
+            }
+            return "mentor-view";
+        });
     }
 
     @GetMapping("/planner23")

@@ -6,6 +6,7 @@ import com.cozy.planner.model.entity.User;
 import com.cozy.planner.repositories.ClubRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.UserRepository;
+import com.cozy.planner.service.AuditService;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,13 +23,16 @@ public class AuthController {
     private final UserRepository userRepository;
     private final ClubRepository clubRepository;
     private final MentorRepository mentorRepository;
+    private final AuditService auditService;
 
     public AuthController(UserRepository userRepository,
                           ClubRepository clubRepository,
-                          MentorRepository mentorRepository) {
+                          MentorRepository mentorRepository,
+                          AuditService auditService) {
         this.userRepository = userRepository;
         this.clubRepository = clubRepository;
         this.mentorRepository = mentorRepository;
+        this.auditService = auditService;
     }
 
     @GetMapping("/setup")
@@ -37,6 +41,10 @@ public class AuthController {
             String googleSub = session.getAttribute("google_sub");
             if (googleSub == null) {
                 return Mono.just("redirect:/login");
+            }
+            String email = session.getAttribute("user_email");
+            if ("dmitry.mediastore@gmail.com".equals(email)) {
+                return Mono.just("redirect:/admin");
             }
             String name = session.getAttribute("user_name");
             if (name != null) {
@@ -107,7 +115,9 @@ public class AuthController {
                                             .flatMap(user -> createClubAndMentor(user, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal))
                                             .flatMap(savedMentor -> {
                                                 session.getAttributes().put("mentor_id", savedMentor.getId());
-                                                return Mono.just("redirect:/setup/finish");
+                                                return auditService.log("MENTOR_REGISTERED", email, savedMentor.getId(),
+                                                        "New mentor registered: " + mentorName + " (" + email + "), club: " + clubName)
+                                                        .thenReturn("redirect:/setup/finish");
                                             });
                                 })
                         );

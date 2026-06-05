@@ -472,6 +472,10 @@ components:
           type: string
         rejectedTraineeIds:
           type: string
+        recurring:
+          type: boolean
+        recurrenceGroupId:
+          type: string
 
     LocationDTO:
       type: object
@@ -538,3 +542,5 @@ components:
         locationId:
           type: integer
           format: int64
+        recurring:
+          type: boolean

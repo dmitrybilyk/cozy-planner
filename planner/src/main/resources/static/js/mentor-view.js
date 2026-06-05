@@ -17,6 +17,8 @@ function calendarApp() {
         editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false, showTraineeFormModal: false, showLocationFormModal: false, traineeCompactView: true, traineeExpandedIds: [], _ref: 0,
         selectedDate: _today, todayStr: _today,
         days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport', theme: 'default',
+        sessionReminderEnabled: true,
+        bulkAvailTrainees: [], bulkAvailSending: false, bulkAvailResult: null,
         hours: Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')),
         halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
@@ -156,6 +158,7 @@ function calendarApp() {
                 { target: '[data-tour="view-toggle"]',      tab: 'feed',               title: 'Вигляд розкладу',               body: `"День" — детальний список ${sessions} на обрану дату. "План" — хронологічний планер усіх майбутніх ${sessions}.`,                                                                                                                                                                          position: 'bottom' },
                 { target: '#calendar-container',            tab: 'feed',               title: 'Календар',                      body: `Вибирай дату. Числа під днем — кількість ${sessions_gen}. Поточна дата завжди виділена рамкою.`,                                                                                                                                                                                            position: 'bottom' },
                 { target: '[data-tour="add-session"]',      tab: 'feed',               title: new_session,                     body: `При створенні ${session_gen} слоти, що збігаються із запланованими або виходять за межі доступності, не відображаються — тільки реально вільний час.`,                                                                                                                                      position: 'bottom' },
+                { target: '[data-tour="add-session"]',      tab: 'feed',               title: `🔁 Повторюваний ${session_gen}`, body: `У формі створення є прапорець <b>«Повторювати щотижня»</b> — він автоматично створює 8 ${sessions_gen} через однаковий часовий слот кожного тижня. Зручно для постійного розкладу з регулярними ${trainees_instr}.`,                                                                     position: 'bottom' },
                 { target: '[data-tour="day-filter"]',       tab: 'feed',               title: 'Фільтри та режим відображення', body: `Фільтруй по ${location}, статусу (всі / підтверджені / очікують). Перемикай між компактним і детальним режимами карток.`,                                                                                                                                                                   position: 'bottom' },
                 { target: '[data-session-id]',              tab: 'feed',               title: 'Статус підтвердження',          body: `Ім'я ${trainee_gen} у картці одразу показує статус: зелений — підтверджено, червоний — відхилено, сірий — очікує. Видно без відкривання картки.`,                                                                                                 fullCards: true,   position: 'bottom' },
                 { target: '[data-tour="gcal"]',             tab: 'feed',               title: 'Експорт в Google Calendar',     body: `Підтверджений ${session_gen} можна одразу додати до Google Calendar — кнопка з'являється автоматично після підтвердження.`,                                                                                                                        fullCards: true,   position: 'bottom' },
@@ -619,7 +622,8 @@ function calendarApp() {
                 startTime: st,
                 endTime: et,
                 traineeIds: [...(w.traineeIds || [])],
-                locationId: w.locationId || null
+                locationId: w.locationId || null,
+                recurring: false
             };
             this.showModal = true;
         },
@@ -650,7 +654,8 @@ function calendarApp() {
                 startTime: st,
                 endTime: et,
                 traineeIds: [...(session.traineeIds || [])],
-                locationId: session.locationId || null
+                locationId: session.locationId || null,
+                recurring: false
             };
             this.showModal = true;
         },
@@ -788,6 +793,7 @@ function calendarApp() {
                     this.labels = data.labels || {};
                     this.theme = data.mentor?.theme || 'default';
                     this._applyTheme(this.theme);
+                    this.sessionReminderEnabled = data.mentor?.sessionReminderEnabled !== false;
                     return { introSeen: data.mentor?.introSeen === true, isDemo: data.mentor?.isDemo === true };
                 } else {
                     window.location.href = '/setup';
@@ -1387,6 +1393,40 @@ function calendarApp() {
             this.showRefreshModal = true;
         },
 
+        async saveSessionReminderEnabled() {
+            await fetch('/api/v1/mentor/profile', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({sessionReminderEnabled: String(this.sessionReminderEnabled)})
+            });
+        },
+
+        toggleBulkAvailTrainee(id) {
+            const idx = this.bulkAvailTrainees.indexOf(id);
+            if (idx >= 0) this.bulkAvailTrainees.splice(idx, 1);
+            else this.bulkAvailTrainees.push(id);
+        },
+
+        async bulkRequestAvailability() {
+            if (!this.bulkAvailTrainees.length) return;
+            this.bulkAvailSending = true;
+            this.bulkAvailResult = null;
+            try {
+                const res = await fetch('/api/v1/trainees/bulk-notify-availability', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ traineeIds: this.bulkAvailTrainees, dayType: 'tomorrow' })
+                });
+                const data = await res.json();
+                this.bulkAvailResult = data;
+                this.bulkAvailTrainees = [];
+            } catch(e) {
+                this.bulkAvailResult = { success: false };
+            } finally {
+                this.bulkAvailSending = false;
+            }
+        },
+
         async saveTimezone() {
             await fetch('/api/v1/mentor/profile', {
                 method: 'PUT',
@@ -1891,7 +1931,7 @@ function calendarApp() {
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 defaultDate = tomorrow.toISOString().slice(0, 10);
             }
-            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: this.defaultLocationId(defaultDate) };
+            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: this.defaultLocationId(defaultDate), recurring: false };
             this.showModal = true;
             this.scrollDateIntoView();
             this.$nextTick(() => this.onSessionStartChange());
@@ -1903,7 +1943,7 @@ function calendarApp() {
             this.editingSessionId = w.id;
             this.originalSessionData = { date: w.date, time: w.time, endTime: w.endTime, traineeIds: [...(w.traineeIds || [])], title: w.title, description: w.description || '', locationId: w.locationId || null };
             this.sessionValidationErrors = null;
-            this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null };
+            this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null, recurring: false };
             this.showModal = true;
             this.scrollDateIntoView();
         },
@@ -1926,7 +1966,7 @@ function calendarApp() {
             if (startTime === 'all_day') {
                 const trainee = this.trainees.find(t => t.id === traineeId);
                 const traineeName = trainee ? trainee.name : '';
-                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date, startTime: null, endTime: null, traineeIds: [traineeId], locationId: this.defaultLocationId(date) };
+                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date, startTime: null, endTime: null, traineeIds: [traineeId], locationId: this.defaultLocationId(date), recurring: false };
                 this.showModal = true;
                 this.scrollDateIntoView();
                 this.$nextTick(() => {
@@ -1951,14 +1991,14 @@ function calendarApp() {
                 const traineeName = trainee ? trainee.name : '';
                 const st = startTime;
                 const et = endTime;
-                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: st.slice(0,5), endTime: et.slice(0,5), traineeIds: [traineeId], locationId: this.defaultLocationId(date) };
+                this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + (traineeName ? ' — ' + traineeName : ''), description: '', date: date, startTime: st.slice(0,5), endTime: et.slice(0,5), traineeIds: [traineeId], locationId: this.defaultLocationId(date), recurring: false };
                 this.showModal = true;
                 this.scrollDateIntoView();
             });
         },
 
         async saveSession() {
-            const { startTime, endTime, date, title, description, traineeIds, locationId } = this.sessionForm;
+            const { startTime, endTime, date, title, description, traineeIds, locationId, recurring } = this.sessionForm;
             if (!startTime || !endTime) return;
             if (date < this.todayStr) return;
             if (this.locations.length > 0 && !locationId) return;
@@ -1982,11 +2022,13 @@ function calendarApp() {
                     await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' });
                 }
             }
+            const isNew = !this.editingSessionId || (date !== this.originalSessionData?.date || newTime !== this.originalSessionData?.time);
             const payload = {
                 id: (this.editingSessionId && date === this.originalSessionData?.date && newTime === this.originalSessionData?.time) ? this.editingSessionId : null,
                 title, description, date, mentorId: this.mentorId,
                 time: newTime, endTime,
-                traineeIds, locationId
+                traineeIds, locationId,
+                recurring: isNew ? !!recurring : false
             };
             console.log(`[saveSession] creating session: date=${payload.date}, time=${payload.time}, endTime=${payload.endTime}, editingId=${payload.id}`);
             const res = await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -2042,7 +2084,7 @@ function calendarApp() {
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.originalSessionData = null;
-            this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: this.defaultLocationId(this.selectedDate) };
+            this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: this.defaultLocationId(this.selectedDate), recurring: false };
             this.showModal = true;
         },
         _isSlotInAllTraineeAvail(fromMin, toMin, date) {

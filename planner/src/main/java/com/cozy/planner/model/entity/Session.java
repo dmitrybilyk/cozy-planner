@@ -60,6 +60,12 @@ public class Session {
     @Builder.Default
     private String rejectedTraineeIds = "";
 
+    @Builder.Default
+    private Boolean recurring = false;
+
+    @Column("recurrence_group_id")
+    private String recurrenceGroupId;
+
     @Transient
     private List<Long> traineeIds;
 }

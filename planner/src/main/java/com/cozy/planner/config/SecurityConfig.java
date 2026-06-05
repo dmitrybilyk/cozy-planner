@@ -1,5 +1,6 @@
 package com.cozy.planner.config;
 
+import com.cozy.planner.service.AuditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -25,6 +26,12 @@ public class SecurityConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
+    private final AuditService auditService;
+
+    public SecurityConfig(AuditService auditService) {
+        this.auditService = auditService;
+    }
+
     @Bean
     public WebSessionIdResolver webSessionIdResolver() {
         var resolver = new CookieWebSessionIdResolver();
@@ -49,14 +56,17 @@ public class SecurityConfig {
                             var principal = (OidcUser) authentication.getPrincipal();
                             log.info("OAuth2 login SUCCESS: sub={}, email={}, name={}",
                                     principal.getSubject(), principal.getEmail(), principal.getGivenName());
+                            boolean isAdmin = "dmitry.mediastore@gmail.com".equals(principal.getEmail());
                             var session = webFilterExchange.getExchange().getSession();
                             return session.flatMap(s -> {
                                 s.getAttributes().put("google_sub", principal.getSubject());
                                 s.getAttributes().put("user_email", principal.getEmail());
                                 s.getAttributes().put("user_name", principal.getGivenName());
+                                auditService.log(isAdmin ? "ADMIN_LOGIN" : "MENTOR_LOGIN", principal.getEmail(), null,
+                                        "Login: " + principal.getGivenName() + " <" + principal.getEmail() + ">").subscribe();
                                 var response = webFilterExchange.getExchange().getResponse();
                                 response.setStatusCode(org.springframework.http.HttpStatus.FOUND);
-                                response.getHeaders().setLocation(URI.create("/setup"));
+                                response.getHeaders().setLocation(URI.create(isAdmin ? "/admin" : "/setup"));
                                 return response.setComplete();
                             });
                         })

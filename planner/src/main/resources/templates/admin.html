@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="uk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin — Cozy Planner</title>
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0f0f0f; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+        header { background: #1a1a1a; border-bottom: 1px solid #333; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+        header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+        .live-dot { width: 8px; height: 8px; background: #22c55e; border-radius: 50%; animation: pulse 1.5s infinite; flex-shrink: 0; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .tabs { display: flex; gap: 2px; margin-left: auto; }
+        .tab { background: none; border: 1px solid #333; color: #888; padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all .15s; }
+        .tab.active { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+        main { padding: 20px 24px; }
+        /* Stats cards */
+        .stat-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .stat-card { background: #1a1a1a; border: 1px solid #333; border-radius: 14px; padding: 16px 20px; min-width: 130px; flex: 1; }
+        .stat-card .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: .05em; }
+        .stat-card .value { font-size: 28px; font-weight: 800; color: #fff; margin-top: 4px; }
+        .stat-card .sub { font-size: 11px; color: #555; margin-top: 2px; }
+        /* Section toggle */
+        .section { display: none; }
+        .section.active { display: block; }
+        /* Users table */
+        .filters { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+        .filters input { background: #1c1c1c; border: 1px solid #333; color: #e0e0e0; padding: 7px 12px; border-radius: 8px; font-size: 13px; outline: none; min-width: 220px; }
+        .filters input:focus { border-color: #3b82f6; }
+        .table-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #1f1f1f; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th { text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #555; background: #141414; white-space: nowrap; }
+        tbody tr { border-top: 1px solid #1a1a1a; transition: background .1s; }
+        tbody tr:hover { background: #1a1a1a; }
+        tbody td { padding: 10px 12px; vertical-align: middle; }
+        .email-cell { color: #60a5fa; font-size: 12px; }
+        .ts-cell { color: #555; font-size: 12px; white-space: nowrap; }
+        .num { text-align: right; color: #a0a0a0; }
+        .profile-badge { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 5px; background: #1f2937; color: #9ca3af; font-weight: 700; }
+        /* Audit log table */
+        .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+        .tag-MENTOR_REGISTERED { background: #166534; color: #86efac; }
+        .tag-MENTOR_LOGIN      { background: #1e3a5f; color: #93c5fd; }
+        .tag-ADMIN_LOGIN       { background: #4c1d95; color: #c4b5fd; }
+        .tag-SESSION_CREATED   { background: #713f12; color: #fcd34d; }
+        .tag-TRAINEE_ADDED     { background: #1c3a2b; color: #6ee7b7; }
+        .tag-default           { background: #1f2937; color: #9ca3af; }
+        .new-row { animation: highlight .8s ease-out; }
+        @keyframes highlight { from { background: #1e3a5f; } to { background: transparent; } }
+        /* Audit stats row */
+        .audit-stats { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .audit-stat { background: #141414; border: 1px solid #222; border-radius: 10px; padding: 10px 16px; min-width: 120px; }
+        .audit-stat .al { font-size: 10px; color: #555; text-transform: uppercase; }
+        .audit-stat .av { font-size: 20px; font-weight: 800; color: #fff; margin-top: 2px; }
+        a.logout { margin-left: 16px; color: #555; font-size: 12px; text-decoration: none; }
+        a.logout:hover { color: #e0e0e0; }
+    </style>
+</head>
+<body>
+<header>
+    <div class="live-dot"></div>
+    <h1>Admin</h1>
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('users')">👥 Users</button>
+        <button class="tab" onclick="showTab('audit')">📋 Audit log</button>
+    </div>
+    <a class="logout" href="/logout">logout</a>
+</header>
+
+<main>
+    <!-- Stats cards (always visible) -->
+    <div class="stat-row">
+        <div class="stat-card">
+            <div class="label">Registered users</div>
+            <div class="value" id="s-users">—</div>
+            <div class="sub">total accounts</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Mentors</div>
+            <div class="value" id="s-mentors">—</div>
+            <div class="sub">coach profiles</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Trainees</div>
+            <div class="value" id="s-trainees">—</div>
+            <div class="sub">across all mentors</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">Sessions</div>
+            <div class="value" id="s-sessions">—</div>
+            <div class="sub">all time</div>
+        </div>
+    </div>
+
+    <!-- Users tab -->
+    <div class="section active" id="tab-users">
+        <div class="filters">
+            <input type="text" id="user-search" placeholder="🔍 Filter by name or email…" oninput="renderUsers()">
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Registered</th>
+                    <th>Mentor name</th>
+                    <th>Profile</th>
+                    <th class="num">Trainees</th>
+                    <th class="num">Sessions</th>
+                </tr></thead>
+                <tbody id="users-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Audit log tab -->
+    <div class="section" id="tab-audit">
+        <div class="audit-stats">
+            <div class="audit-stat"><div class="al">Registrations</div><div class="av" id="a-reg">0</div></div>
+            <div class="audit-stat"><div class="al">Logins</div><div class="av" id="a-login">0</div></div>
+            <div class="audit-stat"><div class="al">Sessions created</div><div class="av" id="a-sess">0</div></div>
+            <div class="audit-stat"><div class="al">Trainees added</div><div class="av" id="a-trainee">0</div></div>
+        </div>
+        <div class="filters">
+            <input type="text" id="audit-search" placeholder="🔍 Filter audit events…" oninput="renderAudit()">
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Email</th>
+                    <th>Description</th>
+                </tr></thead>
+                <tbody id="audit-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<script>
+    let allUsers = [];
+    let auditEvents = [];
+    const auditStats = { MENTOR_REGISTERED: 0, MENTOR_LOGIN: 0, ADMIN_LOGIN: 0, SESSION_CREATED: 0, TRAINEE_ADDED: 0 };
+
+    function showTab(name) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        document.querySelectorAll('.tab')[name === 'users' ? 0 : 1].classList.add('active');
+    }
+
+    // ---- Users ----
+    function renderUsers() {
+        const q = document.getElementById('user-search').value.toLowerCase();
+        const tbody = document.getElementById('users-tbody');
+        const rows = allUsers.filter(u =>
+            !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+        );
+        tbody.innerHTML = rows.map((u, i) => `
+            <tr>
+                <td class="ts-cell">${i + 1}</td>
+                <td><strong>${esc(u.name)}</strong></td>
+                <td class="email-cell">${esc(u.email)}</td>
+                <td class="ts-cell">${esc(u.registeredAt)}</td>
+                <td>${esc(u.mentorName)}</td>
+                <td>${u.profile ? '<span class="profile-badge">' + esc(u.profile) + '</span>' : ''}</td>
+                <td class="num">${u.traineeCount}</td>
+                <td class="num">${u.sessionCount}</td>
+            </tr>
+        `).join('');
+    }
+
+    // ---- Audit ----
+    function renderAudit() {
+        const q = document.getElementById('audit-search').value.toLowerCase();
+        const tbody = document.getElementById('audit-tbody');
+        const rows = auditEvents.filter(e =>
+            !q || e.description.toLowerCase().includes(q) || e.actorEmail.toLowerCase().includes(q)
+        );
+        tbody.innerHTML = rows.map(e => `
+            <tr>
+                <td class="ts-cell">${esc(e.timestamp)}</td>
+                <td><span class="tag tag-${e.eventType}">${esc(e.eventType)}</span></td>
+                <td class="email-cell" title="${esc(e.actorEmail)}">${esc(e.actorEmail)}</td>
+                <td>${esc(e.description)}</td>
+            </tr>
+        `).join('');
+    }
+
+    function addAuditEvent(e, highlight) {
+        auditEvents.unshift(e);
+        if (auditStats[e.eventType] !== undefined) auditStats[e.eventType]++;
+        document.getElementById('a-reg').textContent = auditStats.MENTOR_REGISTERED;
+        document.getElementById('a-login').textContent = auditStats.MENTOR_LOGIN + auditStats.ADMIN_LOGIN;
+        document.getElementById('a-sess').textContent = auditStats.SESSION_CREATED;
+        document.getElementById('a-trainee').textContent = auditStats.TRAINEE_ADDED;
+        renderAudit();
+        if (highlight) {
+            const first = document.getElementById('audit-tbody').firstElementChild;
+            if (first) first.classList.add('new-row');
+        }
+    }
+
+    function esc(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Load stats + users
+    fetch('/admin/stats').then(r => r.json()).then(data => {
+        document.getElementById('s-users').textContent = data.userCount ?? 0;
+        document.getElementById('s-mentors').textContent = data.mentorCount ?? 0;
+        document.getElementById('s-trainees').textContent = data.traineeCount ?? 0;
+        document.getElementById('s-sessions').textContent = data.sessionCount ?? 0;
+        allUsers = data.users || [];
+        renderUsers();
+    });
+
+    // Load recent audit events
+    fetch('/admin/recent').then(r => r.json()).then(list => {
+        list.forEach(e => {
+            auditEvents.push(e);
+            if (auditStats[e.eventType] !== undefined) auditStats[e.eventType]++;
+        });
+        document.getElementById('a-reg').textContent = auditStats.MENTOR_REGISTERED;
+        document.getElementById('a-login').textContent = auditStats.MENTOR_LOGIN + auditStats.ADMIN_LOGIN;
+        document.getElementById('a-sess').textContent = auditStats.SESSION_CREATED;
+        document.getElementById('a-trainee').textContent = auditStats.TRAINEE_ADDED;
+        renderAudit();
+    });
+
+    // Live SSE stream
+    const sse = new EventSource('/admin/events');
+    sse.onmessage = e => {
+        const data = JSON.parse(e.data);
+        if (!auditEvents.find(x => x.id && x.id === data.id)) {
+            addAuditEvent(data, true);
+            // Refresh user stats on registration
+            if (data.eventType === 'MENTOR_REGISTERED') {
+                fetch('/admin/stats').then(r => r.json()).then(d => {
+                    document.getElementById('s-users').textContent = d.userCount ?? 0;
+                    document.getElementById('s-mentors').textContent = d.mentorCount ?? 0;
+                    document.getElementById('s-trainees').textContent = d.traineeCount ?? 0;
+                    document.getElementById('s-sessions').textContent = d.sessionCount ?? 0;
+                    allUsers = d.users || [];
+                    renderUsers();
+                });
+            }
+        }
+    };
+</script>
+</body>
+</html>

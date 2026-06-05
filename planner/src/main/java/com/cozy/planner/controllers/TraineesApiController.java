@@ -3,6 +3,7 @@ package com.cozy.planner.controllers;
 import com.cozy.planner.config.TelegramConfig;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.TraineeRepository;
+import com.cozy.planner.service.AuditService;
 import com.cozy.planner.service.EventBroadcastService;
 import com.cozy.planner.service.NotificationService;
 import com.planner.api.TraineesApi;
@@ -17,6 +18,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -26,18 +28,21 @@ public class TraineesApiController implements TraineesApi {
     private final TelegramConfig telegramConfig;
     private final EventBroadcastService eventBroadcastService;
     private final NotificationService notificationService;
+    private final AuditService auditService;
 
     @Value("${app.base-url:}")
     private String appBaseUrl;
 
-    public TraineesApiController(TraineeRepository traineeRepository, 
+    public TraineesApiController(TraineeRepository traineeRepository,
                                    TelegramConfig telegramConfig,
                                    EventBroadcastService eventBroadcastService,
-                                   NotificationService notificationService) {
+                                   NotificationService notificationService,
+                                   AuditService auditService) {
         this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.eventBroadcastService = eventBroadcastService;
         this.notificationService = notificationService;
+        this.auditService = auditService;
     }
 
     @Override
@@ -56,6 +61,9 @@ public class TraineesApiController implements TraineesApi {
                             .build();
                     return traineeRepository.save(trainee);
                 })
+                .flatMap(saved -> auditService.log("TRAINEE_ADDED", null, saved.getMentorId(),
+                        "Trainee added: " + saved.getName() + " (mentor " + saved.getMentorId() + ")")
+                        .thenReturn(saved))
                 .doOnSuccess(saved -> eventBroadcastService.broadcast("trainee_changed"))
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(mapToDto(saved)))
                 .onErrorResume(e -> {
@@ -240,6 +248,46 @@ public class TraineesApiController implements TraineesApi {
                             });
                 })
                 .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/api/v1/trainees/bulk-notify-availability")
+    public Mono<ResponseEntity<Map<String, Object>>> bulkNotifyAvailability(@RequestBody Map<String, Object> body,
+                                                                             ServerWebExchange exchange) {
+        Object idsObj = body.get("traineeIds");
+        if (!(idsObj instanceof List)) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("reason", "traineeIds required");
+            return Mono.just(ResponseEntity.badRequest().body(err));
+        }
+        @SuppressWarnings("unchecked")
+        List<Object> rawIds = (List<Object>) idsObj;
+        String dayType = body.containsKey("dayType") ? body.get("dayType").toString() : "tomorrow";
+        String customMessage = body.containsKey("customMessage") ? body.get("customMessage").toString() : null;
+
+        String baseUrl = appBaseUrl;
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = exchange.getRequest().getURI().getScheme() + "://" + exchange.getRequest().getURI().getHost();
+            int port = exchange.getRequest().getURI().getPort();
+            if (port > 0 && port != 80 && port != 443) baseUrl += ":" + port;
+        }
+        final String resolvedBaseUrl = baseUrl;
+
+        return Flux.fromIterable(rawIds)
+                .map(id -> ((Number) id).longValue())
+                .flatMap(id -> traineeRepository.findById(id)
+                        .flatMap(trainee -> notificationService.sendAvailabilityReminder(
+                                trainee, resolvedBaseUrl, customMessage, dayType, null))
+                        .defaultIfEmpty(false))
+                .collectList()
+                .map(results -> {
+                    long sent = results.stream().filter(Boolean.TRUE::equals).count();
+                    Map<String, Object> r = new HashMap<>();
+                    r.put("success", true);
+                    r.put("sent", sent);
+                    r.put("total", results.size());
+                    return ResponseEntity.ok(r);
+                });
     }
 
     private TraineeDTO mapToDto(Trainee entity) {
