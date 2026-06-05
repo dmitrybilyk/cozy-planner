@@ -33,9 +33,8 @@ test.describe('Planner — navigation', () => {
   test('calendar strip is visible with today highlighted', async ({ page }) => {
     const calendarContainer = page.locator('#calendar-container');
     await expect(calendarContainer).toBeVisible();
-    // Today label uses text "Сьогодні" (varies by label config but default is this)
-    const today = new Date().toISOString().slice(0, 10);
-    await expect(page.locator(`#date-btn-${today}`)).toBeVisible();
+    // Look for the "Сьогодні" label that Alpine renders on today's button (timezone-safe)
+    await expect(calendarContainer.locator('span', { hasText: 'Сьогодні' }).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('history tab loads past sessions section', async ({ page }) => {

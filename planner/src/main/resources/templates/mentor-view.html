@@ -852,6 +852,19 @@
                             <span x-text="(labels.create_session || 'Створити тренування')"></span>
                         </button>
                     </div>
+                    <!-- Notification settings row -->
+                    <div class="mt-2 flex items-center gap-3">
+                        <label data-testid="trainee-session-reminder" class="flex items-center gap-2 cursor-pointer">
+                            <div class="relative w-9 h-5 flex-shrink-0"
+                                 @click.stop="t.sessionReminderEnabled = !t.sessionReminderEnabled; toggleSessionReminder(t)">
+                                <div class="w-9 h-5 rounded-full transition-colors duration-200"
+                                     :class="t.sessionReminderEnabled ? 'bg-blue-500' : 'bg-[#444]'"></div>
+                                <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200"
+                                     :class="t.sessionReminderEnabled ? 'translate-x-4' : 'translate-x-0'"></div>
+                            </div>
+                            <span class="text-xs text-gray-400">🔔 <span x-text="labels.session_reminder || 'Нагадування'"></span></span>
+                        </label>
+                    </div>
                     <!-- Availability section -->
                     <div class="mt-3 pt-3 border-t border-[#292929]">
                         <div class="flex items-center justify-between mb-2">
