@@ -138,6 +138,7 @@
         </div>
         <div class="flex items-center gap-1.5">
             <button @click="activeTab = 'history'; loadPastSessions()"
+                    data-tour="history"
                     class="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all"
                     :class="activeTab === 'history' ? 'bg-[#444] ring-2 ring-blue-400' : 'bg-[#333] hover:bg-[#444]'"
                     title="Історія">
@@ -307,14 +308,14 @@
                                     <button @click.stop="editSession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Редагувати">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                                     </button>
-<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
+<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" data-tour="gcal" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
                                         <span>Експорт в Google Calendar</span>
                                     </button>
 
                                 </div>
                                 <div class="flex items-center">
-                                    <button @click.stop="copySession(session)" class="text-blue-400 hover:text-blue-300 transition p-1 -mr-1" title="Копіювати">
+                                    <button @click.stop="copySession(session)" data-tour="copy-session" class="text-blue-400 hover:text-blue-300 transition p-1 -mr-1" title="Копіювати">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                     </button>
                                     <svg class="w-4 h-4 text-green-400/50" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
@@ -463,7 +464,7 @@
                                         <button @click.stop="editSession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Редагувати">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                                         </button>
-<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
+<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" data-tour="gcal" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
                                         <span>Експорт в Google Calendar</span>
                                     </button>
@@ -966,16 +967,14 @@
                 <div>
                     <label class="text-xs font-bold text-gray-500 mb-2 block">Колір</label>
                     <div class="flex flex-wrap gap-2">
-                        <button @click.prevent="locationForm.color = '#2E8B57'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#2E8B57' ? 'border-white scale-110' : 'border-transparent'" style="background:#2E8B57"></button>
-                        <button @click.prevent="locationForm.color = '#B85A38'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#B85A38' ? 'border-white scale-110' : 'border-transparent'" style="background:#B85A38"></button>
-                        <button @click.prevent="locationForm.color = '#FF6B6B'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#FF6B6B' ? 'border-white scale-110' : 'border-transparent'" style="background:#FF6B6B"></button>
-                        <button @click.prevent="locationForm.color = '#FFD166'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#FFD166' ? 'border-white scale-110' : 'border-transparent'" style="background:#FFD166"></button>
-                        <button @click.prevent="locationForm.color = '#8A2BE2'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#8A2BE2' ? 'border-white scale-110' : 'border-transparent'" style="background:#8A2BE2"></button>
-                        <button @click.prevent="locationForm.color = '#008B8B'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#008B8B' ? 'border-white scale-110' : 'border-transparent'" style="background:#008B8B"></button>
-                        <div class="relative">
-                            <input type="color" x-model="locationForm.color" class="w-8 h-8 rounded-full cursor-pointer p-0 border-0" :style="'background:' + locationForm.color">
-                            <span class="sr-only">Custom</span>
-                        </div>
+                        <button @click.prevent="locationForm.color = '#3b82f6'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#3b82f6' ? 'border-white scale-110' : 'border-transparent'" style="background:#3b82f6"></button>
+                        <button @click.prevent="locationForm.color = '#10b981'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#10b981' ? 'border-white scale-110' : 'border-transparent'" style="background:#10b981"></button>
+                        <button @click.prevent="locationForm.color = '#f97316'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#f97316' ? 'border-white scale-110' : 'border-transparent'" style="background:#f97316"></button>
+                        <button @click.prevent="locationForm.color = '#ef4444'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#ef4444' ? 'border-white scale-110' : 'border-transparent'" style="background:#ef4444"></button>
+                        <button @click.prevent="locationForm.color = '#a855f7'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#a855f7' ? 'border-white scale-110' : 'border-transparent'" style="background:#a855f7"></button>
+                        <button @click.prevent="locationForm.color = '#ec4899'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#ec4899' ? 'border-white scale-110' : 'border-transparent'" style="background:#ec4899"></button>
+                        <button @click.prevent="locationForm.color = '#06b6d4'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#06b6d4' ? 'border-white scale-110' : 'border-transparent'" style="background:#06b6d4"></button>
+                        <button @click.prevent="locationForm.color = '#eab308'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#eab308' ? 'border-white scale-110' : 'border-transparent'" style="background:#eab308"></button>
                     </div>
                 </div>
             </div>

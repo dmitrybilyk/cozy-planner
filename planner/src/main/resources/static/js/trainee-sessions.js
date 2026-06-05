@@ -249,10 +249,13 @@ function traineeApp() {
 
             const profile = me.mentorProfile || 'sport';
             const tabLabelSets = {
-                sport: { sessions: 'Тренування', schedule: 'Доступність тренера', availability: 'Моя доступність', no_sessions: 'У тебе ще немає тренувань.', past_sessions: '— Минулі тренування —' },
-                studying: { sessions: 'Уроки', schedule: 'Доступність викладача', availability: 'Моя доступність', no_sessions: 'У тебе ще немає уроків.', past_sessions: '— Минулі уроки —' },
-                psychology: { sessions: 'Сесії', schedule: 'Доступність терапевта', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' },
-                other: { sessions: 'Сесії', schedule: 'Доступність майстра', availability: 'Моя доступність', no_sessions: 'У тебе ще немає сесій.', past_sessions: '— Минулі сесії —' }
+                sport:      { sessions: 'Тренування', schedule: 'Доступність тренера',    availability: 'Моя доступність', no_sessions: 'У тебе ще немає тренувань.',  past_sessions: '— Минулі тренування —'  },
+                studying:   { sessions: 'Заняття',    schedule: 'Доступність репетитора', availability: 'Моя доступність', no_sessions: 'У тебе ще немає занять.',     past_sessions: '— Минулі заняття —'     },
+                psychology: { sessions: 'Зустрічі',   schedule: 'Доступність психолога',  availability: 'Моя доступність', no_sessions: 'У тебе ще немає зустрічей.', past_sessions: '— Минулі зустрічі —'   },
+                other:      { sessions: 'Зустрічі',   schedule: 'Доступність виконавця',  availability: 'Моя доступність', no_sessions: 'У тебе ще немає зустрічей.', past_sessions: '— Минулі зустрічі —'   },
+                massage:    { sessions: 'Сеанси',      schedule: 'Доступність масажиста',  availability: 'Моя доступність', no_sessions: 'У тебе ще немає сеансів.',   past_sessions: '— Минулі сеанси —'     },
+                manicure:   { sessions: 'Сеанси',      schedule: 'Доступність майстра',    availability: 'Моя доступність', no_sessions: 'У тебе ще немає сеансів.',   past_sessions: '— Минулі сеанси —'     },
+                medicine:   { sessions: 'Прийоми',     schedule: 'Доступність лікаря',     availability: 'Моя доступність', no_sessions: 'У тебе ще немає прийомів.', past_sessions: '— Минулі прийоми —'    }
             };
             this.tabLabels = tabLabelSets[profile] || tabLabelSets.sport;
             this.pageTitle = 'Мої ' + this.tabLabels.sessions.toLowerCase();

@@ -12,60 +12,147 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Cozy Planner">
-    <link rel="apple-touch-icon" href="/icon.svg">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="stylesheet" href="/css/shared.css" th:href="@{/css/shared.css(v=${appVersion})}">
     <link rel="stylesheet" href="/css/setup.css" th:href="@{/css/setup.css(v=${appVersion})}">
 </head>
-<body class="antialiased flex items-center justify-center min-h-screen p-4" x-data="{ profile: 'sport' }">
-    <div class="w-full max-w-md space-y-8">
-        <div class="text-center space-y-3">
-            <div class="ig-ring mx-auto w-16 h-16 flex items-center justify-center">
+<body class="antialiased flex items-center justify-center min-h-screen p-4 bg-[#0f0f0f] text-white"
+      x-data="{ profile: '', workStart: '08:00', workEnd: '22:00', timeStep: 30 }">
+    <div class="w-full max-w-sm space-y-8">
+
+        <div class="text-center space-y-2">
+            <div class="ig-ring mx-auto w-14 h-14 flex items-center justify-center">
                 <div class="bg-black rounded-full w-full h-full flex items-center justify-center">
-                    <span class="text-xl font-black italic ig-gradient-text">CP</span>
+                    <span class="text-lg font-black italic ig-gradient-text">CP</span>
                 </div>
             </div>
             <h1 class="text-2xl font-bold tracking-tight">Ласкаво просимо!</h1>
-            <p class="text-sm text-gray-500">Створіть свій простір</p>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-            <button type="button" @click="profile = 'sport'"
-                    class="profile-btn p-4 rounded-2xl border-2 border-[#333] bg-[#1a1a1a] text-center"
-                    :class="profile === 'sport' ? 'selected' : ''">
-                <div class="text-3xl mb-2">🏅</div>
-                <div class="text-sm font-bold">Спорт</div>
-            </button>
-            <button type="button" @click="profile = 'studying'"
-                    class="profile-btn p-4 rounded-2xl border-2 border-[#333] bg-[#1a1a1a] text-center"
-                    :class="profile === 'studying' ? 'selected' : ''">
-                <div class="text-3xl mb-2">📚</div>
-                <div class="text-sm font-bold">Навчання</div>
-            </button>
-            <button type="button" @click="profile = 'psychology'"
-                    class="profile-btn p-4 rounded-2xl border-2 border-[#333] bg-[#1a1a1a] text-center"
-                    :class="profile === 'psychology' ? 'selected' : ''">
-                <div class="text-3xl mb-2">🧠</div>
-                <div class="text-sm font-bold">Психологія</div>
-            </button>
-            <button type="button" @click="profile = 'other'"
-                    class="profile-btn p-4 rounded-2xl border-2 border-[#333] bg-[#1a1a1a] text-center"
-                    :class="profile === 'other' ? 'selected' : ''">
-                <div class="text-3xl mb-2">🌟</div>
-                <div class="text-sm font-bold">Інші Послуги</div>
-            </button>
-        </div>
-
-        <form method="POST" action="/setup" class="space-y-5">
-            <input type="hidden" name="profile" x-model="profile" :value="profile">
+        <form method="POST" action="/setup" class="space-y-6">
+            <input type="hidden" name="profile" :value="profile">
             <input type="hidden" name="clubName" value="Мій простір">
+            <input type="hidden" name="workStart" :value="workStart">
+            <input type="hidden" name="workEnd" :value="workEnd">
+            <input type="hidden" name="availStep" :value="timeStep">
+
             <div>
-                <label class="text-xs font-black text-gray-400 uppercase block mb-2">Твоє ім'я</label>
-                <input type="text" name="mentorName" placeholder="напр. Катя" required
-                       class="w-full bg-[#262626] border border-[#363636] rounded-xl p-3 text-white focus:border-blue-500 transition"
+                <label class="text-xs font-black text-gray-400 uppercase tracking-wider block mb-2">Моє ім'я</label>
+                <input type="text" name="mentorName" placeholder="напр. Катя" required autocomplete="name"
+                       class="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3 text-white text-base focus:border-blue-500 focus:outline-none transition"
                        th:value="${googleName}">
             </div>
-            <button type="submit"
-                    class="w-full ig-gradient text-white py-4 rounded-2xl font-bold uppercase tracking-widest text-sm shadow-lg hover:opacity-90 transition active:scale-[0.97]">
+
+            <div>
+                <label class="text-xs font-black text-gray-400 uppercase tracking-wider block mb-3">Я</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" @click="profile = 'sport'"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="profile === 'sport' ? 'selected' : ''">
+                        <div class="text-2xl mb-1.5">🏋️</div>
+                        <div class="text-xs font-bold leading-tight">Тренер</div>
+                    </button>
+                    <button type="button" @click="profile = 'massage'"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="profile === 'massage' ? 'selected' : ''">
+                        <div class="text-2xl mb-1.5">💆</div>
+                        <div class="text-xs font-bold leading-tight">Масажист</div>
+                    </button>
+                    <button type="button" @click="profile = 'psychology'"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="profile === 'psychology' ? 'selected' : ''">
+                        <div class="text-2xl mb-1.5">🧠</div>
+                        <div class="text-xs font-bold leading-tight">Психолог</div>
+                    </button>
+                    <button type="button" @click="profile = 'studying'"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="profile === 'studying' ? 'selected' : ''">
+                        <div class="text-2xl mb-1.5">📚</div>
+                        <div class="text-xs font-bold leading-tight">Репетитор</div>
+                    </button>
+                    <button type="button" @click="profile = 'manicure'"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="profile === 'manicure' ? 'selected' : ''">
+                        <div class="text-2xl mb-1.5">💅</div>
+                        <div class="text-xs font-bold leading-tight">Майстер<br>манікюру</div>
+                    </button>
+                    <button type="button" @click="profile = 'other'"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="profile === 'other' ? 'selected' : ''">
+                        <div class="text-2xl mb-1.5">🌟</div>
+                        <div class="text-xs font-bold leading-tight">Інше</div>
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-gray-400 uppercase tracking-wider block mb-1">Робочий час</label>
+                <p class="text-xs text-gray-500 mb-3">Слоти доступності будуть показані лише в цей проміжок — решту часу ти недоступний</p>
+                <div class="flex items-center gap-3">
+                    <div class="relative flex-1">
+                        <select x-model="workStart"
+                                class="w-full appearance-none bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3 text-white text-base focus:border-blue-500 focus:outline-none transition">
+                            <option value="06:00">06:00</option>
+                            <option value="07:00">07:00</option>
+                            <option value="08:00">08:00</option>
+                            <option value="09:00">09:00</option>
+                            <option value="10:00">10:00</option>
+                            <option value="11:00">11:00</option>
+                            <option value="12:00">12:00</option>
+                            <option value="13:00">13:00</option>
+                            <option value="14:00">14:00</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500 text-xs">▼</div>
+                    </div>
+                    <span class="text-gray-500 font-bold">—</span>
+                    <div class="relative flex-1">
+                        <select x-model="workEnd"
+                                class="w-full appearance-none bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3 text-white text-base focus:border-blue-500 focus:outline-none transition">
+                            <option value="12:00">12:00</option>
+                            <option value="13:00">13:00</option>
+                            <option value="14:00">14:00</option>
+                            <option value="15:00">15:00</option>
+                            <option value="16:00">16:00</option>
+                            <option value="17:00">17:00</option>
+                            <option value="18:00">18:00</option>
+                            <option value="19:00">19:00</option>
+                            <option value="20:00">20:00</option>
+                            <option value="21:00">21:00</option>
+                            <option value="22:00">22:00</option>
+                            <option value="23:00">23:00</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500 text-xs">▼</div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="text-xs font-black text-gray-400 uppercase tracking-wider block mb-1">Крок слота</label>
+                <p class="text-xs text-gray-500 mb-3">Мінімальний інтервал між слотами. Наприклад, 30 хв → 09:00, 09:30, 10:00...</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" @click="timeStep = 15"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="timeStep === 15 ? 'selected' : ''">
+                        <div class="text-xl font-bold mb-0.5">15</div>
+                        <div class="text-xs font-bold text-gray-400">хв</div>
+                    </button>
+                    <button type="button" @click="timeStep = 30"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="timeStep === 30 ? 'selected' : ''">
+                        <div class="text-xl font-bold mb-0.5">30</div>
+                        <div class="text-xs font-bold text-gray-400">хв</div>
+                    </button>
+                    <button type="button" @click="timeStep = 60"
+                            class="profile-btn rounded-2xl border-2 border-[#2a2a2a] bg-[#1a1a1a] py-4 px-2 text-center"
+                            :class="timeStep === 60 ? 'selected' : ''">
+                        <div class="text-xl font-bold mb-0.5">60</div>
+                        <div class="text-xs font-bold text-gray-400">хв</div>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" :disabled="!profile"
+                    class="w-full ig-gradient text-white py-4 rounded-2xl font-bold uppercase tracking-widest text-sm shadow-lg hover:opacity-90 transition active:scale-[0.97] disabled:opacity-30 disabled:pointer-events-none">
                 Почати
             </button>
         </form>

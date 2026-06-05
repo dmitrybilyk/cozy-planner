@@ -110,67 +110,68 @@ function calendarApp() {
         showRefreshModal: false,
         showIntro: false,
         introSlide: 0,
-        introSlides: [
-            {
-                icon: '📅',
-                title: 'Ласкаво просимо до Cozy Planner',
-                body: 'Цей додаток допоможе тобі організувати зустрічі з клієнтами, учнями та спортсменами. Розклад, підтвердження і сповіщення — все в одному місці.'
-            },
-            {
-                icon: '👥',
-                title: 'Клієнти та їх часові зони',
-                body: 'Додавай клієнтів і призначай їм сесії. Кожному можна вказати свій часовий пояс — зручно, якщо клієнт живе в іншій країні: він бачить час у своєму форматі.'
-            },
-            {
-                icon: '📍',
-                title: 'Локації з кольорами',
-                body: 'Створюй локації для зустрічей — зал, майданчик, студія. Кожна локація має свій колір, який видно прямо в розкладі для швидкого орієнтування.'
-            },
-            {
-                icon: '🕐',
-                title: 'Доступність та постійне посилання',
-                body: 'Відмічай дні та час, коли ти вільний. Поділись постійним посиланням на свою доступність — клієнти побачать твій вільний час без реєстрації.'
-            },
-            {
-                icon: '📲',
-                title: 'Клієнт може забронювати сам',
-                body: 'Якщо ти встановив доступність, клієнт може самостійно зарезервувати зручний час зі своєї сторінки. Ти отримаєш сповіщення і підтвердиш або відхилиш.'
-            },
-            {
-                icon: '✅',
-                title: 'Підтвердження та Telegram',
-                body: 'Підтверджуй зустрічі сам або дозволь клієнтові зробити це зі свого боку. Підключи Telegram — і ти, і клієнти отримаєте нагадування про зустрічі.'
-            },
-            {
-                icon: '⏱️',
-                title: 'Тільки реально вільний час',
-                body: 'При створенні або редагуванні сесії показуються лише вільні слоти — ті, що не перетинаються з вже запланованими зустрічами і вписуються у твою доступність.'
-            },
-            {
-                icon: '🗺️',
-                title: 'Показати тур по інтерфейсу?',
-                body: 'Хочеш, щоб ми провели тебе по основних елементах додатку? Займе менше хвилини — ти побачиш, де що знаходиться і як цим користуватись.'
-            }
-        ],
         showTour: false,
         tourStep: 0,
         _tourRect: null,
-        tourSteps: [
-            { target: '[data-tour="profile"]',        tab: null,                  title: 'Твій профіль',                 body: 'Налаштування тренера: фото, тема, крок часу (15/30/60 хв) для вікон доступності, а також твій особистий Telegram для сповіщень про зустрічі.',                           position: 'bottom' },
-            { target: '[data-tour="view-toggle"]',    tab: 'feed',                title: 'Вигляд розкладу',              body: '"День" — детальний список сесій на обрану дату. "План" — хронологічний планер усіх майбутніх зустрічей.',                                                              position: 'bottom' },
-            { target: '[data-session-id]',            tab: 'feed',                title: 'Статус підтвердження',         body: 'Ім\'я клієнта у картці сесії одразу показує статус: зелений — підтверджено, червоний — відхилено, сірий — очікує. Видно без відкривання картки.',                      position: 'bottom' },
-            { target: '[data-tour="day-filter"]',     tab: 'feed',                title: 'Фільтри та режим відображення',body: 'Фільтруй за локацією, статусом (всі / підтверджені / очікують). Перемикай між компактним і детальним режимами карток сесій.',                                        position: 'bottom' },
-            { target: '[data-tour="add-session"]',    tab: 'feed',                title: 'Нова зустріч',                 body: 'При створенні сесії слоти, що збігаються із запланованими або виходять за межі доступності, не відображаються — тільки реально вільний час.',                         position: 'bottom' },
-            { target: '#calendar-container',          tab: 'feed',                title: 'Календар',                     body: 'Вибирай дату. Числа під днем — кількість сесій. Червоний фон — вихідний або день-офф. Поточна дата завжди виділена рамкою.',                                           position: 'bottom' },
-            { target: '[data-tour="trainees"]',       tab: 'feed',                title: 'Клієнти',                      body: 'Список клієнтів, учнів, спортсменів. Тут додаєш нових, редагуєш профілі та бачиш їх доступність.',                                                                    position: 'bottom' },
-            { target: '[data-tour="trainee-site-btn"]',tab: 'trainees',           title: 'Сайт клієнта',                 body: 'Натисни — посилання скопіюється. Надішли клієнту: він відкриє свою сторінку, де може бачити розклад, відмічати свою доступність і самостійно резервувати сесії.',     position: 'bottom' },
-            { target: '[data-tour="trainee-actions"]',tab: 'trainees',            title: 'Telegram для клієнта',         body: 'Клієнт підключає Telegram зі своєї сторінки або ти копіюєш посилання тут і надсилаєш напряму. Якщо клієнт підключений — можеш попросити його відмітити свою доступність прямо з цього меню.',  position: 'bottom' },
-            { target: '[data-tour="locations-btn"]',  tab: 'feed',                title: 'Локації',                      body: 'Місця для зустрічей з власними кольорами — одразу видно у розкладі. Додавай Google Maps посилання і ділись ним з новими або потенційними клієнтами.',                  position: 'bottom' },
-            { target: '[data-tour="locations-list"]', tab: 'locations',           title: 'Список локацій',               body: 'Кожна локація має колір і може мати Google Maps посилання. Натисни на іконку копіювання поруч з посиланням, щоб поділитись з клієнтом.',                              position: 'top'    },
-            { target: '[data-tour="availability"]',   tab: 'feed',                title: 'Моя доступність',              body: 'Відмічай конкретні часові інтервали по локаціях — де і коли ти вільний. Клієнти бачать це і можуть самостійно бронювати вільний час.',                                 position: 'bottom' },
-            { target: '[data-tour="avail-intervals"]',tab: 'coach-availability',  title: 'Інтервали по локаціях',        body: 'Додавай вікна доступності з прив\'язкою до локації: "15:00–18:00 у Залі А". Кілька інтервалів на один день — без проблем.',                                            position: 'top'    },
-            { target: '[data-tour="avail-share"]',    tab: 'coach-availability',  title: 'Постійне посилання',           body: 'Ділись з клієнтами або у соцмережах. Будь-які зміни — нова сесія, нова доступність — відображаються там одразу. Посилання завжди актуальне.',                          position: 'top'    },
-        ],
+        get introSlides() {
+            const l = this.labels || {};
+            const trainee        = (l.trainee        || 'клієнт').toLowerCase();
+            const trainees       = (l.trainees       || 'клієнти').toLowerCase();
+            const trainees_instr = (l.trainees_instr || trainees);
+            const trainees_acc   = (l.trainees_acc   || trainees);
+            const session        = (l.session        || 'зустріч').toLowerCase();
+            const session_gen    = (l.session_gen    || session);
+            const sessions       = (l.sessions       || 'зустрічі').toLowerCase();
+            const sessions_gen   = (l.sessions_gen   || sessions);
+            const location       = (l.location       || 'локація').toLowerCase();
+            const locations      = (l.locations      || 'локації').toLowerCase();
+            return [
+                {icon: '📅', title: 'Ласкаво просимо до Cozy Planner',        body: `Цей додаток допоможе тобі організувати ${sessions} з ${trainees_instr}. Розклад, підтвердження і сповіщення — все в одному місці.`},
+                {icon: '👥', title: `${l.trainees || 'Клієнти'} та їх часові зони`, body: `Додавай ${trainees_acc} і призначай їм ${sessions}. Кожному можна вказати свій часовий пояс — зручно, якщо ${trainee} живе в іншій країні: він бачить час у своєму форматі.`},
+                {icon: '📍', title: `${l.locations || 'Локації'} з кольорами`, body: `Створюй ${locations} для ${sessions_gen}. Кожна ${location} має свій колір, який видно прямо в розкладі для швидкого орієнтування.`},
+                {icon: '🕐', title: 'Доступність та постійне посилання',       body: `Відмічай дні та час, коли ти вільний. Поділись постійним посиланням на свою доступність — ${trainees} побачать твій вільний час без реєстрації.`},
+                {icon: '📲', title: `${l.trainee || 'Клієнт'} може забронювати сам`, body: `Якщо ти встановив доступність, ${trainee} може самостійно зарезервувати зручний час зі своєї сторінки. Ти отримаєш сповіщення і підтвердиш або відхилиш.`},
+                {icon: '✅', title: 'Підтвердження та Telegram',                body: `Підтверджуй ${sessions} сам або нехай ${trainee} зробить це зі свого боку. Підключи Telegram — і ти, і ${trainees} отримаєте нагадування.`},
+                {icon: '⏱️', title: 'Тільки реально вільний час',              body: `При створенні або редагуванні ${session_gen} показуються лише вільні слоти — ті, що не перетинаються з вже запланованими і вписуються у твою доступність.`},
+                {icon: '🗺️', title: 'Показати тур по інтерфейсу?',            body: 'Хочеш, щоб ми провели тебе по основних елементах додатку? Займе менше хвилини — ти побачиш, де що знаходиться і як цим користуватись.'}
+            ];
+        },
+        get tourSteps() {
+            const l = this.labels || {};
+            const trainee        = (l.trainee        || 'клієнт').toLowerCase();
+            const trainees       = (l.trainees       || 'клієнти').toLowerCase();
+            const trainees_instr = (l.trainees_instr || trainees);
+            const trainee_gen    = (l.trainee_gen    || trainee);
+            const trainee_dat    = (l.trainee_dat    || trainee);
+            const manage         = l.manage_trainees || 'Клієнти';
+            const session        = (l.session        || 'зустріч').toLowerCase();
+            const session_gen    = (l.session_gen    || session);
+            const sessions       = (l.sessions       || 'зустрічі').toLowerCase();
+            const sessions_gen   = (l.sessions_gen   || sessions);
+            const location       = (l.location       || 'локація').toLowerCase();
+            const locations      = (l.locations      || 'локації').toLowerCase();
+            const new_session    = l.new_session     || 'Нова зустріч';
+            return [
+                { target: '[data-tour="profile"]',          tab: null,                 title: 'Твій профіль',                  body: `Налаштування профілю: фото, тема, крок часу (15/30/60 хв) для вікон доступності, а також твій особистий Telegram для сповіщень.`,                                                                                                                                                              position: 'bottom' },
+                { target: '[data-tour="view-toggle"]',      tab: 'feed',               title: 'Вигляд розкладу',               body: `"День" — детальний список ${sessions} на обрану дату. "План" — хронологічний планер усіх майбутніх ${sessions}.`,                                                                                                                                                                          position: 'bottom' },
+                { target: '#calendar-container',            tab: 'feed',               title: 'Календар',                      body: `Вибирай дату. Числа під днем — кількість ${sessions_gen}. Поточна дата завжди виділена рамкою.`,                                                                                                                                                                                            position: 'bottom' },
+                { target: '[data-tour="add-session"]',      tab: 'feed',               title: new_session,                     body: `При створенні ${session_gen} слоти, що збігаються із запланованими або виходять за межі доступності, не відображаються — тільки реально вільний час.`,                                                                                                                                      position: 'bottom' },
+                { target: '[data-tour="day-filter"]',       tab: 'feed',               title: 'Фільтри та режим відображення', body: `Фільтруй по ${location}, статусу (всі / підтверджені / очікують). Перемикай між компактним і детальним режимами карток.`,                                                                                                                                                                   position: 'bottom' },
+                { target: '[data-session-id]',              tab: 'feed',               title: 'Статус підтвердження',          body: `Ім'я ${trainee_gen} у картці одразу показує статус: зелений — підтверджено, червоний — відхилено, сірий — очікує. Видно без відкривання картки.`,                                                                                                 fullCards: true,   position: 'bottom' },
+                { target: '[data-tour="gcal"]',             tab: 'feed',               title: 'Експорт в Google Calendar',     body: `Підтверджений ${session_gen} можна одразу додати до Google Calendar — кнопка з'являється автоматично після підтвердження.`,                                                                                                                        fullCards: true,   position: 'bottom' },
+                { target: '[data-tour="copy-session"]',     tab: 'feed',               title: `Копіювати ${session_gen}`,      body: `Копіює ${session_gen} із тими самими параметрами. Залишиться лише змінити дату і час — зручно для регулярних ${sessions_gen}.`,                                                                                                                   fullCards: true,   position: 'bottom' },
+                { target: '[data-tour="history"]',          tab: 'feed',               title: 'Історія',                       body: `Кнопка 🕐 відкриває історію минулих ${sessions_gen}. Можна скопіювати будь-який минулий ${session_gen} і перепризначити на нову дату.`,                                                                                                                                      position: 'bottom' },
+                { target: '[data-tour="trainees"]',         tab: 'feed',               title: manage,                          body: `${manage}: тут додаєш нових, редагуєш профілі, бачиш їх доступність і можеш вручну надіслати ${trainee_dat} запит на доступність через Telegram.`,                                                                                                                                         position: 'bottom' },
+                { target: '[data-tour="trainee-site-btn"]', tab: 'trainees',           title: `Сайт ${trainee_gen}`,           body: `Натисни — посилання скопіюється. Надішли ${trainee_dat}: він відкриє свою сторінку, де може бачити розклад, відмічати свою доступність і самостійно резервувати ${sessions}.`,                                                                                                             position: 'bottom' },
+                { target: '[data-tour="trainee-actions"]',  tab: 'trainees',           title: 'Telegram',                      body: `${l.trainee || 'Клієнт'} підключає Telegram зі своєї сторінки або ти копіюєш посилання тут і надсилаєш напряму. Якщо ${trainee} підключений — можеш попросити його відмітити свою доступність прямо з цього меню.`,                                                                       position: 'bottom' },
+                { target: '[data-tour="locations-btn"]',    tab: 'feed',               title: l.locations || 'Локації',        body: `${l.locations || 'Місця'} для ${sessions_gen} з власними кольорами — одразу видно у розкладі. Додавай Google Maps посилання і ділись ним з новими ${trainees_instr}.`,                                                                                                                     position: 'bottom' },
+                { target: '[data-tour="locations-list"]',   tab: 'locations',          title: `Список ${locations}`,           body: `Кожна ${location} має колір і може мати Google Maps посилання. Скопіюй посилання і поділись напряму з ${trainees_instr}.`,                                                                                                                                                                  position: 'top'    },
+                { target: '[data-tour="availability"]',     tab: 'feed',               title: 'Моя доступність',               body: `Відмічай конкретні часові інтервали по ${locations} — де і коли ти вільний. ${l.trainees || 'Клієнти'} бачать це і можуть самостійно бронювати вільний час.`,                                                                                                                              position: 'bottom' },
+                { target: '[data-tour="avail-intervals"]',  tab: 'coach-availability', title: `Інтервали по ${locations}`,     body: `Додавай вікна доступності з прив'язкою до ${location}: "15:00–18:00 у Залі А". Кілька інтервалів на один день — без проблем.`,                                                                                                                                                             position: 'top'    },
+                { target: '[data-tour="avail-share"]',      tab: 'coach-availability', title: 'Постійне посилання',            body: `Ділись з ${trainees_instr} або у соцмережах. Будь-які зміни — нова ${session_gen}, нова доступність — відображаються там одразу. Посилання завжди актуальне.`,                                                                                                                              position: 'top'    },
+                { target: '[data-tour="no-target"]',        tab: null,                 title: '🎉 Усе готово!',                body: `Ти познайомився з основними можливостями. Бажаємо приємної роботи — нехай кожен ${session_gen} буде запланований вчасно і без зайвого клопоту!`,                                                                                                                                           position: 'bottom' },
+            ];
+        },
         _tourAbove(r, step) {
             const pad = 8, gap = 14, tipH = 190;
             const spaceBelow = window.innerHeight - (r.top + r.height + pad + gap);
@@ -233,6 +234,10 @@ function calendarApp() {
             this.tourStep = 0;
             this.showTour = true;
             setTimeout(() => this._updateTourRect(), 100);
+            try {
+                await fetch('/api/v1/tour/demo', { method: 'POST' });
+                await Promise.all([this.fetchData(), this.fetchTrainees(), this.fetchLocations()]);
+            } catch (e) {}
         },
         _updateTourRect() {
             const step = this.tourSteps[this.tourStep];
@@ -246,6 +251,10 @@ function calendarApp() {
                 const r = el.getBoundingClientRect();
                 this._tourRect = { top: r.top, left: r.left, width: r.width, height: r.height };
             };
+            if (step.fullCards && this.compactView) {
+                this.compactView = false;
+                this.collapsedIds = [];
+            }
             if (step.tab && this.activeTab !== step.tab) {
                 if (step.tab === 'coach-availability') this.loadCoachAvailability();
                 this.activeTab = step.tab;
@@ -262,9 +271,13 @@ function calendarApp() {
                 this.endTour();
             }
         },
-        endTour() {
+        async endTour() {
             this.showTour = false;
             this._tourRect = null;
+            try {
+                await fetch('/api/v1/tour/demo', { method: 'DELETE' });
+                await Promise.all([this.fetchData(), this.fetchTrainees(), this.fetchLocations()]);
+            } catch (e) {}
         },
 
         async loadNotifications() {

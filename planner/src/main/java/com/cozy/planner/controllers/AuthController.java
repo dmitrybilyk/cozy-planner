@@ -52,16 +52,36 @@ public class AuthController {
         });
     }
 
+    @GetMapping("/setup/finish")
+    public Mono<String> setupFinish(ServerWebExchange exchange) {
+        return exchange.getSession().flatMap(session -> {
+            if (session.getAttribute("google_sub") == null) {
+                return Mono.just("redirect:/login");
+            }
+            return Mono.just("setup-finish");
+        });
+    }
+
     @PostMapping("/setup")
     public Mono<String> setup(ServerWebExchange exchange) {
         return exchange.getFormData().flatMap(formData -> {
             String clubName = formData.getFirst("clubName");
             String mentorName = formData.getFirst("mentorName");
             String profile = formData.getFirst("profile");
-            if (profile == null || profile.isBlank()) {
-                profile = "sport";
-            }
+            String workStart = formData.getFirst("workStart");
+            String workEnd = formData.getFirst("workEnd");
+            String availStepStr = formData.getFirst("availStep");
+            if (profile == null || profile.isBlank()) profile = "sport";
+            if (workStart == null || workStart.isBlank()) workStart = "08:00";
+            if (workEnd == null || workEnd.isBlank()) workEnd = "22:00";
+            int availStep = 30;
+            try { if (availStepStr != null) availStep = Integer.parseInt(availStepStr); } catch (NumberFormatException ignored) {}
+
             final String profileFinal = profile;
+            final String workStartFinal = workStart;
+            final String workEndFinal = workEnd;
+            final int availStepFinal = availStep;
+
             return exchange.getSession().flatMap(session -> {
                 String googleSub = session.getAttribute("google_sub");
                 String email = session.getAttribute("user_email");
@@ -70,8 +90,11 @@ public class AuthController {
                     return Mono.just("redirect:/login");
                 }
                 return userRepository.findByGoogleSub(googleSub)
-                        .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName, profileFinal)
-                                .thenReturn("redirect:/planner"))
+                        .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal)
+                                .flatMap(savedMentor -> {
+                                    session.getAttributes().put("mentor_id", savedMentor.getId());
+                                    return Mono.just("redirect:/setup/finish");
+                                }))
                         .switchIfEmpty(
                                 Mono.defer(() -> {
                                     User newUser = User.builder()
@@ -81,8 +104,11 @@ public class AuthController {
                                             .createdAt(LocalDateTime.now())
                                             .build();
                                     return userRepository.save(newUser)
-                                            .flatMap(user -> createClubAndMentor(user, clubName, mentorName, profileFinal))
-                                            .thenReturn("redirect:/planner");
+                                            .flatMap(user -> createClubAndMentor(user, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal))
+                                            .flatMap(savedMentor -> {
+                                                session.getAttributes().put("mentor_id", savedMentor.getId());
+                                                return Mono.just("redirect:/setup/finish");
+                                            });
                                 })
                         );
             });
@@ -91,16 +117,20 @@ public class AuthController {
 
     private final SecureRandom secureRandom = new SecureRandom();
 
-    private Mono<Void> createClubAndMentor(User user, String clubName, String mentorName, String profile) {
+    private Mono<Mentor> createClubAndMentor(User user, String clubName, String mentorName, String profile,
+                                              String workStart, String workEnd, int availStep) {
         Club club = Club.builder().name(clubName).userId(user.getId()).build();
         return clubRepository.save(club).flatMap(savedClub -> {
             Mentor mentor = Mentor.builder()
                     .name(mentorName)
                     .clubId(savedClub.getId())
                     .profile(profile)
+                    .workStart(workStart)
+                    .workEnd(workEnd)
+                    .availStep(availStep)
                     .shareToken(generateShareToken())
                     .build();
-            return mentorRepository.save(mentor).then();
+            return mentorRepository.save(mentor);
         });
     }
 
