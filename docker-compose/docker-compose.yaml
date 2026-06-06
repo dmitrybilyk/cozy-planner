@@ -105,6 +105,19 @@ services:
       elasticsearch:
         condition: service_healthy
 
+  notifications:
+    build:
+      context: ../notifications
+      dockerfile: Dockerfile
+    container_name: notifications
+    ports:
+      - "8085:8085"
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+
 volumes:
   planner_postgres_data:
   elasticsearch_data:

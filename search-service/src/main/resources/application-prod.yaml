@@ -1,0 +1,9 @@
+elasticsearch:
+  host: ${ELASTICSEARCH_HOST:http://elasticsearch:9200}
+
+spring:
+  kafka:
+    admin:
+      properties:
+        retries: 1
+        retry.backoff.ms: 500

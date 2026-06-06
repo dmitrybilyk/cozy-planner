@@ -33,4 +33,4 @@ telegram:
 app:
   notification-sender: ${APP_NOTIFICATION_SENDER:telegram}
   notification-topic: ${APP_NOTIFICATION_TOPIC:notification-events}
-  planner-base-url: ${PLANNER_BASE_URL:http://localhost:8080}
+  planner-base-url: ${PLANNER_BASE_URL:https://footwork-lid-attendee.ngrok-free.dev}

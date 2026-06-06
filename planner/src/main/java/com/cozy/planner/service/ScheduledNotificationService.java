@@ -81,7 +81,7 @@ public class ScheduledNotificationService {
             return;
         }
 
-        log.info("Checking for upcoming sessions to remind...");
+        log.debug("Checking for upcoming sessions to remind...");
 
         LocalDate today = LocalDate.now();
         LocalDate tomorrow = today.plusDays(1);

@@ -48,7 +48,7 @@ public class UnifiedAvailabilityController {
             @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
 
-        log.info("getRanges userId={}, userType={}, start={}, end={}", userId, userType, startDate, endDate);
+        log.debug("getRanges userId={}, userType={}, start={}, end={}", userId, userType, startDate, endDate);
         return resolveZoneId(userId, userType)
                 .flatMapMany(zoneId ->
                         rangeRepository.findByUserIdAndUserTypeAndDateBetween(userId, userType, startDate, endDate)
@@ -59,7 +59,7 @@ public class UnifiedAvailabilityController {
                     return Flux.empty();
                 })
                 .collectList()
-                .doOnNext(list -> log.info("getRanges found {} items", list.size()));
+                .doOnNext(list -> log.debug("getRanges found {} items", list.size()));
     }
 
     @PutMapping("/api/v1/availability/ranges")

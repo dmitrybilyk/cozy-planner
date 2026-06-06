@@ -26,10 +26,12 @@ public class LoggingFilter implements WebFilter {
                     long elapsed = System.currentTimeMillis() - start;
                     int status = exchange.getResponse().getStatusCode() != null
                             ? exchange.getResponse().getStatusCode().value() : 0;
-                    if (status >= 400) {
+                    if (status >= 500) {
+                        log.error("{} {} → {} ({}ms)", method, full, status, elapsed);
+                    } else if (status >= 400) {
                         log.warn("{} {} → {} ({}ms)", method, full, status, elapsed);
                     } else {
-                        log.info("{} {} → {} ({}ms)", method, full, status, elapsed);
+                        log.debug("{} {} → {} ({}ms)", method, full, status, elapsed);
                     }
                 })
                 .doOnError(error -> {

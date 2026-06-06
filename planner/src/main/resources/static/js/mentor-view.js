@@ -81,6 +81,8 @@ function calendarApp() {
         photoUrl: null,
         notifications: [],
         unreadCount: 0,
+        jokePopup: false,
+        currentJoke: '',
         shareToken: null,
         shareUrl: '',
         copied: false,
@@ -155,10 +157,10 @@ function calendarApp() {
             const new_session    = l.new_session     || 'Нова зустріч';
             return [
                 { target: '[data-tour="profile"]',          tab: null,                 title: 'Твій профіль',                  body: `Налаштування профілю: фото, тема, крок часу (15/30/60 хв) для вікон доступності, а також сповіщення — Telegram і <b>push-сповіщення браузера</b>. Якщо дозволити сповіщення у браузері, нагадування про тренування надходитимуть прямо на пристрій — так само як з Telegram, але без прив'язки до месенджера.`,                                                                                                                                                              position: 'bottom' },
-                { target: '[data-tour="view-toggle"]',      tab: 'feed',               title: 'Вигляд розкладу',               body: `"День" — детальний список ${sessions} на обрану дату. "План" — хронологічний планер усіх майбутніх ${sessions}.`,                                                                                                                                                                          position: 'bottom' },
+                { target: '[data-tour="view-toggle"]',      tab: 'agenda',             title: 'Вигляд розкладу',               body: `"План" — хронологічний планер усіх майбутніх ${sessions}. "День" — детальний список ${sessions} на обрану дату.`,                                                                                                                                                                         position: 'top' },
                 { target: '#calendar-container',            tab: 'feed',               title: 'Календар',                      body: `Вибирай дату. Числа під днем — кількість ${sessions_gen}. Поточна дата завжди виділена рамкою.`,                                                                                                                                                                                            position: 'bottom' },
-                { target: '[data-tour="add-session"]',      tab: 'feed',               title: new_session,                     body: `При створенні ${session_gen} слоти, що збігаються із запланованими або виходять за межі доступності, не відображаються — тільки реально вільний час.`,                                                                                                                                      position: 'bottom' },
-                { target: '[data-tour="add-session"]',      tab: 'feed',               title: `🔁 Повторюваний ${session_gen}`, body: `У формі створення є прапорець <b>«Повторювати щотижня»</b> — він автоматично створює 8 ${sessions_gen} через однаковий часовий слот кожного тижня. Зручно для постійного розкладу з регулярними ${trainees_instr}.`,                                                                     position: 'bottom' },
+                { target: '[data-tour="add-session"]',      tab: 'feed',               title: new_session,                     body: `При створенні ${session_gen} слоти, що збігаються із запланованими або виходять за межі доступності, не відображаються — тільки реально вільний час.`,                                                                                                                                      position: 'top' },
+                { target: '[data-tour="add-session"]',      tab: 'feed',               title: `🔁 Повторюваний ${session_gen}`, body: `У формі створення є прапорець <b>«Повторювати щотижня»</b> — він автоматично створює 8 ${sessions_gen} через однаковий часовий слот кожного тижня. Зручно для постійного розкладу з регулярними ${trainees_instr}.`,                                                                     position: 'top' },
                 { target: '[data-tour="day-filter"]',       tab: 'feed',               title: 'Фільтри та режим відображення', body: `Фільтруй по ${location}, статусу (всі / підтверджені / очікують). Перемикай між компактним і детальним режимами карток.`,                                                                                                                                                                   position: 'bottom' },
                 { target: '[data-session-id]',              tab: 'feed',               title: 'Статус підтвердження',          body: `Ім'я ${trainee_gen} у картці одразу показує статус: зелений — підтверджено, червоний — відхилено, сірий — очікує. Видно без відкривання картки.`,                                                                                                 fullCards: true,   position: 'bottom' },
                 { target: '[data-tour="gcal"]',             tab: 'feed',               title: 'Експорт в Google Calendar',     body: `Підтверджений ${session_gen} можна одразу додати до Google Calendar — кнопка з'являється автоматично після підтвердження.`,                                                                                                                        fullCards: true,   position: 'bottom' },
@@ -169,7 +171,7 @@ function calendarApp() {
                 { target: '[data-tour="trainee-actions"]',  tab: 'trainees', detailTrainees: true,           title: 'Telegram',                      body: `${l.trainee || 'Клієнт'} підключає Telegram зі своєї сторінки або ти копіюєш посилання тут і надсилаєш напряму. Якщо ${trainee} підключений — можеш попросити його відмітити свою доступність прямо з цього меню.`,                                                                       position: 'bottom' },
                 { target: '[data-tour="locations-btn"]',    tab: 'feed',               title: l.locations || 'Локації',        body: `${l.locations || 'Місця'} для ${sessions_gen} з власними кольорами — одразу видно у розкладі. Додавай Google Maps посилання і ділись ним з новими ${trainees_instr}.`,                                                                                                                     position: 'bottom' },
                 { target: '[data-tour="locations-list"]',   tab: 'locations',          title: `Список ${locations}`,           body: `Кожна ${location} має колір і може мати Google Maps посилання. Скопіюй посилання і поділись напряму з ${trainees_instr}.`,                                                                                                                                                                  position: 'top'    },
-                { target: '[data-tour="availability"]',     tab: 'feed',               title: 'Моя доступність',               body: `Відмічай конкретні часові інтервали по ${locations} — де і коли ти вільний. ${l.trainees || 'Клієнти'} бачать це і можуть самостійно бронювати вільний час.`,                                                                                                                              position: 'bottom' },
+                { target: '[data-tour="availability"]',     tab: 'feed',               title: 'Моя доступність',               body: `Відмічай конкретні часові інтервали по ${locations} — де і коли ти вільний. ${l.trainees || 'Клієнти'} бачать це і можуть самостійно бронювати вільний час.`,                                                                                                                              position: 'top' },
                 { target: '[data-tour="avail-intervals"]',  tab: 'coach-availability', title: `Інтервали по ${locations}`,     body: `Додавай вікна доступності з прив'язкою до ${location}: "15:00–18:00 у Залі А". Кілька інтервалів на один день — без проблем.`,                                                                                                                                                             position: 'top'    },
                 { target: '[data-tour="avail-share"]',      tab: 'coach-availability', title: 'Постійне посилання',            body: `Ділись з ${trainees_instr} або у соцмережах. Будь-які зміни — нова ${session_gen}, нова доступність — відображаються там одразу. Посилання завжди актуальне.`,                                                                                                                              position: 'top'    },
                 { target: '[data-tour="no-target"]',        tab: null,                 title: '🎉 Усе готово!',                body: `Ти познайомився з основними можливостями. Бажаємо приємної роботи — нехай кожен ${session_gen} буде запланований вчасно і без зайвого клопоту!`,                                                                                                                                           position: 'bottom' },
@@ -271,6 +273,7 @@ function calendarApp() {
             }
             if (step.tab && this.activeTab !== step.tab) {
                 if (step.tab === 'coach-availability') { this.coachLoaded = false; this.loadCoachAvailability(); }
+                if (step.tab === 'agenda') { this.loadFutureSessions(); }
                 this.activeTab = step.tab;
                 setTimeout(doMeasure, 380);
             } else {
@@ -582,6 +585,18 @@ function calendarApp() {
         toggleTraineeView() {
             this.traineeCompactView = !this.traineeCompactView;
             this.traineeExpandedIds = [];
+            this._ref++;
+        },
+
+        collapseTrainee(id) {
+            if (this.traineeCompactView) {
+                const i = this.traineeExpandedIds.indexOf(id);
+                if (i >= 0) this.traineeExpandedIds.splice(i, 1);
+            } else {
+                // Detail mode: switch back to compact and collapse all
+                this.traineeCompactView = true;
+                this.traineeExpandedIds = [];
+            }
             this._ref++;
         },
 
@@ -1476,6 +1491,50 @@ function calendarApp() {
             const url = this.shareUrl + '?date=' + this.todayStr;
             try { await navigator.clipboard.writeText(url); this.copiedToday = true; setTimeout(() => this.copiedToday = false, 2000); }
             catch(e) { prompt('Скопіюйте:', url); }
+        },
+        async showJoke() {
+            const CACHE_KEY = 'jokeCache';
+            const HARDCODED = [
+                'Чому спортсмени завжди в гарному настрої? Тому що знають: після присідань все решта — дрібниці.',
+                'День ніг — єдиний день, коли ліфт стає найкращим другом.',
+                'Мій тренер сказав: "Якщо не болить — ти не тренувався." Тепер болить навіть рука від мишки.',
+            ];
+            const loadCache = () => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '[]'); } catch { return []; } };
+            const saveToCache = (joke) => {
+                const c = loadCache();
+                if (!c.includes(joke)) {
+                    c.push(joke);
+                    if (c.length > 50) c.shift();
+                    try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch {}
+                }
+            };
+            const pickRandom = (pool) => {
+                let pick;
+                do { pick = pool[Math.floor(Math.random() * pool.length)]; } while (pick === this.currentJoke && pool.length > 1);
+                return pick;
+            };
+
+            this.currentJoke = '...';
+            this.jokePopup = true;
+            try {
+                let english;
+                if (this.mentorProfile === 'sport') {
+                    const r = await fetch('https://api.chucknorris.io/jokes/random?category=sport');
+                    english = (await r.json()).value;
+                } else {
+                    const r = await fetch('https://v2.jokeapi.dev/joke/Pun,Misc?blacklistFlags=nsfw,racist,sexist,explicit&type=single');
+                    english = (await r.json()).joke;
+                }
+                const tr = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(english)}&langpair=en|uk`);
+                const td = await tr.json();
+                const translated = td.responseData?.translatedText || '';
+                if (!translated || translated.startsWith('MYMEMORY WARNING')) throw new Error('limit');
+                saveToCache(translated);
+                this.currentJoke = translated;
+            } catch(e) {
+                const cache = loadCache();
+                this.currentJoke = pickRandom(cache.length > 0 ? cache : HARDCODED);
+            }
         },
         async copyImageWeek() {
             if (!this.shareToken) await this.mkShareToken();

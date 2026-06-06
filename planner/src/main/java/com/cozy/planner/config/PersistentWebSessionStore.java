@@ -124,10 +124,16 @@ public class PersistentWebSessionStore implements WebSessionStore {
     @Override
     public Mono<WebSession> updateLastAccessTime(WebSession session) {
         log.debug("updateLastAccessTime id={}", session.getId());
-        return Mono.fromSupplier(() -> {
-            ((PersistentWebSession) session).setLastAccessTime(Instant.now());
-            return session;
-        });
+        Instant now = Instant.now();
+        ((PersistentWebSession) session).setLastAccessTime(now);
+        LocalDateTime lastAccessTime = LocalDateTime.ofInstant(now, ZoneOffset.UTC);
+        return template.getDatabaseClient()
+                .sql("UPDATE user_sessions SET last_access_time = $1 WHERE id = $2")
+                .bind("$1", lastAccessTime)
+                .bind("$2", session.getId())
+                .fetch().rowsUpdated()
+                .onErrorResume(e -> { log.warn("updateLastAccessTime failed for {}: {}", session.getId(), e.getMessage()); return Mono.just(0L); })
+                .thenReturn(session);
     }
 
     private Mono<Void> storeWebSession(WebSession session) {
@@ -269,7 +275,7 @@ public class PersistentWebSessionStore implements WebSessionStore {
             String oldId = this.id;
             this.id = UUID.randomUUID().toString();
             log.info("PersistentWebSession.changeSessionId oldId={}, newId={}", oldId, this.id);
-            return Mono.empty();
+            return removeSession(oldId);
         }
 
         @Override

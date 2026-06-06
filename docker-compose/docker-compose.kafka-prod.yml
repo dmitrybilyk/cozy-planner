@@ -1,0 +1,49 @@
+# Prod overlay — exposes Kafka externally via ngrok TCP tunnel so the remote
+# planner on Oracle Cloud can publish events to local Kafka.
+#
+# Your HTTP ngrok tunnel (planner web app): https://footwork-lid-attendee.ngrok-free.dev
+# Kafka needs a SEPARATE TCP tunnel — HTTP and TCP tunnels have different hosts.
+#
+# Usage:
+#   1. Start a TCP tunnel for Kafka:
+#        ngrok tcp 9093
+#      Note the address it assigns, e.g. tcp://3.tcp.ngrok.io:12345
+#
+#   2. Start all local services with this overlay:
+#        NGROK_KAFKA_HOST=3.tcp.ngrok.io \
+#        NGROK_KAFKA_PORT=12345 \
+#        docker compose -f docker-compose.yaml -f docker-compose.kafka-prod.yml up -d
+#
+#   3. On Oracle Cloud — set the env var and redeploy (or wait ~15s for the health check):
+#        KAFKA_BOOTSTRAP_SERVERS=3.tcp.ngrok.io:12345
+
+services:
+
+  kafka:
+    networks:
+      - cozy-net
+    environment:
+      # EXTERNAL listener on 9093 advertises the ngrok TCP address to remote clients.
+      # PLAINTEXT (9092) = host-local access; INTERNAL (29092) = docker network.
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092,INTERNAL://kafka:29092,EXTERNAL://${NGROK_KAFKA_HOST}:${NGROK_KAFKA_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+    ports:
+      - "9093:9093"
+
+  notifications:
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    networks:
+      - cozy-net
+
+  search-service:
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    networks:
+      - cozy-net
+
+networks:
+  cozy-net:

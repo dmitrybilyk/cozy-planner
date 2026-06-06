@@ -5,19 +5,16 @@ import com.cozy.planner.model.entity.Trainee;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
-@ConditionalOnProperty(name = "app.notification-service", havingValue = "kafka", matchIfMissing = true)
-//@Primary
 public class KafkaNotificationService implements NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaNotificationService.class);
@@ -150,13 +147,13 @@ public class KafkaNotificationService implements NotificationService {
             event.put("replyMarkup", replyMarkup);
         }
         log.info("Publishing {} event to topic {} for chatId={}", type, topic, chatId);
-        return Mono.fromFuture(kafkaTemplate.send(topic, chatId, event))
+        return Mono.fromCallable(() -> kafkaTemplate.send(topic, chatId, event))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(Mono::fromFuture)
                 .map(result -> {
                     log.debug("Published to kafka: partition={}, offset={}", result.getRecordMetadata().partition(), result.getRecordMetadata().offset());
                     return true;
-                })
-                .doOnError(e -> log.error("Failed to publish to Kafka: {}", e.getMessage()))
-                .onErrorResume(e -> Mono.just(false));
+                });
     }
 
     private String formatAvailabilityText(Trainee trainee, String baseUrl, String dayType, String targetDate) {

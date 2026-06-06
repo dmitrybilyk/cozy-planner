@@ -387,9 +387,9 @@ public class SessionsApiController implements SessionsApi {
 
     @Override
     public Mono<ResponseEntity<Flux<SessionDTO>>> getSessions(LocalDate startDate, LocalDate endDate, Long mentorId, Long traineeId, ServerWebExchange exchange) {
-        log.info("[getSessions] mentorId={}, traineeId={}, start={}, end={}", mentorId, traineeId, startDate, endDate);
+        log.debug("[getSessions] mentorId={}, traineeId={}, start={}, end={}", mentorId, traineeId, startDate, endDate);
         Flux<Session> sessionFlux;
-        
+
         if (traineeId != null && mentorId != null) {
             sessionFlux = sessionRepository.findAllByMentorAndTraineeInPeriod(mentorId, traineeId, startDate, endDate);
         } else if (mentorId != null) {
@@ -397,13 +397,13 @@ public class SessionsApiController implements SessionsApi {
         } else {
             sessionFlux = Flux.empty();
         }
-        
+
         Flux<SessionDTO> dtoFlux = sessionFlux
                 .collectList()
-                .doOnNext(sessions -> log.info("[getSessions] fetched {} raw sessions for mentorId={}, start={}, end={}", sessions.size(), mentorId, startDate, endDate))
+                .doOnNext(sessions -> log.debug("[getSessions] fetched {} raw sessions for mentorId={}, start={}, end={}", sessions.size(), mentorId, startDate, endDate))
                 .flatMapMany(sessions -> loadTraineeIdsBatch(sessions).map(this::mapToDto))
                 .collectList()
-                .doOnNext(dtos -> log.info("[getSessions] returning {} DTOs for mentorId={}", dtos.size(), mentorId))
+                .doOnNext(dtos -> log.debug("[getSessions] returning {} DTOs for mentorId={}", dtos.size(), mentorId))
                 .flatMapMany(Flux::fromIterable);
         
         return Mono.just(ResponseEntity.ok(dtoFlux));
@@ -414,7 +414,7 @@ public class SessionsApiController implements SessionsApi {
             @RequestParam Long mentorId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        log.info("[getSessionCounts] mentorId={}, start={}, end={}", mentorId, startDate, endDate);
+        log.debug("[getSessionCounts] mentorId={}, start={}, end={}", mentorId, startDate, endDate);
         return sessionRepository.findDatesByMentorAndPeriod(mentorId, startDate, endDate)
                 .collectList()
                 .map(dates -> {
@@ -422,7 +422,7 @@ public class SessionsApiController implements SessionsApi {
                     for (LocalDate date : dates) {
                         counts.merge(date.toString(), 1L, Long::sum);
                     }
-                    log.info("[getSessionCounts] returning {} dates for mentorId={}: {} unique dates", counts.size(), mentorId, dates.size());
+                    log.debug("[getSessionCounts] {} unique dates for mentorId={}", dates.size(), mentorId);
                     return ResponseEntity.ok(counts);
                 })
                 .doOnError(e -> log.error("[getSessionCounts] error mentorId={}", mentorId, e));

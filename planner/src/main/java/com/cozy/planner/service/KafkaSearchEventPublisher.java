@@ -4,16 +4,15 @@ import com.cozy.planner.model.entity.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
-@ConditionalOnProperty(name = "app.search-enabled", havingValue = "true")
 public class KafkaSearchEventPublisher implements SearchEventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaSearchEventPublisher.class);
@@ -51,9 +50,9 @@ public class KafkaSearchEventPublisher implements SearchEventPublisher {
 
         log.info("Publishing search event: action={}, sessionId={}", action, session.getId());
 
-        return Mono.fromFuture(kafkaTemplate.send(topic, String.valueOf(session.getId()), event))
-                .then()
-                .doOnError(e -> log.error("Failed to publish search event: {}", e.getMessage()))
-                .onErrorResume(e -> Mono.empty());
+        return Mono.fromCallable(() -> kafkaTemplate.send(topic, String.valueOf(session.getId()), event))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(Mono::fromFuture)
+                .then();
     }
 }

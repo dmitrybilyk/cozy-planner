@@ -47,7 +47,7 @@ public class SecurityConfig {
         return http
                 .securityContextRepository(new WebSessionServerSecurityContextRepository())
                 .authorizeExchange(exchanges -> exchanges
-                        .pathMatchers("/", "/css/**", "/js/**", "/signin", "/login**", "/demo-login", "/k6-login", "/oauth2/**", "/webjars/**", "/error**", "/api/v1/events", "/api/v1/ws", "/trainee/**", "/api/v1/trainee/**", "/api/v1/trainee/invite", "/api/v1/me", "/api/v1/trainees/*/availability", "/api/v1/availability/**", "/api/v1/notifications/**", "/api/v1/push/**", "/api/v1/telegram/webhook", "/api/v1/telegram/webhook/**", "/api/v1/telegram/config", "/actuator/**", "/shared/**", "/api/v1/shared/**")
+                        .pathMatchers("/", "/css/**", "/js/**", "/signin", "/login**", "/demo-login", "/k6-login", "/oauth2/**", "/webjars/**", "/error**", "/api/v1/events", "/api/v1/ws", "/trainee/**", "/api/v1/trainee/**", "/api/v1/trainee/invite", "/api/v1/me", "/api/v1/trainees/*/availability", "/api/v1/availability/**", "/api/v1/notifications/**", "/api/v1/push/**", "/api/v1/telegram/webhook", "/api/v1/telegram/webhook/**", "/api/v1/telegram/config", "/actuator/**", "/shared/**", "/api/v1/shared/**", "/api/v1/dev/**")
                         .permitAll()
                         .anyExchange().authenticated()
                 )

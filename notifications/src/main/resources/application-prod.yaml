@@ -1,6 +1,3 @@
-app:
-  base-url: https://cozy-planner.duckdns.org
-
 telegram:
   enabled: true
   bot-token: 8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPSqvDHVQAM
@@ -9,3 +6,13 @@ telegram:
   mentor-bot-username: PlanusMentorBot
   webhook-url: https://cozy-planner.duckdns.org/api/v1/telegram/webhook/notification
   mentor-webhook-url: https://cozy-planner.duckdns.org/api/v1/telegram/webhook/mentor
+
+app:
+  planner-base-url: https://cozy-planner.duckdns.org
+
+spring:
+  kafka:
+    admin:
+      properties:
+        retries: 1
+        retry.backoff.ms: 500
