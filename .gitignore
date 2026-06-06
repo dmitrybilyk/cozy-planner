@@ -4,3 +4,4 @@
 token
 /auth_secret.txt
 **/application-local.yaml
+/auth_tokens
