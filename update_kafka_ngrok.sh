@@ -7,7 +7,7 @@
 
 REMOTE_USER="ubuntu"
 REMOTE_HOST="92.5.42.35"
-SECRETS_FILE="/etc/planner/secrets.env"
+SECRETS_FILE="/home/ubuntu/cozy-planner/.env"
 
 get_tcp_url() {
     for port in 4040 4041; do
@@ -24,6 +24,11 @@ print(tcp['public_url'].replace('tcp://', '')) if tcp else sys.exit(1)
 }
 
 # ── Ensure TCP tunnel is running ───────────────────────────────────────────────
+# If address passed as argument — skip ngrok entirely
+if [ -n "$1" ]; then
+    NGROK_URL="$1"
+    echo "📌 Використовуємо передану адресу: $NGROK_URL"
+else
 NGROK_URL=$(get_tcp_url)
 
 if [ -n "$NGROK_URL" ]; then
@@ -49,6 +54,8 @@ else
     echo ""
 fi
 
+fi  # end of "no argument" block
+
 if [ -z "$NGROK_URL" ]; then
     echo "❌ Не вдалося запустити TCP тунель"
     [ -f /tmp/ngrok.log ] && cat /tmp/ngrok.log
@@ -57,9 +64,10 @@ fi
 
 echo "✅ Адреса: $NGROK_URL"
 
-# ── Update secrets.env on Oracle Cloud ────────────────────────────────────────
+# ── Update .env on Oracle Cloud ───────────────────────────────────────────────
 echo "🔄 Оновлення $SECRETS_FILE на Oracle Cloud..."
 ssh $REMOTE_USER@$REMOTE_HOST "
+  cp /etc/planner/secrets.env $SECRETS_FILE
   if grep -q '^KAFKA_BOOTSTRAP_SERVERS=' $SECRETS_FILE; then
     sed -i 's|^KAFKA_BOOTSTRAP_SERVERS=.*|KAFKA_BOOTSTRAP_SERVERS=$NGROK_URL|' $SECRETS_FILE
   else
@@ -69,6 +77,6 @@ ssh $REMOTE_USER@$REMOTE_HOST "
 "
 
 echo "🐳 Перезапуск app на Oracle Cloud..."
-ssh $REMOTE_USER@$REMOTE_HOST "cd cozy-planner && docker compose up -d app"
+ssh $REMOTE_USER@$REMOTE_HOST "cd cozy-planner && docker compose up -d --force-recreate app"
 
 echo "✅ Готово! Oracle Cloud використовує Kafka через $NGROK_URL"
