@@ -544,3 +544,9 @@ components:
           format: int64
         recurring:
           type: boolean
+        recurringCount:
+          type: integer
+          description: Number of total occurrences when recurring (including the first). Defaults to 8.
+        suppressNotification:
+          type: boolean
+          description: When true, skip sending in-app/push/Telegram notifications for this session (used for bulk creation).

@@ -45,7 +45,7 @@ function calendarApp() {
             return this.computeValidSessionEndSlots(this.sessionForm.date, this.sessionForm.startTime);
         },
         selectedTraineeFilters: [], traineeSearch: '',
-        sessionForm: { title: '', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null },
+        sessionForm: { title: '', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null, recurring: false, recurringCount: 8 },
         traineeForm: { name: '', description: '', photoBase64: null },
         locationForm: { name: '', description: '', color: '#3b82f6', googleMapsUrl: '' },
         confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
@@ -106,6 +106,7 @@ function calendarApp() {
         coachSaved: false,
         sessionValidationErrors: null,
         showAvailPopup: false,
+        planModal: { show: false, traineeId: null, traineeName: '', slots: [], saving: false, error: '' },
         compactView: true,
         expandedIds: [],
         collapsedIds: [],
@@ -1990,7 +1991,7 @@ function calendarApp() {
                 tomorrow.setDate(tomorrow.getDate() + 1);
                 defaultDate = tomorrow.toISOString().slice(0, 10);
             }
-            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: this.defaultLocationId(defaultDate), recurring: false };
+            this.sessionForm = { title: this.labels.session_title_default || 'Тренування', description: '', date: defaultDate, startTime: null, endTime: null, traineeIds: [], locationId: this.defaultLocationId(defaultDate), recurring: false, recurringCount: 8 };
             this.showModal = true;
             this.scrollDateIntoView();
             this.$nextTick(() => this.onSessionStartChange());
@@ -2056,8 +2057,102 @@ function calendarApp() {
             });
         },
 
+        _planSlotOpts(slot) {
+            return { locationId: slot.locationId, traineeIds: [this.planModal.traineeId] };
+        },
+
+        planStartSlots(slot) {
+            return this.computeValidSessionSlots(slot.date, this._planSlotOpts(slot));
+        },
+
+        planEndSlots(slot) {
+            return this.computeValidSessionEndSlots(slot.date, slot.startTime, this._planSlotOpts(slot));
+        },
+
+        onPlanDateChange(slot) {
+            slot.startTime = null;
+            slot.endTime = null;
+            slot.locationId = this.defaultLocationId(slot.date);
+            const starts = this.planStartSlots(slot);
+            if (starts.length) {
+                slot.startTime = starts[0];
+                const ends = this.planEndSlots(slot);
+                slot.endTime = ends.length ? ends[0] : null;
+            }
+        },
+
+        onPlanStartChange(slot) {
+            const ends = this.planEndSlots(slot);
+            slot.endTime = ends.length ? ends[0] : null;
+        },
+
+        openPlanSessions(trainee) {
+            const firstDate = addDays(this.todayStr, 1);
+            const locId = this.defaultLocationId(firstDate);
+            const firstSlot = { date: firstDate, startTime: null, endTime: null, locationId: locId };
+            this.planModal = { show: true, traineeId: trainee.id, traineeName: trainee.name, slots: [firstSlot], saving: false, error: '' };
+            this.$nextTick(() => this.onPlanDateChange(firstSlot));
+        },
+
+        addPlanSlot() {
+            const last = this.planModal.slots[this.planModal.slots.length - 1];
+            const nextDate = last ? addDays(last.date, 7) : addDays(this.todayStr, 1);
+            const locId = last?.locationId || this.defaultLocationId(nextDate);
+            const newSlot = { date: nextDate, startTime: null, endTime: null, locationId: locId };
+            this.planModal.slots.push(newSlot);
+            this.$nextTick(() => this.onPlanDateChange(newSlot));
+        },
+
+        removePlanSlot(idx) {
+            this.planModal.slots.splice(idx, 1);
+        },
+
+        async savePlanSessions() {
+            const { traineeId, slots } = this.planModal;
+            const valid = slots.filter(s => s.date && s.startTime && s.endTime && s.date >= this.todayStr);
+            if (valid.length === 0) { this.planModal.error = 'Оберіть дату та час для хоча б одного тренування'; return; }
+            this.planModal.saving = true;
+            this.planModal.error = '';
+            try {
+                const baseTitle = (this.labels.session_title_default || 'Тренування') + ' — ' + this.planModal.traineeName;
+                const created = [];
+                for (const slot of valid) {
+                    const payload = {
+                        title: baseTitle,
+                        description: '',
+                        date: slot.date,
+                        time: slot.startTime,
+                        endTime: slot.endTime,
+                        traineeIds: [traineeId],
+                        mentorId: this.mentorId,
+                        locationId: slot.locationId || null,
+                        recurring: false,
+                        suppressNotification: true
+                    };
+                    const res = await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (res.ok) {
+                        const s = await res.json();
+                        created.push({ id: s.id, date: slot.date, time: slot.startTime, title: baseTitle });
+                    }
+                }
+                if (created.length > 0) {
+                    await fetch('/api/v1/sessions/batch-notify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mentorId: this.mentorId, traineeIds: [traineeId], sessions: created })
+                    });
+                }
+                this.planModal.show = false;
+                await this.fetchData();
+            } catch (e) {
+                this.planModal.error = 'Помилка збереження';
+            } finally {
+                this.planModal.saving = false;
+            }
+        },
+
         async saveSession() {
-            const { startTime, endTime, date, title, description, traineeIds, locationId, recurring } = this.sessionForm;
+            const { startTime, endTime, date, title, description, traineeIds, locationId, recurring, recurringCount } = this.sessionForm;
             if (!startTime || !endTime) return;
             if (date < this.todayStr) return;
             if (this.locations.length > 0 && !locationId) return;
@@ -2087,7 +2182,8 @@ function calendarApp() {
                 title, description, date, mentorId: this.mentorId,
                 time: newTime, endTime,
                 traineeIds, locationId,
-                recurring: isNew ? !!recurring : false
+                recurring: isNew ? !!recurring : false,
+                recurringCount: (isNew && recurring) ? (recurringCount || 8) : null
             };
             console.log(`[saveSession] creating session: date=${payload.date}, time=${payload.time}, endTime=${payload.endTime}, editingId=${payload.id}`);
             const res = await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -2146,9 +2242,9 @@ function calendarApp() {
             this.sessionForm = { title: (this.labels.session_title_default || 'Тренування') + ' — ' + (trainee.name || ''), description: '', date: this.selectedDate, startTime: null, endTime: null, traineeIds: [trainee.id], locationId: this.defaultLocationId(this.selectedDate), recurring: false };
             this.showModal = true;
         },
-        _isSlotInAllTraineeAvail(fromMin, toMin, date) {
-            const traineeIds = this.sessionForm.traineeIds || [];
-            for (const tId of traineeIds) {
+        _isSlotInAllTraineeAvail(fromMin, toMin, date, traineeIds) {
+            const ids = traineeIds ?? this.sessionForm.traineeIds ?? [];
+            for (const tId of ids) {
                 const slots = this.availabilityMap[tId + '|' + date];
                 if (slots && slots.length > 0) {
                     if (slots.some(s => s.startTime === 'all_day')) continue;
@@ -2162,14 +2258,16 @@ function calendarApp() {
             }
             return true;
         },
-        computeValidSessionSlots(date) {
+        computeValidSessionSlots(date, { locationId: locIdOverride, traineeIds: tIdsOverride } = {}) {
             if (!date) return [];
             const allSlots = this.timeSlots15;
             const we = this.workEnd || '21:00';
             const busyMinRanges = this.getBusyMinuteRanges(date);
             const dateRanges = this.coachRangesByDate?.[date] || [];
             const hasAvail = dateRanges.length > 0;
-            if (hasAvail && this.locations.length > 0 && !this.sessionForm.locationId) return [];
+            const locId = locIdOverride !== undefined ? locIdOverride : this.sessionForm.locationId;
+            const tIds = tIdsOverride !== undefined ? tIdsOverride : undefined;
+            if (hasAvail && this.locations.length > 0 && !locId) return [];
             const now = new Date();
             const isToday = date === now.toISOString().slice(0, 10);
             const todayMin = now.getHours() * 60 + now.getMinutes();
@@ -2180,7 +2278,6 @@ function calendarApp() {
                 const tm = this.slotToMin(t);
                 if (isToday && tm <= todayMin) return false;
                 if (hasAvail) {
-                    const locId = this.sessionForm.locationId;
                     const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId || r.locationId == null) : dateRanges;
                     if (filteredRanges.length === 0) return false;
                     const inRange = filteredRanges.some(r =>
@@ -2191,17 +2288,19 @@ function calendarApp() {
                 for (const [bs, be] of busyMinRanges) {
                     if (tm < be && tm + step > bs) return false;
                 }
-                if (!this._isSlotInAllTraineeAvail(tm, tm + step, date)) return false;
+                if (!this._isSlotInAllTraineeAvail(tm, tm + step, date, tIds)) return false;
                 return true;
             });
         },
-        computeValidSessionEndSlots(date, startTime) {
+        computeValidSessionEndSlots(date, startTime, { locationId: locIdOverride, traineeIds: tIdsOverride } = {}) {
             if (!date || !startTime) return [];
             const allSlots = this.timeSlots15;
             const busyMinRanges = this.getBusyMinuteRanges(date);
             const dateRanges = this.coachRangesByDate?.[date] || [];
             const hasAvail = dateRanges.length > 0;
-            if (hasAvail && this.locations.length > 0 && !this.sessionForm.locationId) return [];
+            const locId = locIdOverride !== undefined ? locIdOverride : this.sessionForm.locationId;
+            const tIds = tIdsOverride !== undefined ? tIdsOverride : undefined;
+            if (hasAvail && this.locations.length > 0 && !locId) return [];
             const sm = this.slotToMin(startTime);
             const step = this.availStep || 30;
 
@@ -2209,7 +2308,6 @@ function calendarApp() {
                 const tm = this.slotToMin(t);
                 if (tm <= sm) return false;
                 if (hasAvail) {
-                    const locId = this.sessionForm.locationId;
                     const filteredRanges = locId ? dateRanges.filter(r => r.locationId == locId || r.locationId == null) : dateRanges;
                     if (filteredRanges.length === 0) return false;
                     const inRange = filteredRanges.some(r =>
@@ -2220,7 +2318,7 @@ function calendarApp() {
                 for (const [bs, be] of busyMinRanges) {
                     if (tm > bs && sm < be) return false;
                 }
-                if (!this._isSlotInAllTraineeAvail(sm, tm, date)) return false;
+                if (!this._isSlotInAllTraineeAvail(sm, tm, date, tIds)) return false;
                 return true;
             });
         },

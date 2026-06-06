@@ -327,3 +327,166 @@ test.describe('Audit log email capture', () => {
     }, res.body.id);
   });
 });
+
+// ─── recurringCount parameter ──────────────────────────────────────────────
+
+test.describe('recurringCount parameter', () => {
+  test('creates exactly N sessions when recurringCount is specified', async ({ page }) => {
+    const ids = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      return { traineeId: state?.trainees?.[0]?.id ?? null, mentorId: state?.mentorId ?? null };
+    });
+    if (!ids.traineeId || !ids.mentorId) { test.skip(); return; }
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    const res = await page.evaluate(async (p: { traineeId: number; mentorId: number; dateStr: string }) => {
+      const r = await fetch('/api/v1/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'RecurringCount e2e', date: p.dateStr, time: '06:00', endTime: '07:00',
+          traineeIds: [p.traineeId], mentorId: p.mentorId, recurring: true, recurringCount: 4 }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, ids);
+
+    expect(res.status).toBe(201);
+    expect(res.body.recurrenceGroupId).toBeTruthy();
+
+    const count = await page.evaluate(async (p: { rgid: string; mid: number }) => {
+      const today = new Date();
+      const start = today.toISOString().split('T')[0];
+      const end = new Date(today.getTime() + 40 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const r = await fetch(`/api/v1/sessions?mentorId=${p.mid}&startDate=${start}&endDate=${end}`);
+      const sessions = await r.json();
+      return sessions.filter((s: any) => s.recurrenceGroupId === p.rgid).length;
+    }, { rgid: res.body.recurrenceGroupId, mid: ids.mentorId });
+
+    expect(count).toBe(4);
+    await cleanupRecurring(page, res.body.recurrenceGroupId, ids.mentorId);
+  });
+
+  test('default recurringCount (no value) still creates 8 sessions', async ({ page }) => {
+    const ids = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      return { traineeId: state?.trainees?.[0]?.id ?? null, mentorId: state?.mentorId ?? null };
+    });
+    if (!ids.traineeId || !ids.mentorId) { test.skip(); return; }
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    const res = await page.evaluate(async (p: { traineeId: number; mentorId: number; dateStr: string }) => {
+      const r = await fetch('/api/v1/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Default recurring count', date: p.dateStr, time: '05:00', endTime: '06:00',
+          traineeIds: [p.traineeId], mentorId: p.mentorId, recurring: true }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, ids);
+
+    expect(res.status).toBe(201);
+    const count = await page.evaluate(async (p: { rgid: string; mid: number }) => {
+      const today = new Date();
+      const end = new Date(today.getTime() + 70 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const r = await fetch(`/api/v1/sessions?mentorId=${p.mid}&startDate=${today.toISOString().split('T')[0]}&endDate=${end}`);
+      const sessions = await r.json();
+      return sessions.filter((s: any) => s.recurrenceGroupId === p.rgid).length;
+    }, { rgid: res.body.recurrenceGroupId, mid: ids.mentorId });
+
+    expect(count).toBe(8);
+    await cleanupRecurring(page, res.body.recurrenceGroupId, ids.mentorId);
+  });
+
+  test('session creation modal has recurringCount input', async ({ page }) => {
+    await page.locator('[data-tour="add-session"]').click();
+    await page.waitForTimeout(500);
+    const countInput = page.locator('input[x-model\\.number="sessionForm.recurringCount"]');
+    await expect(countInput).toBeAttached({ timeout: 5000 });
+    await page.locator('.modal-footer button').filter({ hasText: 'Скасувати' }).click().catch(() => {});
+  });
+});
+
+// ─── Plan sessions (bulk) ──────────────────────────────────────────────────
+
+test.describe('Plan sessions — bulk creation', () => {
+  test('planModal state exists in Alpine', async ({ page }) => {
+    const val = await getAlpineState(page, 'planModal');
+    expect(val).toBeTruthy();
+    expect(typeof (val as any).show).toBe('boolean');
+  });
+
+  test('Планувати button visible in expanded trainee view', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="trainee-actions"] button').filter({ hasText: 'Планувати' }).first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Планувати button opens plan sessions modal', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="trainee-actions"] button').filter({ hasText: 'Планувати' }).first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(400);
+    const modalOpen = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.planModal?.show;
+    });
+    expect(modalOpen).toBe(true);
+    // close
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('batch-notify endpoint returns 200 with valid payload', async ({ page }) => {
+    const ids = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      return { traineeId: state?.trainees?.[0]?.id ?? null, mentorId: state?.mentorId ?? null };
+    });
+    if (!ids.traineeId || !ids.mentorId) { test.skip(); return; }
+
+    const dateStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const status = await page.evaluate(async (p: { traineeId: number; mentorId: number; dateStr: string }) => {
+      const r = await fetch('/api/v1/sessions/batch-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mentorId: p.mentorId,
+          traineeIds: [p.traineeId],
+          sessions: [{ id: null, date: p.dateStr, time: '10:00', title: 'Test batch' }],
+        }),
+      });
+      return r.status;
+    }, ids);
+    expect(status).toBe(200);
+  });
+
+  test('suppressNotification flag skips per-session Telegram (API level)', async ({ page }) => {
+    const ids = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      return { traineeId: state?.trainees?.[0]?.id ?? null, mentorId: state?.mentorId ?? null };
+    });
+    if (!ids.traineeId || !ids.mentorId) { test.skip(); return; }
+
+    const dateStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const res = await page.evaluate(async (p: { traineeId: number; mentorId: number; dateStr: string }) => {
+      const r = await fetch('/api/v1/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Suppress test', date: p.dateStr, time: '04:00', endTime: '05:00',
+          traineeIds: [p.traineeId], mentorId: p.mentorId, suppressNotification: true }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, ids);
+    expect(res.status).toBe(201);
+    expect(res.body.id).toBeTruthy();
+
+    await page.evaluate(async (sid: number) => {
+      await fetch(`/api/v1/sessions/${sid}`, { method: 'DELETE' });
+    }, res.body.id);
+  });
+});

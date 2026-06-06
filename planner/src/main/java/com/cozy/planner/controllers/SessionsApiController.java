@@ -25,6 +25,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
@@ -134,6 +136,9 @@ public class SessionsApiController implements SessionsApi {
 
     private Mono<SessionDTO> createNewSession(CreateSessionRequest request, String baseUrl, String actorEmail) {
         boolean recurring = Boolean.TRUE.equals(request.getRecurring());
+        int extraWeeks = recurring
+                ? Math.max(0, (request.getRecurringCount() != null ? request.getRecurringCount() : 8) - 1)
+                : 0;
         String groupId = recurring ? UUID.randomUUID().toString() : null;
 
         return validateSession(request.getMentorId(), request.getDate(), parseTime(request.getTime()), parseTime(request.getEndTime()))
@@ -153,11 +158,10 @@ public class SessionsApiController implements SessionsApi {
                             .flatMap(saved -> searchEventPublisher.publishSessionEvent("CREATED", saved).thenReturn(saved))
                             .flatMap(saved -> auditService.log("SESSION_CREATED", actorEmail, saved.getMentorId(),
                                     "Session created: \"" + saved.getTitle() + "\" on " + saved.getWorkoutDate()
-                                    + (recurring ? " (recurring)" : "")).thenReturn(saved))
+                                    + (recurring ? " (recurring x" + (extraWeeks + 1) + ")" : "")).thenReturn(saved))
                             .flatMap(saved -> {
-                                if (!recurring) return Mono.just(saved);
-                                // Create 7 more weekly instances
-                                return Flux.range(1, 7)
+                                if (!recurring || extraWeeks == 0) return Mono.just(saved);
+                                return Flux.range(1, extraWeeks)
                                         .flatMap(week -> {
                                             Session copy = Session.builder()
                                                     .title(request.getTitle())
@@ -181,15 +185,20 @@ public class SessionsApiController implements SessionsApi {
                         .then(loadTraineeIds(saved))
                         .flatMap(s -> {
                             List<Long> tIds = request.getTraineeIds();
-                            if (tIds != null && !tIds.isEmpty()) {
+                            if (tIds != null && !tIds.isEmpty() && !Boolean.TRUE.equals(request.getSuppressNotification())) {
                                 return mentorRepository.findById(s.getMentorId())
                                         .defaultIfEmpty(Mentor.builder().profile("sport").build())
                                         .flatMapMany(mentor -> {
                                             String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
                                             String sessionLabel = ProfileLabels.get(profile, "session").toLowerCase();
                                             String mentorLabel = ProfileLabels.get(profile, "mentor");
-                                            String nTitle = mentorLabel + " створив " + sessionLabel;
-                                            String nMessage = s.getTitle() + " — " + s.getWorkoutDate() + " " + s.getStartTime();
+                                            int totalCount = extraWeeks + 1;
+                                            String nTitle = recurring && totalCount > 1
+                                                    ? mentorLabel + " запланував серію " + sessionLabel + "в (" + totalCount + ")"
+                                                    : mentorLabel + " створив " + sessionLabel;
+                                            String nMessage = recurring && totalCount > 1
+                                                    ? s.getTitle() + " — серія " + totalCount + " тижнів від " + s.getWorkoutDate()
+                                                    : s.getTitle() + " — " + s.getWorkoutDate() + " " + s.getStartTime();
                                             return Flux.fromIterable(tIds)
                                                     .flatMap(tId -> {
                                                         Notification n = Notification.builder()
@@ -496,6 +505,81 @@ public class SessionsApiController implements SessionsApi {
             return null;
         }
         return time.toString();
+    }
+
+    record SessionSummaryItem(Long id, String date, String time, String title) {}
+    record BatchNotifyRequest(Long mentorId, List<Long> traineeIds, List<SessionSummaryItem> sessions) {}
+
+    @PostMapping("/api/v1/sessions/batch-notify")
+    public Mono<ResponseEntity<Void>> batchNotify(@RequestBody BatchNotifyRequest body, ServerWebExchange exchange) {
+        if (body.traineeIds() == null || body.traineeIds().isEmpty() || body.sessions() == null || body.sessions().isEmpty()) {
+            return Mono.just(ResponseEntity.badRequest().<Void>build());
+        }
+        int count = body.sessions().size();
+        String firstDate = body.sessions().get(0).date();
+        String firstTime = body.sessions().get(0).time();
+        String firstTitle = body.sessions().get(0).title();
+        Long firstSessionId = body.sessions().get(0).id();
+
+        return mentorRepository.findById(body.mentorId())
+                .defaultIfEmpty(Mentor.builder().profile("sport").build())
+                .flatMapMany(mentor -> {
+                    String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
+                    String sessionLabel = ProfileLabels.get(profile, "session").toLowerCase();
+                    String mentorLabel = ProfileLabels.get(profile, "mentor");
+                    String nTitle = mentorLabel + " запланував " + count + " " + sessionLabel + (count > 1 ? "ів" : "");
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < Math.min(count, 5); i++) {
+                        SessionSummaryItem it = body.sessions().get(i);
+                        sb.append("• ").append(it.date()).append(" ").append(it.time()).append("\n");
+                    }
+                    if (count > 5) sb.append("… ще ").append(count - 5);
+                    String nMessage = sb.toString().trim();
+
+                    return Flux.fromIterable(body.traineeIds())
+                            .flatMap(tId -> {
+                                Notification n = Notification.builder()
+                                        .traineeId(tId)
+                                        .title(nTitle)
+                                        .message(nMessage)
+                                        .type("SESSION_CREATED")
+                                        .sessionId(firstSessionId)
+                                        .isRead(false)
+                                        .createdAt(LocalDateTime.now())
+                                        .build();
+                                return notificationRepository.save(n)
+                                        .flatMap(savedN -> {
+                                            Map<String, Object> evt = new HashMap<>();
+                                            evt.put("type", "notification");
+                                            evt.put("id", savedN.getId());
+                                            evt.put("traineeId", savedN.getTraineeId());
+                                            evt.put("title", savedN.getTitle());
+                                            evt.put("message", savedN.getMessage());
+                                            evt.put("notificationType", savedN.getType());
+                                            evt.put("sessionId", savedN.getSessionId());
+                                            evt.put("isRead", savedN.getIsRead());
+                                            evt.put("createdAt", savedN.getCreatedAt() != null ? savedN.getCreatedAt().toString() : null);
+                                            evt.put("actionType", "trainee_confirm_session");
+                                            eventBroadcastService.broadcastJson(evt);
+                                            pushService.sendToTrainee(tId, nTitle, nMessage, firstSessionId, "trainee_confirm_session").subscribe();
+                                            return traineeRepository.findById(tId)
+                                                    .filter(Trainee::hasTelegram)
+                                                    .flatMap(t -> {
+                                                        String greeting = "👋 <b>" + (t.getName() != null ? t.getName() : "") + "</b>!\n\n";
+                                                        String dates = body.sessions().stream()
+                                                                .limit(5)
+                                                                .map(it -> "📅 " + it.date() + " " + it.time())
+                                                                .collect(java.util.stream.Collectors.joining("\n"));
+                                                        if (count > 5) dates += "\n… ще " + (count - 5);
+                                                        String msg = greeting + "<b>" + mentorLabel + "</b> запланував для тебе <b>" + count + " " + sessionLabel + (count > 1 ? "ів" : "") + "</b>:\n\n" + dates;
+                                                        return notificationService.sendMessage(t.getTelegramChatId(), msg);
+                                                    })
+                                                    .thenReturn(savedN);
+                                        });
+                            });
+                })
+                .then(Mono.fromRunnable(() -> eventBroadcastService.broadcast("session_changed")))
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
     }
 
     private SessionDTO mapToDto(Session entity) {

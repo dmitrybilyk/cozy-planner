@@ -838,8 +838,11 @@
                         <button @click="generateTraineeLink(t)" data-tour="trainee-site-btn" class="text-xs font-bold text-orange-400 px-2.5 py-1 rounded-lg border border-orange-500/30 hover:bg-orange-500/10 transition">
                             <span x-text="getCopyLinkText(t.id) || '🌐 Сайт ' + (labels.trainee_gen || labels.trainee || 'учня')"></span>
                         </button>
+                        <button @click="openPlanSessions(t)" class="text-xs font-bold text-violet-400 px-2.5 py-1 rounded-lg border border-violet-500/30 hover:bg-violet-500/10 transition">
+                            📅 <span x-text="(labels.plan_sessions || 'Планувати')"></span>
+                        </button>
                         <button @click="createSessionForTrainee(t)" class="text-xs font-bold text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
-                            <span x-text="(labels.create_session || 'Створити тренування')"></span>
+                            <span x-text="(labels.create_session || 'Створити')"></span>
                         </button>
                     </div>
                     <!-- Notification settings row -->
@@ -1271,7 +1274,7 @@
             </div>
         </div>
         <!-- Recurring option — only for new sessions -->
-        <div x-show="!editingSessionId" class="px-5 pb-3">
+        <div x-show="!editingSessionId" class="px-5 pb-3 space-y-2">
             <label class="flex items-center gap-3 cursor-pointer select-none">
                 <div class="relative">
                     <input type="checkbox" x-model="sessionForm.recurring" class="sr-only">
@@ -1280,12 +1283,93 @@
                     <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
                          :class="sessionForm.recurring ? 'translate-x-5' : 'translate-x-0'"></div>
                 </div>
-                <span class="text-sm text-gray-300">🔁 <span x-text="labels.recurring_session || 'Повторювати щотижня (8 тижнів)'"></span></span>
+                <span class="text-sm text-gray-300">🔁 Повторювати щотижня</span>
             </label>
+            <div x-show="sessionForm.recurring" class="flex items-center gap-2 ml-13 pl-1">
+                <span class="text-xs text-gray-500">Кількість тижнів:</span>
+                <input type="number" x-model.number="sessionForm.recurringCount" min="2" max="52"
+                       class="w-16 text-sm text-center bg-[#262626] border border-[#444] rounded-lg px-2 py-1 focus:border-blue-500 focus:outline-none">
+                <span class="text-xs text-gray-600" x-text="'(' + (sessionForm.recurringCount || 8) + ' тренувань)'"></span>
+            </div>
         </div>
         <div class="modal-footer flex space-x-3">
             <button @click="closeModal()" class="flex-1 py-4 font-bold text-gray-500 text-sm" x-text="labels.cancel || 'Скасувати'"></button>
             <button @click="saveSession()" :class="saveBtnClass" x-text="labels.save || 'Зберегти'"></button>
+        </div>
+    </div>
+</div>
+
+<!-- PLAN SESSIONS MODAL -->
+<div x-show="planModal.show" x-cloak x-transition
+     class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4"
+     @keydown.escape.window="planModal.show = false">
+    <div class="modal-container" @click.away="planModal.show = false">
+        <div class="p-6 border-b border-[#333] flex justify-between items-center">
+            <div>
+                <h3 class="text-2xl font-bold text-white">📅 Планувати тренування</h3>
+                <p class="text-sm text-gray-500 mt-0.5" x-text="planModal.traineeName"></p>
+            </div>
+            <button @click="planModal.show = false" class="text-gray-500 hover:text-gray-300 p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="modal-body space-y-3">
+            <template x-for="(slot, idx) in planModal.slots" :key="idx">
+                <div class="flex items-center gap-2 bg-[#1e1e1e] rounded-xl p-3 border border-[#2a2a2a]">
+                    <div class="flex-1 min-w-0 space-y-2">
+                        <input type="date" x-model="slot.date" :min="todayStr"
+                               @change="onPlanDateChange(slot)"
+                               class="w-full bg-transparent border-b border-[#444] outline-none py-1 text-sm text-gray-200 focus:border-blue-500">
+                        <template x-if="locations.length > 0">
+                            <select x-model="slot.locationId" @change="onPlanDateChange(slot)"
+                                    class="w-full text-sm bg-[#262626] border border-[#444] rounded-lg px-2 py-1 text-gray-200 focus:outline-none focus:border-blue-500">
+                                <template x-for="loc in locations" :key="loc.id">
+                                    <option :value="loc.id" x-text="loc.name"></option>
+                                </template>
+                            </select>
+                        </template>
+                        <div class="flex items-center gap-2">
+                            <select x-model="slot.startTime" @change="onPlanStartChange(slot)"
+                                    class="flex-1 text-sm bg-[#262626] border border-[#444] rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500"
+                                    :class="planStartSlots(slot).length === 0 ? 'text-gray-600' : 'text-gray-200'">
+                                <option value="" x-show="!slot.startTime" class="text-gray-600">Від</option>
+                                <template x-for="t in planStartSlots(slot)" :key="t">
+                                    <option :value="t" x-text="t" :class="t.endsWith(':00') ? 'font-semibold' : ''"></option>
+                                </template>
+                            </select>
+                            <span class="text-gray-600 text-xs flex-shrink-0">—</span>
+                            <select x-model="slot.endTime"
+                                    class="flex-1 text-sm bg-[#262626] border border-[#444] rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500"
+                                    :class="planEndSlots(slot).length === 0 ? 'text-gray-600' : 'text-gray-200'">
+                                <option value="" x-show="!slot.endTime" class="text-gray-600">До</option>
+                                <template x-for="t in planEndSlots(slot)" :key="t">
+                                    <option :value="t" x-text="t" :class="t.endsWith(':00') ? 'font-semibold' : ''"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div x-show="slot.date && planStartSlots(slot).length === 0"
+                             class="text-xs text-yellow-600 font-medium">⚠ Немає вільних слотів на цю дату</div>
+                    </div>
+                    <button x-show="planModal.slots.length > 1" @click="removePlanSlot(idx)" type="button"
+                            class="flex-shrink-0 text-red-500 hover:text-red-400 p-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </template>
+            <button @click="addPlanSlot()" type="button"
+                    class="w-full py-2 rounded-xl border border-dashed border-[#444] text-gray-500 hover:text-gray-300 hover:border-gray-500 text-sm transition">
+                + Додати ще дату
+            </button>
+            <div x-show="planModal.error" class="text-red-400 text-xs font-medium" x-text="planModal.error"></div>
+        </div>
+        <div class="modal-footer flex space-x-3">
+            <button @click="planModal.show = false" class="flex-1 py-4 font-bold text-gray-500 text-sm">Скасувати</button>
+            <button @click="savePlanSessions()" :disabled="planModal.saving"
+                    class="flex-1 py-4 font-bold rounded-2xl text-white transition disabled:opacity-50"
+                    style="background: linear-gradient(135deg, #7c3aed, #6d28d9)">
+                <span x-show="!planModal.saving" x-text="'Зберегти ' + planModal.slots.length + ' тренув.'"></span>
+                <span x-show="planModal.saving">Збереження...</span>
+            </button>
         </div>
     </div>
 </div>
