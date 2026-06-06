@@ -56,7 +56,7 @@ test.describe('Coach availability', () => {
 
   test('switching back to feed tab keeps state', async ({ page }) => {
     // Go back to feed
-    await page.locator('[data-tour="view-toggle"] button').first().click();
+    await page.locator('[data-tour="feed-view"]').click();
     await page.waitForTimeout(300);
     // Session cards still load
     await expect(page.locator('[data-session-id]').first()).toBeVisible({ timeout: 8000 });

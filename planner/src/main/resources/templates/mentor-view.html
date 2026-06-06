@@ -285,7 +285,7 @@
                                 <span class="text-xs text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <template x-for="aId in session.traineeIds"><div class="flex flex-col w-full text-xs sm:text-sm bg-[#333] px-3 py-2 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><div class="flex items-center w-full"><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3.5 h-3.5 ml-1 text-green-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3.5 h-3.5 ml-1 text-red-400 flex-shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button></div><div class="flex items-center w-full mt-1.5"><button x-show="getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="confirmTrainee(aId, session)" class="text-xs font-bold text-green-400 bg-green-400/15 px-3 py-1 rounded-lg border border-green-500/30 hover:bg-green-400/25 transition whitespace-nowrap">Підтвердити</button><button x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" @click.stop="unconfirmTrainee(aId, session)" class="text-xs font-bold text-gray-400 bg-gray-400/15 px-3 py-1 rounded-lg border border-gray-500/30 hover:bg-gray-400/25 transition whitespace-nowrap">Відмінити</button><span class="ml-auto text-xs font-bold" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : 'text-gray-400'" x-text="'Статус: ' + (getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'Підтверджено' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'Відхилено спортсменом' : 'Не підтверджено')"></span></div></div></template>
+                                <template x-for="aId in session.traineeIds"><div class="flex flex-col w-full text-xs sm:text-sm bg-[#333] px-3 py-2 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><div class="flex items-center w-full"><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3.5 h-3.5 ml-1 text-green-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3.5 h-3.5 ml-1 text-red-400 flex-shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button></div><div class="flex items-center w-full mt-1.5"><button x-show="getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="confirmTrainee(aId, session)" class="text-xs font-bold text-green-400 bg-green-400/15 px-3 py-1 rounded-lg border border-green-500/30 hover:bg-green-400/25 transition whitespace-nowrap">Підтвердити</button><button x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" @click.stop="unconfirmTrainee(aId, session)" class="text-xs font-bold text-gray-400 bg-gray-400/15 px-3 py-1 rounded-lg border border-gray-500/30 hover:bg-gray-400/25 transition whitespace-nowrap">Відмінити</button><span class="ml-auto text-xs font-bold" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : 'text-gray-400'" x-text="'Статус: ' + (getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'Підтверджено' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'Відхилено спортсменом' : 'Не підтверджено')"></span></div><div class="flex mt-1.5"><button @click.stop="openFeedbackModal(aId, getTraineeName(aId), session.id, session.title)" class="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">💬 Відгук</button></div></div></template>
                             </div>
                             <div class="flex items-center justify-between mt-2">
                                 <div class="flex items-center">
@@ -752,7 +752,7 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                                 <span x-text="(labels.add_trainee_short || 'Додати ' + (labels.trainee_gen || labels.trainee || 'учня'))"></span>
                             </button>
-                    <button @click="toggleTraineeView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="traineeCompactView ? '▤ Детальний режим' : '▣ Компактний режим'"></button>
+                    <button @click="toggleTraineeView()" data-tour="trainee-compact-toggle" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400" x-text="traineeCompactView ? '▤ Детальний режим' : '▣ Компактний режим'"></button>
                 </div>
             </div>
             <input type="text" x-model="traineeSearch" :placeholder="'🔍 ' + (labels.trainee_search || 'Пошук учнів...')" class="w-full bg-[#262626] text-gray-200 text-sm px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500 mb-3">
@@ -785,7 +785,7 @@
                         </div>
                     </template>
                      <template x-if="!traineeCompactView || traineeExpandedIds.indexOf(t.id) >= 0">
-                        <div class="p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
+                        <div data-tour="trainee-card-expanded" class="p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl">
                     <div class="flex items-center gap-3">
                         <div class="w-12 h-12 rounded-2xl bg-gray-700 flex-shrink-0 overflow-hidden">
                             <template x-if="t.photoBase64">
@@ -805,7 +805,7 @@
                         <button @click.stop="askDeleteTrainee(t.id)" class="p-1 text-red-400 hover:text-red-300 transition flex-shrink-0" title="Видалити">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
                         </button>
-                        <button @click.stop="collapseTrainee(t.id)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0" title="Згорнути">
+                        <button @click.stop="collapseTrainee(t.id)" data-tour="trainee-collapse" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0" title="Згорнути">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
                         </button>
                     </div>
@@ -843,6 +843,9 @@
                         </button>
                         <button @click="createSessionForTrainee(t)" class="text-xs font-bold text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
                             <span x-text="(labels.create_session || 'Створити')"></span>
+                        </button>
+                        <button @click="openConversationModal(t)" class="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">
+                            💬 Розмова
                         </button>
                     </div>
                     <!-- Notification settings row -->
@@ -1026,7 +1029,34 @@
     </div>
 
     <!-- СПОВІЩЕННЯ -->
-    <div x-show="activeTab === 'notifications'" class="max-w-2xl mx-auto p-4 pb-28">
+    <div x-show="activeTab === 'notifications'" x-init="loadFeedbackReceivedByMentor()" class="max-w-2xl mx-auto p-4 pb-28">
+        <!-- Feedback received from trainees -->
+        <template x-if="_feedbackReceivedByMentor && _feedbackReceivedByMentor.length > 0">
+            <div class="mb-6">
+                <h3 class="text-sm font-black text-gray-500 uppercase tracking-widest mb-3">💬 Відгуки від учнів</h3>
+                <div class="space-y-2">
+                    <template x-for="fb in _feedbackReceivedByMentor" :key="fb.id">
+                        <div class="rounded-xl p-3 border border-purple-500/20 bg-purple-900/10">
+                            <div class="flex items-center justify-between gap-2 mb-1">
+                                <span class="text-xs font-bold text-purple-400" x-text="fb.senderName || 'Учень'"></span>
+                                <div class="flex items-center gap-0.5">
+                                    <template x-for="i in [1,2,3,4,5]" :key="i">
+                                        <span x-show="fb.rating" class="text-xs" :class="i <= fb.rating ? 'text-yellow-400' : 'text-gray-700'">★</span>
+                                    </template>
+                                    <span class="text-xs text-gray-600 ml-2" x-text="formatFeedbackDate(fb.createdAt)"></span>
+                                </div>
+                            </div>
+                            <div x-show="fb.tags" class="flex flex-wrap gap-1 mb-1">
+                                <template x-for="tag in (fb.tags || '').split(',')" :key="tag">
+                                    <span x-show="tag.trim()" class="px-1.5 py-0.5 bg-purple-900/30 text-purple-300 rounded-full text-[10px] font-medium" x-text="tag.trim()"></span>
+                                </template>
+                            </div>
+                            <p x-show="fb.text" class="text-xs text-gray-400" x-text="fb.text"></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
         <div class="flex items-center justify-between mb-6">
             <h3 class="text-sm sm:text-base font-black text-gray-500 uppercase tracking-widest">🔔 Сповіщення</h3>
             <template x-if="unreadCount > 0">
@@ -1170,7 +1200,7 @@
 </main>
 
 <!-- МОДАЛКА ТРЕНУВАННЯ -->
-<div x-show="showModal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition @keydown.escape.window="closeModal()">
+<div x-show="showModal" data-tour="session-modal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition @keydown.escape.window="closeModal()">
     <div class="modal-container" @click.away="closeModal()">
         <div class="p-6 border-b border-[#333] flex justify-between items-center">
             <h3 class="text-2xl sm:text-3xl font-bold text-white" x-text="editingSessionId ? (labels.edit || 'Редагувати') : (labels.new_session || 'Нова сесія')"></h3>
@@ -1516,6 +1546,98 @@
     <span x-text="toast.message"></span>
 </div>
 
+<!-- Feedback Modal -->
+<div x-show="feedbackModal.show" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop" x-cloak x-transition @keydown.escape.window="closeFeedbackModal()">
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl" @click.away="closeFeedbackModal()">
+        <div class="modal-header flex justify-between items-center">
+            <div>
+                <h3 class="text-lg font-bold text-white">💬 Відгук для <span x-text="feedbackModal.traineeName"></span></h3>
+                <p x-show="feedbackModal.sessionTitle" class="text-xs text-gray-500 mt-0.5" x-text="feedbackModal.sessionTitle"></p>
+            </div>
+            <button @click="closeFeedbackModal()" class="text-gray-500 text-sm font-bold">Скасувати</button>
+        </div>
+        <div class="p-5 space-y-4 max-h-[65vh] overflow-y-auto">
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Оцінка</label>
+                <div class="flex gap-2">
+                    <template x-for="i in [1,2,3,4,5]" :key="i">
+                        <button @click="feedbackModal.rating = feedbackModal.rating === i ? 0 : i"
+                                class="text-2xl transition"
+                                :class="i <= feedbackModal.rating ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-300'">★</button>
+                    </template>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Теги</label>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="tag in COACH_FEEDBACK_TAGS" :key="tag">
+                        <button @click="toggleFeedbackTag(tag)"
+                                class="px-3 py-1.5 rounded-full text-xs font-bold transition"
+                                :class="feedbackModal.tags.includes(tag) ? 'bg-purple-600 text-white' : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#333]'"
+                                x-text="tag"></button>
+                    </template>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Повідомлення (необов'язково)</label>
+                <textarea x-model="feedbackModal.text" rows="3"
+                          placeholder="Коментар для учня..."
+                          class="w-full bg-[#2a2a2a] border border-[#444] rounded-xl px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-none"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button @click="sendFeedback()"
+                    :disabled="feedbackSending || (!feedbackModal.text.trim() && feedbackModal.tags.length === 0 && feedbackModal.rating === 0)"
+                    class="flex-1 py-4 text-sm font-bold text-purple-400 disabled:opacity-30 transition">
+                <span x-show="!feedbackSending">Надіслати</span>
+                <span x-show="feedbackSending">...</span>
+            </button>
+            <button @click="closeFeedbackModal()" class="flex-1 py-4 text-sm font-medium text-gray-400 border-l border-[#333]">Скасувати</button>
+        </div>
+    </div>
+</div>
+
+<!-- Conversation Modal -->
+<div x-show="conversationModal.show" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 modal-backdrop" x-cloak x-transition @keydown.escape.window="closeConversationModal()">
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-lg rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]" @click.away="closeConversationModal()">
+        <div class="modal-header flex justify-between items-center flex-shrink-0">
+            <h3 class="text-lg font-bold text-white">💬 <span x-text="conversationModal.traineeName"></span></h3>
+            <div class="flex items-center gap-3">
+                <button @click="openFeedbackModal(conversationModal.traineeId, conversationModal.traineeName, null, null); conversationModal.show = false"
+                        class="text-xs font-bold text-purple-400 px-3 py-1.5 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">
+                    + Новий відгук
+                </button>
+                <button @click="closeConversationModal()" class="text-gray-500 text-sm font-bold">✕</button>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div x-show="conversationLoading" class="text-center py-10 text-gray-500 text-sm">Завантаження...</div>
+            <div x-show="!conversationLoading && conversation.length === 0" class="text-center py-10 text-gray-600 text-sm">Поки що немає відгуків</div>
+            <template x-for="fb in conversation" :key="fb.id">
+                <div class="rounded-2xl px-4 py-3"
+                     :class="fb.fromMentorId ? 'bg-purple-900/20 border border-purple-500/20 ml-4' : 'bg-blue-900/20 border border-blue-500/20 mr-4'">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        <span class="text-xs font-bold" :class="fb.fromMentorId ? 'text-purple-300' : 'text-blue-300'" x-text="fb.senderName || (fb.fromMentorId ? 'Тренер' : 'Учень')"></span>
+                        <template x-if="fb.rating">
+                            <span class="text-xs text-yellow-400" x-text="'★'.repeat(fb.rating)"></span>
+                        </template>
+                        <span class="text-[10px] text-gray-600 ml-auto" x-text="formatFeedbackDate(fb.createdAt)"></span>
+                    </div>
+                    <div x-show="fb.tags" class="flex flex-wrap gap-1 mb-1.5">
+                        <template x-for="tag in (fb.tags || '').split(',')" :key="tag">
+                            <span x-show="tag.trim()" class="px-2 py-0.5 rounded-full text-[10px] font-medium"
+                                  :class="fb.fromMentorId ? 'bg-purple-900/40 text-purple-300' : 'bg-blue-900/40 text-blue-300'"
+                                  x-text="tag.trim()"></span>
+                        </template>
+                    </div>
+                    <p x-show="fb.text" class="text-sm text-gray-300" x-text="fb.text"></p>
+                    <p x-show="fb.sessionTitle" class="text-[10px] text-gray-600 mt-1" x-text="'📅 ' + fb.sessionTitle"></p>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
 <!-- iOS Install Modal -->
 <div x-show="showIosInstall" x-cloak class="fixed inset-0 z-[70] flex items-end justify-center" style="background:rgba(0,0,0,0.6)" @click.self="showIosInstall = false">
     <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-lg rounded-t-3xl p-6 pb-10">
@@ -1617,6 +1739,7 @@
 
         <!-- Day -->
         <button @click="activeTab = 'feed'"
+                data-tour="feed-view"
                 class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition active:scale-90">
             <svg class="w-6 h-6 transition-colors" :class="activeTab === 'feed' ? 'text-blue-400' : 'text-gray-600'"
                  fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">

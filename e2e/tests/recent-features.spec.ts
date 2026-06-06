@@ -43,9 +43,34 @@ async function cleanupRecurring(page: any, recurrenceGroupId: string, mentorId: 
   }, { rgid: recurrenceGroupId, mid: mentorId });
 }
 
+async function cleanupByTitle(page: any, titles: string[], mentorId: number) {
+  await page.evaluate(async (params: { titles: string[]; mid: number }) => {
+    const today = new Date();
+    const start = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const end = new Date(today.getTime() + 70 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const res = await fetch(`/api/v1/sessions?mentorId=${params.mid}&startDate=${start}&endDate=${end}`);
+    if (!res.ok) return;
+    const sessions = await res.json();
+    const toDelete = sessions.filter((s: any) => params.titles.includes(s.title));
+    for (const s of toDelete) {
+      await fetch(`/api/v1/sessions/${s.id}`, { method: 'DELETE' });
+    }
+  }, { titles, mid: mentorId });
+}
+
 // ─── Recurring sessions ────────────────────────────────────────────────────
 
 test.describe('Recurring sessions', () => {
+  test.beforeEach(async ({ page }) => {
+    const ids = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.mentorId ?? null;
+    });
+    if (ids) {
+      await cleanupByTitle(page, ['Recurring e2e', 'Recurring group test', 'Non-recurring test'], ids);
+    }
+  });
+
   test('creates 8 weekly instances via API', async ({ page }) => {
     const ids = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
@@ -63,7 +88,7 @@ test.describe('Recurring sessions', () => {
           traineeIds: [p.traineeId], mentorId: p.mentorId, recurring: true }),
       });
       return { status: r.status, body: await r.json() };
-    }, ids);
+    }, { ...ids, dateStr });
 
     expect(res.status).toBe(201);
     expect(res.body.recurring).toBe(true);
@@ -99,7 +124,7 @@ test.describe('Recurring sessions', () => {
           traineeIds: [p.traineeId], mentorId: p.mentorId, recurring: true }),
       });
       return { status: r.status, body: await r.json() };
-    }, ids);
+    }, { ...ids, dateStr });
 
     expect(res.body.recurrenceGroupId).toMatch(/^[0-9a-f-]{36}$/i);
     await cleanupRecurring(page, res.body.recurrenceGroupId, ids.mentorId);
@@ -122,7 +147,7 @@ test.describe('Recurring sessions', () => {
           traineeIds: [p.traineeId], mentorId: p.mentorId, recurring: false }),
       });
       return { status: r.status, body: await r.json() };
-    }, ids);
+    }, { ...ids, dateStr });
 
     expect(res.status).toBe(201);
     expect(res.body.recurrenceGroupId == null || res.body.recurrenceGroupId === '').toBe(true);
@@ -284,6 +309,14 @@ test.describe('Web push notification endpoints', () => {
 // ─── Admin audit log: SESSION_CREATED has email ────────────────────────────
 
 test.describe('Audit log email capture', () => {
+  test.beforeEach(async ({ page }) => {
+    const mid = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.mentorId ?? null;
+    });
+    if (mid) await cleanupByTitle(page, ['Audit email test'], mid);
+  });
+
   test('creating a session records mentor email in audit', async ({ page }) => {
     const ids = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
@@ -301,7 +334,7 @@ test.describe('Audit log email capture', () => {
           traineeIds: [p.traineeId], mentorId: p.mentorId }),
       });
       return { status: r.status, body: await r.json() };
-    }, ids);
+    }, { ...ids, dateStr });
     expect(res.status).toBe(201);
 
     // Give the audit event a moment to save
@@ -331,6 +364,14 @@ test.describe('Audit log email capture', () => {
 // ─── recurringCount parameter ──────────────────────────────────────────────
 
 test.describe('recurringCount parameter', () => {
+  test.beforeEach(async ({ page }) => {
+    const mid = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.mentorId ?? null;
+    });
+    if (mid) await cleanupByTitle(page, ['RecurringCount e2e', 'Default recurring count'], mid);
+  });
+
   test('creates exactly N sessions when recurringCount is specified', async ({ page }) => {
     const ids = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
@@ -344,11 +385,11 @@ test.describe('recurringCount parameter', () => {
       const r = await fetch('/api/v1/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'RecurringCount e2e', date: p.dateStr, time: '06:00', endTime: '07:00',
+        body: JSON.stringify({ title: 'RecurringCount e2e', date: p.dateStr, time: '15:00', endTime: '16:00',
           traineeIds: [p.traineeId], mentorId: p.mentorId, recurring: true, recurringCount: 4 }),
       });
       return { status: r.status, body: await r.json() };
-    }, ids);
+    }, { ...ids, dateStr });
 
     expect(res.status).toBe(201);
     expect(res.body.recurrenceGroupId).toBeTruthy();
@@ -379,11 +420,11 @@ test.describe('recurringCount parameter', () => {
       const r = await fetch('/api/v1/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Default recurring count', date: p.dateStr, time: '05:00', endTime: '06:00',
+        body: JSON.stringify({ title: 'Default recurring count', date: p.dateStr, time: '16:00', endTime: '17:00',
           traineeIds: [p.traineeId], mentorId: p.mentorId, recurring: true }),
       });
       return { status: r.status, body: await r.json() };
-    }, ids);
+    }, { ...ids, dateStr });
 
     expect(res.status).toBe(201);
     const count = await page.evaluate(async (p: { rgid: string; mid: number }) => {
@@ -410,6 +451,14 @@ test.describe('recurringCount parameter', () => {
 // ─── Plan sessions (bulk) ──────────────────────────────────────────────────
 
 test.describe('Plan sessions — bulk creation', () => {
+  test.beforeEach(async ({ page }) => {
+    const mid = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.mentorId ?? null;
+    });
+    if (mid) await cleanupByTitle(page, ['Suppress test'], mid);
+  });
+
   test('planModal state exists in Alpine', async ({ page }) => {
     const val = await getAlpineState(page, 'planModal');
     expect(val).toBeTruthy();
@@ -460,7 +509,7 @@ test.describe('Plan sessions — bulk creation', () => {
         }),
       });
       return r.status;
-    }, ids);
+    }, { ...ids, dateStr });
     expect(status).toBe(200);
   });
 
@@ -477,11 +526,11 @@ test.describe('Plan sessions — bulk creation', () => {
       const r = await fetch('/api/v1/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Suppress test', date: p.dateStr, time: '04:00', endTime: '05:00',
+        body: JSON.stringify({ title: 'Suppress test', date: p.dateStr, time: '17:00', endTime: '18:00',
           traineeIds: [p.traineeId], mentorId: p.mentorId, suppressNotification: true }),
       });
       return { status: r.status, body: await r.json() };
-    }, ids);
+    }, { ...ids, dateStr });
     expect(res.status).toBe(201);
     expect(res.body.id).toBeTruthy();
 

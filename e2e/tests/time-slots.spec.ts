@@ -8,11 +8,11 @@ import { test, expect } from './fixtures';
 
 async function openNewSessionModal(page: any) {
   await page.locator('[data-tour="add-session"]').click();
-  await expect(page.locator('.modal-footer button').filter({ hasText: 'Зберегти' })).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[data-tour="session-modal"] .modal-footer button').filter({ hasText: 'Зберегти' })).toBeVisible({ timeout: 5000 });
 }
 
 async function closeModal(page: any) {
-  await page.locator('.modal-footer button').filter({ hasText: 'Скасувати' }).click();
+  await page.locator('[data-tour="session-modal"] .modal-footer button').filter({ hasText: 'Скасувати' }).click();
 }
 
 async function selectFutureDate(page: any) {

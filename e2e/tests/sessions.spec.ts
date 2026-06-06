@@ -45,13 +45,13 @@ test.describe('Sessions — feed (today)', () => {
   test('new session modal opens from add-session button', async ({ page }) => {
     await page.locator('[data-tour="add-session"]').click();
     // Modal uses .modal-footer for its action buttons
-    await expect(page.locator('.modal-footer button').filter({ hasText: 'Зберегти' })).toBeVisible({ timeout: 5000 });
-    await page.locator('.modal-footer button').filter({ hasText: 'Скасувати' }).click();
+    await expect(page.locator('[data-tour="session-modal"] .modal-footer button').filter({ hasText: 'Зберегти' })).toBeVisible({ timeout: 5000 });
+    await page.locator('[data-tour="session-modal"] .modal-footer button').filter({ hasText: 'Скасувати' }).click();
   });
 
   test('new session modal can be dismissed', async ({ page }) => {
     await page.locator('[data-tour="add-session"]').click();
-    await page.locator('.modal-footer button').filter({ hasText: 'Скасувати' }).click({ timeout: 3000 });
+    await page.locator('[data-tour="session-modal"] .modal-footer button').filter({ hasText: 'Скасувати' }).click({ timeout: 3000 });
     await expect(page.locator('[data-session-id]').first()).toBeVisible({ timeout: 5000 });
   });
 

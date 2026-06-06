@@ -80,8 +80,8 @@ test.describe('Trainees', () => {
     await page.waitForTimeout(300);
     await expect(page.locator('[data-tour="trainee-site-btn"]').first()).toBeVisible({ timeout: 3000 });
 
-    // now collapse with up-arrow (title="Згорнути")
-    const upArrow = page.locator('button[title="Згорнути"]').first();
+    // now collapse with up-arrow
+    const upArrow = page.locator('[data-tour="trainee-collapse"]').first();
     await upArrow.click();
     await page.waitForTimeout(300);
 
@@ -101,7 +101,7 @@ test.describe('Trainees', () => {
     await page.waitForTimeout(300);
 
     // only one expanded card should exist
-    const expandedCards = page.locator('div.p-4.bg-\\[\\#1c1c1c\\].border.border-\\[\\#333\\].rounded-3xl');
+    const expandedCards = page.locator('[data-tour="trainee-card-expanded"]');
     await expect(expandedCards).toHaveCount(1, { timeout: 3000 });
     // remaining compact rows: count - 1
     await expect(rows).toHaveCount(count - 1);
@@ -113,7 +113,7 @@ test.describe('Trainees', () => {
     await setCompactMode(page, false);
     await expect(page.locator('[data-tour="trainee-actions"]').first()).toBeVisible({ timeout: 5000 });
 
-    const upArrow = page.locator('button[title="Згорнути"]').first();
+    const upArrow = page.locator('[data-tour="trainee-collapse"]').first();
     await upArrow.click();
     await page.waitForTimeout(300);
 
@@ -126,7 +126,7 @@ test.describe('Trainees', () => {
 
   test('toggle mode button switches between compact and detail', async ({ page }) => {
     await setCompactMode(page, true);
-    const toggleBtn = page.locator('button').filter({ hasText: /Детальний режим|Компактний режим/ }).first();
+    const toggleBtn = page.locator('[data-tour="trainee-compact-toggle"]');
     await expect(toggleBtn).toBeVisible();
 
     // switch to detail
@@ -148,7 +148,7 @@ test.describe('Trainees', () => {
     await page.waitForTimeout(200);
 
     // switch to detail — all should appear expanded, expandedIds cleared
-    const toggleBtn = page.locator('button').filter({ hasText: /Детальний режим/ }).first();
+    const toggleBtn = page.locator('[data-tour="trainee-compact-toggle"]');
     await toggleBtn.click();
     await page.waitForTimeout(300);
 

@@ -155,7 +155,7 @@ test.describe('Recurring session creation', () => {
     await expect(toggleContainer).toBeAttached();
 
     // Close modal
-    await page.locator('.modal-footer button').filter({ hasText: 'Скасувати' }).click();
+    await page.locator('[data-tour="session-modal"] .modal-footer button').filter({ hasText: 'Скасувати' }).click();
   });
 
   test('recurring session creates 8 weekly instances', async ({ page }) => {

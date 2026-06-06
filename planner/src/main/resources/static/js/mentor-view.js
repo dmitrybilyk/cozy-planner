@@ -107,6 +107,13 @@ function calendarApp() {
         sessionValidationErrors: null,
         showAvailPopup: false,
         planModal: { show: false, traineeId: null, traineeName: '', slots: [], saving: false, error: '' },
+        feedbackModal: { show: false, traineeId: null, traineeName: '', sessionId: null, sessionTitle: null, text: '', tags: [], rating: 0 },
+        feedbackSending: false,
+        _feedbackReceivedByMentor: [],
+        conversationModal: { show: false, traineeId: null, traineeName: '' },
+        conversation: [],
+        conversationLoading: false,
+        COACH_FEEDBACK_TAGS: ['Відмінна робота!', 'Добрий прогрес', 'Потрібно більше зусиль', 'Не з\'явився', 'Гарна техніка', 'Тримай темп!'],
         compactView: true,
         expandedIds: [],
         collapsedIds: [],
@@ -2233,6 +2240,91 @@ function calendarApp() {
             const names = this.getTraineeNamesText(this.sessionForm.traineeIds);
             this.sessionForm.title = names ? base + ' — ' + names : base;
         },
+        openFeedbackModal(traineeId, traineeName, sessionId, sessionTitle) {
+            this.feedbackModal = { show: true, traineeId, traineeName: traineeName || '', sessionId: sessionId || null, sessionTitle: sessionTitle || null, text: '', tags: [], rating: 0 };
+        },
+
+        closeFeedbackModal() {
+            this.feedbackModal = { show: false, traineeId: null, traineeName: '', sessionId: null, sessionTitle: null, text: '', tags: [], rating: 0 };
+        },
+
+        toggleFeedbackTag(tag) {
+            const idx = this.feedbackModal.tags.indexOf(tag);
+            if (idx >= 0) this.feedbackModal.tags.splice(idx, 1);
+            else this.feedbackModal.tags.push(tag);
+        },
+
+        async sendFeedback() {
+            if (this.feedbackSending) return;
+            this.feedbackSending = true;
+            try {
+                const body = {
+                    fromMentorId: this.mentorId,
+                    toTraineeId: this.feedbackModal.traineeId,
+                    sessionId: this.feedbackModal.sessionId,
+                    sessionTitle: this.feedbackModal.sessionTitle,
+                    text: this.feedbackModal.text.trim() || null,
+                    tags: this.feedbackModal.tags.length ? this.feedbackModal.tags.join(',') : null,
+                    rating: this.feedbackModal.rating > 0 ? this.feedbackModal.rating : null
+                };
+                const res = await fetch('/api/v1/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    const saved = await res.json();
+                    this.closeFeedbackModal();
+                    this.toast = { show: true, message: 'Відгук надіслано!' };
+                    setTimeout(() => { this.toast.show = false; }, 3000);
+                    if (this.conversationModal.show && this.conversationModal.traineeId === saved.toTraineeId) {
+                        await this.loadConversation(saved.toTraineeId);
+                    }
+                }
+            } catch(e) {}
+            finally {
+                this.feedbackSending = false;
+            }
+        },
+
+        async openConversationModal(trainee) {
+            this.conversationModal = { show: true, traineeId: trainee.id, traineeName: trainee.name || '' };
+            await this.loadConversation(trainee.id);
+        },
+
+        closeConversationModal() {
+            this.conversationModal = { show: false, traineeId: null, traineeName: '' };
+            this.conversation = [];
+        },
+
+        async loadConversation(traineeId) {
+            if (!this.mentorId || !traineeId) return;
+            this.conversationLoading = true;
+            try {
+                const res = await fetch(`/api/v1/feedback/conversation?mentorId=${this.mentorId}&traineeId=${traineeId}`);
+                if (res.ok) this.conversation = await res.json();
+            } catch(e) {}
+            finally { this.conversationLoading = false; }
+        },
+
+        async loadFeedbackReceivedByMentor() {
+            if (!this.mentorId) return;
+            try {
+                const res = await fetch(`/api/v1/feedback/received-by-mentor?mentorId=${this.mentorId}`);
+                if (res.ok) {
+                    this._feedbackReceivedByMentor = await res.json();
+                }
+            } catch(e) {}
+        },
+
+        formatFeedbackDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const WD = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+            const MON = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
+            return WD[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()];
+        },
+
         createSessionForTrainee(trainee) {
             this._prevTab = this.activeTab;
             this.activeTab = 'feed';

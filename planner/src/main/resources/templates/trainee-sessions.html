@@ -62,6 +62,11 @@
                 :class="tab === 'availability' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
             <span x-text="tabLabels.availability || 'Моя доступність'">Моя доступність</span>
         </button>
+        <button @click="tab = 'feedback'; loadFeedbackReceived()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 relative"
+                :class="tab === 'feedback' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
+            💬
+            <span x-show="feedbackUnreadCount > 0" class="absolute -top-0.5 right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-1 leading-none" x-text="feedbackUnreadCount"></span>
+        </button>
         <button @click="tab = 'notifications'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 relative hidden"
                 :class="tab === 'notifications' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
             🔔
@@ -172,6 +177,11 @@
                             </div>
                             <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#333]">
                                 <div class="flex items-center gap-2">
+                                    <button x-show="isPastSession(session)"
+                                            @click.stop="openFeedbackModal(session.id, session.title)"
+                                            class="px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-xs font-bold text-purple-400 transition flex items-center gap-1.5">
+                                        💬 <span>Відгук</span>
+                                    </button>
                                     <button @click.stop="exportToGCal(session)" class="px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-xs font-bold text-gray-300 transition flex items-center gap-1.5">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
                                         <span>Експорт в Google Calendar</span>
@@ -310,6 +320,57 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ====== FEEDBACK TAB ====== -->
+    <div x-show="tab === 'feedback'">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">💬 Розмова з тренером</h2>
+            <button @click="openFeedbackModal(null)"
+                    class="px-3 py-1.5 bg-purple-600/20 text-purple-400 rounded-xl hover:bg-purple-600/30 text-xs font-bold transition">
+                + Відгук
+            </button>
+        </div>
+        <div x-show="conversation.length === 0" class="text-center py-16 text-gray-600 text-sm">
+            Поки що повідомлень немає
+        </div>
+        <div class="space-y-3 pb-4">
+            <template x-for="fb in conversation" :key="fb.id">
+                <div :class="fb.fromTraineeId ? 'ml-6' : 'mr-6'">
+                    <div class="rounded-2xl p-4 border transition"
+                         :class="fb.fromTraineeId
+                             ? 'bg-blue-900/20 border-blue-500/20'
+                             : (fb.isRead ? 'bg-[#1e1e1e] border-[#2a2a2a]' : 'bg-purple-900/10 border-purple-500/30')"
+                         @click="fb.fromMentorId && !fb.isRead && markFeedbackRead(fb.id)">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold"
+                                      :class="fb.fromTraineeId ? 'text-blue-400' : 'text-purple-400'"
+                                      x-text="fb.fromTraineeId ? 'Ви' : (fb.senderName || 'Тренер')"></span>
+                                <span x-show="fb.fromMentorId && !fb.isRead" class="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0"></span>
+                            </div>
+                            <div class="flex items-center gap-0.5">
+                                <template x-for="i in [1,2,3,4,5]" :key="i">
+                                    <span class="text-sm" :class="fb.rating && i <= fb.rating ? 'text-yellow-400' : 'text-gray-800'">★</span>
+                                </template>
+                            </div>
+                        </div>
+                        <div x-show="fb.tags" class="flex flex-wrap gap-1.5 mb-2">
+                            <template x-for="tag in (fb.tags || '').split(',')" :key="tag">
+                                <span x-show="tag.trim()" class="px-2 py-0.5 rounded-full text-xs font-medium"
+                                      :class="fb.fromTraineeId ? 'bg-blue-900/40 text-blue-300' : 'bg-purple-900/30 text-purple-300'"
+                                      x-text="tag.trim()"></span>
+                            </template>
+                        </div>
+                        <p x-show="fb.text" class="text-sm text-gray-300" x-text="fb.text"></p>
+                        <div class="flex items-center justify-between mt-2 gap-2">
+                            <p x-show="fb.sessionTitle" class="text-xs text-gray-600" x-text="'📅 ' + fb.sessionTitle"></p>
+                            <p class="text-xs text-gray-600 ml-auto" x-text="formatFeedbackDate(fb.createdAt)"></p>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </div>
     </div>
 
@@ -548,6 +609,56 @@
                     :disabled="!form.time || !form.endTime"
                     class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:opacity-20">
                 Бронювати
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Modal -->
+<div x-show="feedbackModal.show" class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6 modal-backdrop" x-cloak x-transition @keydown.escape.window="closeFeedbackModal()">
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl" @click.away="closeFeedbackModal()">
+        <div class="p-5 border-b border-[#333] flex justify-between items-center">
+            <div>
+                <h3 class="text-lg font-bold text-white">💬 Надіслати відгук</h3>
+                <p x-show="feedbackModal.sessionTitle" class="text-xs text-gray-500 mt-0.5" x-text="feedbackModal.sessionTitle"></p>
+            </div>
+            <button @click="closeFeedbackModal()" class="text-gray-500 text-sm font-bold">Скасувати</button>
+        </div>
+        <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Оцінка</label>
+                <div class="flex gap-2">
+                    <template x-for="i in [1,2,3,4,5]" :key="i">
+                        <button @click="feedbackModal.rating = feedbackModal.rating === i ? 0 : i"
+                                class="text-2xl transition"
+                                :class="i <= feedbackModal.rating ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-300'">★</button>
+                    </template>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Теги</label>
+                <div class="flex flex-wrap gap-2">
+                    <template x-for="tag in TRAINEE_FEEDBACK_TAGS" :key="tag">
+                        <button @click="toggleFeedbackTag(tag)"
+                                class="px-3 py-1.5 rounded-full text-xs font-bold transition"
+                                :class="feedbackModal.tags.includes(tag) ? 'bg-purple-600 text-white' : 'bg-[#2a2a2a] text-gray-400 hover:bg-[#333]'"
+                                x-text="tag"></button>
+                    </template>
+                </div>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-400 uppercase mb-2 block">Повідомлення (необов'язково)</label>
+                <textarea x-model="feedbackModal.text" rows="3"
+                          placeholder="Ваш відгук..."
+                          class="w-full bg-[#2a2a2a] border border-[#444] rounded-xl px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500 resize-none"></textarea>
+            </div>
+        </div>
+        <div class="p-4 border-t border-[#333]">
+            <button @click="sendFeedback()"
+                    :disabled="feedbackSending || (!feedbackModal.text.trim() && feedbackModal.tags.length === 0 && feedbackModal.rating === 0)"
+                    class="w-full bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-2xl font-bold text-sm transition disabled:opacity-30">
+                <span x-show="!feedbackSending">Надіслати відгук</span>
+                <span x-show="feedbackSending">Надсилання...</span>
             </button>
         </div>
     </div>

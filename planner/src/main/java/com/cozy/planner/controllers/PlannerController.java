@@ -131,6 +131,7 @@ public class PlannerController {
         Map<String, Object> r = new HashMap<>();
         r.put("traineeId", trainee.getId());
         r.put("athleteId", trainee.getId());
+        r.put("mentorId", trainee.getMentorId());
         r.put("name", trainee.getName());
         r.put("inviteToken", trainee.getInviteToken());
         r.put("timezone", trainee.getTimezone() != null ? trainee.getTimezone() : "Europe/Kiev");

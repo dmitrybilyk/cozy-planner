@@ -48,6 +48,11 @@ function traineeApp() {
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         notifications: [],
         unreadCount: 0,
+        feedbackModal: { show: false, sessionId: null, sessionTitle: null, text: '', tags: [], rating: 0 },
+        conversation: [],
+        feedbackUnreadCount: 0,
+        feedbackSending: false,
+        TRAINEE_FEEDBACK_TAGS: ['Дякую!', 'Корисно', 'Хочу більше', 'Важко', 'Відмінний тренер', 'Є запитання'],
 
         get timeSlots15() {
             const ws = this.mentorWorkStart || '09:00';
@@ -272,6 +277,7 @@ function traineeApp() {
             if (this.me.mentorShareToken) this.loadMentorAvailability();
             await this.loadAvailability();
             await this.loadNotifications();
+            await this.loadFeedbackReceived();
             this.connectWebSocket();
             this.listenForSWMessages();
             this.requestNotificationPermission();
@@ -552,6 +558,80 @@ function traineeApp() {
             const res = await fetch(`/api/v1/trainee/sessions/${id}/request-coach-confirmation`, { method: 'POST' });
             if (res.ok) { this.saved = true; this.savedMessage = 'Запит на підтвердження надіслано ' + (this.me.mentorName || 'майстру') + '!'; setTimeout(() => this.saved = false, 4000); await this.loadSessions(); }
             else { this.error = 'Помилка при надсиланні запиту'; }
+        },
+
+        openFeedbackModal(sessionId, sessionTitle) {
+            this.feedbackModal = { show: true, sessionId: sessionId || null, sessionTitle: sessionTitle || null, text: '', tags: [], rating: 0 };
+        },
+
+        closeFeedbackModal() {
+            this.feedbackModal = { show: false, sessionId: null, sessionTitle: null, text: '', tags: [], rating: 0 };
+        },
+
+        toggleFeedbackTag(tag) {
+            const idx = this.feedbackModal.tags.indexOf(tag);
+            if (idx >= 0) this.feedbackModal.tags.splice(idx, 1);
+            else this.feedbackModal.tags.push(tag);
+        },
+
+        async sendFeedback() {
+            if (this.feedbackSending) return;
+            this.feedbackSending = true;
+            try {
+                const body = {
+                    fromTraineeId: this.traineeId,
+                    toMentorId: null,
+                    sessionId: this.feedbackModal.sessionId,
+                    sessionTitle: this.feedbackModal.sessionTitle,
+                    text: this.feedbackModal.text.trim() || null,
+                    tags: this.feedbackModal.tags.length ? this.feedbackModal.tags.join(',') : null,
+                    rating: this.feedbackModal.rating > 0 ? this.feedbackModal.rating : null
+                };
+                // Resolve mentor id from me data
+                if (this.me.mentorId) body.toMentorId = this.me.mentorId;
+                const res = await fetch('/api/v1/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                if (res.ok) {
+                    this.closeFeedbackModal();
+                    this.saved = true;
+                    this.savedMessage = 'Відгук надіслано!';
+                    setTimeout(() => this.saved = false, 3000);
+                    await this.loadFeedbackReceived();
+                } else {
+                    this.error = 'Помилка при надсиланні відгуку';
+                    setTimeout(() => this.error = '', 3000);
+                }
+            } catch(e) {
+                this.error = 'Помилка при надсиланні відгуку';
+                setTimeout(() => this.error = '', 3000);
+            } finally {
+                this.feedbackSending = false;
+            }
+        },
+
+        async loadFeedbackReceived() {
+            if (!this.traineeId || !this.me?.mentorId) return;
+            try {
+                const res = await fetch(`/api/v1/feedback/conversation?mentorId=${this.me.mentorId}&traineeId=${this.traineeId}`);
+                if (res.ok) {
+                    this.conversation = await res.json();
+                    this.feedbackUnreadCount = this.conversation.filter(f => f.fromMentorId && !f.isRead).length;
+                }
+            } catch(e) {}
+        },
+
+        async markFeedbackRead(id) {
+            await fetch(`/api/v1/feedback/${id}/read`, { method: 'POST' });
+            await this.loadFeedbackReceived();
+        },
+
+        formatFeedbackDate(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            return WD[(d.getDay() + 6) % 7] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear();
         },
 
         getCardClass(session) {

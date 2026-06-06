@@ -19,13 +19,12 @@ test.describe('Planner — navigation', () => {
   });
 
   test('view toggle between День and План', async ({ page }) => {
-    const toggle = page.locator('[data-tour="view-toggle"]');
-    await expect(toggle).toBeVisible();
-    // Switch to agenda (Plan) — button text "План"
-    await toggle.locator('button').last().click();
+    await expect(page.locator('[data-tour="view-toggle"]')).toBeVisible();
+    // Switch to agenda (Plan)
+    await page.locator('[data-tour="view-toggle"]').click();
     await page.waitForTimeout(300);
     // Back to feed (Day)
-    await toggle.locator('button').first().click();
+    await page.locator('[data-tour="feed-view"]').click();
     await page.waitForTimeout(300);
     await expect(page.locator('[data-tour="add-session"]')).toBeEnabled();
   });
@@ -49,12 +48,11 @@ test.describe('Planner — navigation', () => {
   });
 
   test('plan (agenda) view loads future sessions', async ({ page }) => {
-    const toggle = page.locator('[data-tour="view-toggle"]');
-    await toggle.locator('button').last().click();
+    await page.locator('[data-tour="view-toggle"]').click();
     await page.waitForTimeout(500);
     // Wait for loading spinner to disappear
     await page.locator('.border-blue-500.border-t-transparent.rounded-full.animate-spin').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
-    // Verify the agenda view loaded — toggle should still be present with "День" button
-    await expect(toggle.locator('button').first()).toBeVisible({ timeout: 5000 });
+    // Verify the agenda view loaded — feed-view (Day) button should still be present
+    await expect(page.locator('[data-tour="feed-view"]')).toBeVisible({ timeout: 5000 });
   });
 });
