@@ -4,4 +4,5 @@
 token
 /auth_secret.txt
 **/application-local.yaml
+docker-compose/.env
 /auth_tokens
