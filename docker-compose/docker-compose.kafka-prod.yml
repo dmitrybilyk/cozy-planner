@@ -1,50 +1,129 @@
-# Prod overlay — activates prod Spring profile on services and exposes Kafka
-# externally via ngrok TCP tunnel so the remote planner on Oracle Cloud can
-# publish events to local Kafka.
+# Standalone prod stack — Kafka (with ngrok external listener), Kafka UI,
+# notifications, search-service, elasticsearch.
 #
-# Your HTTP ngrok tunnel (planner web app): https://footwork-lid-attendee.ngrok-free.dev
-# Kafka needs a SEPARATE TCP tunnel — HTTP and TCP tunnels have different hosts.
+# Requires a separate ngrok TCP tunnel for Kafka:
+#   ngrok tcp 9093
 #
 # Usage:
-#   1. Start a TCP tunnel for Kafka:
-#        ngrok tcp 9093
-#      Note the address it assigns, e.g. tcp://3.tcp.ngrok.io:12345
-#
-#   2. Start the full local stack with this overlay:
-#        NGROK_KAFKA_HOST=3.tcp.ngrok.io \
-#        NGROK_KAFKA_PORT=12345 \
-#        docker compose -f docker-compose.yaml -f docker-compose.kafka-prod.yml up -d
-#
-#   3. On Oracle Cloud — set the env var and redeploy (or wait ~15s for the health check):
-#        KAFKA_BOOTSTRAP_SERVERS=3.tcp.ngrok.io:12345
+#   NGROK_KAFKA_HOST=3.tcp.ngrok.io \
+#   NGROK_KAFKA_PORT=12345 \
+#   docker compose -f docker-compose.kafka-prod.yml -p docker-compose up -d
 
 services:
 
-  kafka:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zookeeper
+    restart: unless-stopped
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
     networks:
       - cozy-net
-    environment:
-      # EXTERNAL listener on 9093 advertises the ngrok TCP address to remote clients.
-      # PLAINTEXT (9092) = host-local access; INTERNAL (29092) = docker network.
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092,INTERNAL://kafka:29092,EXTERNAL://${NGROK_KAFKA_HOST}:${NGROK_KAFKA_PORT}
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: kafka
+    restart: unless-stopped
     ports:
+      - "9092:9092"
       - "9093:9093"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://127.0.0.1:9092,INTERNAL://kafka:29092,EXTERNAL://${NGROK_KAFKA_HOST:-127.0.0.1}:${NGROK_KAFKA_PORT:-9093}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cozy-net
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    restart: unless-stopped
+    ports:
+      - "8084:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - cozy-net
+
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: elasticsearch
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - cozy-net
 
   notifications:
+    build:
+      context: ../notifications
+      dockerfile: Dockerfile
+    container_name: notifications
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - cozy-net
 
   search-service:
+    build:
+      context: ../search-service
+      dockerfile: Dockerfile
+    container_name: search-service
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
       - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - ELASTICSEARCH_HOST=http://elasticsearch:9200
+    depends_on:
+      kafka:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
     networks:
       - cozy-net
 
 networks:
   cozy-net:
+
+volumes:
+  elasticsearch_data:

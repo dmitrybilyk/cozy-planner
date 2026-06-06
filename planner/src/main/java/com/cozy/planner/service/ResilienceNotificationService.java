@@ -28,8 +28,10 @@ public class ResilienceNotificationService implements NotificationService {
 
     private <T> Mono<T> route(Mono<T> kafkaMono, Mono<T> telegramMono) {
         if (!kafkaAvailability.isAvailable()) {
+            log.info("Routing notification → Telegram (Kafka unavailable)");
             return telegramMono;
         }
+        log.info("Routing notification → Kafka");
         return kafkaMono
                 .doOnError(e -> kafkaAvailability.markUnavailable())
                 .onErrorResume(e -> {

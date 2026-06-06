@@ -44,17 +44,23 @@ public class KafkaAvailabilityService {
         config.put("reconnect.backoff.max.ms", "500");
         config.put("socket.connection.setup.timeout.ms", "2000");
         config.put("socket.connection.setup.timeout.max.ms", "2000");
-        // No retries in health check — fail fast, let next scheduled cycle retry
         config.put(AdminClientConfig.RETRIES_CONFIG, "0");
+
+        String bootstrap = String.valueOf(config.get(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG));
+        log.info("Kafka health check → {} (currently {})", bootstrap, available.get() ? "UP" : "DOWN");
 
         try (AdminClient client = AdminClient.create(config)) {
             client.describeCluster().clusterId().get(TIMEOUT_SECONDS + 1, TimeUnit.SECONDS);
             if (available.compareAndSet(false, true)) {
-                log.info("Kafka is available — routing notifications via Kafka");
+                log.info("Kafka AVAILABLE — routing notifications via Kafka");
+            } else {
+                log.info("Kafka OK — still available");
             }
         } catch (Exception e) {
             if (available.compareAndSet(true, false)) {
-                log.warn("Kafka health check failed — routing to direct Telegram: {}", e.getMessage());
+                log.warn("Kafka UNAVAILABLE — routing to direct Telegram: {}", e.getMessage());
+            } else {
+                log.warn("Kafka still unreachable: {}", e.getMessage());
             }
         }
     }

@@ -34,7 +34,10 @@ services:
     volumes:
       - /home/ubuntu/keystore.p12:/app/keystore.p12:ro
     env_file:
-      - .env
+      - path: .env
+        required: false
+      - path: /etc/planner/secrets.env
+        required: false
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_SSL_KEY_STORE: /app/keystore.p12
