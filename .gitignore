@@ -1,5 +1,6 @@
 .env
 *.log
 .idea/
-/token
+token
 /auth_secret.txt
+**/application-local.yaml

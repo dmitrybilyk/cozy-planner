@@ -13,11 +13,7 @@
         </root>
         <logger name="com.cozy.planner" level="INFO"/>
         <logger name="com.cozy.planner.config.PersistentWebSessionStore" level="WARN"/>
-        <logger name="org.apache.kafka.clients.admin.AdminClientConfig" level="WARN"/>
-        <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
-        <logger name="org.apache.kafka.clients.admin.internals.AdminMetadataManager" level="WARN"/>
-        <logger name="org.apache.kafka.common.utils.AppInfoParser" level="WARN"/>
-        <logger name="org.apache.kafka.common.metrics" level="WARN"/>
+        <logger name="org.apache.kafka" level="ERROR"/>
     </springProfile>
 
     <springProfile name="!prod">
@@ -26,10 +22,6 @@
         </root>
         <logger name="com.cozy.planner" level="DEBUG"/>
         <logger name="com.cozy.planner.config.PersistentWebSessionStore" level="WARN"/>
-        <logger name="org.apache.kafka.clients.admin.AdminClientConfig" level="WARN"/>
-        <logger name="org.apache.kafka.clients.NetworkClient" level="ERROR"/>
-        <logger name="org.apache.kafka.clients.admin.internals.AdminMetadataManager" level="WARN"/>
-        <logger name="org.apache.kafka.common.utils.AppInfoParser" level="WARN"/>
-        <logger name="org.apache.kafka.common.metrics" level="WARN"/>
+        <logger name="org.apache.kafka" level="ERROR"/>
     </springProfile>
 </configuration>

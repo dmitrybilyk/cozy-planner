@@ -3,9 +3,9 @@ app:
 
 telegram:
   enabled: true
-  bot-token: 8979204427:AAGd1w4zeKRahgG_6pYXJIpDsPSqvDHVQAM
-  bot-username: PlanusNotificationBot
-  mentor-bot-token: 8822669135:AAFwsykNyYNwzM9P_zrXfub30td-4tzpRcQ
-  mentor-bot-username: PlanusMentorBot
+  bot-token: ${TELEGRAM_BOT_TOKEN}
+  bot-username: ${TELEGRAM_BOT_USERNAME:PlanusNotificationBot}
+  mentor-bot-token: ${MENTOR_TELEGRAM_BOT_TOKEN}
+  mentor-bot-username: ${MENTOR_TELEGRAM_BOT_USERNAME:PlanusMentorBot}
   webhook-url: https://cozy-planner.duckdns.org/api/v1/telegram/webhook/notification
   mentor-webhook-url: https://cozy-planner.duckdns.org/api/v1/telegram/webhook/mentor

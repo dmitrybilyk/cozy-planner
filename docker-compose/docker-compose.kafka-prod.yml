@@ -1,5 +1,6 @@
-# Prod overlay — exposes Kafka externally via ngrok TCP tunnel so the remote
-# planner on Oracle Cloud can publish events to local Kafka.
+# Prod overlay — activates prod Spring profile on services and exposes Kafka
+# externally via ngrok TCP tunnel so the remote planner on Oracle Cloud can
+# publish events to local Kafka.
 #
 # Your HTTP ngrok tunnel (planner web app): https://footwork-lid-attendee.ngrok-free.dev
 # Kafka needs a SEPARATE TCP tunnel — HTTP and TCP tunnels have different hosts.
@@ -9,7 +10,7 @@
 #        ngrok tcp 9093
 #      Note the address it assigns, e.g. tcp://3.tcp.ngrok.io:12345
 #
-#   2. Start all local services with this overlay:
+#   2. Start the full local stack with this overlay:
 #        NGROK_KAFKA_HOST=3.tcp.ngrok.io \
 #        NGROK_KAFKA_PORT=12345 \
 #        docker compose -f docker-compose.yaml -f docker-compose.kafka-prod.yml up -d

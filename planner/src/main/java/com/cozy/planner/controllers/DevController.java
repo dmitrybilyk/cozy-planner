@@ -49,8 +49,9 @@ public class DevController {
     // ─── Helpers ───────────────────────────────────────────────────────────────
 
     private Mono<Void> auth(ServerWebExchange exchange) {
+        if (devKey.isBlank()) return Mono.empty(); // open in local dev (no DEV_KEY configured)
         String key = exchange.getRequest().getHeaders().getFirst("X-Dev-Key");
-        if (devKey.isBlank() || !devKey.equals(key)) {
+        if (!devKey.equals(key)) {
             return Mono.error(new SecurityException("Invalid or missing X-Dev-Key"));
         }
         return Mono.empty();
