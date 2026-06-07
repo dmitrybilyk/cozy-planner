@@ -1,0 +1,1 @@
+1. Install everything locally on k8s (minikube or better kind)

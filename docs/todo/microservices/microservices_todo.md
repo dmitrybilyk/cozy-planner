@@ -12,4 +12,5 @@
   using tools like Prometheus, Grafana, or ELK stack.
 7. Use grpc or GraphQL for efficient communication between microservices, 
   especially for high-performance or real-time applications. 
-
+8. Set up Spring Cloud, zookeeper, Eurika, or Consul for service discovery and configuration 
+  management in the microservices architecture.
