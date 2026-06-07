@@ -101,7 +101,7 @@ public class AuthController {
                         .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal)
                                 .flatMap(savedMentor -> {
                                     session.getAttributes().put("mentor_id", savedMentor.getId());
-                                    return Mono.just("redirect:/setup/finish");
+                                    return Mono.just("redirect:/planner");
                                 }))
                         .switchIfEmpty(
                                 Mono.defer(() -> {
@@ -117,7 +117,7 @@ public class AuthController {
                                                 session.getAttributes().put("mentor_id", savedMentor.getId());
                                                 return auditService.log("MENTOR_REGISTERED", email, savedMentor.getId(),
                                                         "New mentor registered: " + mentorName + " (" + email + "), club: " + clubName)
-                                                        .thenReturn("redirect:/setup/finish");
+                                                        .thenReturn("redirect:/planner");
                                             });
                                 })
                         );

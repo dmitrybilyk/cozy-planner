@@ -166,26 +166,40 @@ test.describe('Recurring sessions', () => {
   });
 });
 
-// ─── Tour: recurring step ──────────────────────────────────────────────────
+// ─── Tour: step structure ──────────────────────────────────────────────────
 
-test.describe('Tour recurring step', () => {
-  test('tour contains a recurring step with повторюваний text', async ({ page }) => {
+test.describe('Tour step structure', () => {
+  test('tour has 14 steps', async ({ page }) => {
+    const count = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.tourSteps?.length ?? 0;
+    });
+    expect(count).toBe(14);
+  });
+
+  test('tour does not contain recurring session step', async ({ page }) => {
     const steps = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       const state = el?._x_dataStack?.[0];
       if (!state) return [];
       return state.tourSteps.map((s: any) => s.title + ' ' + s.body);
     });
-    const hasRecurring = steps.some((s: string) => /повторюва/i.test(s) || /recurring/i.test(s));
-    expect(hasRecurring).toBe(true);
+    const hasRecurring = steps.some((s: string) => /повторюва/i.test(s));
+    expect(hasRecurring).toBe(false);
   });
 
-  test('tour step count includes recurring step', async ({ page }) => {
-    const count = await page.evaluate(() => {
+  test('tour does not include add-session, copy, feedback or history steps', async ({ page }) => {
+    const targets = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
-      return el?._x_dataStack?.[0]?.tourSteps?.length ?? 0;
+      return (el?._x_dataStack?.[0]?.tourSteps ?? []).map((s: any) => s.target);
     });
-    expect(count).toBeGreaterThan(14);
+    const removed = ['[data-tour="add-session"]', '[data-tour="copy-session"]',
+                     '[data-tour="feedback-btn"]', '[data-tour="history"]',
+                     '[data-tour="trainee-compact-toggle"]', '[data-tour="locations-list"]',
+                     '[data-tour="trainee-actions"]', '[data-tour="plan-sessions-btn"]'];
+    for (const t of removed) {
+      expect(targets).not.toContain(t);
+    }
   });
 });
 

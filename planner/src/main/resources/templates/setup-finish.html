@@ -24,10 +24,18 @@
           tgLink: null,
           checking: false,
           _poll: null,
+          mentorProfile: 'sport',
+          traineeNoun() {
+              const map = { sport: 'спортсменами', studying: 'учнями', psychology: 'клієнтами' };
+              return map[this.mentorProfile] || 'учасниками';
+          },
           async init() {
               try {
-                  const res = await fetch('/api/v1/mentor/telegram/status');
-                  const data = await res.json();
+                  const [tgRes, meRes] = await Promise.all([
+                      fetch('/api/v1/mentor/telegram/status'),
+                      fetch('/api/v1/me')
+                  ]);
+                  const data = await tgRes.json();
                   this.tgEnabled = data.enabled;
                   this.tgConnected = data.connected;
                   this.tgLink = data.connectLink;
@@ -35,6 +43,10 @@
                       const gen = await fetch('/api/v1/mentor/telegram/generate-token', { method: 'POST' });
                       const gd = await gen.json();
                       if (gd.success) this.tgLink = gd.connectLink;
+                  }
+                  if (meRes.ok) {
+                      const me = await meRes.json();
+                      this.mentorProfile = me.mentorProfile || 'sport';
                   }
               } catch (e) {}
               this.loading = false;
@@ -96,8 +108,8 @@
                     <div class="text-2xl">💬</div>
                     <div>
                         <div class="text-sm font-bold text-white">Telegram-сповіщення</div>
-                        <div class="text-xs text-gray-400 mt-1 leading-relaxed">
-                            Отримуй повідомлення про нові бронювання та підтвердження прямо в Telegram.
+                        <div class="text-xs text-gray-400 mt-1 leading-relaxed"
+                             x-text="'Отримуй повідомлення про нові бронювання та підтвердження прямо в Telegram. Спілкуйся з ' + traineeNoun() + ' та керуй взаємодією в одному місці.'">
                         </div>
                     </div>
                 </div>
