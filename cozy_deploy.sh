@@ -73,8 +73,6 @@ ssh -t $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_PROJECT_DIR && \
 echo '📥 Отримання оновленого docker-compose.yml (git pull)...' && \
 git config --global pull.rebase true && \
 git pull && \
-echo '🔑 Оновлення .env із secrets.env...' && \
-cp secrets.env .env && \
 echo '🔐 Авторизація в OCIR на сервері...' && \
 echo '$OCIR_TOKEN' | docker login $OCIR_REGISTRY -u '$OCIR_NAMESPACE/$OCIR_USER' --password-stdin && \
 echo '📥 Стягування нового образу на сервері...' && \
