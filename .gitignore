@@ -6,3 +6,4 @@ token
 **/application-local.yaml
 docker-compose/.env
 /auth_tokens
+/docs/secrets/tg_bot.md

@@ -130,6 +130,14 @@ public class TelegramService implements NotificationService {
         return sendMessageWithToken(botToken, chatId, text, replyMarkup);
     }
 
+    public Mono<Boolean> sendToDeveloper(String text) {
+        if (!config.isDeveloperBotEnabled()) {
+            log.debug("Developer bot not configured, skipping message");
+            return Mono.just(false);
+        }
+        return sendMessageWithToken(config.getDeveloperBotToken(), config.getDeveloperChatId(), text, null);
+    }
+
     private Map<String, Object> createInlineUrlButton(String buttonText, String url) {
         if (url == null || url.contains("localhost") || url.contains("127.0.0.1")) {
             log.warn("Skipping inline keyboard for localhost URL: {}", url);

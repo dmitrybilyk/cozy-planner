@@ -113,6 +113,7 @@ function calendarApp() {
         planModal: { show: false, traineeId: null, traineeName: '', slots: [], saving: false, error: '' },
         feedbackModal: { show: false, traineeId: null, traineeName: '', sessionId: null, sessionTitle: null, text: '', tags: [], rating: 0 },
         feedbackSending: false,
+        contactModal: { show: false, message: '', sending: false, sent: false, error: '' },
         _feedbackReceivedByMentor: [],
         conversationModal: { show: false, traineeId: null, traineeName: '' },
         conversation: [],
@@ -2336,6 +2337,34 @@ function calendarApp() {
             } catch(e) {}
             finally {
                 this.feedbackSending = false;
+            }
+        },
+
+        openContactModal() {
+            this.contactModal = { show: true, message: '', sending: false, sent: false, error: '' };
+        },
+
+        async sendContactMessage() {
+            if (!this.contactModal.message.trim() || this.contactModal.sending) return;
+            this.contactModal.sending = true;
+            this.contactModal.error = '';
+            try {
+                const res = await fetch('/api/v1/contact-developer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: this.contactModal.message.trim() })
+                });
+                if (res.ok) {
+                    this.contactModal.sent = true;
+                    this.contactModal.message = '';
+                    setTimeout(() => { this.contactModal.show = false; }, 2500);
+                } else {
+                    this.contactModal.error = 'Помилка надсилання. Спробуйте ще раз.';
+                }
+            } catch(e) {
+                this.contactModal.error = 'Помилка з\'єднання.';
+            } finally {
+                this.contactModal.sending = false;
             }
         },
 

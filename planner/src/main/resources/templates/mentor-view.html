@@ -780,6 +780,17 @@
             </button>
         </div>
     </div>
+    <!-- Contact developer -->
+    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">✉️ Зворотній зв'язок</h4>
+        <button @click="openContactModal()"
+                class="w-full flex items-center justify-center gap-2 bg-blue-900/30 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-blue-900/50 active:scale-[0.97]">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            <span>Написати розробнику</span>
+        </button>
+    </div>
     <div class="pt-4 space-y-3">
         <form method="POST" action="/logout" class="w-full">
             <button type="submit" class="w-full flex items-center justify-center gap-2 bg-red-900/30 text-red-400 py-3 rounded-xl font-bold transition hover:bg-red-900/50 active:scale-[0.97]">
@@ -1695,6 +1706,34 @@
                     <p x-show="fb.sessionTitle" class="text-[10px] text-gray-600 mt-1" x-text="'📅 ' + fb.sessionTitle"></p>
                 </div>
             </template>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Developer Modal -->
+<div x-show="contactModal.show" x-cloak class="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-6 modal-backdrop" @keydown.escape.window="contactModal.show = false" x-transition>
+    <div class="bg-[#1c1c1c] border border-[#333] w-full max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl" @click.away="contactModal.show = false">
+        <div class="p-5 border-b border-[#333] flex justify-between items-center">
+            <div>
+                <h3 class="text-lg font-bold text-white">✉️ Написати розробнику</h3>
+                <p class="text-xs text-gray-500 mt-0.5" x-text="'Від: ' + (user.email || mentor.email || 'ваш акаунт')"></p>
+            </div>
+            <button @click="contactModal.show = false" class="text-gray-500 text-sm font-bold">Скасувати</button>
+        </div>
+        <div class="p-5">
+            <textarea x-model="contactModal.message" rows="5"
+                      placeholder="Ваше питання, побажання або повідомлення про помилку..."
+                      class="w-full bg-[#2a2a2a] border border-[#444] rounded-xl px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500 resize-none"></textarea>
+            <div x-show="contactModal.error" class="mt-2 text-xs text-red-400" x-text="contactModal.error"></div>
+            <div x-show="contactModal.sent" class="mt-2 text-xs text-green-400">✓ Повідомлення надіслано! Дякуємо.</div>
+        </div>
+        <div class="p-4 border-t border-[#333]">
+            <button @click="sendContactMessage()"
+                    :disabled="contactModal.sending || !contactModal.message.trim()"
+                    class="w-full bg-blue-600 hover:bg-blue-500 text-white py-3.5 rounded-2xl font-bold text-sm transition disabled:opacity-30">
+                <span x-show="!contactModal.sending">Надіслати</span>
+                <span x-show="contactModal.sending">Надсилання...</span>
+            </button>
         </div>
     </div>
 </div>

@@ -15,7 +15,16 @@ public class TelegramConfig {
     private String mentorBotToken;
     private String mentorBotUsername;
     
+    // Developer feedback bot — receives "write to developer" messages and new-user alerts
+    private String developerBotToken;
+    private String developerChatId;
+
     public boolean isMentorBotEnabled() {
         return mentorBotToken != null && !mentorBotToken.isBlank();
+    }
+
+    public boolean isDeveloperBotEnabled() {
+        return developerBotToken != null && !developerBotToken.isBlank()
+            && developerChatId != null && !developerChatId.isBlank();
     }
 }

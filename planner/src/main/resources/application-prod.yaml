@@ -9,3 +9,5 @@ telegram:
   mentor-bot-username: ${MENTOR_TELEGRAM_BOT_USERNAME:PlanusMentorBot}
   webhook-url: https://cozy-planner.duckdns.org/api/v1/telegram/webhook/notification
   mentor-webhook-url: https://cozy-planner.duckdns.org/api/v1/telegram/webhook/mentor
+  developer-bot-token: ${DEVELOPER_BOT_TOKEN:}
+  developer-chat-id: ${DEVELOPER_CHAT_ID:}

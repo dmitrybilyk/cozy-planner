@@ -7,6 +7,8 @@ import com.cozy.planner.repositories.ClubRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.UserRepository;
 import com.cozy.planner.service.AuditService;
+import com.cozy.planner.service.TelegramService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,21 +20,25 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 
 @Controller
+@Slf4j
 public class AuthController {
 
     private final UserRepository userRepository;
     private final ClubRepository clubRepository;
     private final MentorRepository mentorRepository;
     private final AuditService auditService;
+    private final TelegramService telegramService;
 
     public AuthController(UserRepository userRepository,
                           ClubRepository clubRepository,
                           MentorRepository mentorRepository,
-                          AuditService auditService) {
+                          AuditService auditService,
+                          TelegramService telegramService) {
         this.userRepository = userRepository;
         this.clubRepository = clubRepository;
         this.mentorRepository = mentorRepository;
         this.auditService = auditService;
+        this.telegramService = telegramService;
     }
 
     @GetMapping("/setup")
@@ -115,6 +121,13 @@ public class AuthController {
                                             .flatMap(user -> createClubAndMentor(user, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal))
                                             .flatMap(savedMentor -> {
                                                 session.getAttributes().put("mentor_id", savedMentor.getId());
+                                                String devMsg = "🆕 Новий користувач зареєструвався!\n\n"
+                                                        + "👤 Ім'я: " + mentorName + "\n"
+                                                        + "📧 Email: " + email + "\n"
+                                                        + "🏢 Клуб: " + clubName + "\n"
+                                                        + "📋 Профіль: " + profileFinal;
+                                                telegramService.sendToDeveloper(devMsg)
+                                                        .subscribe(ok -> log.info("Dev notification sent: {}", ok));
                                                 return auditService.log("MENTOR_REGISTERED", email, savedMentor.getId(),
                                                         "New mentor registered: " + mentorName + " (" + email + "), club: " + clubName)
                                                         .thenReturn("redirect:/planner");

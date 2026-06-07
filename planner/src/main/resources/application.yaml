@@ -109,3 +109,5 @@ telegram:
   mentor-bot-username: ${MENTOR_TELEGRAM_BOT_USERNAME:CozyPlannerCoachBot}
   webhook-url: ${TELEGRAM_WEBHOOK_URL:}
   mentor-webhook-url: ${MENTOR_TELEGRAM_WEBHOOK_URL:}
+  developer-bot-token: ${DEVELOPER_BOT_TOKEN:}
+  developer-chat-id: ${DEVELOPER_CHAT_ID:}
