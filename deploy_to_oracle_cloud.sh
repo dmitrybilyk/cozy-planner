@@ -33,6 +33,8 @@ echo "--- Віддалені дії (Oracle Cloud) ---"
 ssh -t $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_PROJECT_DIR && \
 echo '📥 Отримання оновлень (git pull)...' && \
 git pull && \
+echo '🔑 Оновлення .env із secrets.env...' && \
+cp secrets.env .env && \
 echo '🐳 Перезбірка Docker-образів та запуск...' && \
 docker compose up -d --build && \
 echo '🧹 Очищення старих образів...' && \
