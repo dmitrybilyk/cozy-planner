@@ -2383,7 +2383,7 @@ function calendarApp() {
             this.conversationLoading = true;
             try {
                 const res = await fetch(`/api/v1/feedback/conversation?mentorId=${this.mentorId}&traineeId=${traineeId}`);
-                if (res.ok) this.conversation = await res.json();
+                if (res.ok) this.conversation = (await res.json()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             } catch(e) {}
             finally { this.conversationLoading = false; }
         },
@@ -2403,7 +2403,8 @@ function calendarApp() {
             const d = new Date(dateStr);
             const WD = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
             const MON = ['Січ','Лют','Бер','Кві','Тра','Чер','Лип','Сер','Вер','Жов','Лис','Гру'];
-            return WD[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()];
+            const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            return WD[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ', ' + time;
         },
 
         createSessionForTrainee(trainee) {

@@ -5,14 +5,18 @@ import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.LocationRepository;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -125,6 +129,34 @@ public class PlannerController {
                                     }));
                         })
                         .defaultIfEmpty("redirect:/signin"));
+    }
+
+    @GetMapping(value = "/trainee/{token}/manifest.json", produces = "application/manifest+json")
+    @ResponseBody
+    public Mono<ResponseEntity<Map<String, Object>>> getTraineeManifest(@PathVariable String token) {
+        Map<String, Object> manifest = new LinkedHashMap<>();
+        manifest.put("name", "Cozy Planner");
+        manifest.put("short_name", "Cozy Planner");
+        manifest.put("description", "Планувальник тренувань");
+        manifest.put("start_url", "/trainee/" + token);
+        manifest.put("scope", "/");
+        manifest.put("display", "standalone");
+        manifest.put("display_override", List.of("standalone", "browser"));
+        manifest.put("background_color", "#121212");
+        manifest.put("theme_color", "#1a1a1a");
+        manifest.put("orientation", "portrait");
+        manifest.put("categories", List.of("productivity", "lifestyle"));
+        manifest.put("icons", List.of(
+            Map.of("src", "/icon.svg", "sizes", "any", "type", "image/svg+xml", "purpose", "any maskable"),
+            Map.of("src", "/apple-touch-icon.png", "sizes", "180x180", "type", "image/png"),
+            Map.of("src", "/icon-192.png", "sizes", "192x192", "type", "image/png", "purpose", "any"),
+            Map.of("src", "/icon-512.png", "sizes", "512x512", "type", "image/png", "purpose", "any maskable")
+        ));
+        manifest.put("screenshots", List.of());
+        manifest.put("prefer_related_applications", false);
+        return Mono.just(ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("application/manifest+json"))
+            .body(manifest));
     }
 
     private Map<String, Object> buildTraineeData(Trainee trainee, com.cozy.planner.model.entity.Mentor mentor, List<Map<String, Object>> locations) {

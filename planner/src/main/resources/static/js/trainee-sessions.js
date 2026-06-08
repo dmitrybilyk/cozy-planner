@@ -266,7 +266,7 @@ function traineeApp() {
             this.pageTitle = 'Мої ' + this.tabLabels.sessions.toLowerCase();
 
             const now = new Date();
-            for (let i = 0; i < 31; i++) {
+            for (let i = 0; i < 14; i++) {
                 const d = new Date(now);
                 d.setDate(now.getDate() + i);
                 const ds = localDateStr(d);
@@ -546,7 +546,7 @@ function traineeApp() {
             const res = await fetch('/api/v1/me');
             if (res.ok) {
                 const me = await res.json();
-                this.me = me;
+                if (me.traineeId) this.me = me;
             }
         },
 
@@ -617,7 +617,7 @@ function traineeApp() {
             try {
                 const res = await fetch(`/api/v1/feedback/conversation?mentorId=${this.me.mentorId}&traineeId=${this.traineeId}`);
                 if (res.ok) {
-                    this.conversation = await res.json();
+                    this.conversation = (await res.json()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
                     this.feedbackUnreadCount = this.conversation.filter(f => f.fromMentorId && !f.isRead).length;
                 }
             } catch(e) {}
@@ -631,7 +631,8 @@ function traineeApp() {
         formatFeedbackDate(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr);
-            return WD[(d.getDay() + 6) % 7] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ' ' + d.getFullYear();
+            const time = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            return WD[(d.getDay() + 6) % 7] + ' ' + d.getDate() + ' ' + MON[d.getMonth()] + ', ' + time;
         },
 
         getCardClass(session) {

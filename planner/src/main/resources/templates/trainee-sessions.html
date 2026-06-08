@@ -8,7 +8,7 @@
     <script defer src="/js/trainee-sessions.js" th:src="@{/js/trainee-sessions.js(v=${appVersion})}"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" th:href="'/trainee/' + ${traineeData['inviteToken']} + '/manifest.json'" href="/manifest.json">
     <meta name="theme-color" content="#1a1a1a">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
