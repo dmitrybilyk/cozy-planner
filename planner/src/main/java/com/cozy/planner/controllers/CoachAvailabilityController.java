@@ -296,55 +296,45 @@ public class CoachAvailabilityController {
     }
 
     private Mono<List<MentorAvailability>> loadFreeSlotsForMentor(Mentor mentor, LocalDate startDate, LocalDate endDate, ZoneId targetZone) {
-        LocalTime ws = LocalTime.parse(mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
-        LocalTime we = LocalTime.parse(mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "21:00");
         long mentorId = mentor.getId();
         ZoneId coachZone = ZoneId.of(mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
 
-        return rangeRepository.findByUserIdAndUserTypeAndDateBetween(mentorId, "COACH", startDate, endDate)
-                .collectList()
-                .flatMap(ranges -> {
-                    if (ranges.isEmpty()) {
-                        return availabilityRepository.findByMentorIdAndDateBetween(mentorId, startDate, endDate)
-                                .collectList()
-                                .map(old -> old.isEmpty()
-                                        ? List.of()
-                                        : old);
-                    }
-                    return Mono.just(mergeRanges(mentorId, startDate, endDate, ws, we, ranges, coachZone));
-                });
-    }
+        return Mono.zip(
+                rangeRepository.findByUserIdAndUserTypeAndDateBetween(mentorId, "COACH", startDate, endDate).collectList(),
+                availabilityRepository.findByMentorIdAndDateBetween(mentorId, startDate, endDate).collectList()
+        ).map(tuple -> {
+            List<AvailabilityRange> ranges = tuple.getT1();
+            List<MentorAvailability> oldSlots = tuple.getT2();
+            if (ranges.isEmpty() && oldSlots.isEmpty()) return List.<MentorAvailability>of();
 
-    private static List<MentorAvailability> makeDefaultSlots(long mentorId, LocalDate start, LocalDate end,
-                                                              LocalTime ws, LocalTime we) {
-        List<MentorAvailability> list = new ArrayList<>();
-        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-            list.add(newSlot(mentorId, d, ws, we, null));
-        }
-        return list;
-    }
-
-    private static List<MentorAvailability> mergeRanges(long mentorId, LocalDate start, LocalDate end,
-                                                         LocalTime ws, LocalTime we,
-                                                         List<AvailabilityRange> ranges, ZoneId coachZone) {
-        Map<LocalDate, List<AvailabilityRange>> byDate = new HashMap<>();
-        for (AvailabilityRange r : ranges) {
-            byDate.computeIfAbsent(r.getDate(), k -> new ArrayList<>()).add(r);
-        }
-        List<MentorAvailability> result = new ArrayList<>();
-        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-            List<AvailabilityRange> dayRanges = byDate.get(d);
-            if (dayRanges != null) {
-                for (AvailabilityRange r : dayRanges) {
-                    LocalTime localStart = r.getStartTime().atZoneSameInstant(coachZone).toLocalTime();
-                    LocalTime localEnd = r.getEndTime().atZoneSameInstant(coachZone).toLocalTime();
-                    result.add(newSlot(mentorId, d, localStart, localEnd, r.getLocationId()));
-                }
-            } else {
-                result.add(newSlot(mentorId, d, ws, we, null));
+            Map<LocalDate, List<AvailabilityRange>> rangesByDate = new HashMap<>();
+            for (AvailabilityRange r : ranges) {
+                rangesByDate.computeIfAbsent(r.getDate(), k -> new ArrayList<>()).add(r);
             }
-        }
-        return result;
+            Map<LocalDate, List<MentorAvailability>> oldByDate = new HashMap<>();
+            for (MentorAvailability ma : oldSlots) {
+                oldByDate.computeIfAbsent(ma.getDate(), k -> new ArrayList<>()).add(ma);
+            }
+            List<MentorAvailability> result = new ArrayList<>();
+            for (LocalDate d = startDate; !d.isAfter(endDate); d = d.plusDays(1)) {
+                List<AvailabilityRange> dayRanges = rangesByDate.get(d);
+                if (dayRanges != null && !dayRanges.isEmpty()) {
+                    for (AvailabilityRange r : dayRanges) {
+                        if (r.getStartTime() == null || r.getEndTime() == null) continue;
+                        LocalTime localStart = r.getStartTime().atZoneSameInstant(coachZone).toLocalTime();
+                        LocalTime localEnd = r.getEndTime().atZoneSameInstant(coachZone).toLocalTime();
+                        result.add(newSlot(mentorId, d, localStart, localEnd, r.getLocationId()));
+                    }
+                } else {
+                    List<MentorAvailability> dayOld = oldByDate.get(d);
+                    if (dayOld != null && !dayOld.isEmpty()) {
+                        result.addAll(dayOld);
+                    }
+                    // no entry → coach is not available that day, add nothing
+                }
+            }
+            return result;
+        });
     }
 
     private static MentorAvailability newSlot(long mentorId, LocalDate date, LocalTime start, LocalTime end, Long locId) {

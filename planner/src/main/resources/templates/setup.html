@@ -17,7 +17,12 @@
     <link rel="stylesheet" href="/css/setup.css" th:href="@{/css/setup.css(v=${appVersion})}">
 </head>
 <body class="antialiased flex items-center justify-center min-h-screen p-4 bg-[#0f0f0f] text-white"
-      x-data="{ profile: '', workStart: '08:00', workEnd: '22:00', timeStep: 30 }">
+      x-data="{
+        profile: '', workStart: '08:00', workEnd: '22:00', timeStep: 30, shareAvailability: false, multiLocation: false,
+        allHours: ['05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00'],
+        endHours() { return this.allHours.filter(h => h > this.workStart); },
+        fixWorkEnd() { if (!this.endHours().includes(this.workEnd)) this.workEnd = this.endHours()[0] || '23:00'; }
+      }">
     <div class="w-full max-w-sm space-y-8">
 
         <div class="text-center space-y-2">
@@ -35,6 +40,8 @@
             <input type="hidden" name="workStart" :value="workStart">
             <input type="hidden" name="workEnd" :value="workEnd">
             <input type="hidden" name="availStep" :value="timeStep">
+            <input type="hidden" name="shareAvailability" :value="shareAvailability">
+            <input type="hidden" name="multiLocation" :value="multiLocation">
 
             <div>
                 <label class="text-xs font-black text-gray-400 uppercase tracking-wider block mb-2">Моє ім'я</label>
@@ -90,17 +97,11 @@
                 <p class="text-xs text-gray-500 mb-3">Слоти доступності будуть показані лише в цей проміжок — решту часу ти недоступний</p>
                 <div class="flex items-center gap-3">
                     <div class="relative flex-1">
-                        <select x-model="workStart"
+                        <select x-model="workStart" @change="fixWorkEnd()"
                                 class="w-full appearance-none bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3 text-white text-base focus:border-blue-500 focus:outline-none transition">
-                            <option value="06:00">06:00</option>
-                            <option value="07:00">07:00</option>
-                            <option value="08:00">08:00</option>
-                            <option value="09:00">09:00</option>
-                            <option value="10:00">10:00</option>
-                            <option value="11:00">11:00</option>
-                            <option value="12:00">12:00</option>
-                            <option value="13:00">13:00</option>
-                            <option value="14:00">14:00</option>
+                            <template x-for="h in allHours.filter(h => h < '23:00')" :key="h">
+                                <option :value="h" x-text="h"></option>
+                            </template>
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500 text-xs">▼</div>
                     </div>
@@ -108,18 +109,9 @@
                     <div class="relative flex-1">
                         <select x-model="workEnd"
                                 class="w-full appearance-none bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3 text-white text-base focus:border-blue-500 focus:outline-none transition">
-                            <option value="12:00">12:00</option>
-                            <option value="13:00">13:00</option>
-                            <option value="14:00">14:00</option>
-                            <option value="15:00">15:00</option>
-                            <option value="16:00">16:00</option>
-                            <option value="17:00">17:00</option>
-                            <option value="18:00">18:00</option>
-                            <option value="19:00">19:00</option>
-                            <option value="20:00">20:00</option>
-                            <option value="21:00">21:00</option>
-                            <option value="22:00">22:00</option>
-                            <option value="23:00">23:00</option>
+                            <template x-for="h in endHours()" :key="h">
+                                <option :value="h" x-text="h"></option>
+                            </template>
                         </select>
                         <div class="pointer-events-none absolute inset-y-0 right-4 flex items-center text-gray-500 text-xs">▼</div>
                     </div>
@@ -127,7 +119,7 @@
             </div>
 
             <div>
-                <label class="text-xs font-black text-gray-400 uppercase tracking-wider block mb-1">Крок слота</label>
+                <label class="text-xs font-black text-gray-400 uppercase tracking-wider block mb-1">Деталізація вибору часу</label>
                 <p class="text-xs text-gray-500 mb-3">Мінімальний інтервал між слотами. Наприклад, 30 хв → 09:00, 09:30, 10:00...</p>
                 <div class="grid grid-cols-3 gap-2">
                     <button type="button" @click="timeStep = 15"
@@ -149,6 +141,30 @@
                         <div class="text-xs font-bold text-gray-400">хв</div>
                     </button>
                 </div>
+            </div>
+
+            <div class="bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-4 space-y-3">
+                <p class="text-xs font-black text-gray-400 uppercase tracking-wider mb-1">Додаткові можливості</p>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Ділитися доступністю</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Учні бачать ваш вільний час і можуть записатися</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="shareAvailability = !shareAvailability">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="shareAvailability ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="shareAvailability ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Декілька локацій</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Зал, майданчик, онлайн — кілька місць проведення</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="multiLocation = !multiLocation">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="multiLocation ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="multiLocation ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
             </div>
 
             <button type="submit" :disabled="!profile"

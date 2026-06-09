@@ -38,7 +38,7 @@ public class Mentor {
 
     @Column("session_reminder_enabled")
     @Builder.Default
-    private Boolean sessionReminderEnabled = true;
+    private Boolean sessionReminderEnabled = false;
 
     @Column("session_reminder_minutes")
     @Builder.Default
@@ -69,6 +69,26 @@ public class Mentor {
     @Column("avail_step")
     @Builder.Default
     private Integer availStep = 30;
+
+    @Column("share_availability")
+    @Builder.Default
+    private Boolean shareAvailability = false;
+
+    @Column("multi_location")
+    @Builder.Default
+    private Boolean multiLocation = false;
+
+    @Column("session_confirmations")
+    @Builder.Default
+    private Boolean sessionConfirmations = false;
+
+    @Column("telegram_integration")
+    @Builder.Default
+    private Boolean telegramIntegration = false;
+
+    @Column("trainee_comm")
+    @Builder.Default
+    private Boolean traineeComm = false;
 
     public boolean hasTelegram() {
         return telegramChatId != null && !telegramChatId.isBlank();

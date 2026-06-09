@@ -5,6 +5,7 @@ import com.cozy.planner.model.entity.Mentor;
 import com.cozy.planner.model.entity.Trainee;
 import com.cozy.planner.repositories.MentorRepository;
 import com.cozy.planner.repositories.TraineeRepository;
+import com.cozy.planner.service.EventBroadcastService;
 import com.planner.api.MentorsApi;
 import com.planner.model.TraineeDTO;
 import com.planner.model.MentorDTO;
@@ -26,15 +27,18 @@ public class MentorsApiController implements MentorsApi {
     private final TraineeRepository traineeRepository;
     private final TelegramConfig telegramConfig;
     private final com.cozy.planner.service.TelegramService telegramService;
+    private final EventBroadcastService eventBroadcastService;
 
-    public MentorsApiController(MentorRepository mentorRepository, 
+    public MentorsApiController(MentorRepository mentorRepository,
                                   TraineeRepository traineeRepository,
                                   TelegramConfig telegramConfig,
-                                  com.cozy.planner.service.TelegramService telegramService) {
+                                  com.cozy.planner.service.TelegramService telegramService,
+                                  EventBroadcastService eventBroadcastService) {
         this.mentorRepository = mentorRepository;
         this.traineeRepository = traineeRepository;
         this.telegramConfig = telegramConfig;
         this.telegramService = telegramService;
+        this.eventBroadcastService = eventBroadcastService;
     }
 
     @Override
@@ -228,8 +232,14 @@ public class MentorsApiController implements MentorsApi {
                         if (body.containsKey("theme")) mentor.setTheme(body.get("theme"));
                         if (body.containsKey("introSeen")) mentor.setIntroSeen(Boolean.parseBoolean(body.get("introSeen")));
                         if (body.containsKey("sessionReminderEnabled")) mentor.setSessionReminderEnabled(Boolean.parseBoolean(body.get("sessionReminderEnabled")));
+                        if (body.containsKey("shareAvailability")) mentor.setShareAvailability(Boolean.parseBoolean(body.get("shareAvailability")));
+                        if (body.containsKey("multiLocation")) mentor.setMultiLocation(Boolean.parseBoolean(body.get("multiLocation")));
+                        if (body.containsKey("sessionConfirmations")) mentor.setSessionConfirmations(Boolean.parseBoolean(body.get("sessionConfirmations")));
+                        if (body.containsKey("telegramIntegration")) mentor.setTelegramIntegration(Boolean.parseBoolean(body.get("telegramIntegration")));
+                        if (body.containsKey("traineeComm")) mentor.setTraineeComm(Boolean.parseBoolean(body.get("traineeComm")));
                         return mentorRepository.save(mentor)
                                 .then(Mono.fromCallable(() -> {
+                                    eventBroadcastService.broadcast("mentor_changed");
                                     Map<String, Object> r = new HashMap<>();
                                     r.put("success", true);
                                     return ResponseEntity.ok(r);

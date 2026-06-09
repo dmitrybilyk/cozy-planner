@@ -85,6 +85,8 @@ public class AuthController {
             String workStart = formData.getFirst("workStart");
             String workEnd = formData.getFirst("workEnd");
             String availStepStr = formData.getFirst("availStep");
+            boolean shareAvailability = "true".equals(formData.getFirst("shareAvailability"));
+            boolean multiLocation = "true".equals(formData.getFirst("multiLocation"));
             if (profile == null || profile.isBlank()) profile = "sport";
             if (workStart == null || workStart.isBlank()) workStart = "08:00";
             if (workEnd == null || workEnd.isBlank()) workEnd = "22:00";
@@ -95,6 +97,8 @@ public class AuthController {
             final String workStartFinal = workStart;
             final String workEndFinal = workEnd;
             final int availStepFinal = availStep;
+            final boolean shareAvailabilityFinal = shareAvailability;
+            final boolean multiLocationFinal = multiLocation;
 
             return exchange.getSession().flatMap(session -> {
                 String googleSub = session.getAttribute("google_sub");
@@ -104,7 +108,7 @@ public class AuthController {
                     return Mono.just("redirect:/login");
                 }
                 return userRepository.findByGoogleSub(googleSub)
-                        .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal)
+                        .flatMap(existingUser -> createClubAndMentor(existingUser, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal, shareAvailabilityFinal, multiLocationFinal)
                                 .flatMap(savedMentor -> {
                                     session.getAttributes().put("mentor_id", savedMentor.getId());
                                     return Mono.just("redirect:/planner");
@@ -118,7 +122,7 @@ public class AuthController {
                                             .createdAt(LocalDateTime.now())
                                             .build();
                                     return userRepository.save(newUser)
-                                            .flatMap(user -> createClubAndMentor(user, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal))
+                                            .flatMap(user -> createClubAndMentor(user, clubName, mentorName, profileFinal, workStartFinal, workEndFinal, availStepFinal, shareAvailabilityFinal, multiLocationFinal))
                                             .flatMap(savedMentor -> {
                                                 session.getAttributes().put("mentor_id", savedMentor.getId());
                                                 String devMsg = "🆕 Новий користувач зареєструвався!\n\n"
@@ -141,7 +145,8 @@ public class AuthController {
     private final SecureRandom secureRandom = new SecureRandom();
 
     private Mono<Mentor> createClubAndMentor(User user, String clubName, String mentorName, String profile,
-                                              String workStart, String workEnd, int availStep) {
+                                              String workStart, String workEnd, int availStep,
+                                              boolean shareAvailability, boolean multiLocation) {
         Club club = Club.builder().name(clubName).userId(user.getId()).build();
         return clubRepository.save(club).flatMap(savedClub -> {
             Mentor mentor = Mentor.builder()
@@ -152,6 +157,8 @@ public class AuthController {
                     .workEnd(workEnd)
                     .availStep(availStep)
                     .shareToken(generateShareToken())
+                    .shareAvailability(shareAvailability)
+                    .multiLocation(multiLocation)
                     .build();
             return mentorRepository.save(mentor);
         });

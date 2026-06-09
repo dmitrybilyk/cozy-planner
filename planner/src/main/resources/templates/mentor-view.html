@@ -178,7 +178,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                 </svg>
             </button>
-            <button @click="activeTab = 'locations'"
+            <button x-show="multiLocation" @click="activeTab = 'locations'"
                     data-tour="locations-btn"
                     class="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all"
                     :class="activeTab === 'locations' ? 'bg-[#444] ring-2 ring-rose-400' : 'bg-[#333] hover:bg-[#444]'"
@@ -246,8 +246,8 @@
     <!-- ДЕНЬ -->
     <div x-show="activeTab === 'feed'" class="max-w-2xl mx-auto p-4 pb-28">
         <div data-tour="day-filter" class="sticky top-0 z-10 bg-[#121212] pt-4 pb-3">
-            <div class="flex justify-between items-center gap-2">
-                <div class="relative flex-1 min-w-0" x-data="{ open: false }" @click.outside="open = false">
+            <div class="flex items-center gap-2" :class="multiLocation ? 'justify-between' : 'justify-center'">
+                <div x-show="multiLocation" class="relative flex-1 min-w-0" x-data="{ open: false }" @click.outside="open = false">
                     <button @click="open = !open" class="w-full text-xs font-bold bg-[#2a2a2a] text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 flex items-center gap-1.5 text-left">
                         <span class="w-2 h-2 rounded-full flex-shrink-0" :style="'background:' + (locationFilter ? (locations.find(l => l.id == locationFilter)?.color || '#3b82f6') : '#888')"></span>
                         <span class="truncate flex-1" x-text="locationFilter ? (locations.find(l => l.id == locationFilter)?.name || 'Всі локації') : 'Всі локації'"></span>
@@ -268,7 +268,7 @@
                 </div>
                 <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400 flex-shrink-0" x-text="compactView ? '▤ Детальний режим' : '▣ Компактний режим'"></button>
             </div>
-            <div class="flex items-center gap-1.5 mt-3">
+            <div x-show="sessionConfirmations" class="flex items-center justify-center gap-1.5 mt-3">
                 <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Показувати:</span>
                 <div class="flex bg-[#2a2a2a] rounded-lg overflow-hidden">
                     <button @click="sessionFilter = 'all'" class="px-3 py-1.5 text-xs font-bold transition" :class="sessionFilter === 'all' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-300'">Всі</button>
@@ -290,9 +290,9 @@
                          :data-session-id="session.id"
                          :id="'session-card-' + session.id"
                          class="rounded-3xl shadow-sm card-hover fade-in relative overflow-hidden"
-                         :class="[draggedIndex === index ? 'dragging' : '', getCardBorderClass(session)]"
-                         :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
-                        <div x-show="isSessionNow(session)" 
+                         :class="[draggedIndex === index ? 'dragging' : '', getCardBorderClass(session)]">
+                        <div x-show="session.locationId" class="absolute left-0 top-0 bottom-0 w-1.5 pointer-events-none" :style="'background: ' + getLocationColor(session.locationId)"></div>
+                        <div x-show="isSessionNow(session)"
                              class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
                         <!-- Compact card -->
                         <div @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" x-show="compactView && !isExpanded(session.id) || !compactView && isCollapsed(session.id)" class="p-3">
@@ -303,10 +303,10 @@
                             </span>
                             <span x-show="isSessionNow(session)"
                                   class="text-[11px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● В процесі</span>
-                            <span x-show="!isSessionNow(session) && allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider flex-shrink-0">● Підтверджено</span>
-                            <span x-show="!isSessionNow(session) && !allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex-shrink-0">● Частково</span>
-                            <span x-show="!isSessionNow(session) && !allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex-shrink-0">● Очікує</span>
-                            <span x-show="!isSessionNow(session) && session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0">● Відхилено</span>
+                            <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider flex-shrink-0">● Підтверджено</span>
+                            <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && !allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex-shrink-0">● Частково</span>
+                            <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && !allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex-shrink-0">● Очікує</span>
+                            <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0">● Відхилено</span>
                             <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0 ml-auto">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
@@ -326,17 +326,17 @@
                             <div class="flex items-center gap-2 flex-wrap">
                                 <span class="text-lg sm:text-xl font-black" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
                                 <span class="text-[11px] font-bold text-gray-500 uppercase" x-text="sessionDuration(session)"></span>
-                                <span x-show="allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
-                                <span x-show="!allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
-                                <span x-show="!allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
-                                <span x-show="session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
+                                <span x-show="sessionConfirmations && sessionHasTg(session) && allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
+                                <span x-show="sessionConfirmations && sessionHasTg(session) && !allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
+                                <span x-show="sessionConfirmations && sessionHasTg(session) && !allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
+                                <span x-show="sessionConfirmations && sessionHasTg(session) && session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
                             </div>
                             <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1">
                                 <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
                                 <span class="text-xs text-gray-500 font-medium" x-text="getLocationName(session.locationId)"></span>
                             </div>
                             <div class="flex flex-col gap-1.5">
-                                <template x-for="aId in session.traineeIds"><div class="flex flex-col w-full text-xs sm:text-sm bg-[#333] px-3 py-2 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><div class="flex items-center w-full"><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3.5 h-3.5 ml-1 text-green-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3.5 h-3.5 ml-1 text-red-400 flex-shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button></div><div class="flex items-center w-full mt-1.5"><button x-show="getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="confirmTrainee(aId, session)" class="text-xs font-bold text-green-400 bg-green-400/15 px-3 py-1 rounded-lg border border-green-500/30 hover:bg-green-400/25 transition whitespace-nowrap">Підтвердити</button><button x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" @click.stop="unconfirmTrainee(aId, session)" class="text-xs font-bold text-gray-400 bg-gray-400/15 px-3 py-1 rounded-lg border border-gray-500/30 hover:bg-gray-400/25 transition whitespace-nowrap">Відмінити</button><span class="ml-auto text-xs font-bold" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : 'text-gray-400'" x-text="'Статус: ' + (getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'Підтверджено' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'Відхилено спортсменом' : 'Не підтверджено')"></span></div><div class="flex mt-1.5"><button @click.stop="openFeedbackModal(aId, getTraineeName(aId), session.id, session.title)" data-tour="feedback-btn" class="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">💬 Відгук</button></div></div></template>
+                                <template x-for="aId in session.traineeIds"><div class="flex flex-col w-full text-xs sm:text-sm bg-[#333] px-3 py-2 rounded-xl font-semibold text-gray-300" style="touch-action:manipulation"><div class="flex items-center w-full"><span class="pointer-events-none" x-text="getTraineeName(aId)"></span><svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3.5 h-3.5 ml-1 text-green-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg><svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3.5 h-3.5 ml-1 text-red-400 flex-shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg><svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg><button x-show="sessionConfirmations && sessionHasTg(session) && session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button></div><div x-show="sessionConfirmations && sessionHasTg(session)" class="flex items-center w-full mt-1.5"><button x-show="getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="confirmTrainee(aId, session)" class="text-xs font-bold text-green-400 bg-green-400/15 px-3 py-1 rounded-lg border border-green-500/30 hover:bg-green-400/25 transition whitespace-nowrap">Підтвердити</button><button x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" @click.stop="unconfirmTrainee(aId, session)" class="text-xs font-bold text-gray-400 bg-gray-400/15 px-3 py-1 rounded-lg border border-gray-500/30 hover:bg-gray-400/25 transition whitespace-nowrap">Відмінити</button><span class="ml-auto text-xs font-bold" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : 'text-gray-400'" x-text="'Статус: ' + (getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'Підтверджено' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'Відхилено спортсменом' : 'Не підтверджено')"></span></div><div x-show="traineeComm" class="flex mt-1.5"><button @click.stop="openFeedbackModal(aId, getTraineeName(aId), session.id, session.title)" data-tour="feedback-btn" class="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">💬 Відгук</button></div></div></template>
                             </div>
                             <div class="flex items-center justify-between mt-2">
                                 <div class="flex items-center">
@@ -349,7 +349,7 @@
                                     <button @click.stop="editSession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Редагувати">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                                     </button>
-<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" data-tour="gcal" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
+<button @click.stop="exportToGCal(session)" data-tour="gcal" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
                                         <span>Експорт в Google Calendar</span>
                                     </button>
@@ -379,8 +379,8 @@
     <!-- ПЛАН -->
     <div x-show="activeTab === 'agenda'" class="max-w-2xl mx-auto p-4 pb-28 bg-[#0f0f0f]">
         <div class="sticky top-0 z-10 bg-[#0f0f0f] pt-4 pb-3">
-            <div class="flex justify-between items-center gap-2 mb-2">
-                <div class="relative flex-1 min-w-0" x-data="{ open: false }" @click.outside="open = false">
+            <div class="flex items-center gap-2 mb-2" :class="multiLocation ? 'justify-between' : 'justify-center'">
+                <div x-show="multiLocation" class="relative flex-1 min-w-0" x-data="{ open: false }" @click.outside="open = false">
                     <button @click="open = !open" class="w-full text-xs font-bold bg-[#2a2a2a] text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 flex items-center gap-1.5 text-left">
                         <span class="w-2 h-2 rounded-full flex-shrink-0" :style="'background:' + (locationFilter ? (locations.find(l => l.id == locationFilter)?.color || '#3b82f6') : '#888')"></span>
                         <span class="truncate flex-1" x-text="locationFilter ? (locations.find(l => l.id == locationFilter)?.name || 'Всі локації') : 'Всі локації'"></span>
@@ -400,8 +400,9 @@
                     </div>
                 </div>
                 <button @click="toggleCompactView()" class="text-xs sm:text-xs font-bold text-gray-500 hover:text-gray-300 transition px-2 py-1 rounded-lg border border-[#444] hover:border-gray-400 flex-shrink-0" x-text="compactView ? '▤ Детальний режим' : '▣ Компактний режим'"></button>
+                <button @click="showFreeTime = !showFreeTime" class="text-xs font-bold transition px-2 py-1 rounded-lg border flex-shrink-0" :class="showFreeTime ? 'text-emerald-300 border-emerald-500/50 bg-emerald-500/10' : 'text-gray-500 border-[#444] hover:text-gray-300 hover:border-gray-400'">⏳ Вільний час</button>
             </div>
-            <div class="flex justify-center">
+            <div x-show="sessionConfirmations" class="flex justify-center">
                 <div class="flex items-center gap-1.5">
                     <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Показувати:</span>
                     <div class="flex bg-[#2a2a2a] rounded-lg overflow-hidden">
@@ -423,6 +424,23 @@
                     <span class="text-xs font-black uppercase tracking-widest flex-shrink-0" :class="isWeekend(dateGroup.date) ? 'text-purple-400' : 'text-blue-400'" x-text="formatDisplayDate(dateGroup.date)"></span>
                     <div class="h-px flex-1" :class="isWeekend(dateGroup.date) ? 'bg-purple-500/20' : 'bg-[#333]'"></div>
                 </div>
+                <div x-show="showFreeTime" class="mb-2">
+                    <template x-if="(freeSlotsByDate[dateGroup.date] || []).length > 0">
+                        <div class="flex flex-wrap gap-1.5">
+                            <template x-for="(slot, si) in (freeSlotsByDate[dateGroup.date] || [])" :key="si">
+                                <div class="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                                    <span class="text-xs font-bold text-emerald-300 tabular-nums" x-text="slot.startStr + ' — ' + slot.endStr"></span>
+                                    <span x-show="slot.durationMin >= 60" class="text-[10px] font-semibold text-emerald-500/70" x-text="Math.floor(slot.durationMin / 60) + 'г' + (slot.durationMin % 60 ? (slot.durationMin % 60) + 'хв' : '')"></span>
+                                    <span x-show="slot.durationMin > 0 && slot.durationMin < 60" class="text-[10px] font-semibold text-emerald-500/70" x-text="slot.durationMin + 'хв'"></span>
+                                    <span x-show="slot.locationId && multiLocation" class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :style="'background:' + (getLocationColor(slot.locationId) || '#3b82f6') + '30; color:' + (getLocationColor(slot.locationId) || '#3b82f6')" x-text="getLocationName(slot.locationId)"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="!(freeSlotsByDate[dateGroup.date] || []).length">
+                        <span class="text-[11px] text-gray-600 font-semibold">Вільного часу немає</span>
+                    </template>
+                </div>
                 <div class="space-y-3">
                     <template x-for="(session, index) in dateGroup.items" :key="session.id">
                         <div>
@@ -435,9 +453,9 @@
                             <div :data-session-id="session.id"
                                  :id="'agenda-card-' + session.id"
                                  class="rounded-2xl shadow-sm card-hover fade-in relative overflow-hidden"
-                                 :class="getAgendaCardClass(session)"
-                                 :style="'border-left: 5px solid ' + (session.color || '#3b82f6')">
-                                <div x-show="isSessionNow(session)" 
+                                 :class="getAgendaCardClass(session)">
+                                <div x-show="session.locationId" class="absolute left-0 top-0 bottom-0 w-1.5 pointer-events-none" :style="'background: ' + getLocationColor(session.locationId)"></div>
+                                <div x-show="isSessionNow(session)"
                                      class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
                                 <!-- Compact card -->
                             <div @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" x-show="compactView && !isExpanded(session.id) || !compactView && isCollapsed(session.id)" class="p-3">
@@ -448,10 +466,10 @@
                                         </span>
                                         <span x-show="isSessionNow(session)"
                                               class="text-[11px] font-bold text-red-500 uppercase tracking-wider animate-pulse flex-shrink-0">● В процесі</span>
-                                        <span x-show="!isSessionNow(session) && allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider flex-shrink-0">● Підтверджено</span>
-                                        <span x-show="!isSessionNow(session) && !allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex-shrink-0">● Частково</span>
-                                        <span x-show="!isSessionNow(session) && !allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex-shrink-0">● Очікує</span>
-                                        <span x-show="!isSessionNow(session) && session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0">● Відхилено</span>
+                                        <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider flex-shrink-0">● Підтверджено</span>
+                                        <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && !allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider flex-shrink-0">● Частково</span>
+                                        <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && !allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider flex-shrink-0">● Очікує</span>
+                                        <span x-show="sessionConfirmations && sessionHasTg(session) && !isSessionNow(session) && session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider flex-shrink-0">● Відхилено</span>
                                         <button @click.stop="compactView ? toggleExpand(session.id) : toggleCollapse(session.id)" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0 ml-auto">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                                         </button>
@@ -471,10 +489,10 @@
                                 <div class="flex items-center gap-2 flex-wrap">
                                     <span class="text-lg sm:text-xl font-black" :style="'color: ' + (session.color || '#3b82f6')" x-text="convertTz(session.time, session.date, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, timezone) : '')"></span>
                                     <span class="text-[11px] font-bold text-gray-500 uppercase" x-text="sessionDuration(session)"></span>
-                                    <span x-show="allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
-                                    <span x-show="!allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
-                                    <span x-show="!allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
-                                    <span x-show="session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
+                                    <span x-show="sessionConfirmations && sessionHasTg(session) && allTraineesConfirmed(session)" class="text-[11px] font-bold text-green-500 uppercase tracking-wider">● Підтверджено</span>
+                                    <span x-show="sessionConfirmations && sessionHasTg(session) && !allTraineesConfirmed(session) && someTraineesConfirmed(session)" class="text-[11px] font-bold text-orange-400 uppercase tracking-wider">● Частково підтверджено</span>
+                                    <span x-show="sessionConfirmations && sessionHasTg(session) && !allTraineesConfirmed(session) && !someTraineesConfirmed(session)" class="text-[11px] font-bold text-yellow-400 uppercase tracking-wider">● Очікує підтвердження</span>
+                                    <span x-show="sessionConfirmations && sessionHasTg(session) && session.confirmationStatus === 'REJECTED'" class="text-[11px] font-bold text-red-500 uppercase tracking-wider">● Відхилено</span>
                                 </div>
                                 <div x-show="getLocationName(session.locationId)" class="flex items-center space-x-1">
                                     <span class="w-2 h-2 rounded-full" :style="'background: ' + (session.color || '#3b82f6')"></span>
@@ -488,9 +506,9 @@
                                                 <svg x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" class="w-3.5 h-3.5 ml-1 text-green-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                                 <svg x-show="getTraineeConfirmStatus(aId, session) === 'rejected'" class="w-3.5 h-3.5 ml-1 text-red-400 flex-shrink-0 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                                                 <svg x-show="isTraineeTelegramConnected(aId)" class="w-3 h-3 ml-1.5 text-blue-400 flex-shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                                                <button x-show="session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button>
+                                                <button x-show="sessionConfirmations && sessionHasTg(session) && session.createdBy === 'COACH' && getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="requestTraineeConfirmationForTrainee(aId, session)" class="ml-auto text-xs font-bold text-yellow-500 whitespace-nowrap hover:text-yellow-400 transition">Запитати підтвердження</button>
                                             </div>
-                                            <div class="flex items-center w-full mt-1.5">
+                                            <div x-show="sessionConfirmations && sessionHasTg(session)" class="flex items-center w-full mt-1.5">
                                                 <button x-show="getTraineeConfirmStatus(aId, session) === 'none'" @click.stop="confirmTrainee(aId, session)" class="text-xs font-bold text-green-400 bg-green-400/15 px-3 py-1 rounded-lg border border-green-500/30 hover:bg-green-400/25 transition whitespace-nowrap">Підтвердити</button>
                                                 <button x-show="getTraineeConfirmStatus(aId, session) === 'confirmed'" @click.stop="unconfirmTrainee(aId, session)" class="text-xs font-bold text-gray-400 bg-gray-400/15 px-3 py-1 rounded-lg border border-gray-500/30 hover:bg-gray-400/25 transition whitespace-nowrap">Відмінити</button>
                                                 <span class="ml-auto text-xs font-bold" :class="getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'text-green-400' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'text-red-400' : 'text-gray-400'" x-text="'Статус: ' + (getTraineeConfirmStatus(aId, session) === 'confirmed' ? 'Підтверджено' : getTraineeConfirmStatus(aId, session) === 'rejected' ? 'Відхилено спортсменом' : 'Не підтверджено')"></span>
@@ -509,7 +527,7 @@
                                         <button @click.stop="editSession(session)" class="text-blue-400 hover:text-blue-300 transition p-1" title="Редагувати">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
                                         </button>
-<button x-show="session.confirmationStatus === 'CONFIRMED'" @click.stop="exportToGCal(session)" data-tour="gcal" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
+<button @click.stop="exportToGCal(session)" data-tour="gcal" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition text-xs font-bold" title="Експорт в Google Calendar">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2zm0 16H5V8h14v11z" fill="#4285F4"/><rect x="7" y="10" width="4" height="4" rx="0.5" fill="#EA4335"/><rect x="13" y="10" width="4" height="4" rx="0.5" fill="#FBBC04"/><rect x="7" y="16" width="4" height="4" rx="0.5" fill="#34A853"/><rect x="13" y="16" width="4" height="4" rx="0.5" fill="#4285F4"/></svg>
                                         <span>Експорт в Google Calendar</span>
                                     </button>
@@ -601,210 +619,292 @@
 
 <!-- ПРОФІЛЬ -->
 <div x-show="activeTab === 'profile'" class="max-w-2xl mx-auto p-4 pb-28">
-    <div x-show="!isStandalone" class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
-        <button @click="installPwa()" class="w-full flex items-center justify-center gap-3 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-white/5 active:scale-[0.97]">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-            <span>Встановити додаток</span>
+    <!-- Profile sub-tab bar -->
+    <div class="flex bg-[#1a1a1a] rounded-2xl border border-[#333] p-1 mb-4 gap-1">
+        <button @click="profileTab = 'main'"
+                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+                :class="profileTab === 'main' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">Основні</button>
+        <button @click="profileTab = 'time'"
+                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+                :class="profileTab === 'time' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">⏰ Час</button>
+        <button @click="profileTab = 'telegram'"
+                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all relative"
+                :class="profileTab === 'telegram' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">
+            Telegram
+            <span x-show="mentorTg.connected" class="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-green-500"></span>
         </button>
     </div>
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4"><span class="mr-1">📱</span> Telegram</h4>
-        <template x-if="!mentorTg.enabled">
-            <p class="text-gray-500 text-sm">Telegram не налаштовано.</p>
-        </template>
-        <template x-if="mentorTg.enabled && mentorTg.connected">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 bg-green-500 rounded-full"></span>
-                    <span class="text-green-400 font-medium">Підключено</span>
-                    <span x-show="mentorTg.username" class="text-gray-500" x-text="'@' + mentorTg.username"></span>
+
+    <!-- ===== ОСНОВНІ ===== -->
+    <div x-show="profileTab === 'main'">
+        <div x-show="!isStandalone" class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+            <button @click="installPwa()" class="w-full flex items-center justify-center gap-3 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-white/5 active:scale-[0.97]">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                <span>Встановити додаток</span>
+            </button>
+        </div>
+        <!-- Photo -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">📷 Фото</h4>
+            <div class="flex items-center gap-4">
+                <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-[#262626] flex-shrink-0">
+                    <template x-if="photoUrl">
+                        <img :src="photoUrl" class="w-full h-full object-cover">
+                    </template>
+                    <template x-if="!photoUrl">
+                        <div class="w-full h-full flex items-center justify-center text-gray-500 text-2xl">👤</div>
+                    </template>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-xl text-xs font-bold transition text-center">
+                        Завантажити
+                        <input type="file" accept="image/*" class="hidden" @change="uploadPhoto($event)">
+                    </label>
+                    <button x-show="photoUrl" @click="photoUrl = null; fetch('/api/v1/mentor/profile', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({photoUrl: ''})})" class="text-xs font-bold text-red-400">Видалити</button>
                 </div>
             </div>
-        </template>
-        <template x-if="mentorTg.enabled && !mentorTg.connected">
+        </div>
+        <!-- Features: availability & locations -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⚙️ Функції</h4>
             <div class="space-y-3">
-                <p class="text-gray-400 text-sm" x-text="labels.tg_connect_prompt || 'Підключить телеграм, щоб вмикнути сповіщення'"></p>
-                <button @click="openMentorTelegramLink()" 
-                        class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition active:scale-[0.97]">
-                    <span>📲</span>
-                    <span>Під'єднати телеграм</span>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Ділитися доступністю</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Учні бачать ваш вільний час і можуть записатися</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="shareAvailability = !shareAvailability; saveShareAvailability()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="shareAvailability ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="shareAvailability ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Декілька локацій</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Зал, майданчик, онлайн — кілька місць проведення</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="multiLocation = !multiLocation; saveMultiLocation()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="multiLocation ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="multiLocation ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
+        <!-- Theme -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🎨 Тема оформлення</h4>
+            <div class="grid grid-cols-3 gap-2">
+                <button @click="saveTheme('default')"
+                        class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                        :class="theme === 'default' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
+                    <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1a1a1a 0%, #262626 40%, #121212 100%)">
+                        <div class="h-2 w-full" style="background: #333"></div>
+                        <div class="flex gap-1 p-1.5">
+                            <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
+                            <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'default' ? 'text-blue-400' : 'text-gray-400'">Стандартна</span>
+                    <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'default' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
+                </button>
+                <button @click="saveTheme('male')"
+                        class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                        :class="theme === 'male' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
+                    <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #0c1e2e 0%, #152b3c 40%, #07111c 100%)">
+                        <div class="h-2 w-full" style="background: #1c3550"></div>
+                        <div class="flex gap-1 p-1.5">
+                            <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
+                            <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'male' ? 'text-blue-400' : 'text-gray-400'">Кобальт</span>
+                    <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'male' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
+                </button>
+                <button @click="saveTheme('female')"
+                        class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                        :class="theme === 'female' ? 'border-pink-500 bg-pink-500/10' : 'border-[#333] hover:border-[#555]'">
+                    <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1e0d26 0%, #281332 40%, #0f0712 100%)">
+                        <div class="h-2 w-full" style="background: #38164a"></div>
+                        <div class="flex gap-1 p-1.5">
+                            <div class="h-3 rounded flex-1" style="background: #200d28"></div>
+                            <div class="h-3 rounded flex-1" style="background: #200d28"></div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'female' ? 'text-pink-400' : 'text-gray-400'">Аметист</span>
+                    <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'female' ? 'bg-pink-500 opacity-100' : 'opacity-0'"></div>
                 </button>
             </div>
-        </template>
-    </div>
-    <!-- Photo -->
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">📷 Фото</h4>
-        <div class="flex items-center gap-4">
-            <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-[#262626] flex-shrink-0">
-                <template x-if="photoUrl">
-                    <img :src="photoUrl" class="w-full h-full object-cover">
-                </template>
-                <template x-if="!photoUrl">
-                    <div class="w-full h-full flex items-center justify-center text-gray-500 text-2xl">👤</div>
-                </template>
-            </div>
-            <div class="flex flex-col gap-2">
-                <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-xl text-xs font-bold transition text-center">
-                    Завантажити
-                    <input type="file" accept="image/*" class="hidden" @change="uploadPhoto($event)">
-                </label>
-                <button x-show="photoUrl" @click="photoUrl = null; fetch('/api/v1/mentor/profile', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({photoUrl: ''})})" class="text-xs font-bold text-red-400">Видалити</button>
-            </div>
         </div>
-    </div>
-    <!-- Work hours -->
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏰ Робочі години</h4>
-        <div class="flex items-center gap-3">
-            <div class="flex-1">
-                <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">Від</label>
-                <select x-model="workStart" @change="saveWorkHours()" x-effect="$nextTick(() => $el.value = workStart)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
-                    <template x-for="h in Array.from({length: 16}, (_, i) => i + 6)" :key="h">
-                        <option :value="String(h).padStart(2,'0') + ':00'" x-text="String(h).padStart(2,'0') + ':00'"></option>
-                    </template>
-                </select>
-            </div>
-            <span class="text-gray-500 mt-5">—</span>
-            <div class="flex-1">
-                <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">До</label>
-                <select x-model="workEnd" @change="saveWorkHours()" x-effect="$nextTick(() => $el.value = workEnd)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
-                    <template x-for="h in Array.from({length: 18}, (_, i) => i + 6)" :key="h">
-                        <option :value="String(h).padStart(2,'0') + ':00'" x-text="String(h).padStart(2,'0') + ':00'"></option>
-                    </template>
-                </select>
-            </div>
-        </div>
-    </div>
-    <!-- Timezone -->
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🌍 Часовий пояс</h4>
-        <div class="flex items-center gap-2">
-            <select x-model="editingTimezone" @change="saveTimezone()" class="flex-1 text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
-                <option value="Europe/Kyiv">Europe/Kyiv (UTC+2/+3)</option>
-                <option value="Europe/Warsaw">Europe/Warsaw (UTC+1/+2)</option>
-                <option value="Europe/Berlin">Europe/Berlin (UTC+1/+2)</option>
-                <option value="Europe/Paris">Europe/Paris (UTC+1/+2)</option>
-                <option value="Europe/London">Europe/London (UTC+0/+1)</option>
-                <option value="Europe/Moscow">Europe/Moscow (UTC+3)</option>
-                <option value="Europe/Istanbul">Europe/Istanbul (UTC+3)</option>
-                <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
-                <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
-                <option value="America/New_York">America/New_York (UTC-5/-4)</option>
-                <option value="America/Chicago">America/Chicago (UTC-6/-5)</option>
-                <option value="America/Denver">America/Denver (UTC-7/-6)</option>
-                <option value="America/Los_Angeles">America/Los_Angeles (UTC-8/-7)</option>
-            </select>
-        </div>
-    </div>
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Інтервал вибору часу</h4>
-        <p class="text-xs text-gray-600 mb-3">Крок для вибору доступного часу</p>
-        <div class="flex bg-[#262626] rounded-xl p-1 gap-1">
-            <button @click="availStep = 15; saveAvailStep()"
-                    class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
-                    :class="availStep === 15 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
-                <span class="block text-sm">15</span>
-                <span class="block text-xs font-medium opacity-70">хвилин</span>
-            </button>
-            <button @click="availStep = 30; saveAvailStep()"
-                    class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
-                    :class="availStep === 30 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
-                <span class="block text-sm">30</span>
-                <span class="block text-xs font-medium opacity-70">хвилин</span>
-            </button>
-            <button @click="availStep = 60; saveAvailStep()"
-                    class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
-                    :class="availStep === 60 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
-                <span class="block text-sm">1</span>
-                <span class="block text-xs font-medium opacity-70">година</span>
-            </button>
-        </div>
-    </div>
-    <!-- Notifications -->
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4" data-testid="notifications-section">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🔔 Сповіщення</h4>
-        <label class="flex items-center justify-between cursor-pointer select-none">
-            <span class="text-sm text-gray-300">Нагадування про тренування (за 1 год)</span>
-            <div class="relative">
-                <input type="checkbox" x-model="sessionReminderEnabled" @change="saveSessionReminderEnabled()" class="sr-only" data-testid="mentor-session-reminder-toggle">
-                <div class="w-10 h-5 rounded-full transition-colors duration-200"
-                     :class="sessionReminderEnabled ? 'bg-blue-600' : 'bg-[#333]'"></div>
-                <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
-                     :class="sessionReminderEnabled ? 'translate-x-5' : 'translate-x-0'"></div>
-            </div>
-        </label>
-    </div>
-    <!-- Theme -->
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🎨 Тема оформлення</h4>
-        <div class="grid grid-cols-3 gap-2">
-            <button @click="saveTheme('default')"
-                    class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
-                    :class="theme === 'default' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
-                <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1a1a1a 0%, #262626 40%, #121212 100%)">
-                    <div class="h-2 w-full" style="background: #333"></div>
-                    <div class="flex gap-1 p-1.5">
-                        <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
-                        <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
-                    </div>
-                </div>
-                <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'default' ? 'text-blue-400' : 'text-gray-400'">Стандартна</span>
-                <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'default' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
-            </button>
-            <button @click="saveTheme('male')"
-                    class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
-                    :class="theme === 'male' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
-                <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #0c1e2e 0%, #152b3c 40%, #07111c 100%)">
-                    <div class="h-2 w-full" style="background: #1c3550"></div>
-                    <div class="flex gap-1 p-1.5">
-                        <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
-                        <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
-                    </div>
-                </div>
-                <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'male' ? 'text-blue-400' : 'text-gray-400'">Кобальт</span>
-                <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'male' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
-            </button>
-            <button @click="saveTheme('female')"
-                    class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
-                    :class="theme === 'female' ? 'border-pink-500 bg-pink-500/10' : 'border-[#333] hover:border-[#555]'">
-                <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1e0d26 0%, #281332 40%, #0f0712 100%)">
-                    <div class="h-2 w-full" style="background: #38164a"></div>
-                    <div class="flex gap-1 p-1.5">
-                        <div class="h-3 rounded flex-1" style="background: #200d28"></div>
-                        <div class="h-3 rounded flex-1" style="background: #200d28"></div>
-                    </div>
-                </div>
-                <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'female' ? 'text-pink-400' : 'text-gray-400'">Аметист</span>
-                <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'female' ? 'bg-pink-500 opacity-100' : 'opacity-0'"></div>
-            </button>
-        </div>
-    </div>
-    <!-- Contact developer -->
-    <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-        <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">✉️ Зворотній зв'язок</h4>
-        <button @click="openContactModal()"
-                class="w-full flex items-center justify-center gap-2 bg-blue-900/30 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-blue-900/50 active:scale-[0.97]">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>
-            <span>Написати розробнику</span>
-        </button>
-    </div>
-    <div class="pt-4 space-y-3">
-        <form method="POST" action="/logout" class="w-full">
-            <button type="submit" class="w-full flex items-center justify-center gap-2 bg-red-900/30 text-red-400 py-3 rounded-xl font-bold transition hover:bg-red-900/50 active:scale-[0.97]">
+        <!-- Contact developer -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">✉️ Зворотній зв'язок</h4>
+            <button @click="openContactModal()"
+                    class="w-full flex items-center justify-center gap-2 bg-blue-900/30 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-blue-900/50 active:scale-[0.97]">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                 </svg>
-                <span>Вийти</span>
+                <span>Написати розробнику</span>
             </button>
-        </form>
-        <button @click="startFresh()" 
-                class="w-full flex items-center justify-center gap-2 bg-orange-900/30 text-orange-400 py-3 rounded-xl font-bold transition hover:bg-orange-900/50 active:scale-[0.97]">
-            <span>🔄</span>
-            <span>Видалити всі дані</span>
-        </button>
+        </div>
+        <div class="pt-4 space-y-3">
+            <form method="POST" action="/logout" class="w-full">
+                <button type="submit" class="w-full flex items-center justify-center gap-2 bg-red-900/30 text-red-400 py-3 rounded-xl font-bold transition hover:bg-red-900/50 active:scale-[0.97]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    <span>Вийти</span>
+                </button>
+            </form>
+            <button @click="startFresh()"
+                    class="w-full flex items-center justify-center gap-2 bg-orange-900/30 text-orange-400 py-3 rounded-xl font-bold transition hover:bg-orange-900/50 active:scale-[0.97]">
+                <span>🔄</span>
+                <span>Видалити всі дані</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== ЧАС ===== -->
+    <div x-show="profileTab === 'time'">
+        <!-- Work hours -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏰ Робочі години</h4>
+            <div class="flex items-center gap-3">
+                <div class="flex-1">
+                    <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">Від</label>
+                    <select x-model="workStart" @change="if (workEnd <= workStart) { workEnd = Array.from({length:19},(_, i)=>String(i+5).padStart(2,'0')+':00').find(h=>h>workStart)||'23:00'; } saveWorkHours();" x-effect="$nextTick(() => $el.value = workStart)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                        <template x-for="h in Array.from({length: 18}, (_, i) => String(i + 5).padStart(2,'0') + ':00')" :key="h">
+                            <option :value="h" x-text="h"></option>
+                        </template>
+                    </select>
+                </div>
+                <span class="text-gray-500 mt-5">—</span>
+                <div class="flex-1">
+                    <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">До</label>
+                    <select x-model="workEnd" @change="saveWorkHours()" x-effect="$nextTick(() => $el.value = workEnd)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                        <template x-for="h in Array.from({length:19},(_, i)=>String(i+5).padStart(2,'0')+':00').filter(h=>h>workStart)" :key="h">
+                            <option :value="h" x-text="h"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <!-- Timezone -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🌍 Часовий пояс</h4>
+            <div class="flex items-center gap-2">
+                <select x-model="editingTimezone" @change="saveTimezone()" class="flex-1 text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                    <option value="Europe/Kyiv">Europe/Kyiv (UTC+2/+3)</option>
+                    <option value="Europe/Warsaw">Europe/Warsaw (UTC+1/+2)</option>
+                    <option value="Europe/Berlin">Europe/Berlin (UTC+1/+2)</option>
+                    <option value="Europe/Paris">Europe/Paris (UTC+1/+2)</option>
+                    <option value="Europe/London">Europe/London (UTC+0/+1)</option>
+                    <option value="Europe/Moscow">Europe/Moscow (UTC+3)</option>
+                    <option value="Europe/Istanbul">Europe/Istanbul (UTC+3)</option>
+                    <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+                    <option value="America/New_York">America/New_York (UTC-5/-4)</option>
+                    <option value="America/Chicago">America/Chicago (UTC-6/-5)</option>
+                    <option value="America/Denver">America/Denver (UTC-7/-6)</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles (UTC-8/-7)</option>
+                </select>
+            </div>
+        </div>
+        <!-- Time interval -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Інтервал вибору часу</h4>
+            <p class="text-xs text-gray-600 mb-3">Крок для вибору доступного часу</p>
+            <div class="flex bg-[#262626] rounded-xl p-1 gap-1">
+                <button @click="availStep = 15; saveAvailStep()"
+                        class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
+                        :class="availStep === 15 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
+                    <span class="block text-sm">15</span>
+                    <span class="block text-xs font-medium opacity-70">хвилин</span>
+                </button>
+                <button @click="availStep = 30; saveAvailStep()"
+                        class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
+                        :class="availStep === 30 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
+                    <span class="block text-sm">30</span>
+                    <span class="block text-xs font-medium opacity-70">хвилин</span>
+                </button>
+                <button @click="availStep = 60; saveAvailStep()"
+                        class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
+                        :class="availStep === 60 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
+                    <span class="block text-sm">1</span>
+                    <span class="block text-xs font-medium opacity-70">година</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TELEGRAM ===== -->
+    <div x-show="profileTab === 'telegram'">
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+            <!-- Integration toggle -->
+            <label class="flex items-center justify-between cursor-pointer select-none">
+                <div>
+                    <div class="text-sm text-gray-200 font-medium">Інтеграція з Телеграм</div>
+                    <div class="text-xs text-gray-500 mt-0.5">Сповіщення та зв'язок через Telegram</div>
+                </div>
+                <div class="relative ml-3 flex-shrink-0" @click="telegramIntegration = !telegramIntegration; saveTelegramIntegration()">
+                    <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="telegramIntegration ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="telegramIntegration ? 'translate-x-5' : 'translate-x-0'"></div>
+                </div>
+            </label>
+            <!-- TG connect status / button (when integration on) -->
+            <div x-show="telegramIntegration" class="mt-4 space-y-3">
+                <template x-if="!mentorTg.enabled">
+                    <p class="text-sm text-gray-500">Telegram не налаштовано адміністратором.</p>
+                </template>
+                <template x-if="mentorTg.enabled && mentorTg.connected">
+                    <div class="flex items-center gap-2 bg-green-900/20 rounded-xl px-3 py-2.5">
+                        <span class="w-2.5 h-2.5 bg-green-500 rounded-full flex-shrink-0"></span>
+                        <span class="text-sm text-green-400 font-medium">Telegram підключено</span>
+                        <span x-show="mentorTg.username" class="text-sm text-gray-500" x-text="'@' + mentorTg.username"></span>
+                    </div>
+                </template>
+                <template x-if="mentorTg.enabled && !mentorTg.connected">
+                    <button @click="openMentorTelegramLink()"
+                            class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-sm transition active:scale-[0.97]">
+                        <span>📲</span><span>Під'єднати Телеграм</span>
+                    </button>
+                </template>
+            </div>
+            <!-- Sub-features — always visible, disabled until TG integration is on and connected -->
+            <div class="mt-4 pt-3 border-t border-[#2a2a2a] space-y-3"
+                 :class="(!telegramIntegration || !mentorTg.connected) ? 'opacity-40 pointer-events-none' : ''">
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Підтверджування тренувань</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Статуси підтвердження та кнопки на картках сесій</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="sessionConfirmations = !sessionConfirmations; saveSessionConfirmations()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionConfirmations ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionConfirmations ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Комунікація зі спортсменом</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Відгуки та повідомлення між тренером і учнем</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="traineeComm = !traineeComm; saveTraineeComm()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="traineeComm ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="traineeComm ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none" data-testid="notifications-section">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Нагадування про тренування (за 1 год)</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Telegram-повідомлення перед заняттям</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0">
+                        <input type="checkbox" x-model="sessionReminderEnabled" @change="saveSessionReminderEnabled()" class="sr-only" data-testid="mentor-session-reminder-toggle">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionReminderEnabled ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionReminderEnabled ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -839,14 +939,17 @@
                                 </div>
                                 <span class="text-sm font-semibold text-gray-200 truncate" x-text="t.name"></span>
                                 <svg x-show="t.telegramConnected" class="w-4 h-4 text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
-                                <input type="checkbox"
-                                       :checked="bulkAvailTrainees.includes(t.id)"
-                                       @click.stop="toggleBulkAvailTrainee(t.id)"
-                                       data-testid="bulk-select-trainee"
-                                       class="ml-auto w-4 h-4 rounded cursor-pointer accent-blue-500 flex-shrink-0">
-                                <button @click.stop="traineeExpandedIds.push(t.id); _ref++" class="p-0.5 text-gray-500 hover:text-gray-300 transition flex-shrink-0">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
+                                <div class="ml-auto flex items-center gap-1.5 flex-shrink-0">
+                                    <input x-show="telegramIntegration && mentorTg.connected"
+                                           type="checkbox"
+                                           :checked="bulkAvailTrainees.includes(t.id)"
+                                           @click.stop="toggleBulkAvailTrainee(t.id)"
+                                           data-testid="bulk-select-trainee"
+                                           class="w-4 h-4 rounded cursor-pointer accent-blue-500">
+                                    <button @click.stop="traineeExpandedIds.push(t.id); _ref++" class="p-0.5 text-gray-500 hover:text-gray-300 transition">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </template>
@@ -876,15 +979,19 @@
                         </button>
                     </div>
                     <p class="text-sm text-gray-500 truncate mt-1 ml-[60px]" x-show="t.description" x-text="t.description"></p>
-                    <!-- Row 1: Create session + Create series -->
+                    <!-- Row 1: Create + Conversation -->
                     <div data-tour="trainee-actions" class="flex items-center gap-2 mt-3 pt-3 border-t border-[#292929] flex-wrap">
-                        <button @click="createSessionForTrainee(t)" class="text-xs font-bold text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
-                            ➕ <span x-text="labels.create_session || 'Створити тренування'"></span>
+                        <span class="text-xs font-bold text-gray-500">Створити:</span>
+                        <button @click="createSessionForTrainee(t)"
+                                class="text-xs font-bold text-blue-400 px-2.5 py-1 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
+                            <span x-text="labels.create_session || 'Тренування'"></span>
                         </button>
-                        <button @click="openPlanSessions(t)" data-tour="plan-sessions-btn" class="text-xs font-bold text-violet-400 px-2.5 py-1 rounded-lg border border-violet-500/30 hover:bg-violet-500/10 transition">
-                            📅 <span x-text="labels.plan_sessions || 'Планувати'"></span>
+                        <button @click="openPlanSessions(t)" data-tour="plan-sessions-btn"
+                                class="text-xs font-bold text-violet-400 px-2.5 py-1 rounded-lg border border-violet-500/30 hover:bg-violet-500/10 transition">
+                            <span x-text="labels.plan_sessions || 'Серію тренувань'"></span>
                         </button>
-                        <button @click="openConversationModal(t)" class="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">
+                        <button x-show="traineeComm" @click="openConversationModal(t)"
+                                class="text-xs font-bold text-purple-400 px-2.5 py-1 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">
                             💬 Розмова
                         </button>
                     </div>
@@ -898,7 +1005,7 @@
                                 <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200"
                                      :class="t.sessionReminderEnabled ? 'translate-x-4' : 'translate-x-0'"></div>
                             </div>
-                            <span class="text-xs text-gray-400">🔔 <span x-text="labels.session_reminder || 'Нагадування'"></span></span>
+                            <span class="text-xs text-gray-400">🔔 Нагадувати про тренування</span>
                         </label>
                     </div>
                     <!-- Row 3: Site + Timezone -->
@@ -933,8 +1040,8 @@
                             <button @click="generateInvite(t.id)" class="text-xs font-bold text-green-400 px-2.5 py-1 rounded-lg border border-green-500/30 hover:bg-green-500/10 transition" x-text="inviteUrls[t.id] ? '✓ Скопійовано!' : '📲 Запросити в TG'"></button>
                         </div>
                     </template>
-                    <!-- Availability section -->
-                    <div class="mt-3 pt-3 border-t border-[#292929]">
+                    <!-- Availability section (only visible when shareAvailability is enabled) -->
+                    <div x-show="shareAvailability" class="mt-3 pt-3 border-t border-[#292929]">
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-sm font-bold text-gray-500 uppercase tracking-widest">Доступність</span>
                             <div x-show="t.telegramEnabled && t.telegramConnected">
@@ -1103,7 +1210,7 @@
     <!-- СПОВІЩЕННЯ -->
     <div x-show="activeTab === 'notifications'" x-init="loadFeedbackReceivedByMentor()" class="max-w-2xl mx-auto p-4 pb-28">
         <!-- Feedback received from trainees -->
-        <template x-if="_feedbackReceivedByMentor && _feedbackReceivedByMentor.length > 0">
+        <template x-if="traineeComm && _feedbackReceivedByMentor && _feedbackReceivedByMentor.length > 0">
             <div class="mb-6">
                 <h3 class="text-sm font-black text-gray-500 uppercase tracking-widest mb-3">💬 Відгуки від учнів</h3>
                 <div class="space-y-2">
@@ -1220,11 +1327,11 @@
                                 </template>
                             </select>
                         </div>
-                        <div class="flex items-center gap-1">
+                        <div x-show="locations.length > 0" class="flex items-center gap-1">
                             <select x-model="r.locationId" @change="coachMarkDirty()"
                                     x-effect="$nextTick(() => $el.value = r.locationId)"
                                     class="bg-[#333] text-gray-300 text-xs rounded-lg px-1.5 py-1.5 border border-[#444] focus:outline-none max-w-[80px]">
-                                <option :value="null" x-show="!locations.length">Місце</option>
+                                <option :value="null">—</option>
                                 <template x-for="loc in locations" :key="loc.id">
                                     <option :value="loc.id" x-text="loc.name" :style="'color:' + (loc.color || '#3b82f6')"></option>
                                 </template>
@@ -1301,20 +1408,38 @@
             <div x-show="isTimePassed()" class="bg-red-900/20 text-red-400 p-3 rounded-xl text-xs font-bold uppercase text-center">Час уже минув</div>
             <div class="space-y-4">
                 <div><label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_name || 'Назва'"></label><input type="text" x-model="sessionForm.title" class="w-full bg-transparent border-b border-[#333] outline-none py-3 text-base focus:border-blue-500"></div>
-                <div>
-                    <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_location || 'Локація'"></label>
-                    <div class="flex items-center gap-2">
-                        <select x-model="sessionForm.locationId" class="flex-1 text-base" @change="onSessionLocationChange()">
-                            <option :value="null" x-show="!locations.length" x-text="labels.no_location || 'Без місця'"></option>
-                            <template x-for="location in availableLocations" :key="location.id">
-                                <option :value="location.id" x-text="location.name" :style="'color: ' + (location.color || '#3b82f6')"></option>
-                            </template>
-                        </select>
-                        <button @click="showAvailPopup = true" type="button"
-                                class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition text-blue-400 bg-blue-900/30 hover:bg-blue-900/50"
-                                x-text="labels.availability || 'Моя доступність'">
-                        </button>
+                <div x-show="multiLocation || shareAvailability" class="flex items-center gap-2">
+                    <div x-show="multiLocation" class="flex-1">
+                        <label class="text-xs sm:text-sm font-black text-gray-400 uppercase mb-2 block" x-text="labels.session_location || 'Локація'"></label>
+                        <div class="relative" x-data="{ locOpen: false }" @click.outside="locOpen = false">
+                            <button type="button" @click="locOpen = !locOpen"
+                                    class="w-full flex items-center gap-2 py-2 border-b border-[#333] text-left focus:outline-none">
+                                <span class="w-3 h-3 rounded-full flex-shrink-0"
+                                      :style="'background: ' + (sessionForm.locationId ? getLocationColor(sessionForm.locationId) : '#555')"></span>
+                                <span class="flex-1 text-sm text-gray-200"
+                                      x-text="sessionForm.locationId ? getLocationName(sessionForm.locationId) : (labels.no_location || 'Оберіть локацію')"></span>
+                                <svg class="w-4 h-4 text-gray-500 flex-shrink-0 transition-transform" :class="locOpen ? 'rotate-180' : ''"
+                                     fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div x-show="locOpen" class="absolute z-30 top-full left-0 right-0 mt-1 bg-[#2a2a2a] border border-[#444] rounded-xl shadow-xl overflow-hidden">
+                                <template x-for="location in availableLocations" :key="location.id">
+                                    <button type="button"
+                                            @click="sessionForm.locationId = location.id; onSessionLocationChange(); locOpen = false"
+                                            class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#333] transition text-left"
+                                            :class="sessionForm.locationId == location.id ? 'bg-[#333]' : ''">
+                                        <span class="w-3 h-3 rounded-full flex-shrink-0" :style="'background: ' + (location.color || '#3b82f6')"></span>
+                                        <span class="text-sm text-gray-200" x-text="location.name"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
                     </div>
+                    <button x-show="shareAvailability" @click="showAvailPopup = true" type="button"
+                            class="text-xs font-bold px-3 py-2 rounded-xl whitespace-nowrap transition text-blue-400 bg-blue-900/30 hover:bg-blue-900/50 self-end"
+                            x-text="labels.availability || 'Моя доступність'">
+                    </button>
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-3">
@@ -1396,7 +1521,7 @@
         </div>
         <div class="modal-footer flex space-x-3">
             <button @click="closeModal()" class="flex-1 py-4 font-bold text-gray-500 text-sm" x-text="labels.cancel || 'Скасувати'"></button>
-            <button @click="saveSession()" :class="saveBtnClass" x-text="labels.save || 'Зберегти'"></button>
+            <button @click="saveSession()" :class="saveBtnClass" :disabled="sessionForm.traineeIds.length === 0 || isTimePassed() || !sessionForm.endTime || (locations.length > 0 && !sessionForm.locationId)" x-text="labels.save || 'Зберегти'"></button>
         </div>
     </div>
 </div>
@@ -1423,12 +1548,30 @@
                                @change="onPlanDateChange(slot)"
                                class="w-full bg-transparent border-b border-[#444] outline-none py-1 text-sm text-gray-200 focus:border-blue-500">
                         <template x-if="locations.length > 0">
-                            <select x-model="slot.locationId" @change="onPlanDateChange(slot)"
-                                    class="w-full text-sm bg-[#262626] border border-[#444] rounded-lg px-2 py-1 text-gray-200 focus:outline-none focus:border-blue-500">
-                                <template x-for="loc in locations" :key="loc.id">
-                                    <option :value="loc.id" x-text="loc.name"></option>
-                                </template>
-                            </select>
+                            <div class="relative" x-data="{ planLocOpen: false }" @click.outside="planLocOpen = false">
+                                <button type="button" @click="planLocOpen = !planLocOpen"
+                                        class="w-full flex items-center gap-2 bg-[#262626] border border-[#444] rounded-lg px-2 py-1 text-left focus:outline-none">
+                                    <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                          :style="'background: ' + (slot.locationId ? getLocationColor(slot.locationId) : '#555')"></span>
+                                    <span class="flex-1 text-sm text-gray-200"
+                                          x-text="slot.locationId ? getLocationName(slot.locationId) : 'Локація'"></span>
+                                    <svg class="w-3.5 h-3.5 text-gray-500 flex-shrink-0 transition-transform" :class="planLocOpen ? 'rotate-180' : ''"
+                                         fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
+                                <div x-show="planLocOpen" class="absolute z-30 top-full left-0 right-0 mt-1 bg-[#2a2a2a] border border-[#444] rounded-xl shadow-xl overflow-hidden">
+                                    <template x-for="loc in locations" :key="loc.id">
+                                        <button type="button"
+                                                @click="slot.locationId = loc.id; onPlanDateChange(slot); planLocOpen = false"
+                                                class="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-[#333] transition text-left"
+                                                :class="slot.locationId == loc.id ? 'bg-[#333]' : ''">
+                                            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="'background: ' + (loc.color || '#3b82f6')"></span>
+                                            <span class="text-sm text-gray-200" x-text="loc.name"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
                         </template>
                         <div class="flex items-center gap-2">
                             <select x-model="slot.startTime" @change="onPlanStartChange(slot)"
@@ -1675,7 +1818,7 @@
         <div class="modal-header flex justify-between items-center flex-shrink-0">
             <h3 class="text-lg font-bold text-white">💬 <span x-text="conversationModal.traineeName"></span></h3>
             <div class="flex items-center gap-3">
-                <button @click="openFeedbackModal(conversationModal.traineeId, conversationModal.traineeName, null, null); conversationModal.show = false"
+                <button x-show="traineeComm" @click="openFeedbackModal(conversationModal.traineeId, conversationModal.traineeName, null, null); conversationModal.show = false"
                         class="text-xs font-bold text-purple-400 px-3 py-1.5 rounded-lg border border-purple-500/30 hover:bg-purple-500/10 transition">
                     + Новий відгук
                 </button>
@@ -1814,7 +1957,7 @@
         </button>
 
         <!-- My Availability -->
-        <button @click="activeTab = 'coach-availability'; loadCoachAvailability()"
+        <button x-show="shareAvailability" @click="activeTab = 'coach-availability'; loadCoachAvailability()"
                 data-tour="availability"
                 class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition active:scale-90">
             <svg class="w-6 h-6 transition-colors" :class="activeTab === 'coach-availability' ? 'text-violet-400' : 'text-gray-600'"
@@ -1825,9 +1968,9 @@
         </button>
 
         <!-- Create Session -->
-        <button @click="openSessionModal()" :disabled="selectedDate < todayStr"
+        <button @click="openSessionModal()"
                 data-tour="add-session"
-                class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed">
+                class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 transition active:scale-90">
             <div class="w-9 h-9 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-600/25 transition"
                  :class="selectedDate >= todayStr ? 'hover:bg-blue-700' : ''">
                 <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">

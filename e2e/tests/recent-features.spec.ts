@@ -30,6 +30,17 @@ async function getAlpineState(page: any, key: string) {
   }, key);
 }
 
+async function setTgActive(page: any, active: boolean) {
+  await page.evaluate((a: boolean) => {
+    const el = document.querySelector('[x-data]') as any;
+    if (!el?._x_dataStack) return;
+    const state = el._x_dataStack[0];
+    state.telegramIntegration = a;
+    state.mentorTg = { ...state.mentorTg, connected: a, enabled: true };
+  }, active);
+  await page.waitForTimeout(300);
+}
+
 async function cleanupRecurring(page: any, recurrenceGroupId: string, mentorId: number) {
   await page.evaluate(async (params: { rgid: string; mid: number }) => {
     const today = new Date();
@@ -206,19 +217,29 @@ test.describe('Tour step structure', () => {
 // ─── Bulk selection in compact view ───────────────────────────────────────
 
 test.describe('Bulk availability — compact view', () => {
-  test('bulk select checkboxes appear in compact view', async ({ page }) => {
+  test('bulk select checkboxes appear in compact view when TG active', async ({ page }) => {
     await goToTrainees(page);
     await setCompactView(page, true);
+    await setTgActive(page, true);
     const checkboxes = page.locator('[data-testid="bulk-select-trainee"]');
     expect(await checkboxes.count()).toBeGreaterThan(0);
     await expect(checkboxes.first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('bulk select checkboxes hidden in compact view when TG not active', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, true);
+    await setTgActive(page, false);
+    const checkboxes = page.locator('[data-testid="bulk-select-trainee"]');
+    if (await checkboxes.count() > 0) {
+      await expect(checkboxes.first()).not.toBeVisible({ timeout: 3000 });
+    }
   });
 
   test('bulk select checkboxes not in expanded view', async ({ page }) => {
     await goToTrainees(page);
     await setCompactView(page, false);
     await page.waitForTimeout(300);
-    // The checkboxes should not be visible in full/detail mode
     const checkboxes = page.locator('[data-testid="bulk-select-trainee"]');
     const count = await checkboxes.count();
     expect(count).toBe(0);
@@ -227,7 +248,9 @@ test.describe('Bulk availability — compact view', () => {
   test('selecting in compact view shows bulk action bar', async ({ page }) => {
     await goToTrainees(page);
     await setCompactView(page, true);
+    await setTgActive(page, true);
     const checkbox = page.locator('[data-testid="bulk-select-trainee"]').first();
+    await expect(checkbox).toBeVisible({ timeout: 5000 });
     await checkbox.click();
     await page.waitForTimeout(300);
     const bar = page.locator('[data-testid="bulk-avail-bar"]');
@@ -244,11 +267,9 @@ test.describe('Session reminder toggle placement', () => {
   test('trainee session reminder toggle not in expanded view actions row', async ({ page }) => {
     await goToTrainees(page);
     await setCompactView(page, false);
-    // The reminder toggle was removed from trainee-actions in expanded view
     const actions = page.locator('[data-tour="trainee-actions"]');
     const count = await actions.count();
     if (count === 0) return;
-    // Ensure no session-reminder toggle is inside trainee-actions
     const toggle = actions.first().locator('[data-testid="trainee-session-reminder"]');
     expect(await toggle.count()).toBe(0);
   });
@@ -257,10 +278,32 @@ test.describe('Session reminder toggle placement', () => {
 // ─── Mentor session reminder ───────────────────────────────────────────────
 
 test.describe('Mentor session reminder', () => {
-  test('profile tab has notifications section', async ({ page }) => {
+  test('profile Telegram tab always has notifications section', async ({ page }) => {
     await page.locator('[data-tour="profile"]').click();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (!el?._x_dataStack) return;
+      const state = el._x_dataStack[0];
+      state.profileTab = 'telegram';
+    });
+    await page.waitForTimeout(400);
     await expect(page.locator('[data-testid="notifications-section"]')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('notifications section visible even when TG not connected', async ({ page }) => {
+    await page.locator('[data-tour="profile"]').click();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (!el?._x_dataStack) return;
+      const state = el._x_dataStack[0];
+      state.profileTab = 'telegram';
+      state.telegramIntegration = false;
+      state.mentorTg = { ...state.mentorTg, connected: false, enabled: false };
+    });
+    await page.waitForTimeout(400);
+    await expect(page.locator('[data-testid="notifications-section"]')).toBeVisible({ timeout: 3000 });
   });
 
   test('sessionReminderEnabled state exists in Alpine', async ({ page }) => {
@@ -269,7 +312,6 @@ test.describe('Mentor session reminder', () => {
   });
 
   test('mentor reminder setting persists via API', async ({ page }) => {
-    // Set to false
     await page.evaluate(async () => {
       await fetch('/api/v1/mentor/profile', { method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -283,12 +325,160 @@ test.describe('Mentor session reminder', () => {
     const val = await getAlpineState(page, 'sessionReminderEnabled');
     expect(val).toBe(false);
 
-    // Restore
     await page.evaluate(async () => {
       await fetch('/api/v1/mentor/profile', { method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionReminderEnabled: 'true' }) });
     });
+  });
+});
+
+// ─── Profile sub-tabs ─────────────────────────────────────────────────────
+
+test.describe('Profile sub-tabs', () => {
+  test('profileTab Alpine state defaults to main', async ({ page }) => {
+    const val = await getAlpineState(page, 'profileTab');
+    expect(val).toBe('main');
+  });
+
+  test('Основні tab is active by default — photo section visible', async ({ page }) => {
+    await page.locator('[data-tour="profile"]').click();
+    await page.waitForTimeout(400);
+    await expect(page.locator('h4').filter({ hasText: 'Фото' }).first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Час sub-tab reveals work hours and timezone sections', async ({ page }) => {
+    await page.locator('[data-tour="profile"]').click();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack) el._x_dataStack[0].profileTab = 'time';
+    });
+    await page.waitForTimeout(300);
+    await expect(page.locator('h4').filter({ hasText: 'Робочі години' }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('h4').filter({ hasText: 'Часовий пояс' }).first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Час sub-tab reveals time interval selector', async ({ page }) => {
+    await page.locator('[data-tour="profile"]').click();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack) el._x_dataStack[0].profileTab = 'time';
+    });
+    await page.waitForTimeout(300);
+    await expect(page.locator('h4').filter({ hasText: 'Інтервал вибору часу' }).first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Telegram sub-tab reveals integration toggle', async ({ page }) => {
+    await page.locator('[data-tour="profile"]').click();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack) el._x_dataStack[0].profileTab = 'telegram';
+    });
+    await page.waitForTimeout(300);
+    await expect(page.locator('text=Інтеграція з Телеграм').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Telegram sub-tab shows sub-features when TG connected', async ({ page }) => {
+    await page.locator('[data-tour="profile"]').click();
+    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (!el?._x_dataStack) return;
+      const state = el._x_dataStack[0];
+      state.profileTab = 'telegram';
+      state.telegramIntegration = true;
+      state.mentorTg = { ...state.mentorTg, connected: true, enabled: true };
+    });
+    await page.waitForTimeout(400);
+    await expect(page.locator('text=Підтверджування тренувань').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Комунікація зі спортсменом').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('work hours section not visible on Основні tab', async ({ page }) => {
+    await page.locator('[data-tour="profile"]').click();
+    await page.waitForTimeout(400);
+    // profileTab is 'main' by default
+    const workHours = page.locator('h4').filter({ hasText: 'Робочі години' });
+    if (await workHours.count() > 0) {
+      await expect(workHours.first()).not.toBeVisible({ timeout: 3000 });
+    }
+  });
+});
+
+// ─── Trainee manager: Створити label and Розмова button ───────────────────
+
+test.describe('Trainee manager actions row', () => {
+  test('expanded view shows Створити label', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const actions = page.locator('[data-tour="trainee-actions"]').first();
+    await expect(actions).toBeVisible({ timeout: 5000 });
+    await expect(actions).toContainText('Створити');
+  });
+
+  test('expanded view has two create buttons (Тренування and Серію тренувань)', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const actions = page.locator('[data-tour="trainee-actions"]').first();
+    await expect(actions).toBeVisible({ timeout: 5000 });
+    // Серію тренувань button (plan-sessions-btn)
+    await expect(actions.locator('[data-tour="plan-sessions-btn"]')).toBeVisible({ timeout: 5000 });
+    // A create-session button also present (contains text from labels or fallback)
+    const buttons = actions.locator('button');
+    expect(await buttons.count()).toBeGreaterThanOrEqual(2);
+  });
+
+  test('Серію тренувань button opens plan sessions modal', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(400);
+    const modalOpen = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.planModal?.show;
+    });
+    expect(modalOpen).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('Розмова button visible when traineeComm is true', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack) el._x_dataStack[0].traineeComm = true;
+    });
+    await page.waitForTimeout(300);
+    const btn = page.locator('[data-tour="trainee-actions"] button').filter({ hasText: 'Розмова' }).first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+  });
+
+  test('Розмова button hidden when traineeComm is false', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack) el._x_dataStack[0].traineeComm = false;
+    });
+    await page.waitForTimeout(300);
+    const actions = page.locator('[data-tour="trainee-actions"]').first();
+    if (await actions.count() === 0) return;
+    const btn = actions.locator('button').filter({ hasText: 'Розмова' });
+    if (await btn.count() > 0) {
+      await expect(btn.first()).not.toBeVisible({ timeout: 3000 });
+    }
+  });
+
+  test('planModal state exists in Alpine', async ({ page }) => {
+    const val = await getAlpineState(page, 'planModal');
+    expect(val).toBeTruthy();
+    expect(typeof (val as any).show).toBe('boolean');
   });
 });
 
@@ -351,10 +541,8 @@ test.describe('Audit log email capture', () => {
     }, { ...ids, dateStr });
     expect(res.status).toBe(201);
 
-    // Give the audit event a moment to save
     await page.waitForTimeout(500);
 
-    // Fetch recent audit events as the demo user
     const auditRes = await page.evaluate(async () => {
       const r = await fetch('/admin/recent');
       if (!r.ok) return null;
@@ -368,7 +556,6 @@ test.describe('Audit log email capture', () => {
       }
     }
 
-    // Cleanup
     await page.evaluate(async (sid: number) => {
       await fetch(`/api/v1/sessions/${sid}`, { method: 'DELETE' });
     }, res.body.id);
@@ -471,36 +658,6 @@ test.describe('Plan sessions — bulk creation', () => {
       return el?._x_dataStack?.[0]?.mentorId ?? null;
     });
     if (mid) await cleanupByTitle(page, ['Suppress test'], mid);
-  });
-
-  test('planModal state exists in Alpine', async ({ page }) => {
-    const val = await getAlpineState(page, 'planModal');
-    expect(val).toBeTruthy();
-    expect(typeof (val as any).show).toBe('boolean');
-  });
-
-  test('Планувати button visible in expanded trainee view', async ({ page }) => {
-    await goToTrainees(page);
-    await setCompactView(page, false);
-    const btn = page.locator('[data-tour="trainee-actions"] button').filter({ hasText: 'Планувати' }).first();
-    await expect(btn).toBeVisible({ timeout: 5000 });
-  });
-
-  test('Планувати button opens plan sessions modal', async ({ page }) => {
-    await goToTrainees(page);
-    await setCompactView(page, false);
-    const btn = page.locator('[data-tour="trainee-actions"] button').filter({ hasText: 'Планувати' }).first();
-    await expect(btn).toBeVisible({ timeout: 5000 });
-    await btn.click();
-    await page.waitForTimeout(400);
-    const modalOpen = await page.evaluate(() => {
-      const el = document.querySelector('[x-data]') as any;
-      return el?._x_dataStack?.[0]?.planModal?.show;
-    });
-    expect(modalOpen).toBe(true);
-    // close
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
   });
 
   test('batch-notify endpoint returns 200 with valid payload', async ({ page }) => {

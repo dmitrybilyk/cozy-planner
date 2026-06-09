@@ -89,6 +89,11 @@ public class MeController {
                                             mentorMap.put("theme", mentor.getTheme() != null ? mentor.getTheme() : "default");
                                             mentorMap.put("introSeen", Boolean.TRUE.equals(mentor.getIntroSeen()));
                                             mentorMap.put("sessionReminderEnabled", Boolean.TRUE.equals(mentor.getSessionReminderEnabled()));
+                                            mentorMap.put("shareAvailability", Boolean.TRUE.equals(mentor.getShareAvailability()));
+                                            mentorMap.put("multiLocation", Boolean.TRUE.equals(mentor.getMultiLocation()));
+                                            mentorMap.put("sessionConfirmations", Boolean.TRUE.equals(mentor.getSessionConfirmations()));
+                                            mentorMap.put("telegramIntegration", Boolean.TRUE.equals(mentor.getTelegramIntegration()));
+                                            mentorMap.put("traineeComm", Boolean.TRUE.equals(mentor.getTraineeComm()));
                                             mentorMap.put("isDemo", "demo-seed".equals(googleSub));
                                             r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));
@@ -175,6 +180,11 @@ public class MeController {
                     r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
                     r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
                     r.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
+                    r.put("mentorShareAvailability", Boolean.TRUE.equals(mentor.getShareAvailability()));
+                    r.put("mentorMultiLocation", Boolean.TRUE.equals(mentor.getMultiLocation()));
+                    r.put("mentorSessionConfirmations", Boolean.TRUE.equals(mentor.getSessionConfirmations()));
+                    r.put("mentorTraineeComm", Boolean.TRUE.equals(mentor.getTraineeComm()));
+                    r.put("mentorTelegramIntegration", Boolean.TRUE.equals(mentor.getTelegramIntegration()) && mentor.hasTelegram());
                     return locationRepository.findAllByMentorId(mentor.getId())
                             .map(loc -> Map.of("id", loc.getId(), "name", loc.getName(), "color", loc.getColor()))
                             .collectList()
@@ -192,6 +202,11 @@ public class MeController {
                     r.put("mentorWorkStart", "06:00");
                     r.put("mentorWorkEnd", "22:00");
                     r.put("mentorTimezone", "Europe/Kiev");
+                    r.put("mentorShareAvailability", false);
+                    r.put("mentorMultiLocation", false);
+                    r.put("mentorSessionConfirmations", false);
+                    r.put("mentorTraineeComm", false);
+                    r.put("mentorTelegramIntegration", false);
                     r.put("locations", List.of());
                     return r;
                 }));

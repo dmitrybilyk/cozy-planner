@@ -22,7 +22,7 @@
 <header class="bg-[#1a1a1a]/95 border-b border-[#333] px-4 h-14 flex items-center justify-between sticky top-0 z-40">
     <h1 class="text-lg font-bold" x-text="me.name || pageTitle || 'Мої сесії'">Мої сесії</h1>
     <div class="flex items-center gap-2">
-        <div x-show="me.telegramEnabled" class="flex items-center gap-2 mr-1">
+        <div x-show="mentorTelegramIntegration && me.telegramEnabled" data-testid="trainee-tg-header-block" class="flex items-center gap-2 mr-1">
             <template x-if="me.telegramConnected">
                 <span class="px-2 py-1 bg-green-900/30 text-green-400 rounded-full text-[11px] font-bold uppercase whitespace-nowrap">
                     <span>✓ TG</span>
@@ -54,15 +54,15 @@
                 :class="tab === 'sessions' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
             <span x-text="tabLabels.sessions || 'Сесії'">Сесії</span>
         </button>
-        <button @click="showCoachSchedule()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
+        <button x-show="mentorShareAvailability" @click="showCoachSchedule()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                  :class="tab === 'schedule' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
              <span x-text="tabLabels.schedule || 'Доступність майстра'">Доступність майстра</span>
          </button>
-        <button @click="tab = 'availability'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
+        <button x-show="mentorShareAvailability" @click="tab = 'availability'" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2"
                 :class="tab === 'availability' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
             <span x-text="tabLabels.availability || 'Моя доступність'">Моя доступність</span>
         </button>
-        <button @click="tab = 'feedback'; loadFeedbackReceived()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 relative"
+        <button x-show="mentorTraineeComm" @click="tab = 'feedback'; loadFeedbackReceived()" class="flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 relative"
                 :class="tab === 'feedback' ? 'text-blue-400 border-blue-400' : 'text-gray-600 border-transparent'">
             💬
             <span x-show="feedbackUnreadCount > 0" class="absolute -top-0.5 right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-1 leading-none" x-text="feedbackUnreadCount"></span>
@@ -81,10 +81,10 @@
 
     <!-- ====== SESSIONS TAB ====== -->
     <div x-show="tab === 'sessions'">
-        <div x-show="me.telegramConnected" class="mb-3 flex items-center justify-between bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3">
+        <div x-show="mentorTelegramIntegration && me.telegramConnected" data-testid="trainee-reminder-card" class="mb-3 flex items-center justify-between bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3">
             <div>
                 <div class="text-sm font-bold text-white">🔔 Нагадування за 1 год</div>
-                <div class="text-xs text-gray-500 mt-0.5">Telegram-нагадування про <span x-text="(tabLabels.sessions || 'сесії').toLowerCase()"></span></div>
+                <div class="text-xs text-gray-500 mt-0.5">Нагадування про <span x-text="(tabLabels.sessions || 'сесії').toLowerCase()"></span></div>
             </div>
             <button @click="toggleSessionReminder()"
                     class="w-12 h-6 rounded-full transition-all relative flex-shrink-0"
@@ -110,14 +110,14 @@
                          class="text-xs font-bold text-gray-600 uppercase tracking-wider pt-6 pb-3 text-center"><span x-text="tabLabels.past_sessions || '— Минулі сесії —'">— Минулі сесії —</span></div>
                     <div class="rounded-3xl shadow-sm card-hover fade-in relative overflow-hidden"
                          :class="getCardClass(session)"
-                         :style="'border-left: 5px solid ' + (session.confirmationStatus === 'CONFIRMED' ? '#22c55e' : session.confirmationStatus === 'REJECTED' ? '#ef4444' : '#eab308')">
+                         :style="'border-left: 5px solid ' + (mentorSessionConfirmations && session.confirmationStatus === 'CONFIRMED' ? '#22c55e' : mentorSessionConfirmations && session.confirmationStatus === 'REJECTED' ? '#ef4444' : mentorSessionConfirmations ? '#eab308' : '#3b82f6')">
                         <div x-show="isSessionNow(session)"
                              class="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none"></div>
                         <!-- Compact card -->
                         <div @click.stop="toggleExpand(session)" x-show="compactView && !isExpanded(session.id)" class="p-3">
                             <div class="flex items-center gap-2">
                                 <span class="text-[11px] font-bold text-gray-500 flex-shrink-0 w-[52px]" x-text="formatDateCompact(session.date)"></span>
-                                <span class="text-sm font-black flex-shrink-0" :style="'color:' + (session.confirmationStatus === 'CONFIRMED' ? '#22c55e' : session.confirmationStatus === 'REJECTED' ? '#ef4444' : '#eab308')" x-text="convertTz(session.time, session.date, coachTimezone, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, coachTimezone, timezone) : '')"></span>
+                                <span class="text-sm font-black flex-shrink-0" :style="'color:' + (mentorSessionConfirmations && session.confirmationStatus === 'CONFIRMED' ? '#22c55e' : mentorSessionConfirmations && session.confirmationStatus === 'REJECTED' ? '#ef4444' : mentorSessionConfirmations ? '#eab308' : '#3b82f6')" x-text="convertTz(session.time, session.date, coachTimezone, timezone) + ' — ' + (session.endTime ? convertTz(session.endTime, session.date, coachTimezone, timezone) : '')"></span>
                                 <span class="text-xs font-semibold truncate">
                                     <template x-for="(aId, i) in session.traineeIds" :key="aId">
                                         <span>
@@ -150,7 +150,7 @@
                                     <div class="flex items-center gap-2 mt-1">
                                         <span class="text-xs text-gray-500" x-text="session.mentorName ? '👤 ' + session.mentorName : ''"></span>
                                     </div>
-                                    <div class="flex items-center gap-2 mt-2 flex-wrap">
+                                    <div x-show="mentorSessionConfirmations" data-testid="trainee-confirm-status" class="flex items-center gap-2 mt-2 flex-wrap">
                                         <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold uppercase"
                                               :class="session.confirmationStatus === 'CONFIRMED' ? 'bg-green-900/30 text-green-400' : session.confirmationStatus === 'REJECTED' ? 'bg-red-900/30 text-red-400' : 'bg-yellow-900/30 text-yellow-400'"
                                               x-text="session.confirmationStatus === 'CONFIRMED' ? '✅ Підтверджено' : session.confirmationStatus === 'REJECTED' ? '❌ Відхилено' : '⏳ Очікує'"></span>
@@ -177,7 +177,7 @@
                             </div>
                             <div class="flex items-center justify-between mt-3 pt-3 border-t border-[#333]">
                                 <div class="flex items-center gap-2">
-                                    <button x-show="isPastSession(session)"
+                                    <button x-show="mentorTraineeComm && isPastSession(session)"
                                             @click.stop="openFeedbackModal(session.id, session.title)"
                                             class="px-3 py-1.5 rounded-lg bg-[#2a2a2a] hover:bg-[#333] text-xs font-bold text-purple-400 transition flex items-center gap-1.5">
                                         💬 <span>Відгук</span>
@@ -187,7 +187,7 @@
                                         <span>Експорт в Google Calendar</span>
                                     </button>
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div x-show="mentorSessionConfirmations" data-testid="trainee-confirm-actions" class="flex items-center gap-2">
                                     <button @click.stop="handleTraineeConfirmAction(session)"
                                             x-show="session.createdBy === 'COACH' && session.confirmationStatus === 'PENDING'"
                                             class="px-3 py-1.5 bg-green-600/20 text-green-400 rounded-xl hover:bg-green-600/30 text-xs font-bold transition whitespace-nowrap">
@@ -324,7 +324,7 @@
     </div>
 
     <!-- ====== FEEDBACK TAB ====== -->
-    <div x-show="tab === 'feedback'">
+    <div x-show="tab === 'feedback' && mentorTraineeComm">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider">💬 Розмова з тренером</h2>
             <button @click="openFeedbackModal(null)"
@@ -392,9 +392,9 @@
             </div>
             <div class="px-3 py-2 border-t border-[#2a2a2a] flex items-center justify-between">
                 <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Інтервали доступності</span>
-                <button @click="availAddRange()" :disabled="availFreeAllDay"
+                <button @click="availAddRange()" :disabled="availAllCovered"
                         class="text-xs font-bold flex items-center gap-1 transition"
-                        :class="availFreeAllDay ? 'text-gray-600 cursor-not-allowed' : 'text-blue-400 hover:text-blue-300'">
+                        :class="availAllCovered ? 'text-gray-600 cursor-not-allowed' : 'text-blue-400 hover:text-blue-300'">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                     Додати
                 </button>
@@ -403,49 +403,41 @@
 
         <div class="bg-[#1a1a1a] rounded-2xl border border-[#2a2a2a] overflow-hidden mb-4">
             <div class="p-4 space-y-3">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-gray-500" x-text="availDate"></span>
-                    <label class="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
-                        <span>Весь день</span>
-                        <input type="checkbox" x-model="availFreeAllDay" @change="onAvailFreeAllDayToggle()"
-                               class="w-4 h-4 rounded accent-blue-500">
-                    </label>
-                </div>
                 <template x-for="(r, i) in availRanges" :key="i">
-                    <div class="flex items-center gap-2 rounded-xl p-3 bg-[#262626] transition-all duration-300"
+                    <div class="flex items-center gap-2 rounded-xl p-3 transition-all duration-300 bg-[#262626]"
                          :class="r._new ? '!bg-[#1e2a3a] !ring-2 !ring-blue-500/40' : ''">
                         <div class="flex-1 flex items-center gap-1">
-                                <select x-model="r.startTime" @change="onTraineeAvailStartChange(i)"
-                                        x-effect="$nextTick(() => $el.value = r.startTime)"
-                                        class="bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500">
-                                    <option value="" disabled>Час</option>
-                                    <template x-for="t in startSlots(i)" :key="t">
-                                        <option :value="t" x-text="t"></option>
-                                    </template>
-                                </select>
-                                <span class="text-gray-500 text-xs">—</span>
-                                <select x-model="r.endTime" @change="availMarkDirty()"
-                                        x-effect="$nextTick(() => $el.value = r.endTime)"
-                                        class="bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500">
-                                    <option value="" disabled>Час</option>
-                                    <template x-for="t in endSlots(r.startTime, i)" :key="t">
-                                        <option :value="t" x-text="t"></option>
-                                    </template>
-                                </select>
+                            <select x-model="r.startTime" @change="onTraineeAvailStartChange(i)"
+                                    x-effect="$nextTick(() => $el.value = r.startTime)"
+                                    class="bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                                <option value="" disabled>Час</option>
+                                <template x-for="t in startSlots(i)" :key="t">
+                                    <option :value="t" x-text="t"></option>
+                                </template>
+                            </select>
+                            <span class="text-gray-500 text-xs">—</span>
+                            <select x-model="r.endTime" @change="availMarkDirty()"
+                                    x-effect="$nextTick(() => $el.value = r.endTime)"
+                                    class="bg-transparent text-gray-200 border border-[#444] rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                                <option value="" disabled>Час</option>
+                                <template x-for="t in endSlots(r.startTime, i)" :key="t">
+                                    <option :value="t" x-text="t"></option>
+                                </template>
+                            </select>
                         </div>
                         <button @click="availRemoveRange(i)" class="p-1 text-red-400 hover:text-red-300 transition flex-shrink-0">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
                 </template>
-                <div x-show="!availFreeAllDay && availRanges.length === 0"
+                <div x-show="availRanges.length === 0"
                      class="text-center py-4 text-gray-600 text-xs">
                     Натисніть "Додати", щоб створити інтервал доступності
                 </div>
             </div>
         </div>
 
-        <div x-show="availDirtyDates.size > 0 && !availSaving"
+        <div x-show="availHasUnsaved && !availSaving"
              class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
              x-cloak x-transition>
             <button @click="availSaveAll()"

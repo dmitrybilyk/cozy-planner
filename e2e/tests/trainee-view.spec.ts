@@ -547,3 +547,317 @@ test.describe('Coach availability sharing', () => {
     }
   });
 });
+
+// ─── Conditional visibility — feature flags ───────────────────────────────────
+
+test.describe('Trainee view — conditional visibility (feature flags)', () => {
+  test('TG header block hidden when mentorTelegramIntegration is false', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await setAlpineState(tp, 'mentorTelegramIntegration', false);
+      await tp.waitForTimeout(300);
+      await expect(tp.locator('[data-testid="trainee-tg-header-block"]')).toBeHidden();
+    } finally { await cleanup(); }
+  });
+
+  test('TG header block visible when mentorTelegramIntegration and me.telegramEnabled are true', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el._x_dataStack[0];
+        state.mentorTelegramIntegration = true;
+        state.me = { ...state.me, telegramEnabled: true };
+      });
+      await tp.waitForTimeout(300);
+      await expect(tp.locator('[data-testid="trainee-tg-header-block"]')).toBeVisible();
+    } finally { await cleanup(); }
+  });
+
+  test('session reminder card always visible in sessions tab', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      // Reminder card is shown regardless of TG state — depends only on push permission
+      await setAlpineState(tp, 'mentorTelegramIntegration', false);
+      await tp.waitForTimeout(300);
+      await expect(tp.locator('[data-testid="trainee-reminder-card"]')).toBeVisible();
+    } finally { await cleanup(); }
+  });
+
+  test('feedback tab button hidden when mentorTraineeComm is false', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await setAlpineState(tp, 'mentorTraineeComm', false);
+      await tp.waitForTimeout(300);
+      await expect(tp.locator('button').filter({ hasText: '💬' }).first()).toBeHidden();
+    } finally { await cleanup(); }
+  });
+
+  test('feedback tab button visible when mentorTraineeComm is true', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await setAlpineState(tp, 'mentorTraineeComm', true);
+      await tp.waitForTimeout(300);
+      await expect(tp.locator('button').filter({ hasText: '💬' }).first()).toBeVisible();
+    } finally { await cleanup(); }
+  });
+
+  test('availability tabs hidden when mentorShareAvailability is false', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await setAlpineState(tp, 'mentorShareAvailability', false);
+      await tp.waitForTimeout(300);
+      await expect(tp.locator('button').filter({ hasText: 'Моя доступність' }).first()).toBeHidden();
+    } finally { await cleanup(); }
+  });
+
+  test('availability tabs visible when mentorShareAvailability is true', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await setAlpineState(tp, 'mentorShareAvailability', true);
+      await tp.waitForTimeout(300);
+      await expect(tp.locator('button').filter({ hasText: 'Моя доступність' }).first()).toBeVisible();
+    } finally { await cleanup(); }
+  });
+
+  test('confirmation status badge hidden when mentorSessionConfirmations is false', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el._x_dataStack[0];
+        const traineeId = state.traineeId || 1;
+        state.sessions = [{
+          id: 'test-session-cflag',
+          title: 'Test Session',
+          date: '2026-06-15',
+          time: '10:00',
+          endTime: '11:00',
+          traineeIds: [String(traineeId)],
+          confirmationStatus: 'PENDING',
+          createdBy: 'COACH',
+          mentorName: 'Test Mentor',
+        }];
+        state.compactView = false;
+        state.mentorSessionConfirmations = false;
+      });
+      await tp.waitForTimeout(500);
+      await expect(tp.locator('[data-testid="trainee-confirm-status"]').first()).toBeHidden();
+    } finally { await cleanup(); }
+  });
+
+  test('confirmation status badge visible when mentorSessionConfirmations is true', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el._x_dataStack[0];
+        const traineeId = state.traineeId || 1;
+        state.sessions = [{
+          id: 'test-session-cflag',
+          title: 'Test Session',
+          date: '2026-06-15',
+          time: '10:00',
+          endTime: '11:00',
+          traineeIds: [String(traineeId)],
+          confirmationStatus: 'PENDING',
+          createdBy: 'COACH',
+          mentorName: 'Test Mentor',
+        }];
+        state.compactView = false;
+        state.mentorSessionConfirmations = true;
+      });
+      await tp.waitForTimeout(500);
+      await expect(tp.locator('[data-testid="trainee-confirm-status"]').first()).toBeVisible();
+    } finally { await cleanup(); }
+  });
+});
+
+// ─── Availability tab — interval logic ────────────────────────────────────────
+
+async function goToAvailTab(tp: Page) {
+  const btn = tp.locator('button').filter({ hasText: /Моя доступність/ }).first();
+  if (await btn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await btn.click();
+  } else {
+    await tp.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack?.[0]) el._x_dataStack[0].tab = 'availability';
+    });
+  }
+  await tp.waitForTimeout(400);
+}
+
+async function getAvailRanges(tp: Page) {
+  return tp.evaluate(() => {
+    const el = document.querySelector('[x-data]') as any;
+    return el?._x_dataStack?.[0]?.availRanges ?? [];
+  });
+}
+
+async function callAvail(tp: Page, fn: string, ...args: any[]) {
+  return tp.evaluate(([f, a]: [string, any[]]) => {
+    const el = document.querySelector('[x-data]') as any;
+    const state = el?._x_dataStack?.[0];
+    if (!state) return;
+    return (state[f] as Function).call(state, ...a);
+  }, [fn, args]);
+}
+
+test.describe('Trainee availability — interval logic', () => {
+  test('adding two intervals preserves first interval endTime', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await goToAvailTab(tp);
+
+      // Start with a clean slate
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el?._x_dataStack?.[0];
+        if (!state) return;
+        state.availRanges = [];
+        state.availRangesByDate = {};
+      });
+      await tp.waitForTimeout(200);
+
+      // Add first interval: 10:00 – 12:00
+      await callAvail(tp, 'availAddRange');
+      await tp.waitForTimeout(100);
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el?._x_dataStack?.[0];
+        if (!state || !state.availRanges[0]) return;
+        state.availRanges[0].startTime = '10:00';
+        state.availRanges[0].endTime = '12:00';
+        state.availRanges[0]._new = false;
+      });
+      await callAvail(tp, 'availSortRanges');
+      await tp.waitForTimeout(200);
+
+      let ranges = await getAvailRanges(tp) as any[];
+      expect(ranges.length).toBe(1);
+      expect(ranges[0].endTime).toBe('12:00');
+
+      // Add second interval
+      await callAvail(tp, 'availAddRange');
+      await tp.waitForTimeout(100);
+
+      ranges = await getAvailRanges(tp) as any[];
+      expect(ranges.length).toBe(2);
+
+      // Set second interval start to 17:00 and trigger sort (like selecting from dropdown)
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el?._x_dataStack?.[0];
+        if (!state) return;
+        const newR = state.availRanges.find((r: any) => !r.startTime);
+        if (newR) newR.startTime = '17:00';
+      });
+      await callAvail(tp, 'availSortRanges');
+      await tp.waitForTimeout(200);
+
+      // After sort: 10:00 should be first, 17:00 second
+      ranges = await getAvailRanges(tp) as any[];
+      expect(ranges.length).toBe(2);
+
+      const first = ranges.find((r: any) => r.startTime === '10:00');
+      const second = ranges.find((r: any) => r.startTime === '17:00');
+
+      expect(first).toBeTruthy();
+      expect(second).toBeTruthy();
+      // CRITICAL: first interval's endTime must NOT be corrupted
+      expect(first.endTime).toBe('12:00');
+    } finally { await cleanup(); }
+  });
+
+  test('three intervals maintain their endTimes after sorts', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await goToAvailTab(tp);
+
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el?._x_dataStack?.[0];
+        if (!state) return;
+        state.availRanges = [
+          { startTime: '10:00', endTime: '11:00', _new: false },
+          { startTime: '14:00', endTime: '15:30', _new: false },
+        ];
+        state.availRangesByDate[state.availDate] = state.availRanges;
+      });
+      await tp.waitForTimeout(200);
+
+      // Add a third interval in the middle
+      await callAvail(tp, 'availAddRange');
+      await tp.waitForTimeout(100);
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el?._x_dataStack?.[0];
+        if (!state) return;
+        const newR = state.availRanges.find((r: any) => !r.startTime);
+        if (newR) newR.startTime = '12:00';
+      });
+      await callAvail(tp, 'availSortRanges');
+      await tp.waitForTimeout(200);
+
+      const ranges = await getAvailRanges(tp) as any[];
+      expect(ranges.length).toBe(3);
+
+      const r10 = ranges.find((r: any) => r.startTime === '10:00');
+      const r14 = ranges.find((r: any) => r.startTime === '14:00');
+
+      expect(r10?.endTime).toBe('11:00');
+      expect(r14?.endTime).toBe('15:30');
+    } finally { await cleanup(); }
+  });
+
+  test('remove interval reduces count', async ({ page, browser }) => {
+    const token = await getOrCreateTraineeToken(page);
+    if (!token) { test.skip(); return; }
+    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    try {
+      await goToAvailTab(tp);
+
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el?._x_dataStack?.[0];
+        if (!state) return;
+        state.availRanges = [
+          { startTime: '09:00', endTime: '10:00', _new: false },
+          { startTime: '13:00', endTime: '14:00', _new: false },
+        ];
+        state.availRangesByDate[state.availDate] = state.availRanges;
+      });
+      await tp.waitForTimeout(200);
+
+      await callAvail(tp, 'availRemoveRange', 0);
+      await tp.waitForTimeout(100);
+
+      const ranges = await getAvailRanges(tp) as any[];
+      expect(ranges.length).toBe(1);
+      expect(ranges[0].startTime).toBe('13:00');
+    } finally { await cleanup(); }
+  });
+});

@@ -76,11 +76,6 @@ public class ScheduledNotificationService {
 
     @Scheduled(cron = "${app.scheduler.session-reminder-cron:0 */5 * * * *}")
     public void sendSessionReminders() {
-        if (!notificationService.isEnabled()) {
-            log.info("Telegram not enabled, skipping session reminders");
-            return;
-        }
-
         log.debug("Checking for upcoming sessions to remind...");
 
         LocalDate today = LocalDate.now();
@@ -168,7 +163,7 @@ public class ScheduledNotificationService {
                     String pushBody  = formattedDate + " о " + formattedTime
                             + (locationName != null ? " • " + locationName : "");
 
-                    reactor.core.publisher.Mono<Void> telegramMono = mentor.hasTelegram()
+                    reactor.core.publisher.Mono<Void> telegramMono = notificationService.isEnabled() && mentor.hasTelegram()
                             ? notificationService.sendSessionReminderToMentor(mentor, session.getTitle(),
                                     formattedDate, formattedTime, locationName, (int) minutesUntilSession)
                                     .doOnNext(ok -> { if (!ok) log.warn("Telegram mentor reminder failed for {}", mentor.getName()); })
@@ -198,7 +193,7 @@ public class ScheduledNotificationService {
                     String pushBody  = formattedDate + " о " + formattedTime
                             + (locationName != null ? " • " + locationName : "");
 
-                    reactor.core.publisher.Mono<Void> telegramMono = trainee.hasTelegram()
+                    reactor.core.publisher.Mono<Void> telegramMono = notificationService.isEnabled() && trainee.hasTelegram()
                             ? notificationService.sendSessionReminderToTrainee(trainee, session.getId(),
                                     session.getTitle(), formattedDate, formattedTime, locationName)
                                     .doOnNext(ok -> { if (!ok) log.warn("Telegram trainee reminder failed for {}", trainee.getName()); })

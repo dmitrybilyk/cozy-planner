@@ -195,6 +195,11 @@ public class PlannerController {
             r.put("mentorAvailStep", mentor.getAvailStep() != null ? mentor.getAvailStep() : 30);
             r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
             r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
+            r.put("mentorShareAvailability", Boolean.TRUE.equals(mentor.getShareAvailability()));
+            r.put("mentorMultiLocation", Boolean.TRUE.equals(mentor.getMultiLocation()));
+            r.put("mentorSessionConfirmations", Boolean.TRUE.equals(mentor.getSessionConfirmations()));
+            r.put("mentorTraineeComm", Boolean.TRUE.equals(mentor.getTraineeComm()));
+            r.put("mentorTelegramIntegration", Boolean.TRUE.equals(mentor.getTelegramIntegration()) && mentor.hasTelegram());
         } else {
             r.put("mentorName", null);
             r.put("mentorTelegramConnected", false);
@@ -204,6 +209,11 @@ public class PlannerController {
             r.put("mentorAvailStep", 30);
             r.put("mentorWorkStart", "06:00");
             r.put("mentorWorkEnd", "22:00");
+            r.put("mentorShareAvailability", true);
+            r.put("mentorMultiLocation", true);
+            r.put("mentorSessionConfirmations", true);
+            r.put("mentorTraineeComm", true);
+            r.put("mentorTelegramIntegration", false);
         }
         r.put("locations", locations);
         return r;

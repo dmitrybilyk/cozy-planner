@@ -76,6 +76,11 @@ function traineeApp() {
         coachBusyByDate: {},
         mentorWorkStart: '06:00',
         mentorWorkEnd: '21:00',
+        mentorShareAvailability: true,
+        mentorMultiLocation: true,
+        mentorSessionConfirmations: true,
+        mentorTraineeComm: true,
+        mentorTelegramIntegration: false,
 
         // trainee availability state
         traineeId: null,
@@ -83,9 +88,7 @@ function traineeApp() {
         availDate: today,
         availRanges: [],
         mentorAvailStep: 30,
-        availFreeAllDay: false,
         availRangesByDate: {},
-        availFreeAllDayByDate: {},
         availDirtyDates: new Set(),
         availSaving: false,
         availSaved: false,
@@ -250,6 +253,11 @@ function traineeApp() {
             this.timezone = me.timezone || 'Europe/Kiev';
             this.locations = me.locations || [];
             this.mentorAvailStep = me.mentorAvailStep || 30;
+            this.mentorShareAvailability = me.mentorShareAvailability !== false;
+            this.mentorMultiLocation = me.mentorMultiLocation !== false;
+            this.mentorSessionConfirmations = me.mentorSessionConfirmations !== false;
+            this.mentorTraineeComm = me.mentorTraineeComm !== false;
+            this.mentorTelegramIntegration = me.mentorTelegramIntegration === true;
             this.nowTickInterval = setInterval(() => { this.nowTick++; }, 30000);
 
             const profile = me.mentorProfile || 'sport';
@@ -350,6 +358,7 @@ function traineeApp() {
                     this.loadAvailability();
                 }
                 if (event.data === 'trainee_changed') this.refreshMe();
+                if (event.data === 'mentor_changed') this.refreshMentor();
                 if (event.data === 'coach_availability_changed' || event.data === 'location_changed') {
                     if (this.me.mentorShareToken) this.loadMentorAvailability();
                 }
@@ -548,6 +557,22 @@ function traineeApp() {
                 const me = await res.json();
                 if (me.traineeId) this.me = me;
             }
+        },
+
+        async refreshMentor() {
+            const res = await fetch('/api/v1/me');
+            if (!res.ok) return;
+            const me = await res.json();
+            if (!me.traineeId) return;
+            this.me = me;
+            this.coachTimezone = me.mentorTimezone || 'Europe/Kiev';
+            this.locations = me.locations || [];
+            this.mentorAvailStep = me.mentorAvailStep || 30;
+            this.mentorShareAvailability = me.mentorShareAvailability !== false;
+            this.mentorMultiLocation = me.mentorMultiLocation !== false;
+            this.mentorSessionConfirmations = me.mentorSessionConfirmations !== false;
+            this.mentorTraineeComm = me.mentorTraineeComm !== false;
+            this.mentorTelegramIntegration = me.mentorTelegramIntegration === true;
         },
 
         async doRequestConfirm() {
@@ -978,64 +1003,64 @@ function traineeApp() {
             });
         },
 
-        availHasRanges(ds) {
-            const fr = this.availFreeAllDayByDate[ds];
-            if (fr === true) return true;
-            const rr = this.availRangesByDate[ds];
-            return rr && rr.length > 0;
+        get availHasUnsaved() { return this.availDirtyDates.size > 0; },
+
+        get availAllCovered() {
+            const we = this.mentorWorkEnd || '21:00';
+            const ws = this.mentorWorkStart || '06:00';
+            const valid = this.timeSlots15.filter(t => t >= ws && t < we);
+            const covered = valid.filter(t => {
+                const tm = this.slotToMin(t);
+                return this.availRanges.some(r => {
+                    if (!r.startTime || !r.endTime) return false;
+                    const rs = this.slotToMin(r.startTime);
+                    const re = this.slotToMin(r.endTime);
+                    return tm >= rs && tm < re;
+                });
+            });
+            return valid.length > 0 && covered.length === valid.length;
         },
 
+        availHasRanges(ds) { return (this.availRangesByDate[ds] || []).length > 0; },
+
         availSel(d) {
-            this.availRangesByDate[this.availDate] = [...this.availRanges];
-            this.availFreeAllDayByDate[this.availDate] = this.availFreeAllDay;
             this.availDate = d;
-            const cached = this.availRangesByDate[d];
-            this.availRanges = cached ? [...cached] : [];
-            if (this.availRangesByDate[d]) {
+            this.availRanges = this.availRangesByDate[d] || [];
+            if (!this.availRangesByDate[d]) {
+                this.availRangesByDate[d] = this.availRanges;
+            } else {
                 for (const r of this.availRanges) r._new = false;
             }
-            this.availFreeAllDay = this.availFreeAllDayByDate[d] !== undefined ? this.availFreeAllDayByDate[d] : false;
             this.availSortRanges();
-            this.availSaved = false;
+        },
+
+        availSortRanges() {
+            this.availRanges.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
         },
 
         availAddRange() {
-            const defStart = this.mentorWorkStart || '09:00';
-            const defEnd = this.mentorWorkEnd || '18:00';
             this.availRanges.forEach(r => r._new = false);
-            this.availRanges.unshift({ startTime: defStart, endTime: defEnd, _new: true });
-            this.availSortRanges();
-            this.availMarkDirty();
+            this.availRanges.unshift({ startTime: '', endTime: '', _new: true });
+            this.availDirtyDates.add(this.availDate);
         },
 
         availRemoveRange(i) {
             this.availRanges.splice(i, 1);
-            this.availMarkDirty();
+            this.availDirtyDates.add(this.availDate);
         },
 
         onTraineeAvailStartChange(i) {
-            this.availMarkDirty();
-            const r = this.availRanges[i];
-            if (!r || !r.startTime) return;
-            if (!r.endTime || r.endTime <= r.startTime) {
-                const next = this.timeSlots15.find(t => t > r.startTime);
-                r.endTime = next || '';
-            }
             this.availSortRanges();
+            this.availDirtyDates.add(this.availDate);
         },
 
-        slotToMin(t) {
-            const [h, m] = t.split(':').map(Number);
-            return h * 60 + m;
-        },
+        availMarkDirty() { this.availDirtyDates.add(this.availDate); },
 
         startSlots(excludeIndex) {
             const we = this.mentorWorkEnd || '21:00';
-            const curRange = this.availRanges[excludeIndex];
             return this.timeSlots15.filter(t => {
                 if (t >= we) return false;
                 const tm = this.slotToMin(t);
-                if (curRange && curRange.startTime && t === curRange.startTime) return true;
                 for (let i = 0; i < this.availRanges.length; i++) {
                     if (i === excludeIndex) continue;
                     const r = this.availRanges[i];
@@ -1051,10 +1076,9 @@ function traineeApp() {
         endSlots(startTime, excludeIndex) {
             if (!startTime) return this.timeOptionsAfter(startTime);
             const sm = this.slotToMin(startTime);
-            const curRange = this.availRanges[excludeIndex];
-            return this.timeOptionsAfter(startTime).filter(t => {
+            const afterOpts = this.timeOptionsAfter(startTime);
+            return afterOpts.filter(t => {
                 const tm = this.slotToMin(t);
-                if (curRange && curRange.endTime && t === curRange.endTime) return true;
                 for (let i = 0; i < this.availRanges.length; i++) {
                     if (i === excludeIndex) continue;
                     const r = this.availRanges[i];
@@ -1067,32 +1091,9 @@ function traineeApp() {
             });
         },
 
-        availSortRanges() {
-            this.availRanges = [...this.availRanges].sort((a, b) => {
-                if (!a.startTime) return -1;
-                if (!b.startTime) return 1;
-                return a.startTime.localeCompare(b.startTime);
-            });
-        },
-
-        availMarkDirty() {
-            const s = new Set(this.availDirtyDates);
-            s.add(this.availDate);
-            this.availDirtyDates = s;
-            this.availSaved = false;
-        },
-
-        onAvailFreeAllDayToggle() {
-            if (this.availFreeAllDay) {
-                this.availRanges = [];
-            } else {
-                if (this.availRanges.length === 0) {
-                    const defStart = this.mentorWorkStart || '09:00';
-                    const defEnd = this.mentorWorkEnd || '18:00';
-                    this.availRanges = [{ startTime: defStart, endTime: defEnd, locationId: null }];
-                }
-            }
-            this.availMarkDirty();
+        slotToMin(t) {
+            const [h, m] = t.split(':').map(Number);
+            return h * 60 + m;
         },
 
         getLocName(id) { return id ? (this.locations.find(l => Number(l.id) === Number(id))?.name || '') : ''; },
@@ -1103,112 +1104,49 @@ function traineeApp() {
             if (this.availDirtyDates.size > 0) return;
             const start = this.days[0].dateStr;
             const end = this.days[this.days.length - 1].dateStr;
-            const url = `/api/v1/availability/ranges?userId=${this.traineeId}&userType=TRAINEE&startDate=${start}&endDate=${end}`;
-            const res = await fetch(url);
-            if (this.availDirtyDates.size > 0) {
-                return;
-            }
-            const rangesByDate = {};
-            const freeAllDayByDate = {};
-            for (const d of this.days) {
-                rangesByDate[d.dateStr] = [];
-                freeAllDayByDate[d.dateStr] = this.availFreeAllDayByDate?.[d.dateStr] ?? false;
-            }
+            let res;
+            try { res = await fetch(`/api/v1/availability/ranges?userId=${this.traineeId}&userType=TRAINEE&startDate=${start}&endDate=${end}`); } catch(e) { return; }
+            if (this.availDirtyDates.size > 0) return;
+            const g = {};
             if (res.ok) {
                 let items;
-                try { items = await res.json(); } catch (e) { items = []; }
+                try { items = await res.json(); } catch(e) { items = []; }
                 for (const item of items) {
-                    if (item.freeAllDay) {
-                        freeAllDayByDate[item.date] = true;
-                        if (!rangesByDate[item.date]) rangesByDate[item.date] = [];
-                        continue;
-                    }
-                    if (!rangesByDate[item.date]) rangesByDate[item.date] = [];
-                    rangesByDate[item.date].push({
-                        startTime: item.startTime || '',
-                        endTime: item.endTime || '',
-                        locationId: item.locationId
-                    });
-                    freeAllDayByDate[item.date] = false;
+                    if (item.freeAllDay) continue;
+                    if (!g[item.date]) g[item.date] = [];
+                    g[item.date].push({ startTime: item.startTime || '', endTime: item.endTime || '' });
                 }
             }
-            this.availRangesByDate = rangesByDate;
-            this.availFreeAllDayByDate = freeAllDayByDate;
-            this.availRanges = [...(rangesByDate[this.availDate] || [])];
-            this.availFreeAllDay = freeAllDayByDate[this.availDate] !== undefined ? freeAllDayByDate[this.availDate] : false;
+            this.availRangesByDate = g;
+            this.availRanges = this.availRangesByDate[this.availDate] || [];
+            if (!this.availRangesByDate[this.availDate]) this.availRangesByDate[this.availDate] = this.availRanges;
             this.availDirtyDates.clear();
-        },
-
-        availMergeRanges(ranges) {
-            if (!ranges || ranges.length < 2) return ranges || [];
-            const sorted = [...ranges].sort((a, b) => {
-                if (a.startTime !== b.startTime) return a.startTime < b.startTime ? -1 : 1;
-                return a.endTime < b.endTime ? -1 : 1;
-            });
-            const merged = [];
-            for (const r of sorted) {
-                const prev = merged[merged.length - 1];
-                const sameLoc = prev && (prev.locationId === r.locationId || (!prev.locationId && !r.locationId));
-                if (prev && sameLoc && r.startTime <= prev.endTime) {
-                    if (r.endTime > prev.endTime) prev.endTime = r.endTime;
-                } else {
-                    merged.push({ ...r });
-                }
-            }
-            return merged;
         },
 
         async availSaveAll() {
             if (this.availSaving) return;
-            this.availRanges = this.availMergeRanges(this.availRanges);
             this.availSaving = true;
-            this.availRangesByDate[this.availDate] = [...this.availRanges];
-            this.availFreeAllDayByDate[this.availDate] = this.availFreeAllDay;
             try {
-                let allOk = true;
                 for (const date of this.availDirtyDates) {
-                    const isFreeAllDay = this.availFreeAllDayByDate[date] !== undefined ? this.availFreeAllDayByDate[date] : false;
-                    if (isFreeAllDay) {
-                        const res = await fetch('/api/v1/availability/ranges', {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                userId: this.traineeId,
-                                userType: 'TRAINEE',
-                                date,
-                                ranges: [],
-                                freeAllDay: true
-                            })
-                        });
-                        if (!res.ok) allOk = false;
-                        continue;
-                    }
-                    const ranges = this.availRangesByDate[date] || [];
-                    const res = await fetch('/api/v1/availability/ranges', {
+                    const ranges = (this.availRangesByDate[date] || []).filter(r => r.startTime && r.endTime);
+                    await fetch('/api/v1/availability/ranges', {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             userId: this.traineeId,
                             userType: 'TRAINEE',
                             date,
-                            ranges: ranges.map(r => ({
-                                startTime: r.startTime,
-                                endTime: r.endTime,
-                                locationId: null
-                            }))
+                            ranges: ranges.map(r => ({ startTime: r.startTime, endTime: r.endTime, locationId: null }))
                         })
                     });
-                    if (!res.ok) allOk = false;
                 }
-                if (allOk) {
-                    this.availDirtyDates.clear();
-                    this.availSaved = true;
-                    setTimeout(() => this.availSaved = false, 3000);
-                } else {
-                    this.availSaved = true;
-                    setTimeout(() => this.availSaved = false, 3000);
+                this.availDirtyDates.clear();
+                for (const date of Object.keys(this.availRangesByDate)) {
+                    for (const r of this.availRangesByDate[date]) r._new = false;
                 }
-            } catch(e) { this.availSaved = true; setTimeout(() => this.availSaved = false, 3000); }
+                this.availSaved = true;
+                setTimeout(() => this.availSaved = false, 3000);
+            } catch(e) { }
             finally { this.availSaving = false; this.loadAvailability(); }
         },
 
