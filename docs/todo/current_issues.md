@@ -50,3 +50,8 @@ trainee can do that from his site. Also then optionally in TG can be enabled rem
 Coach then can ask trainee(s) to set there availability or trainees can do that by their wish. And then 
 it will be visible for coach which time trainee can do training sessoin and create session from session
 items. 
+
+
+I want e2e tests to be implemented and cover every aspect of my service. existing should be revised and those not having sense - deleted. if it's better - then even create all of them from scratch. I want e2e test to cover    
+in the way that any breaking of app would emmidetaly be reflected in failing e2e tests. Should cover scenarios with settin availability with sevearl intervals, locations, with sharing the free time with setting of             
+availaiblity of trainee, of coach etc. should cover without locaions or with them. basically - you need to come up with great scenarios 

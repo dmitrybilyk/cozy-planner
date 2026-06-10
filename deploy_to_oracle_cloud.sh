@@ -1,42 +1,68 @@
 #!/bin/bash
 
 # ======================================================================================================================================================
-# DEPLOYMENT SCRIPT FOR COZY-PLANNER (FIXED SSH TERMINATION)
+# DEPLOYMENT SCRIPT — Git push → SSH → remote build → docker compose up
 # ======================================================================================================================================================
 
-# Налаштування змінних
-LOCAL_PROJECT_DIR="/home/dmytro/dev/projects/cozy-planner"
-#LOCAL_PROJECT_DIR="/home/dik81/IdeaProjects/cozy-planner"
+START_TIME=$SECONDS
+
+LOCAL_PROJECT_DIR="/home/dik81/IdeaProjects/cozy-planner"
+#LOCAL_PROJECT_DIR="/home/dmytro/dev/projects/cozy-planner"
 REMOTE_USER="ubuntu"
 REMOTE_HOST="92.5.42.35"
 REMOTE_PROJECT_DIR="cozy-planner"
 
-echo "--- Локальні дії ---"
+# Image tag must match what docker-compose.yml expects so compose uses the locally-built image without pulling from OCIR
+REMOTE_IMAGE_TAG="fra.ocir.io/frdhgyiuxpkq/cozy-planner:latest"
 
-# Перехід в локальну директорію проекту
 cd "$LOCAL_PROJECT_DIR" || { echo "❌ Локальну директорію не знайдено"; exit 1; }
 
-# Додавання змін, коміт та пуш
-echo "📦 Індексація та коміт змін..."
-git add .
-git commit -m "improvements"
+echo "--- 📦 Локальні дії (коміт та пуш) ---"
 
-echo "📤 Відправка коду в репозиторій (git push)..."
+git add .
+if ! git diff-index --quiet HEAD --; then
+    git commit -m "improvements"
+    echo "✅ Зміни закомічені."
+else
+    echo "ℹ️ Немає змін для коміту."
+fi
+
+echo "📤 Відправка коду на GitHub..."
 git push || { echo "❌ Помилка при git push"; exit 1; }
 
-echo "--- Віддалені дії (Oracle Cloud) ---"
+echo ""
+echo "--- ☁️ Віддалені дії (Oracle Cloud) ---"
 
-# Використовуємо звичайний запуск команд одним рядком замість Heredoc (<< EOF).
-# Прапорець -t залишаємо, щоб бачити кольоровий вивід логів Docker, але команди розділяємо через логічне '&&'.
-# Це змусить SSH закрити сесію одразу після завершення останньої команди docker compose.
+ssh -t $REMOTE_USER@$REMOTE_HOST "
+set -e
 
-ssh -t $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_PROJECT_DIR && \
-echo '📥 Отримання оновлень (git pull)...' && \
-git pull && \
-echo '🐳 Перезбірка Docker-образів та запуск...' && \
-docker compose up -d --build && \
-echo '🧹 Очищення старих образів...' && \
-docker image prune -f && \
-echo '✅ Деплой успішно завершено!'"
+cd $REMOTE_PROJECT_DIR
 
-# Тепер локальний термінал віддасть тобі керування назад, як тільки сервер закінчить роботу.
+echo '📥 Отримання оновлень (git pull)...'
+git config --global pull.rebase true
+git pull
+
+echo '🐳 Збірка Docker-образу на сервері...'
+docker build -t $REMOTE_IMAGE_TAG ./planner
+
+echo '🚀 Запуск контейнерів...'
+docker compose up -d
+
+echo '🧹 Очищення старих образів...'
+docker image prune -f
+
+echo '📋 Очікування запуску додатку...'
+docker compose logs -f app | awk '/Started PlannerApplication/ {print \$0; exit} {print}'
+
+echo '✅ Деплой на сервері завершено!'
+"
+
+DURATION=$(( SECONDS - START_TIME ))
+MINUTES=$(( DURATION / 60 ))
+SECS=$(( DURATION % 60 ))
+
+echo ""
+echo "========================================================================================"
+echo "✅ Деплой успішно завершено!"
+echo "⏱️ Витрачено часу: ${MINUTES}хв ${SECS}с"
+echo "========================================================================================"
