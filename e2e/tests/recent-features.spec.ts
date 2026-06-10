@@ -36,6 +36,7 @@ async function setTgActive(page: any, active: boolean) {
     if (!el?._x_dataStack) return;
     const state = el._x_dataStack[0];
     state.telegramIntegration = a;
+    state.sessionConfirmations = a;
     state.mentorTg = { ...state.mentorTg, connected: a, enabled: true };
   }, active);
   await page.waitForTimeout(300);
@@ -180,12 +181,12 @@ test.describe('Recurring sessions', () => {
 // ─── Tour: step structure ──────────────────────────────────────────────────
 
 test.describe('Tour step structure', () => {
-  test('tour has 14 steps', async ({ page }) => {
+  test('tour has 4 steps', async ({ page }) => {
     const count = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       return el?._x_dataStack?.[0]?.tourSteps?.length ?? 0;
     });
-    expect(count).toBe(14);
+    expect(count).toBe(4);
   });
 
   test('tour does not contain recurring session step', async ({ page }) => {

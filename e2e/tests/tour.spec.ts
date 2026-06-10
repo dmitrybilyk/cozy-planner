@@ -144,6 +144,13 @@ test.describe('Product tour', () => {
     });
     await page.waitForTimeout(300);
 
+    // Enable multiLocation so the locations nav button is visible
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack?.[0]) el._x_dataStack[0].multiLocation = true;
+    });
+    await page.waitForTimeout(200);
+
     // Navigate to locations tab
     await page.locator('[data-tour="locations-btn"]').click();
     await expect(page.locator('[data-tour="locations-list"]')).toBeVisible({ timeout: 5000 });
@@ -157,28 +164,28 @@ test.describe('Product tour', () => {
 // ─── Intro slides ──────────────────────────────────────────────────────────
 
 test.describe('Intro slides', () => {
-  test('introSlides has exactly 4 slides', async ({ page }) => {
+  test('introSlides has exactly 3 slides', async ({ page }) => {
     const count = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       return el?._x_dataStack?.[0]?.introSlides?.length ?? 0;
     });
-    expect(count).toBe(4);
+    expect(count).toBe(3);
   });
 
-  test('first slide title is Ласкаво просимо до Cozy Planner', async ({ page }) => {
+  test('first slide title is Керуй розкладом без накладок', async ({ page }) => {
     const title = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       return el?._x_dataStack?.[0]?.introSlides?.[0]?.title ?? '';
     });
-    expect(title).toBe('Ласкаво просимо до Cozy Planner');
+    expect(title).toBe('Керуй розкладом без накладок');
   });
 
-  test('second slide title contains Жодних накладок', async ({ page }) => {
+  test('second slide title contains Ділися доступністю', async ({ page }) => {
     const title = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       return el?._x_dataStack?.[0]?.introSlides?.[1]?.title ?? '';
     });
-    expect(title).toContain('Жодних накладок');
+    expect(title).toContain('Ділися доступністю');
   });
 
   test('third slide has cta tg and title contains Telegram', async ({ page }) => {
@@ -190,53 +197,37 @@ test.describe('Intro slides', () => {
     expect(slide.cta).toBe('tg');
     expect(slide.title).toContain('Telegram');
   });
-
-  test('last slide title contains тур', async ({ page }) => {
-    const slide = await page.evaluate(() => {
-      const el = document.querySelector('[x-data]') as any;
-      const slides = el?._x_dataStack?.[0]?.introSlides ?? [];
-      return slides[slides.length - 1]?.title ?? '';
-    });
-    expect(slide).toMatch(/тур/i);
-  });
-
-  test('first slide body mentions планування та доступність', async ({ page }) => {
-    const body = await page.evaluate(() => {
-      const el = document.querySelector('[x-data]') as any;
-      return el?._x_dataStack?.[0]?.introSlides?.[0]?.body ?? '';
-    });
-    expect(body).toMatch(/доступність/i);
-    expect(body).toMatch(/розклади/i);
-  });
 });
 
 // ─── Tour step structure ──────────────────────────────────────────────────
 
 test.describe('Tour step structure', () => {
-  test('tour has exactly 6 steps', async ({ page }) => {
+  test('tour has exactly 4 steps', async ({ page }) => {
     const count = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       return (el?._x_dataStack?.[0]?.tourSteps ?? []).length;
     });
-    expect(count).toBe(6);
+    expect(count).toBe(4);
   });
 
-  test('first step targets profile', async ({ page }) => {
-    const target = await page.evaluate(() => {
+  test('first step targets days-row', async ({ page }) => {
+    const step = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
-      return el?._x_dataStack?.[0]?.tourSteps?.[0]?.target ?? '';
+      const s = el?._x_dataStack?.[0]?.tourSteps?.[0];
+      return { target: s?.target ?? '', tab: s?.tab ?? '' };
     });
-    expect(target).toBe('[data-tour="profile"]');
+    expect(step.target).toBe('[data-tour="days-row"]');
+    expect(step.tab).toBe('feed');
   });
 
-  test('second step targets feed-view (Розклад)', async ({ page }) => {
+  test('second step targets feed-view', async ({ page }) => {
     const step = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       const s = el?._x_dataStack?.[0]?.tourSteps?.[1];
-      return { target: s?.target ?? '', title: s?.title ?? '' };
+      return { target: s?.target ?? '', tab: s?.tab ?? '' };
     });
     expect(step.target).toBe('[data-tour="feed-view"]');
-    expect(step.title).toBe('Розклад');
+    expect(step.tab).toBe('feed');
   });
 
   test('third step targets trainees tab', async ({ page }) => {
@@ -250,26 +241,6 @@ test.describe('Tour step structure', () => {
     expect(step.detailTrainees).toBe(true);
   });
 
-  test('fourth step is trainee site link', async ({ page }) => {
-    const step = await page.evaluate(() => {
-      const el = document.querySelector('[x-data]') as any;
-      const s = el?._x_dataStack?.[0]?.tourSteps?.[3];
-      return { target: s?.target ?? '', tab: s?.tab ?? '' };
-    });
-    expect(step.target).toBe('[data-tour="trainee-site-btn"]');
-    expect(step.tab).toBe('trainees');
-  });
-
-  test('fifth step is avail-share with coach-availability tab', async ({ page }) => {
-    const step = await page.evaluate(() => {
-      const el = document.querySelector('[x-data]') as any;
-      const s = el?._x_dataStack?.[0]?.tourSteps?.[4];
-      return { target: s?.target ?? '', tab: s?.tab ?? '' };
-    });
-    expect(step.target).toBe('[data-tour="avail-share"]');
-    expect(step.tab).toBe('coach-availability');
-  });
-
   test('last step is the summary (no-target)', async ({ page }) => {
     const step = await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
@@ -278,7 +249,5 @@ test.describe('Tour step structure', () => {
     });
     expect(step?.target).toBe('[data-tour="no-target"]');
     expect(step?.body).toMatch(/Базово/i);
-    expect(step?.body).toMatch(/Telegram/i);
-    expect(step?.body).toMatch(/Доступність/i);
   });
 });

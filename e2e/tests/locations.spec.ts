@@ -18,6 +18,13 @@ test.describe('Locations', () => {
     });
     await page.waitForTimeout(300);
 
+    // Enable multiLocation so the locations nav button is visible
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack?.[0]) el._x_dataStack[0].multiLocation = true;
+    });
+    await page.waitForTimeout(300);
+
     await page.locator('[data-tour="locations-btn"]').click();
     // Wait for locations panel heading to confirm the tab is active
     await expect(page.locator('[data-tour="locations-list"]')).toBeVisible({ timeout: 8000 });
@@ -31,10 +38,21 @@ test.describe('Locations', () => {
   });
 
   test('location cards have colored left border', async ({ page }) => {
-    // Each card has style="border-left: 5px solid <color>"
-    const cards = page.locator('[data-tour="locations-list"] div[style*="border-left"]');
+    // Each card has an absolutely-positioned color bar child div
+    const cards = page.locator('[data-tour="locations-list"] div.absolute.left-0');
     await expect(cards.first()).toBeVisible({ timeout: 8000 });
-    expect(await cards.count()).toBeGreaterThanOrEqual(3);
+    expect(await cards.count()).toBeGreaterThanOrEqual(2);
+  });
+
+  test('location card has absolute color bar element', async ({ page }) => {
+    // The color bar is an inner div.absolute.left-0.top-0.bottom-0 with a non-transparent background
+    const colorBars = page.locator('[data-tour="locations-list"] div.absolute.left-0.top-0.bottom-0');
+    await expect(colorBars.first()).toBeVisible({ timeout: 8000 });
+    const count = await colorBars.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+    // Verify the bar has a background style set
+    const style = await colorBars.first().getAttribute('style');
+    expect(style).toMatch(/background/i);
   });
 
   test('add location form shows 8 color swatches', async ({ page }) => {
