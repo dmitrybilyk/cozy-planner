@@ -89,7 +89,7 @@ public class AuthController {
             boolean multiLocation = "true".equals(formData.getFirst("multiLocation"));
             if (profile == null || profile.isBlank()) profile = "sport";
             if (workStart == null || workStart.isBlank()) workStart = "08:00";
-            if (workEnd == null || workEnd.isBlank()) workEnd = "22:00";
+            if (workEnd == null || workEnd.isBlank()) workEnd = "21:00";
             int availStep = 30;
             try { if (availStepStr != null) availStep = Integer.parseInt(availStepStr); } catch (NumberFormatException ignored) {}
 

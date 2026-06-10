@@ -17,11 +17,11 @@ function rangeApp() {
         deferredInstallPrompt: null,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
         saving: false,
-        workStart: '09:00',
+        workStart: '08:00',
         workEnd: '21:00',
         availStep: 30,
         get timeSlots15() {
-            const ws = this.workStart || '09:00';
+            const ws = this.workStart || '08:00';
             const we = this.workEnd || '21:00';
             const step = this.availStep || 30;
             return Array.from({length: 96}, (_, i) => {
@@ -247,7 +247,7 @@ function rangeApp() {
             if (!me.mentor || me.mentor.id < 0) { window.location.href = '/signin'; return; }
             this.mentorId = me.mentor.id;
             this.mentorProfile = me.mentor.profile || 'sport';
-            this.workStart = me.mentor.workStart || '09:00';
+            this.workStart = me.mentor.workStart || '08:00';
             this.workEnd = me.mentor.workEnd || '21:00';
             this.availStep = me.mentor.availStep || 30;
             this.shareToken = me.mentor.shareToken;

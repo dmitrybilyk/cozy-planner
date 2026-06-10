@@ -193,8 +193,8 @@ public class PlannerController {
             r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
             r.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
             r.put("mentorAvailStep", mentor.getAvailStep() != null ? mentor.getAvailStep() : 30);
-            r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
-            r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
+            r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "08:00");
+            r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "21:00");
             r.put("mentorShareAvailability", Boolean.TRUE.equals(mentor.getShareAvailability()));
             r.put("mentorMultiLocation", Boolean.TRUE.equals(mentor.getMultiLocation()));
             r.put("mentorSessionConfirmations", Boolean.TRUE.equals(mentor.getSessionConfirmations()));
@@ -207,8 +207,8 @@ public class PlannerController {
             r.put("mentorProfile", "sport");
             r.put("mentorTimezone", "Europe/Kiev");
             r.put("mentorAvailStep", 30);
-            r.put("mentorWorkStart", "06:00");
-            r.put("mentorWorkEnd", "22:00");
+            r.put("mentorWorkStart", "08:00");
+            r.put("mentorWorkEnd", "21:00");
             r.put("mentorShareAvailability", true);
             r.put("mentorMultiLocation", true);
             r.put("mentorSessionConfirmations", true);

@@ -180,6 +180,7 @@ public class TelegramService implements NotificationService {
         return mentorRepository.findById(trainee.getMentorId())
                 .defaultIfEmpty(Mentor.builder().profile("sport").build())
                 .flatMap(mentor -> {
+                    if (!mentor.isTelegramIntegrationEnabled()) return Mono.just(false);
                     String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
                     DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd.MM (EEE)", Locale.forLanguageTag("uk"));
                     
@@ -241,8 +242,9 @@ public class TelegramService implements NotificationService {
         return mentorRepository.findById(trainee.getMentorId())
                 .defaultIfEmpty(Mentor.builder().profile("sport").build())
                 .flatMap(mentor -> {
+                    if (!mentor.isTelegramIntegrationEnabled()) return Mono.just(false);
                     String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
-                    
+
                     String text = ProfileLabels.get(profile, "telegram_weekend_title") +
                             "👋 Привіт, " + escapeHtml(trainee.getName()) + "!\n\n" +
                             ProfileLabels.get(profile, "telegram_weekend_body") +
@@ -255,7 +257,7 @@ public class TelegramService implements NotificationService {
     }
 
     public Mono<Boolean> sendMentorTraineeAvailabilityUpdateNotification(Mentor mentor, Trainee trainee) {
-        if (!mentor.hasTelegram()) {
+        if (!mentor.hasTelegram() || !mentor.isTelegramIntegrationEnabled()) {
             return Mono.just(false);
         }
 
@@ -384,6 +386,7 @@ public class TelegramService implements NotificationService {
         return mentorRepository.findById(trainee.getMentorId())
                 .defaultIfEmpty(Mentor.builder().profile("sport").build())
                 .flatMap(mentor -> {
+                    if (!mentor.isTelegramIntegrationEnabled()) return Mono.just(false);
                     String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
 
                     StringBuilder text = new StringBuilder();
@@ -430,7 +433,7 @@ public class TelegramService implements NotificationService {
     }
 
     public Mono<Boolean> sendSessionReminderToMentor(Mentor mentor, String sessionTitle, String sessionDate, String sessionTime, String locationName, int minutesBefore) {
-        if (!mentor.hasTelegram()) {
+        if (!mentor.hasTelegram() || !mentor.isTelegramIntegrationEnabled()) {
             return Mono.just(false);
         }
 

@@ -97,4 +97,8 @@ public class Mentor {
     public boolean isSessionReminderEnabled() {
         return Boolean.TRUE.equals(sessionReminderEnabled);
     }
+
+    public boolean isTelegramIntegrationEnabled() {
+        return Boolean.TRUE.equals(telegramIntegration);
+    }
 }

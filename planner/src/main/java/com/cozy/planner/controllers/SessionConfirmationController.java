@@ -339,7 +339,7 @@ public class SessionConfirmationController {
                     String nMessage = String.format("%s — %s %s (%d/%d)",
                         session.getTitle(), session.getWorkoutDate(), session.getStartTime(), respondedCount, totalCount);
                     createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, confirmed ? "SESSION_CONFIRMED" : "SESSION_REJECTED", session.getId()).subscribe();
-                    if (!mentor.hasTelegram()) return Mono.just(session);
+                    if (!mentor.hasTelegram() || !mentor.isTelegramIntegrationEnabled()) return Mono.just(session);
                     String text = String.format(
                         "%s %s сесію\n\n🏷 <b>%s</b>\n📅 %s\n🕐 %s — %s\n👤 %s (%d/%d)",
                         traineeName, verb,
@@ -419,7 +419,7 @@ public class SessionConfirmationController {
                             return traineeRepository.findById(traineeId)
                                     .flatMap(trainee -> createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, "SESSION_CREATED", saved.getId(), "trainee_confirm_session")
                                             .then(Mono.defer(() -> {
-                                                if (trainee.hasTelegram()) {
+                                                if (trainee.hasTelegram() && mentor.isTelegramIntegrationEnabled()) {
                                                     String greeting = "👋 <b>" + (trainee.getName() != null ? trainee.getName() : "") + "</b>!\n\n";
                                                     String tmpl = greeting + String.format(
                                                             ProfileLabels.get(profile, "telegram_session_confirmation_request"),
@@ -469,7 +469,7 @@ public class SessionConfirmationController {
                                                     .flatMap(trainee -> {
                                                                  return createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, "SESSION_CREATED", saved.getId(), "trainee_confirm_session")
                                                                          .then(Mono.defer(() -> {
-                                                                             if (trainee.hasTelegram()) {
+                                                                             if (trainee.hasTelegram() && mentor.isTelegramIntegrationEnabled()) {
                                                                                  String greeting = "👋 <b>" + (trainee.getName() != null ? trainee.getName() : "") + "</b>!\n\n";
                                                                                  String tmpl = greeting + String.format(
                                                                                          ProfileLabels.get(profile, "telegram_session_confirmation_request"),
@@ -796,7 +796,7 @@ public class SessionConfirmationController {
                     String nMessage = session.getTitle() + " — " + session.getWorkoutDate() + " " + session.getStartTime();
                     createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, "SESSION_CREATED", session.getId(), "coach_confirm_session").subscribe();
 
-                    if (!mentor.hasTelegram()) return Mono.just(session);
+                    if (!mentor.hasTelegram() || !mentor.isTelegramIntegrationEnabled()) return Mono.just(session);
                     String message = String.format(
                             ProfileLabels.get(profile, "telegram_new_session_from_trainee"),
                             trainee.getName(),
@@ -834,7 +834,7 @@ public class SessionConfirmationController {
                                     String nTitle = mentorLabel + " " + verb + " " + sessionLabel;
                                     String nMessage = session.getTitle() + " — " + session.getWorkoutDate() + " " + session.getStartTime();
                                     createAndBroadcastNotification(trainee.getId(), null, nTitle, nMessage, confirmed ? "SESSION_CONFIRMED" : "SESSION_REJECTED", session.getId()).subscribe();
-                                    if (!trainee.hasTelegram()) return Mono.just(session);
+                                    if (!trainee.hasTelegram() || !mentor.isTelegramIntegrationEnabled()) return Mono.just(session);
                                     String text = String.format(
                                             ProfileLabels.get(profile, "telegram_session_decision_mentor"),
                                             status,
@@ -857,7 +857,7 @@ public class SessionConfirmationController {
                     String nTitle = actorName + " " + verb + " " + sessionLabel;
                     String nMessage = session.getTitle() + " — " + session.getWorkoutDate() + " " + session.getStartTime();
                     createAndBroadcastNotification(null, mentor.getId(), nTitle, nMessage, confirmed ? "SESSION_CONFIRMED" : "SESSION_REJECTED", session.getId()).subscribe();
-                    if (!mentor.hasTelegram()) return Mono.just(session);
+                    if (!mentor.hasTelegram() || !mentor.isTelegramIntegrationEnabled()) return Mono.just(session);
                     String text = String.format(
                             ProfileLabels.get(profile, "telegram_session_decision_trainee"),
                             status,

@@ -28,7 +28,7 @@ function calendarApp() {
         halfHours: Array.from({length: 48}, (_, i) => `${Math.floor(i/2).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         daySlots: Array.from({length: 29}, (_, i) => `${(7+Math.floor(i/2)).toString().padStart(2,'0')}:${i%2===0?'00':'30'}`),
         get timeSlots15() {
-            const ws = this.workStart || '09:00';
+            const ws = this.workStart || '08:00';
             const we = this.workEnd || '21:00';
             const step = this.availStep || 30;
             return Array.from({length: 96}, (_, i) => {
@@ -51,6 +51,7 @@ function calendarApp() {
         },
         selectedTraineeFilters: [], traineeSearch: '',
         sessionForm: { title: '', description: '', date: '', startTime: null, endTime: null, traineeIds: [], locationId: null, recurring: false, recurringCount: 8 },
+        freeSlotContext: null,
         traineeForm: { name: '', description: '', photoBase64: null },
         locationForm: { name: '', description: '', color: '#3b82f6', googleMapsUrl: '' },
         confirmData: { show: false, title: '', message: '', confirmText: 'Видалити', onConfirm: () => {} },
@@ -84,7 +85,7 @@ function calendarApp() {
         deferredInstallPrompt: null,
         showIosInstall: false,
         isStandalone: window.matchMedia('(display-mode: standalone)').matches,
-        workStart: '09:00',
+        workStart: '08:00',
         workEnd: '21:00',
         availStep: 30,
         timezone: 'Europe/Kyiv',
@@ -139,53 +140,51 @@ function calendarApp() {
         _tourRect: null,
         get introSlides() {
             const l = this.labels || {};
-            const trainees = (l.trainees || 'клієнти').toLowerCase();
-            const session  = (l.session  || 'заняття').toLowerCase();
+            const trainees_acc = (l.trainees_acc || 'клієнтів').toLowerCase();
+            const trainees     = (l.trainees     || 'Клієнти');
+            const sessions_gen = (l.sessions_gen || 'занять').toLowerCase();
+            const session_gen  = (l.session_gen  || 'заняття').toLowerCase();
             return [
                 {
                     icon: '📅',
-                    title: 'Ласкаво просимо до Cozy Planner',
-                    body: `Зручні розклади, управління доступністю та ${trainees} — все в одному місці. Заняття за кілька кліків, без накладок.`
+                    title: 'Керуй розкладом без накладок',
+                    body: `Додавай ${trainees_acc}, налаштовуй локації, створюй ${sessions_gen} без накладок. Завжди бачиш свій вільний час — натисни на слот і ${session_gen} готове миттєво. Скопіюй вільний час для конкретного дня і відправ учню прямо звідси.`
                 },
                 {
-                    icon: '⚡',
-                    title: 'Жодних накладок у розкладі',
-                    body: `Система слідкує, щоб часи ${session} не перетиналися. Встанови доступність — і ${trainees} зможуть бронювати самостійно.`
+                    icon: '🔗',
+                    title: 'Ділися доступністю — і тебе бронюватимуть самі',
+                    body: `У налаштуваннях увімкни «Ділитися доступністю» — отримаєш вічне посилання для соцмереж і можливість ділитися картинкою з вільним часом на конкретний день. ${trainees} самі записуватимуться, а ти просто підтверджуєш.`
                 },
                 {
                     icon: '📲',
-                    title: 'Підключи Telegram — більше можливостей',
-                    body: `${trainees.charAt(0).toUpperCase() + trainees.slice(1)} підтверджують ${session} прямо в боті. Відгуки, повідомлення та нагадування — без зайвих застосунків.`,
+                    title: 'Telegram: підтвердження, нагадування, відгуки',
+                    body: `У налаштуваннях підключи Telegram — це також необов'язково, але дає більше. ${trainees} підтверджуватимуть ${sessions_gen} прямо з повідомлень у боті. Нагадування за годину до заняття і відгуки після — все автоматично.`,
                     cta: 'tg'
-                },
-                {
-                    icon: '✅',
-                    title: 'Готовий? Пройдемо тур',
-                    body: `Короткий тур покаже основні функції. Займе лише кілька хвилин.`
                 }
             ];
         },
         get tourSteps() {
             const l = this.labels || {};
             const trainee     = (l.trainee     || 'клієнт').toLowerCase();
-            const trainees    = (l.trainees    || 'клієнти').toLowerCase();
+            const trainees    = (l.trainees    || 'Клієнти');
+            const trainees_acc = (l.trainees_acc || 'клієнтів').toLowerCase();
             const trainee_gen = (l.trainee_gen || trainee);
-            const trainee_dat = (l.trainee_dat || trainee);
             const session     = (l.session     || 'заняття').toLowerCase();
             const sessions    = (l.sessions    || 'заняття').toLowerCase();
+            const sessions_gen = (l.sessions_gen || 'занять').toLowerCase();
             return [
                 {
-                    target: '[data-tour="profile"]',
-                    tab: null,
-                    title: 'Профіль і налаштування',
-                    body: `Фото, тема, часовий пояс. Тут підключаєш Telegram — для підтверджень, нагадувань, відгуків і комунікації.`,
+                    target: '[data-tour="days-row"]',
+                    tab: 'feed',
+                    title: 'Ряд дат — розклад одним поглядом',
+                    body: `Кожна дата показує кількість ${sessions_gen} під нею. Натисни на дату — побачиш деталі дня. Сьогодні виділено рамкою, а дати із заняттями підсвічені.`,
                     position: 'bottom'
                 },
                 {
                     target: '[data-tour="feed-view"]',
                     tab: 'feed',
-                    title: 'Розклад',
-                    body: `<b>День</b> — детальний вигляд на конкретну дату. <b>План</b> — всі майбутні ${sessions} списком. Кнопка <b>+</b> — нове заняття за кілька кліків.`,
+                    title: 'День і План',
+                    body: `<b>День</b> — деталі дати: ${sessions} і вільний час слотами. Натисни на вільний слот — ${session} створюється миттєво. <b>+</b> — для повного контролю. <b>План</b> — всі майбутні ${sessions} одним списком.`,
                     position: 'top'
                 },
                 {
@@ -193,29 +192,14 @@ function calendarApp() {
                     tab: 'trainees',
                     detailTrainees: true,
                     title: l.manage_trainees || 'Команда',
-                    body: `Додавай ${trainees}, редагуй профілі, встановлюй нагадування. Кожен ${trainee} отримує особисту сторінку — бачить розклад і може бронювати сам.`,
+                    body: `Додавай ${trainees_acc}, завантажуй фото, давай посилання на особисту сторінку. Звідси можна швидко створити ${session} або серію ${sessions_gen} для конкретного ${trainee_gen} — з повторенням за потрібні дні.`,
                     position: 'bottom'
-                },
-                {
-                    target: '[data-tour="trainee-site-btn"]',
-                    tab: 'trainees',
-                    detailTrainees: true,
-                    title: `Посилання для ${trainee_gen}`,
-                    body: `Натисни — посилання скопіюється. Надішли ${trainee_dat}: він відкриє свою сторінку і самостійно забронює вільний час.`,
-                    position: 'bottom'
-                },
-                {
-                    target: '[data-tour="avail-share"]',
-                    tab: 'coach-availability',
-                    title: 'Доступність і самобронювання',
-                    body: `Встанови свою доступність і доступність ${trainee_gen}. Зручне планування занять без накладок. Поділись посиланням у соцмережах — воно завжди актуальне.`,
-                    position: 'top'
                 },
                 {
                     target: '[data-tour="no-target"]',
                     tab: null,
                     title: '✅ Ти готовий до роботи!',
-                    body: `<b>Базово:</b> зручний розклад без накладок — ${trainees} та локації.<br><b>+Доступність:</b> встановлюй свою та ${trainee_gen} доступність, ділись у соцмережах.<br><b>+Telegram:</b> підтвердження занять, нагадування, відгуки та комунікація в боті.`,
+                    body: `<b>Базово:</b> розклад, вільний час, ${trainees_acc} — керуй без накладок.<br><b>+Доступність:</b> увімкни в налаштуваннях — ділися посиланням, ${trainees} бронюють самі.<br><b>+Telegram:</b> увімкни в налаштуваннях — підтвердження, нагадування та відгуки в боті.`,
                     position: 'bottom'
                 }
             ];
@@ -735,6 +719,7 @@ function calendarApp() {
                 recurring: false
             };
             this.showModal = true;
+            this.$nextTick(() => this._validateFormTime());
         },
 
         copySessionById(id) {
@@ -767,6 +752,7 @@ function calendarApp() {
                 recurring: false
             };
             this.showModal = true;
+            this.$nextTick(() => this._validateFormTime());
         },
 
         exportToGCal(session) {
@@ -917,7 +903,7 @@ function calendarApp() {
                     this.mentorId = data.mentor?.id;
                     this.mentor.name = data.mentor?.name || 'Cozy Planner';
                     this.mentorProfile = data.mentor?.profile || 'sport';
-                    this.workStart = data.mentor?.workStart || '09:00';
+                    this.workStart = data.mentor?.workStart || '08:00';
                     this.workEnd = data.mentor?.workEnd || '21:00';
                     this.availStep = data.mentor?.availStep || 30;
                     this.timezone = data.mentor?.timezone || 'Europe/Kyiv';
@@ -1018,6 +1004,8 @@ function calendarApp() {
             this.$nextTick(() => this.scrollToActive());
             if (!this.loadedDates[dateStr]) {
                 await this.loadDaySessions(dateStr);
+            } else if (!this.agendaAvailByDate[dateStr]) {
+                await this.loadAgendaAvailability(dateStr, dateStr);
             }
         },
 
@@ -1073,7 +1061,15 @@ function calendarApp() {
         },
 
         get hasMoreAgenda() {
-            return this.hasMoreDays;
+            if (this._noMoreFutureSessions) return false;
+            const loadedFuture = Object.keys(this.loadedDates).filter(d => d >= this.todayStr).sort();
+            if (loadedFuture.length === 0) return false;
+            const lastLoaded = loadedFuture[loadedFuture.length - 1];
+            const counts = this.sessionCounts;
+            if (counts && Object.keys(counts).length > 0) {
+                return Object.keys(counts).some(d => d > lastLoaded && counts[d] > 0);
+            }
+            return this.days.filter(d => d.dateStr > lastLoaded).length > 0;
         },
 
         async loadFutureSessions() {
@@ -1230,13 +1226,17 @@ function calendarApp() {
             console.log(`[fetchData] calling... selectedDate=${this.selectedDate}, sessions before=${this.sessions.length}`);
             this._noMoreFutureSessions = false;
             this.loadedDates = {};
+            this.agendaAvailByDate = {};
             const pastStart = addDays(today, -3);
             for (let i = 0; i < 6; i++) {
                 this.loadedDates[addDays(pastStart, i)] = true;
             }
             const end = addDays(today, 2);
             try {
-                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${pastStart}&endDate=${end}`);
+                const [res] = await Promise.all([
+                    fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${pastStart}&endDate=${end}`),
+                    this.loadAgendaAvailability(pastStart, end)
+                ]);
                 if (res.ok) {
                     this.sessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
                     console.log(`[fetchData] received ${this.sessions.length} sessions for ${pastStart}..${end}`);
@@ -1264,7 +1264,10 @@ function calendarApp() {
             console.log(`[loadDaySessions] loading ${dateStr}, sessions before=${this.sessions.length}`);
             this.loadingMore = true;
             try {
-                const res = await fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${dateStr}&endDate=${dateStr}`);
+                const [res] = await Promise.all([
+                    fetch(`/api/v1/sessions?mentorId=${this.mentorId}&startDate=${dateStr}&endDate=${dateStr}`),
+                    this.loadAgendaAvailability(dateStr, dateStr)
+                ]);
                 if (res.ok) {
                     const daySessions = (await res.json()).sort((a, b) => a.time.localeCompare(b.time));
                     console.log(`[loadDaySessions] received ${daySessions.length} sessions for ${dateStr}`);
@@ -1820,9 +1823,23 @@ function calendarApp() {
                     this.sessionForm.startTime = null;
                     this.sessionForm.endTime = null;
                 } else if (this.sessionForm.startTime) {
-                    this.onSessionStartChange();
+                    if (idx === -1 && this._traineeAvailConflicts(id, this.sessionForm.startTime, this.sessionForm.date)) {
+                        this.sessionForm._prevStartTime = this.sessionForm.startTime;
+                        this.sessionForm._prevEndTime = this.sessionForm.endTime;
+                        this.sessionForm.startTime = null;
+                        this.sessionForm.endTime = null;
+                    } else {
+                        this.onSessionStartChange();
+                    }
                 }
             });
+        },
+        _traineeAvailConflicts(traineeId, startTime, date) {
+            if (!startTime || !date) return false;
+            const slots = this.isAvailable(traineeId, date);
+            if (!slots || slots.length === 0) return false;
+            if (slots.some(s => s.startTime === 'all_day')) return false;
+            return !slots.some(s => startTime >= s.startTime.slice(0, 5) && startTime < s.endTime.slice(0, 5));
         },
         getTraineeName(id) { return (this.trainees.find(at => at.id == id)?.name) || 'Unknown'; },
         isWeekend(dateStr) { const d = new Date(dateStr + 'T12:00:00'); const day = d.getDay(); return day === 0 || day === 6; },
@@ -1886,7 +1903,9 @@ function calendarApp() {
             const h = Math.floor(diffMs / 3600000);
             const m = Math.floor((diffMs % 3600000) / 60000);
             const s = Math.floor((diffMs % 60000) / 1000);
-            return `● ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            if (h > 0) return `● ${h} г ${m} хв ${s} с`;
+            if (m > 0) return `● ${m} хв ${s} с`;
+            return `● ${s} с`;
         },
         showNowLineBefore(session) {
             try {
@@ -1985,7 +2004,8 @@ function calendarApp() {
         },
 
         get freeSlotsByDate() {
-            const ws = this.workStart || '09:00';
+            this.nowTick;
+            const ws = this.workStart || '08:00';
             const we = this.workEnd || '21:00';
             const wsMin = this.slotToMin(ws);
             const weMin = this.slotToMin(we);
@@ -2015,9 +2035,17 @@ function calendarApp() {
                     }
                     freeIntervals = next;
                 }
+                const now = new Date();
+                const nowMin = date === this.todayStr ? now.getHours() * 60 + now.getMinutes() : 0;
+                const step = this.availStep || 30;
                 result[date] = freeIntervals
-                    .filter(iv => iv.end > iv.start)
-                    .map(iv => ({ startStr: this.minToTime(iv.start), endStr: this.minToTime(iv.end), locationId: iv.locationId, durationMin: iv.end - iv.start }));
+                    .filter(iv => iv.end > iv.start && iv.end > nowMin)
+                    .map(iv => {
+                        const rawStart = date === this.todayStr ? Math.max(iv.start, nowMin) : iv.start;
+                        const start = Math.ceil(rawStart / step) * step;
+                        return { startStr: this.minToTime(start), endStr: this.minToTime(iv.end), locationId: iv.locationId, durationMin: iv.end - start };
+                    })
+                    .filter(iv => iv.durationMin >= step);
             }
             return result;
         },
@@ -2207,12 +2235,36 @@ function calendarApp() {
             });
         },
 
+        openSessionFromFreeSlot(slot, date) {
+            this.traineeSearch = '';
+            this.editingSessionId = null;
+            this.originalSessionData = null;
+            this.sessionValidationErrors = null;
+            const d = date || this.selectedDate;
+            this.freeSlotContext = { startStr: slot.startStr, endStr: slot.endStr };
+            this.sessionForm = {
+                title: this.labels.session_title_default || 'Тренування',
+                description: '',
+                date: d,
+                startTime: slot.startStr,
+                endTime: null,
+                traineeIds: [],
+                locationId: slot.locationId || this.defaultLocationId(d),
+                recurring: false,
+                recurringCount: 8
+            };
+            this.showModal = true;
+            this.scrollDateIntoView();
+            this.$nextTick(() => this.onSessionStartChange());
+        },
+
         openSessionModal() {
             this.traineeSearch = '';
             this.editingSessionId = null;
             this.originalSessionData = null;
             this.sessionValidationErrors = null;
-            const workEnd = this.workEnd || '22:00';
+            this.freeSlotContext = null;
+            const workEnd = this.workEnd || '21:00';
             const [weh, wem] = workEnd.split(':').map(Number);
             const now = new Date();
             const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -2236,9 +2288,11 @@ function calendarApp() {
             this.editingSessionId = w.id;
             this.originalSessionData = { date: w.date, time: w.time, endTime: w.endTime, traineeIds: [...(w.traineeIds || [])], title: w.title, description: w.description || '', locationId: w.locationId || null };
             this.sessionValidationErrors = null;
+            this.freeSlotContext = null;
             this.sessionForm = { title: w.title, description: w.description || '', date: w.date, startTime: w.time, endTime: w.endTime || null, traineeIds: [...(w.traineeIds || [])], locationId: w.locationId || null, recurring: false };
             this.showModal = true;
             this.scrollDateIntoView();
+            this.$nextTick(() => this._validateFormTime());
         },
 
         closeModal() {
@@ -2248,6 +2302,7 @@ function calendarApp() {
             }
             this.showModal = false;
             this.sessionValidationErrors = null;
+            this.freeSlotContext = null;
         },
 
         createFromAvailability(traineeId, date, startTime, endTime) {
@@ -2686,15 +2741,36 @@ function calendarApp() {
             this.sessionForm.date = date;
             this.sessionForm.startTime = null;
             this.sessionForm.endTime = null;
+            this.sessionForm._prevStartTime = null;
+            this.sessionForm._prevEndTime = null;
             this.sessionForm.locationId = this.defaultLocationId(date);
             this.$nextTick(() => this.onSessionStartChange());
         },
         onSessionStartChange() {
+            this.sessionForm._prevStartTime = null;
+            this.sessionForm._prevEndTime = null;
             const slots = this.validEndSlots;
             if (slots.length > 0) {
                 this.sessionForm.endTime = slots[0];
             } else {
                 this.sessionForm.endTime = null;
+            }
+        },
+        _validateFormTime() {
+            if (!this.sessionForm.startTime) return;
+            const validStarts = this.validStartSlots;
+            if (!validStarts.includes(this.sessionForm.startTime)) {
+                this.sessionForm._prevStartTime = this.sessionForm.startTime;
+                this.sessionForm._prevEndTime = this.sessionForm.endTime;
+                this.sessionForm.startTime = null;
+                this.sessionForm.endTime = null;
+                return;
+            }
+            if (!this.sessionForm.endTime) { this.onSessionStartChange(); return; }
+            const validEnds = this.validEndSlots;
+            if (!validEnds.includes(this.sessionForm.endTime)) {
+                this.sessionForm._prevEndTime = this.sessionForm.endTime;
+                this.onSessionStartChange();
             }
         },
         onSessionLocationChange() {
@@ -3047,7 +3123,7 @@ function calendarApp() {
 
         get coachAllCovered() {
             const we = this.workEnd || '21:00';
-            const ws = this.workStart || '09:00';
+            const ws = this.workStart || '08:00';
             const valid = this.timeSlots15.filter(t => t >= ws && t < we);
             const covered = valid.filter(t => {
                 const tm = this.slotToMin(t);
@@ -3247,6 +3323,17 @@ function calendarApp() {
             const fullDays = ['Понеділок', 'Вівторок', 'Середа', 'Четвер', 'П\'ятниця', 'Субота', 'Неділя'];
             const dayIdx = (d.getDay() + 6) % 7;
             return `${fullDays[dayIdx]}, ${d.getDate()} ${months[d.getMonth()]}`;
+        },
+
+        copyFreeTime(date, slots) {
+            const dateStr = this.formatDisplayDate(date);
+            const lines = slots.map(s => `• ${s.startStr} — ${s.endStr}`).join('\n');
+            const text = `${dateStr}\n${lines}`;
+            navigator.clipboard.writeText(text).then(() => {
+                this.toast.show = true;
+                this.toast.message = 'Скопійовано!';
+                setTimeout(() => { this.toast.show = false; }, 2500);
+            }).catch(() => {});
         },
 
         async installPwa() {

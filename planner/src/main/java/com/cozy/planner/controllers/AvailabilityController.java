@@ -290,7 +290,7 @@ public class AvailabilityController {
                     evt.put("createdAt", saved.getCreatedAt() != null ? saved.getCreatedAt().toString() : null);
                     eventService.broadcastJson(evt);
                     return mentorRepository.findById(mentorId)
-                            .filter(m -> m.getTelegramChatId() != null && !m.getTelegramChatId().isBlank())
+                            .filter(m -> m.getTelegramChatId() != null && !m.getTelegramChatId().isBlank() && m.isTelegramIntegrationEnabled())
                             .flatMap(m -> {
                                 Map<String, Object> btn = Map.of("text", "📅 Відкрити календар", "url", baseUrl + "/planner");
                                 Map<String, Object> keyboard = Map.of("inline_keyboard", List.of(List.of(btn)));

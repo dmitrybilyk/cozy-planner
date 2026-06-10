@@ -104,7 +104,7 @@ public class FeedbackController {
         if (fromMentorId != null && toTraineeId != null) {
             return mentorRepository.findById(fromMentorId)
                     .flatMap(mentor -> traineeRepository.findById(toTraineeId)
-                            .filter(t -> t.hasTelegram())
+                            .filter(t -> t.hasTelegram() && mentor.isTelegramIntegrationEnabled())
                             .flatMap(trainee -> {
                                 String msg = buildFeedbackMessage(mentor.getName(), text, tags, rating, sessionTitle, false);
                                 return telegramService.sendMessage(trainee.getTelegramChatId(), msg);
@@ -114,7 +114,7 @@ public class FeedbackController {
         if (fromTraineeId != null && toMentorId != null) {
             return traineeRepository.findById(fromTraineeId)
                     .flatMap(trainee -> mentorRepository.findById(toMentorId)
-                            .filter(m -> m.hasTelegram())
+                            .filter(m -> m.hasTelegram() && m.isTelegramIntegrationEnabled())
                             .flatMap(mentor -> {
                                 String msg = buildFeedbackMessage(trainee.getName(), text, tags, rating, sessionTitle, true);
                                 return telegramService.sendMessageToMentor(mentor.getTelegramChatId(), msg);

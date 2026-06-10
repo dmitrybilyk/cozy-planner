@@ -188,7 +188,7 @@ public class SessionsApiController implements SessionsApi {
                             if (tIds != null && !tIds.isEmpty() && !Boolean.TRUE.equals(request.getSuppressNotification())) {
                                 return mentorRepository.findById(s.getMentorId())
                                         .defaultIfEmpty(Mentor.builder().profile("sport").build())
-                                        .flatMapMany(mentor -> {
+                                        .flatMap(mentor -> {
                                             String profile = mentor.getProfile() != null ? mentor.getProfile() : "sport";
                                             String sessionLabel = ProfileLabels.get(profile, "session").toLowerCase();
                                             String mentorLabel = ProfileLabels.get(profile, "mentor");
@@ -226,7 +226,7 @@ public class SessionsApiController implements SessionsApi {
                                                                       eventBroadcastService.broadcastJson(evt);
                                                                       pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
                                                                       return traineeRepository.findById(tId)
-                                                                              .filter(Trainee::hasTelegram)
+                                                                              .filter(t -> t.hasTelegram() && mentor.isTelegramIntegrationEnabled())
                                                                               .flatMap(t -> {
                                                                                   String greeting = "👋 <b>" + (t.getName() != null ? t.getName() : "") + "</b>!\n\n";
                                                                                   String tmpl = greeting + String.format(
@@ -248,21 +248,21 @@ public class SessionsApiController implements SessionsApi {
                                                                               .thenReturn(savedN);
                                                                  });
                                                     })
-                                                    .then();
-                                        })
-                                        .then(Mono.defer(() ->
-                                            traineeRepository.findAllById(tIds)
-                                                .filter(Trainee::hasTelegram)
-                                                .hasElements()
-                                                .flatMap(hasTg -> {
-                                                    if (hasTg) {
-                                                        s.setConfirmationStatus("PENDING");
-                                                        return sessionRepository.save(s)
-                                                            .flatMap(sv -> searchEventPublisher.publishSessionEvent("UPDATED", sv).thenReturn(sv));
-                                                    }
-                                                    return Mono.just(s);
-                                                })
-                                        ));
+                                                    .then()
+                                                    .then(Mono.defer(() ->
+                                                        traineeRepository.findAllById(tIds)
+                                                            .filter(t -> t.hasTelegram() && mentor.isTelegramIntegrationEnabled())
+                                                            .hasElements()
+                                                            .flatMap(hasTg -> {
+                                                                if (hasTg) {
+                                                                    s.setConfirmationStatus("PENDING");
+                                                                    return sessionRepository.save(s)
+                                                                        .flatMap(sv -> searchEventPublisher.publishSessionEvent("UPDATED", sv).thenReturn(sv));
+                                                                }
+                                                                return Mono.just(s);
+                                                            })
+                                                    ));
+                                        });
                             }
                             return Mono.just(s);
                         })
@@ -351,7 +351,7 @@ public class SessionsApiController implements SessionsApi {
                                             eventBroadcastService.broadcastJson(evt);
                                             pushService.sendToTrainee(tId, nTitle, nMessage, s.getId(), "trainee_confirm_session").subscribe();
                                             return traineeRepository.findById(tId)
-                                                    .filter(Trainee::hasTelegram)
+                                                    .filter(t -> t.hasTelegram() && mentor.isTelegramIntegrationEnabled())
                                                     .flatMap(t -> {
                                                         String greeting = "👋 <b>" + (t.getName() != null ? t.getName() : "") + "</b>!\n\n";
                                                         String tmpl = greeting + String.format(
@@ -563,7 +563,7 @@ public class SessionsApiController implements SessionsApi {
                                             eventBroadcastService.broadcastJson(evt);
                                             pushService.sendToTrainee(tId, nTitle, nMessage, firstSessionId, "trainee_confirm_session").subscribe();
                                             return traineeRepository.findById(tId)
-                                                    .filter(Trainee::hasTelegram)
+                                                    .filter(t -> t.hasTelegram() && mentor.isTelegramIntegrationEnabled())
                                                     .flatMap(t -> {
                                                         String greeting = "👋 <b>" + (t.getName() != null ? t.getName() : "") + "</b>!\n\n";
                                                         String dates = body.sessions().stream()

@@ -55,7 +55,7 @@ function traineeApp() {
         TRAINEE_FEEDBACK_TAGS: ['Дякую!', 'Корисно', 'Хочу більше', 'Важко', 'Відмінний тренер', 'Є запитання'],
 
         get timeSlots15() {
-            const ws = this.mentorWorkStart || '09:00';
+            const ws = this.mentorWorkStart || '08:00';
             const we = this.mentorWorkEnd || '21:00';
             const step = this.mentorAvailStep || 30;
             return Array.from({length: 96}, (_, i) => {
@@ -74,7 +74,7 @@ function traineeApp() {
         coachSelectedDate: today,
         coachCellsByDate: {},
         coachBusyByDate: {},
-        mentorWorkStart: '06:00',
+        mentorWorkStart: '08:00',
         mentorWorkEnd: '21:00',
         mentorShareAvailability: true,
         mentorMultiLocation: true,
@@ -192,7 +192,7 @@ function traineeApp() {
                 startMm = sh * 60 + sm;
                 endMm = eh * 60 + em;
             } else {
-                const ws = this.convertTz(this.mentorWorkStart || '06:00', this.form.date, this.coachTimezone, this.timezone);
+                const ws = this.convertTz(this.mentorWorkStart || '08:00', this.form.date, this.coachTimezone, this.timezone);
                 const we = this.convertTz(this.mentorWorkEnd || '21:00', this.form.date, this.coachTimezone, this.timezone);
                 const [wh, wm] = ws.split(':').map(Number);
                 const [eh, em] = we.split(':').map(Number);
@@ -1007,7 +1007,7 @@ function traineeApp() {
 
         get availAllCovered() {
             const we = this.mentorWorkEnd || '21:00';
-            const ws = this.mentorWorkStart || '06:00';
+            const ws = this.mentorWorkStart || '08:00';
             const valid = this.timeSlots15.filter(t => t >= ws && t < we);
             const covered = valid.filter(t => {
                 const tm = this.slotToMin(t);

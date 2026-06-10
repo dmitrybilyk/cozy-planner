@@ -94,7 +94,15 @@ public class MeController {
                                             mentorMap.put("sessionConfirmations", Boolean.TRUE.equals(mentor.getSessionConfirmations()));
                                             mentorMap.put("telegramIntegration", Boolean.TRUE.equals(mentor.getTelegramIntegration()));
                                             mentorMap.put("traineeComm", Boolean.TRUE.equals(mentor.getTraineeComm()));
-                                            mentorMap.put("isDemo", "demo-seed".equals(googleSub));
+                                            boolean isDemo = "demo-seed".equals(googleSub);
+                                            mentorMap.put("isDemo", isDemo);
+                                            if (isDemo) {
+                                                mentorMap.put("telegramIntegration", false);
+                                                mentorMap.put("sessionReminderEnabled", false);
+                                                mentorMap.put("shareAvailability", false);
+                                                mentorMap.put("sessionConfirmations", false);
+                                                mentorMap.put("traineeComm", false);
+                                            }
                                             r.put("mentor", mentorMap);
                                             r.put("labels", ProfileLabels.getLabels(profile));
                                             return r;
@@ -177,8 +185,8 @@ public class MeController {
                     r.put("mentorShareToken", mentor.getShareToken());
                     r.put("mentorProfile", mentor.getProfile() != null ? mentor.getProfile() : "sport");
                     r.put("mentorAvailStep", mentor.getAvailStep() != null ? mentor.getAvailStep() : 30);
-                    r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "06:00");
-                    r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "22:00");
+                    r.put("mentorWorkStart", mentor.getWorkStart() != null ? mentor.getWorkStart() : "08:00");
+                    r.put("mentorWorkEnd", mentor.getWorkEnd() != null ? mentor.getWorkEnd() : "21:00");
                     r.put("mentorTimezone", mentor.getTimezone() != null ? mentor.getTimezone() : "Europe/Kiev");
                     r.put("mentorShareAvailability", Boolean.TRUE.equals(mentor.getShareAvailability()));
                     r.put("mentorMultiLocation", Boolean.TRUE.equals(mentor.getMultiLocation()));
@@ -199,8 +207,8 @@ public class MeController {
                     r.put("mentorTelegramConnected", false);
                     r.put("mentorShareToken", null);
                     r.put("mentorProfile", "sport");
-                    r.put("mentorWorkStart", "06:00");
-                    r.put("mentorWorkEnd", "22:00");
+                    r.put("mentorWorkStart", "08:00");
+                    r.put("mentorWorkEnd", "21:00");
                     r.put("mentorTimezone", "Europe/Kiev");
                     r.put("mentorShareAvailability", false);
                     r.put("mentorMultiLocation", false);

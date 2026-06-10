@@ -18,7 +18,7 @@
 </head>
 <body class="antialiased flex items-center justify-center min-h-screen p-4 bg-[#0f0f0f] text-white"
       x-data="{
-        profile: '', workStart: '08:00', workEnd: '22:00', timeStep: 30, shareAvailability: false, multiLocation: false,
+        profile: '', workStart: '08:00', workEnd: '21:00', timeStep: 30, shareAvailability: false, multiLocation: false,
         allHours: ['05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00','22:00','23:00'],
         endHours() { return this.allHours.filter(h => h > this.workStart); },
         fixWorkEnd() { if (!this.endHours().includes(this.workEnd)) this.workEnd = this.endHours()[0] || '23:00'; }
@@ -98,6 +98,7 @@
                 <div class="flex items-center gap-3">
                     <div class="relative flex-1">
                         <select x-model="workStart" @change="fixWorkEnd()"
+                                x-effect="$nextTick(() => $el.value = workStart)"
                                 class="w-full appearance-none bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3 text-white text-base focus:border-blue-500 focus:outline-none transition">
                             <template x-for="h in allHours.filter(h => h < '23:00')" :key="h">
                                 <option :value="h" x-text="h"></option>
@@ -108,6 +109,7 @@
                     <span class="text-gray-500 font-bold">—</span>
                     <div class="relative flex-1">
                         <select x-model="workEnd"
+                                x-effect="$nextTick(() => $el.value = workEnd)"
                                 class="w-full appearance-none bg-[#1a1a1a] border border-[#2a2a2a] rounded-2xl px-4 py-3 text-white text-base focus:border-blue-500 focus:outline-none transition">
                             <template x-for="h in endHours()" :key="h">
                                 <option :value="h" x-text="h"></option>
