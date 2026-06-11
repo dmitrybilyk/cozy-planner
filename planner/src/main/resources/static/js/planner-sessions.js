@@ -590,8 +590,7 @@
     },
 
     onSessionLocationChange() {
-      this.sessionForm.startTime = null;
-      this.sessionForm.endTime = null;
+      this.$nextTick(() => this._validateFormTime());
     },
 
     _validateFormTime() {

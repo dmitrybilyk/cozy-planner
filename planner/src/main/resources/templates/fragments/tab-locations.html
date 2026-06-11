@@ -42,7 +42,7 @@
     </div>
 
     <!-- Модалка створення/редагування локації -->
-    <div x-show="showLocationFormModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="showLocationFormModal = false">
+    <div x-show="showLocationFormModal" class="fixed inset-x-0 top-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm" style="height: 100dvh" x-cloak x-transition @click.self="showLocationFormModal = false">
         <div class="flex min-h-full items-end sm:items-center justify-center px-0 sm:px-4 py-4">
         <div class="w-full sm:max-w-md bg-[#1a1a1a] rounded-t-3xl sm:rounded-3xl p-6 border border-[#333] shadow-2xl space-y-4">
             <div class="flex items-center justify-between">

@@ -448,12 +448,22 @@
         },
 
         async fetchMe() {
+            const standalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+            console.log(`[fetchMe] start url=${window.location.href} referrer="${document.referrer}" online=${navigator.onLine} standalone=${standalone} hasCookie=${document.cookie.length > 0}`);
             try {
                 const res = await this._fetchWithTimeout('/api/v1/me');
+                console.log(`[fetchMe] response status=${res.status} ok=${res.ok} redirected=${res.redirected} finalUrl=${res.url}`);
                 if (res.ok) {
                     const data = await res.json();
+                    const mid = data.mentor?.id;
+                    console.log(`[fetchMe] ok — mentorId=${mid} email=${data.user?.email} introSeen=${data.mentor?.introSeen} isDemo=${data.mentor?.isDemo}`);
+                    if (!mid || mid <= 0) {
+                        console.warn(`[fetchMe] mentorId=${mid} → redirecting to /setup (no club/mentor in DB)`);
+                        window.location.href = '/setup';
+                        return false;
+                    }
                     this.user = data.user || {};
-                    this.mentorId = data.mentor?.id;
+                    this.mentorId = mid;
                     this.mentor.name = data.mentor?.name || 'Cozy Planner';
                     this.mentorProfile = data.mentor?.profile || 'sport';
                     this.workStart = data.mentor?.workStart || '08:00';
@@ -475,10 +485,14 @@
                     this.traineeComm = data.mentor?.traineeComm === true;
                     return { introSeen: data.mentor?.introSeen === true, isDemo: data.mentor?.isDemo === true };
                 } else {
+                    let body = '';
+                    try { body = await res.text(); } catch (_) {}
+                    console.error(`[fetchMe] non-ok status=${res.status} body="${body.slice(0,200)}" → redirecting to /setup`);
                     window.location.href = '/setup';
                     return false;
                 }
-            } catch {
+            } catch (e) {
+                console.error(`[fetchMe] EXCEPTION type=${e?.name} msg="${e?.message}" online=${navigator.onLine} → redirecting to /setup`);
                 window.location.href = '/setup';
                 return false;
             }

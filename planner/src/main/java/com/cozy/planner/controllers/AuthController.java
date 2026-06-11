@@ -44,11 +44,15 @@ public class AuthController {
     @GetMapping("/setup")
     public Mono<String> setupPage(ServerWebExchange exchange, org.springframework.ui.Model model) {
         return exchange.getSession().flatMap(session -> {
+            String sessionId = session.getId();
             String googleSub = session.getAttribute("google_sub");
+            String email = session.getAttribute("user_email");
+            log.info("[/setup GET] sid={} googleSub={} email={}", sessionId,
+                    googleSub != null ? googleSub.substring(0, Math.min(6, googleSub.length())) + "..." : "null", email);
             if (googleSub == null) {
+                log.warn("[/setup GET] sid={} no google_sub in session → redirect:/login", sessionId);
                 return Mono.just("redirect:/login");
             }
-            String email = session.getAttribute("user_email");
             if ("dmitry.mediastore@gmail.com".equals(email)) {
                 return Mono.just("redirect:/admin");
             }
@@ -57,12 +61,19 @@ public class AuthController {
                 model.addAttribute("googleName", name);
             }
             return userRepository.findByGoogleSub(googleSub)
-                    .flatMap(user -> clubRepository.findByUserId(user.getId())
-                            .next()
-                            .map(club -> "redirect:/planner")
-                            .defaultIfEmpty("setup")
-                    )
-                    .defaultIfEmpty("setup");
+                    .flatMap(user -> {
+                        log.info("[/setup GET] sid={} user found id={} email={} — checking club", sessionId, user.getId(), user.getEmail());
+                        return clubRepository.findByUserId(user.getId())
+                                .next()
+                                .map(club -> {
+                                    log.info("[/setup GET] sid={} club found id={} → redirect:/planner", sessionId, club.getId());
+                                    return "redirect:/planner";
+                                })
+                                .defaultIfEmpty("setup")
+                                .doOnSuccess(dest -> { if ("setup".equals(dest)) log.info("[/setup GET] sid={} no club for userId={} → showing setup page", sessionId, user.getId()); });
+                    })
+                    .defaultIfEmpty("setup")
+                    .doOnSuccess(dest -> { if ("setup".equals(dest)) log.warn("[/setup GET] sid={} no user found for googleSub → showing setup page (new user)", sessionId); });
         });
     }
 
