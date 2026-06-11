@@ -13,7 +13,7 @@ function addDays(dateStr, n) {
 function calendarApp() {
     const _today = localDateStr();
     return {
-        activeTab: 'feed', showModal: false, _prevTab: null, profileTab: 'main',
+        activeTab: 'feed', showModal: false, sessionSaving: false, _prevTab: null, profileTab: 'main',
         editingSessionId: null, editingTraineeId: null, editingLocationId: null, draggedIndex: null, showCreateForm: false, showTraineeFormModal: false, showLocationFormModal: false, traineeCompactView: true, traineeExpandedIds: [], _ref: 0,
         selectedDate: _today, todayStr: _today,
         days: [], sessions: [], trainees: [], locations: [], mentorId: null, mentor: { name: '' }, user: {}, labels: {}, mentorProfile: 'sport', theme: 'default',
@@ -184,7 +184,7 @@ function calendarApp() {
                     target: '[data-tour="feed-view"]',
                     tab: 'feed',
                     title: 'День і План',
-                    body: `<b>День</b> — деталі дати: ${sessions} і вільний час слотами. Натисни на вільний слот — ${session} створюється миттєво. <b>+</b> — для повного контролю. <b>План</b> — всі майбутні ${sessions} одним списком.`,
+                    body: `<b>День</b> — деталі дати: ${sessions} і вільний час слотами. Натисни на вільний слот — ${session} створюється миттєво. <b>+</b> — для повного контролю. <b>План</b> — всі майбутні ${sessions} одним списком.<br><br><b>Доступність</b> (налаштування) — регулярний графік на майбутнє: коли ти взагалі доступний. <b>Вільний час</b> — фактичні незайняті слоти конкретного дня після врахування всіх ${sessions_gen}. Скопіюй одним кліком і відправ учню.`,
                     position: 'top'
                 },
                 {
@@ -2193,6 +2193,7 @@ function calendarApp() {
 
         get saveBtnClass() {
             const base = 'flex-[2] text-white py-4 rounded-2xl font-bold text-sm shadow-lg disabled:cursor-not-allowed ';
+            if (this.sessionSaving) return base + 'bg-blue-600 opacity-60';
             if (this.sessionForm.traineeIds.length === 0 || this.isTimePassed() || !this.sessionForm.endTime || (this.locations.length > 0 && !this.sessionForm.locationId)) {
                 return base + 'bg-gray-600 opacity-30';
             }
@@ -2301,6 +2302,7 @@ function calendarApp() {
                 this._prevTab = null;
             }
             this.showModal = false;
+            this.sessionSaving = false;
             this.sessionValidationErrors = null;
             this.freeSlotContext = null;
         },
@@ -2440,6 +2442,7 @@ function calendarApp() {
         },
 
         async saveSession() {
+            if (this.sessionSaving) return;
             const { startTime, endTime, date, title, description, traineeIds, locationId, recurring, recurringCount } = this.sessionForm;
             if (!startTime || !endTime) return;
             if (date < this.todayStr) return;
@@ -2458,6 +2461,8 @@ function calendarApp() {
                     this._prevTab = null; this.showModal = false; return;
                 }
             }
+            this.sessionSaving = true;
+            try {
             const newTime = startTime;
             if (this.editingSessionId && this.originalSessionData) {
                 if (date !== this.originalSessionData.date || newTime !== this.originalSessionData.time) {
@@ -2477,6 +2482,9 @@ function calendarApp() {
             const res = await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             console.log(`[saveSession] save done, status=${res.status}`);
             this._prevTab = null; this.showModal = false; await this.fetchData(); this.$nextTick(() => this.scrollToActive());
+            } finally {
+                this.sessionSaving = false;
+            }
         },
 
         askDeleteSession() {
@@ -3327,13 +3335,103 @@ function calendarApp() {
 
         copyFreeTime(date, slots) {
             const dateStr = this.formatDisplayDate(date);
-            const lines = slots.map(s => `• ${s.startStr} — ${s.endStr}`).join('\n');
+            const lines = slots.map(s => {
+                const loc = s.locationId ? this.getLocationName(s.locationId) : '';
+                return `• ${s.startStr} — ${s.endStr}${loc ? ' · ' + loc : ''}`;
+            }).join('\n');
             const text = `${dateStr}\n${lines}`;
             navigator.clipboard.writeText(text).then(() => {
                 this.toast.show = true;
                 this.toast.message = 'Скопійовано!';
                 setTimeout(() => { this.toast.show = false; }, 2500);
             }).catch(() => {});
+        },
+
+        copyFreeTimeAsPicture(date, slots) {
+            const dateStr = this.formatDisplayDate(date);
+            const scale = 2;
+            const padX = 44, padTop = 40, padBot = 44;
+            const slotGap = 20;
+            const dateSize = 32, timeSize = 48, locSize = 28;
+
+            const cvt = document.createElement('canvas');
+            const ctx = cvt.getContext('2d');
+
+            // measure max width needed
+            ctx.font = `bold ${dateSize}px system-ui, sans-serif`;
+            let maxW = ctx.measureText(dateStr).width;
+            for (const s of slots) {
+                ctx.font = `bold ${timeSize}px system-ui, sans-serif`;
+                const tw = ctx.measureText(`${s.startStr} — ${s.endStr}`).width;
+                if (tw > maxW) maxW = tw;
+                if (s.locationId) {
+                    ctx.font = `${locSize}px system-ui, sans-serif`;
+                    const lw = ctx.measureText(this.getLocationName(s.locationId)).width;
+                    if (lw > maxW) maxW = lw;
+                }
+            }
+            const w = maxW + padX * 2;
+
+            // calculate total height
+            let h = padTop + dateSize + 16;
+            for (let i = 0; i < slots.length; i++) {
+                h += timeSize;
+                if (slots[i].locationId) h += 8 + locSize;
+                if (i < slots.length - 1) h += slotGap;
+            }
+            h += padBot;
+
+            cvt.width = Math.round(w * scale);
+            cvt.height = Math.round(h * scale);
+            ctx.scale(scale, scale);
+
+            // rounded-corner background
+            ctx.fillStyle = '#121212';
+            const r = 20;
+            ctx.beginPath();
+            ctx.moveTo(r, 0); ctx.lineTo(w - r, 0); ctx.quadraticCurveTo(w, 0, w, r);
+            ctx.lineTo(w, h - r); ctx.quadraticCurveTo(w, h, w - r, h);
+            ctx.lineTo(r, h); ctx.quadraticCurveTo(0, h, 0, h - r);
+            ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+            ctx.closePath(); ctx.fill();
+
+            // date header
+            ctx.font = `bold ${dateSize}px system-ui, sans-serif`;
+            ctx.fillStyle = '#9ca3af';
+            ctx.fillText(dateStr, padX, padTop + Math.round(dateSize * 0.8));
+
+            // slots (y = top of each row, baseline = y + fontSize*0.8)
+            let y = padTop + dateSize + 16;
+            for (let i = 0; i < slots.length; i++) {
+                const s = slots[i];
+                ctx.font = `bold ${timeSize}px system-ui, sans-serif`;
+                ctx.fillStyle = '#34d399';
+                ctx.fillText(`${s.startStr} — ${s.endStr}`, padX, y + Math.round(timeSize * 0.8));
+                y += timeSize;
+                if (s.locationId) {
+                    y += 8;
+                    ctx.font = `${locSize}px system-ui, sans-serif`;
+                    ctx.fillStyle = this.getLocationColor(s.locationId) || '#6b7280';
+                    ctx.fillText(this.getLocationName(s.locationId), padX, y + Math.round(locSize * 0.8));
+                    y += locSize;
+                }
+                if (i < slots.length - 1) y += slotGap;
+            }
+
+            cvt.toBlob(blob => {
+                if (!blob) return;
+                const download = () => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'free-time.png'; a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                };
+                navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(() => {
+                    this.toast.show = true;
+                    this.toast.message = 'Картинку скопійовано';
+                    setTimeout(() => { this.toast.show = false; }, 2500);
+                }).catch(() => download());
+            }, 'image/png');
         },
 
         async installPwa() {

@@ -10,7 +10,7 @@ public class FlywayConfig {
 
     @Bean
     public FlywayMigrationStrategy flywayMigrationStrategy(
-            @Value("${app.flyway.clean-on-start:true}") boolean cleanOnStart) {
+            @Value("${app.flyway.clean-on-start:false}") boolean cleanOnStart) {
         return flyway -> {
             if (cleanOnStart) {
                 flyway.clean();

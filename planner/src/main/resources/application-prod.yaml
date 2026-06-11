@@ -1,4 +1,10 @@
+spring:
+  flyway:
+    clean-disabled: true
+
 app:
+  flyway:
+    clean-on-start: false
   base-url: https://cozy-planner.duckdns.org
 
 telegram:

@@ -281,8 +281,11 @@
                                 <span x-show="slot.locationId && multiLocation" class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :style="'background:' + (getLocationColor(slot.locationId) || '#3b82f6') + '30; color:' + (getLocationColor(slot.locationId) || '#3b82f6')" x-text="getLocationName(slot.locationId)"></span>
                             </button>
                         </template>
-                        <button @click="copyFreeTime(selectedDate, freeSlotsByDate[selectedDate] || [])" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-600 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition active:scale-[0.97]" title="Скопіювати вільний час">
+                        <button @click="copyFreeTime(selectedDate, freeSlotsByDate[selectedDate] || [])" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-600 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition active:scale-[0.97]" title="Копіювати текстом" data-testid="free-time-copy">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                        <button @click="copyFreeTimeAsPicture(selectedDate, freeSlotsByDate[selectedDate] || [])" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-600 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition active:scale-[0.97]" title="Копіювати картинкою">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         </button>
                     </div>
                 </template>
@@ -477,8 +480,11 @@
                                     <span x-show="slot.locationId && multiLocation" class="text-[10px] font-semibold px-1.5 py-0.5 rounded" :style="'background:' + (getLocationColor(slot.locationId) || '#3b82f6') + '30; color:' + (getLocationColor(slot.locationId) || '#3b82f6')" x-text="getLocationName(slot.locationId)"></span>
                                 </button>
                             </template>
-                            <button @click="copyFreeTime(dateGroup.date, freeSlotsByDate[dateGroup.date] || [])" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-600 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition active:scale-[0.97]" title="Скопіювати вільний час">
+                            <button @click="copyFreeTime(dateGroup.date, freeSlotsByDate[dateGroup.date] || [])" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-600 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition active:scale-[0.97]" title="Копіювати текстом" data-testid="free-time-copy">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                            </button>
+                            <button @click="copyFreeTimeAsPicture(dateGroup.date, freeSlotsByDate[dateGroup.date] || [])" class="flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-500/20 text-emerald-600 hover:text-emerald-400 hover:border-emerald-500/40 hover:bg-emerald-500/10 transition active:scale-[0.97]" title="Копіювати картинкою">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             </button>
                         </div>
                     </template>
@@ -728,7 +734,7 @@
                 </label>
                 <label class="flex items-center justify-between cursor-pointer select-none">
                     <div>
-                        <div class="text-sm text-gray-200 font-medium">Декілька локацій</div>
+                        <div class="text-sm text-gray-200 font-medium">Підтримка локацій</div>
                         <div class="text-xs text-gray-500 mt-0.5">Зал, майданчик, онлайн — кілька місць проведення</div>
                     </div>
                     <div class="relative ml-3 flex-shrink-0" @click="multiLocation = !multiLocation; saveMultiLocation()">
@@ -1566,7 +1572,7 @@
         </div>
         <div class="modal-footer flex space-x-3">
             <button @click="closeModal()" class="flex-1 py-4 font-bold text-gray-500 text-sm" x-text="labels.cancel || 'Скасувати'"></button>
-            <button @click="saveSession()" :class="saveBtnClass" :disabled="sessionForm.traineeIds.length === 0 || isTimePassed() || !sessionForm.endTime || (locations.length > 0 && !sessionForm.locationId)" x-text="labels.save || 'Зберегти'"></button>
+            <button @click="saveSession()" :class="saveBtnClass" :disabled="sessionSaving || sessionForm.traineeIds.length === 0 || isTimePassed() || !sessionForm.endTime || (locations.length > 0 && !sessionForm.locationId)" x-text="sessionSaving ? '...' : (labels.save || 'Зберегти')"></button>
         </div>
     </div>
 </div>
