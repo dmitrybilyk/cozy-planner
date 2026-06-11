@@ -20,6 +20,24 @@ test.describe('Trainees', () => {
     await page.waitForTimeout(300);
   }
 
+  // ─── helpers ───────────────────────────────────────────────────────────────
+
+  async function enableTgAndTraineeFeatures(page: any) {
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (!el?._x_dataStack?.[0]) return;
+      const state = el._x_dataStack[0];
+      state.telegramIntegration = true;
+      state.mentorTg = { ...state.mentorTg, connected: true, enabled: true };
+      state.traineeComm = true;
+      // enable telegramEnabled on all trainees so x-if resolves to true
+      if (Array.isArray(state.trainees)) {
+        state.trainees = state.trainees.map((t: any) => ({ ...t, telegramEnabled: true }));
+      }
+    });
+    await page.waitForTimeout(300);
+  }
+
   // ─── list visibility ───────────────────────────────────────────────────────
 
   test('demo trainees are listed in detail view', async ({ page }) => {
@@ -35,6 +53,7 @@ test.describe('Trainees', () => {
 
   test('trainee site button is visible in detail view', async ({ page }) => {
     await setCompactMode(page, false);
+    await enableTgAndTraineeFeatures(page);
     const siteBtn = page.locator('[data-tour="trainee-site-btn"]').first();
     await expect(siteBtn).toBeVisible({ timeout: 8000 });
     const tag = await siteBtn.evaluate((el: Element) => el.tagName.toLowerCase());
@@ -52,6 +71,7 @@ test.describe('Trainees', () => {
   // ─── expand in compact mode ────────────────────────────────────────────────
 
   test('clicking compact row expands trainee', async ({ page }) => {
+    await enableTgAndTraineeFeatures(page);
     await setCompactMode(page, true);
     const row = page.locator('div.p-3.bg-\\[\\#1c1c1c\\].cursor-pointer').first();
     await expect(row).toBeVisible({ timeout: 5000 });
@@ -61,6 +81,7 @@ test.describe('Trainees', () => {
   });
 
   test('down-arrow button expands trainee in compact mode', async ({ page }) => {
+    await enableTgAndTraineeFeatures(page);
     await setCompactMode(page, true);
     // down arrow is the chevron-down button inside compact row
     const downArrow = page.locator('div.p-3.bg-\\[\\#1c1c1c\\].cursor-pointer button').first();
@@ -73,6 +94,7 @@ test.describe('Trainees', () => {
   // ─── collapse from expanded (compact mode) ─────────────────────────────────
 
   test('up-arrow button collapses expanded trainee in compact mode', async ({ page }) => {
+    await enableTgAndTraineeFeatures(page);
     await setCompactMode(page, true);
     // first expand via card click
     const row = page.locator('div.p-3.bg-\\[\\#1c1c1c\\].cursor-pointer').first();
@@ -169,7 +191,8 @@ test.describe('Trainees', () => {
 
   test('search filters the list', async ({ page }) => {
     await setCompactMode(page, false);
-    const searchInput = page.locator('input[placeholder*="Пошук"]').first();
+    // Use x-model attribute to target the trainees search input specifically
+    const searchInput = page.locator('input[x-model="traineeSearch"]').first();
     await searchInput.fill('Анна');
     await page.waitForTimeout(300);
     const names = page.locator('p.font-bold.text-gray-100.truncate');

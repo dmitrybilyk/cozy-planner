@@ -2,6 +2,15 @@ import { test, expect } from './fixtures';
 
 test.describe('Planner — navigation', () => {
   test('header shows mentor name and all nav buttons', async ({ page }) => {
+    // shareAvailability and multiLocation are false for demo user — enable them
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack?.[0]) {
+        el._x_dataStack[0].shareAvailability = true;
+        el._x_dataStack[0].multiLocation = true;
+      }
+    });
+    await page.waitForTimeout(200);
     await expect(page.locator('[data-tour="profile"]')).toBeVisible();
     await expect(page.locator('[data-tour="add-session"]')).toBeVisible();
     await expect(page.locator('[data-tour="trainees"]')).toBeVisible();

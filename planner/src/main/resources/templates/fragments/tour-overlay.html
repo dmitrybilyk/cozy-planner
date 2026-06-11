@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="content">
+<!-- TOUR OVERLAY -->
+<div x-show="showTour" x-cloak style="display:none" class="fixed inset-0 z-[60]">
+    <!-- Spotlight highlight box -->
+    <div x-show="_tourRect && _tourRect.width > 0"
+         :style="tourHighlightStyle"
+         class="fixed rounded-xl"
+         style="border: 2px solid rgba(255,255,255,0.55); box-shadow: 0 0 0 9999px rgba(0,0,0,0.68); transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease; pointer-events: none;"></div>
+    <!-- Tooltip card -->
+    <div x-show="_tourRect"
+         :style="tourTooltipStyle"
+         class="fixed bg-[#1c1c1c] border border-[#444] rounded-2xl p-4 shadow-2xl"
+         style="pointer-events: auto; transition: top 0.25s ease, left 0.25s ease;">
+        <!-- Arrow pointing to highlighted element -->
+        <div :style="tourArrowStyle" class="absolute pointer-events-none"></div>
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-bold text-gray-500 uppercase tracking-wider"
+                  x-text="`${tourStep + 1} / ${tourSteps.length}`"></span>
+            <button @click="endTour()" class="text-gray-500 hover:text-gray-300 transition p-0.5 rounded-lg hover:bg-white/10">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <h3 class="text-sm font-black text-white mb-1" x-text="tourSteps[tourStep].title"></h3>
+        <p class="text-xs text-gray-400 leading-relaxed mb-3" x-html="tourSteps[tourStep].body"></p>
+        <div class="flex items-center gap-1.5 mb-3">
+            <template x-for="(_, i) in tourSteps" :key="i">
+                <div class="rounded-full transition-all duration-300"
+                     :class="i === tourStep ? 'w-4 h-1.5 ig-gradient' : 'w-1.5 h-1.5 bg-[#444]'"></div>
+            </template>
+        </div>
+        <div class="flex gap-2">
+            <button @click="endTour()"
+                    class="flex-1 py-2 rounded-xl text-xs font-bold text-gray-500 hover:text-gray-300 border border-[#444] transition">
+                Пропустити
+            </button>
+            <button @click="nextTourStep()"
+                    class="flex-1 ig-gradient-bg text-white py-2 rounded-xl text-xs font-bold transition hover:opacity-90 active:scale-[0.97]"
+                    x-text="tourStep < tourSteps.length - 1 ? 'Далі →' : 'Завершити ✓'"></button>
+        </div>
+    </div>
+</div>
+</th:block>
+</body>
+</html>

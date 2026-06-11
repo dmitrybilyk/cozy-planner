@@ -13,6 +13,21 @@ test.describe('Sessions — feed (today)', () => {
 
   test('session cards show confirmation status in detail view', async ({ page }) => {
     await page.locator('[data-session-id]').first().waitFor({ timeout: 8000 });
+    // sessionConfirmations + telegramIntegration + connected are false for demo user — enable them
+    // so the ● badge (gated by sessionConfirmations && sessionHasTg(session)) becomes visible
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (!el?._x_dataStack?.[0]) return;
+      const state = el._x_dataStack[0];
+      state.sessionConfirmations = true;
+      state.telegramIntegration = true;
+      state.mentorTg = { ...state.mentorTg, connected: true, enabled: true };
+      // mark all trainees as telegram-enabled so sessionHasTg() returns true
+      if (Array.isArray(state.trainees)) {
+        state.trainees = state.trainees.map((t: any) => ({ ...t, telegramEnabled: true }));
+      }
+    });
+    await page.waitForTimeout(300);
     // Switch to detail mode to ensure all cards are expanded
     const detailBtn = page.locator('button:has-text("Детальний режим")').first();
     if (await detailBtn.isVisible()) await detailBtn.click();

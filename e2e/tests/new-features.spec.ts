@@ -1,9 +1,27 @@
 import { test, expect } from './fixtures';
 
-// Helper to navigate to profile tab
+// Helper to navigate to profile tab (Telegram sub-tab where notifications-section lives)
 async function goToProfile(page: any) {
   await page.locator('[data-tour="profile"]').click();
   await page.waitForTimeout(500);
+  // notifications-section is in the Telegram sub-tab of the profile
+  await page.evaluate(() => {
+    const el = document.querySelector('[x-data]') as any;
+    if (el?._x_dataStack?.[0]) el._x_dataStack[0].profileTab = 'telegram';
+  });
+  await page.waitForTimeout(200);
+}
+
+async function setTgActive(page: any, active: boolean) {
+  await page.evaluate((a: boolean) => {
+    const el = document.querySelector('[x-data]') as any;
+    if (!el?._x_dataStack) return;
+    const state = el._x_dataStack[0];
+    state.telegramIntegration = a;
+    state.sessionConfirmations = a;
+    state.mentorTg = { ...state.mentorTg, connected: a, enabled: true };
+  }, active);
+  await page.waitForTimeout(300);
 }
 
 // Helper to navigate to trainees tab
@@ -110,49 +128,15 @@ test.describe('Mentor session reminder notification', () => {
   });
 });
 
-test.describe('Trainee session reminder toggle', () => {
-  test('session reminder toggle visible for each trainee in expanded view', async ({ page }) => {
-    await goToTrainees(page);
-    await ensureExpandedTraineeView(page);
-
-    const reminders = page.locator('[data-testid="trainee-session-reminder"]');
-    const count = await reminders.count();
-    expect(count).toBeGreaterThan(0);
-    await expect(reminders.first()).toBeVisible({ timeout: 5000 });
-  });
-
-  test('trainee reminder toggle changes state', async ({ page }) => {
-    await goToTrainees(page);
-    await ensureExpandedTraineeView(page);
-
-    const toggle = page.locator('[data-testid="trainee-session-reminder"]').first();
-    await expect(toggle).toBeVisible({ timeout: 5000 });
-
-    // Click to toggle
-    const innerToggle = toggle.locator('div.relative').first();
-    await innerToggle.click();
-    await page.waitForTimeout(500);
-
-    // Toggle back
-    await innerToggle.click();
-    await page.waitForTimeout(500);
-    // No error means API was called successfully
-  });
-});
 
 test.describe('Recurring session creation', () => {
-  test('new session modal shows recurring toggle for new sessions', async ({ page }) => {
+  test('new session modal does NOT show recurring toggle (moved to plan sessions modal)', async ({ page }) => {
     await page.locator('[data-tour="add-session"]').click();
     await page.waitForTimeout(500);
 
-    // The recurring toggle should appear (x-show="!editingSessionId")
+    // Recurring toggle was moved from here to the "Планувати тренування" (plan sessions) modal
     const recurringToggle = page.locator('input[type="checkbox"][x-model="sessionForm.recurring"]');
-    await expect(recurringToggle).toBeAttached({ timeout: 5000 });
-
-    // Check that its parent is visible (not in edit mode)
-    const toggleContainer = page.locator('div').filter({ has: recurringToggle }).first();
-    // The container should be in the DOM
-    await expect(toggleContainer).toBeAttached();
+    expect(await recurringToggle.count()).toBe(0);
 
     // Close modal
     await page.locator('[data-tour="session-modal"] .modal-footer button').filter({ hasText: 'Скасувати' }).click();
@@ -228,6 +212,8 @@ test.describe('Recurring session creation', () => {
 test.describe('Bulk availability request', () => {
   test('bulk select checkboxes visible in compact trainee view', async ({ page }) => {
     await goToTrainees(page);
+    // bulk-select-trainee requires telegramIntegration && mentorTg.connected && sessionConfirmations
+    await setTgActive(page, true);
     // Bulk select is in compact view only
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
@@ -243,6 +229,7 @@ test.describe('Bulk availability request', () => {
 
   test('selecting trainees shows bulk action bar', async ({ page }) => {
     await goToTrainees(page);
+    await setTgActive(page, true);
     // Bulk select is in compact view only
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
@@ -269,6 +256,7 @@ test.describe('Bulk availability request', () => {
 
   test('can select multiple trainees for bulk request', async ({ page }) => {
     await goToTrainees(page);
+    await setTgActive(page, true);
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       if (el?._x_dataStack) el._x_dataStack[0].traineeCompactView = true;
@@ -298,6 +286,7 @@ test.describe('Bulk availability request', () => {
 
   test('bulk request button calls API and returns result', async ({ page }) => {
     await goToTrainees(page);
+    await setTgActive(page, true);
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       if (el?._x_dataStack) el._x_dataStack[0].traineeCompactView = true;

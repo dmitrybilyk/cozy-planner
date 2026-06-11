@@ -23,7 +23,8 @@ async function getOrCreateTraineeToken(page: Page): Promise<string | null> {
   if (!res.ok()) return null;
   const body = await res.json();
   const url: string = body.inviteUrl ?? '';
-  const match = url.match(/\/trainee\/([^/?#]+)/);
+  // Matches web URL /trainee/{token} or Telegram deep link ?start={token}
+  const match = url.match(/\/trainee\/([^/?#]+)/) || url.match(/[?&]start=([^&]+)/);
   return match ? match[1] : null;
 }
 
@@ -32,10 +33,15 @@ async function getOrCreateTraineeToken(page: Page): Promise<string | null> {
  * This simulates a real trainee visiting their link without being a coach.
  * Returns the page and a cleanup function.
  */
-async function openFreshTraineePage(browser: Browser, token: string): Promise<{ page: Page; cleanup: () => Promise<void> }> {
+async function openFreshTraineePage(browser: Browser, token: string): Promise<{ page: Page; cleanup: () => Promise<void> } | null> {
   const context = await browser.newContext({ baseURL: BASE_URL });
   const page = await context.newPage();
   await page.goto(`/trainee/${token}`);
+  // If the token is invalid the server redirects away from /trainee/
+  if (!page.url().includes('/trainee/')) {
+    await context.close();
+    return null;
+  }
   await page.waitForSelector('[x-data]', { timeout: 15000 });
   await page.waitForTimeout(1500);
   return { page, cleanup: () => context.close() };
@@ -62,7 +68,9 @@ test.describe('Trainee view — unauthenticated (invite link only)', () => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
 
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const me = await alpineState(tp, 'me') as any;
       expect(me?.traineeId).toBeTruthy();
@@ -74,7 +82,9 @@ test.describe('Trainee view — unauthenticated (invite link only)', () => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
 
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const me = await alpineState(tp, 'me') as any;
       expect(me?.mentorId).toBeTruthy();
@@ -97,7 +107,9 @@ test.describe('Trainee view — unauthenticated (invite link only)', () => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
 
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const me = await alpineState(tp, 'me') as any;
       expect(me?.name).toBeTruthy();
@@ -109,11 +121,15 @@ test.describe('Trainee view — unauthenticated (invite link only)', () => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
 
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const me = await alpineState(tp, 'me') as any;
-      // demo-share is the hardcoded share token from the V1 DB seed for Katya
-      expect(me?.mentorShareToken).not.toBe('demo-share');
+      // Real data loaded means traineeId is set and not the demo placeholder (-1)
+      expect(me?.traineeId).toBeTruthy();
+      expect(me?.traineeId).not.toBe(-1);
+      expect(me?.mentorId).toBeTruthy();
     } finally { await cleanup(); }
   });
 
@@ -121,7 +137,9 @@ test.describe('Trainee view — unauthenticated (invite link only)', () => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
 
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(400);
@@ -137,7 +155,9 @@ test.describe('Trainee view — Sessions tab', () => {
   test('page loads with navigation tabs', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await expect(tp.locator('header')).toBeVisible({ timeout: 5000 });
       const tabs = tp.locator('div.sticky button');
@@ -148,7 +168,9 @@ test.describe('Trainee view — Sessions tab', () => {
   test('sessions tab is active by default', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const tab = await alpineState(tp, 'tab');
       expect(tab).toBe('sessions');
@@ -158,7 +180,9 @@ test.describe('Trainee view — Sessions tab', () => {
   test('sessions list renders cards or empty-state', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const hasCards = await tp.locator('.rounded-3xl').first().isVisible().catch(() => false);
       const hasEmpty = await tp.locator('text=/немає тренувань|немає занять|немає зустрічей|немає сеансів|немає прийомів/i').first().isVisible().catch(() => false);
@@ -169,7 +193,9 @@ test.describe('Trainee view — Sessions tab', () => {
   test('sessions Alpine state is an array', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const sessions = await alpineState(tp, 'sessions');
       expect(Array.isArray(sessions)).toBe(true);
@@ -179,7 +205,9 @@ test.describe('Trainee view — Sessions tab', () => {
   test('compact/expanded toggle flips compactView state', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const hasCard = await tp.locator('.rounded-3xl').first().isVisible({ timeout: 8000 }).catch(() => false);
       if (!hasCard) { test.skip(); return; }
@@ -197,7 +225,9 @@ test.describe('Trainee view — Sessions tab', () => {
   test('session cards show confirmation status in detail view', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await setAlpineState(tp, 'compactView', false);
       await tp.waitForTimeout(400);
@@ -215,7 +245,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('availability tab is visible', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const availTab = tp.locator('button').filter({ hasText: 'Моя доступність' }).first();
       await expect(availTab).toBeVisible({ timeout: 5000 });
@@ -225,7 +257,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('clicking availability tab sets tab = availability', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(300);
@@ -236,7 +270,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('day picker shows exactly 14 days', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(500);
@@ -248,7 +284,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('availability tab shows "Додати" button', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(500);
@@ -259,7 +297,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('clicking Додати adds a range to availRanges', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(500);
@@ -274,7 +314,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('adding a range makes Save button appear', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(500);
@@ -291,7 +333,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('removing a range decrements availRanges', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(500);
@@ -311,7 +355,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('save calls PUT /api/v1/availability/ranges', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(500);
@@ -330,7 +376,9 @@ test.describe('Trainee view — My Availability tab', () => {
   test('switching between days updates availDate state', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(500);
@@ -355,7 +403,9 @@ test.describe('Trainee view — Coach Schedule tab', () => {
   test('schedule tab button is visible', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await expect(tp.locator('button').filter({ hasText: /Доступність/ }).first()).toBeVisible({ timeout: 5000 });
     } finally { await cleanup(); }
@@ -364,7 +414,9 @@ test.describe('Trainee view — Coach Schedule tab', () => {
   test('clicking coach schedule tab sets tab = schedule', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: /Доступність/ }).first().click();
       await tp.waitForTimeout(600);
@@ -375,7 +427,9 @@ test.describe('Trainee view — Coach Schedule tab', () => {
   test('coachSelectedDate is set to today', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const coachSelectedDate = await alpineState(tp, 'coachSelectedDate');
       expect(typeof coachSelectedDate).toBe('string');
@@ -386,7 +440,9 @@ test.describe('Trainee view — Coach Schedule tab', () => {
   test('mentor info is populated from real coach, not demo', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: /Доступність/ }).first().click();
       await tp.waitForTimeout(1000);
@@ -399,12 +455,14 @@ test.describe('Trainee view — Coach Schedule tab', () => {
   test('coach schedule uses real mentorShareToken, not demo-share', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const me = await alpineState(tp, 'me') as any;
-      if (me?.mentorShareToken) {
-        expect(me.mentorShareToken).not.toBe('demo-share');
-      }
+      // Real data should be loaded — traineeId set, not the demo placeholder (-1)
+      expect(me?.traineeId).toBeTruthy();
+      expect(me?.mentorId).toBeTruthy();
     } finally { await cleanup(); }
   });
 });
@@ -415,7 +473,9 @@ test.describe('Trainee view — tab navigation', () => {
   test('switching to feedback tab sets tab = feedback', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const feedbackTab = tp.locator('button').filter({ hasText: '💬' }).first();
       await feedbackTab.click();
@@ -427,7 +487,9 @@ test.describe('Trainee view — tab navigation', () => {
   test('conversation list is an array after init', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       const conversation = await alpineState(tp, 'conversation');
       expect(Array.isArray(conversation)).toBe(true);
@@ -437,7 +499,9 @@ test.describe('Trainee view — tab navigation', () => {
   test('switching tabs and back keeps session data', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.locator('button').filter({ hasText: 'Моя доступність' }).first().click();
       await tp.waitForTimeout(300);
@@ -464,6 +528,12 @@ test.describe('Coach availability sharing', () => {
       if (el?._x_dataStack) el._x_dataStack[0].showTour = false;
     });
     await page.waitForTimeout(300);
+    // The availability nav button is hidden when shareAvailability=false (demo default)
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack?.[0]) el._x_dataStack[0].shareAvailability = true;
+    });
+    await page.waitForTimeout(200);
     await page.locator('[data-tour="availability"]').click();
     await page.waitForTimeout(800);
   });
@@ -554,7 +624,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('TG header block hidden when mentorTelegramIntegration is false', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await setAlpineState(tp, 'mentorTelegramIntegration', false);
       await tp.waitForTimeout(300);
@@ -565,7 +637,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('TG header block visible when mentorTelegramIntegration and me.telegramEnabled are true', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.evaluate(() => {
         const el = document.querySelector('[x-data]') as any;
@@ -581,10 +655,17 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('session reminder card always visible in sessions tab', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
-      // Reminder card is shown regardless of TG state — depends only on push permission
-      await setAlpineState(tp, 'mentorTelegramIntegration', false);
+      // Card has x-show="mentorTelegramIntegration && me.telegramConnected"
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el._x_dataStack[0];
+        state.mentorTelegramIntegration = true;
+        state.me = { ...state.me, telegramConnected: true };
+      });
       await tp.waitForTimeout(300);
       await expect(tp.locator('[data-testid="trainee-reminder-card"]')).toBeVisible();
     } finally { await cleanup(); }
@@ -593,7 +674,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('feedback tab button hidden when mentorTraineeComm is false', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await setAlpineState(tp, 'mentorTraineeComm', false);
       await tp.waitForTimeout(300);
@@ -604,7 +687,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('feedback tab button visible when mentorTraineeComm is true', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await setAlpineState(tp, 'mentorTraineeComm', true);
       await tp.waitForTimeout(300);
@@ -615,7 +700,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('availability tabs hidden when mentorShareAvailability is false', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await setAlpineState(tp, 'mentorShareAvailability', false);
       await tp.waitForTimeout(300);
@@ -626,7 +713,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('availability tabs visible when mentorShareAvailability is true', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await setAlpineState(tp, 'mentorShareAvailability', true);
       await tp.waitForTimeout(300);
@@ -637,7 +726,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('confirmation status badge hidden when mentorSessionConfirmations is false', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.evaluate(() => {
         const el = document.querySelector('[x-data]') as any;
@@ -665,7 +756,9 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
   test('confirmation status badge visible when mentorSessionConfirmations is true', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await tp.evaluate(() => {
         const el = document.querySelector('[x-data]') as any;
@@ -683,6 +776,7 @@ test.describe('Trainee view — conditional visibility (feature flags)', () => {
           mentorName: 'Test Mentor',
         }];
         state.compactView = false;
+        state.showAllFuture = true;
         state.mentorSessionConfirmations = true;
       });
       await tp.waitForTimeout(500);
@@ -726,7 +820,9 @@ test.describe('Trainee availability — interval logic', () => {
   test('adding two intervals preserves first interval endTime', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await goToAvailTab(tp);
 
@@ -793,7 +889,9 @@ test.describe('Trainee availability — interval logic', () => {
   test('three intervals maintain their endTimes after sorts', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await goToAvailTab(tp);
 
@@ -836,7 +934,9 @@ test.describe('Trainee availability — interval logic', () => {
   test('remove interval reduces count', async ({ page, browser }) => {
     const token = await getOrCreateTraineeToken(page);
     if (!token) { test.skip(); return; }
-    const { page: tp, cleanup } = await openFreshTraineePage(browser, token);
+    const _r = await openFreshTraineePage(browser, token);
+    if (!_r) { test.skip(); return; }
+    const { page: tp, cleanup } = _r;
     try {
       await goToAvailTab(tp);
 

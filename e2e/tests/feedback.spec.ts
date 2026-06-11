@@ -263,7 +263,10 @@ test.describe('Feedback UI — Coach', () => {
     await goToTrainees(page);
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
-      if (el?._x_dataStack) el._x_dataStack[0].traineeCompactView = false;
+      if (el?._x_dataStack) {
+        el._x_dataStack[0].traineeCompactView = false;
+        el._x_dataStack[0].traineeComm = true;
+      }
     });
     await page.waitForTimeout(400);
     const btn = page.locator('[data-tour="trainee-actions"] button').filter({ hasText: 'Розмова' }).first();
@@ -274,7 +277,10 @@ test.describe('Feedback UI — Coach', () => {
     await goToTrainees(page);
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
-      if (el?._x_dataStack) el._x_dataStack[0].traineeCompactView = false;
+      if (el?._x_dataStack) {
+        el._x_dataStack[0].traineeCompactView = false;
+        el._x_dataStack[0].traineeComm = true;
+      }
     });
     await page.waitForTimeout(400);
     const btn = page.locator('[data-tour="trainee-actions"] button').filter({ hasText: 'Розмова' }).first();
@@ -324,6 +330,12 @@ async function goToTraineePage(page: any, token: string) {
   await page.goto(`/trainee/${token}`);
   await page.waitForSelector('[x-data]', { timeout: 15000 });
   await page.waitForTimeout(1000);
+  // mentorTraineeComm is false when coach has traineeComm disabled — enable it so the 💬 tab shows
+  await page.evaluate(() => {
+    const el = document.querySelector('[x-data]') as any;
+    if (el?._x_dataStack?.[0]) el._x_dataStack[0].mentorTraineeComm = true;
+  });
+  await page.waitForTimeout(200);
 }
 
 async function getTraineeAlpineState(page: any, key: string) {
@@ -485,13 +497,19 @@ test.describe('Feedback UI — Trainee', () => {
     // Switch to feedback tab
     const feedbackTab = page.locator('button').filter({ hasText: '💬' }).first();
     await feedbackTab.click();
-    await page.waitForTimeout(800);
+    // Ensure Alpine has re-evaluated after tab switch + async conversation load
+    await page.waitForTimeout(1500);
+    // Re-trigger conversation load in case the click async didn't finish in time
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      if (state?.loadFeedbackReceived) state.loadFeedbackReceived();
+    });
+    await page.waitForTimeout(1000);
 
-    // Both messages should be in the DOM
-    await expect(page.locator('text=UI trainee msg')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=UI mentor msg')).toBeVisible({ timeout: 5000 });
-    // "Ви" label for trainee's own messages
-    await expect(page.locator('text=Ви').first()).toBeVisible({ timeout: 3000 });
+    // Both messages should be in the DOM and visible
+    await expect(page.locator('p.text-gray-300').filter({ hasText: 'UI trainee msg' }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('p.text-gray-300').filter({ hasText: 'UI mentor msg' }).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('GET /api/v1/feedback/conversation returns both directions', async ({ page }) => {

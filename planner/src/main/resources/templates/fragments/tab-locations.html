@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="content">
+<!-- МЕНЕДЖЕР ЛОКАЦІЙ -->
+    <div x-show="activeTab === 'locations'" class="max-w-2xl mx-auto p-4 pb-28">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm sm:text-base font-black text-gray-500 tracking-widest" x-text="labels.locations || 'Місця'"></h3>
+            <button @click="openCreateLocationForm()" class="text-xs font-bold text-blue-400 flex items-center gap-1">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                <span x-text="(labels.add_location_short || 'Додати ' + (labels.location || 'локацію'))"></span>
+            </button>
+        </div>
+        <div data-tour="locations-list" class="space-y-3">
+            <template x-for="location in locations" :key="location.id">
+                <div class="relative flex items-center justify-between p-4 bg-[#1c1c1c] border border-[#333] rounded-3xl overflow-hidden">
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5" :style="'background: ' + (location.color || '#3b82f6')"></div>
+                    <div class="min-w-0 flex-1 pl-2">
+                        <p class="text-base font-bold text-gray-100" x-text="location.name"></p>
+                        <p class="text-sm text-gray-500 truncate" x-show="location.description" x-text="location.description"></p>
+                        <div x-show="location.googleMapsUrl" class="flex items-center gap-1 mt-1">
+                            <a :href="location.googleMapsUrl" target="_blank" rel="noopener noreferrer"
+                               class="text-xs text-blue-400 hover:text-blue-300 truncate underline underline-offset-2" x-text="location.googleMapsUrl"></a>
+                            <button @click="copyGoogleMapsUrl(location.googleMapsUrl)" type="button"
+                                    class="flex-shrink-0 p-1 text-gray-500 hover:text-blue-400 transition" title="Копіювати">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+                        <button @click="editLocation(location)" class="p-1 text-blue-400 hover:text-blue-300 transition" title="Правка">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+                        </button>
+                        <button @click="askDeleteLocation(location.id)" class="p-1 text-red-400 hover:text-red-300 transition" title="Видалити">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </template>
+            <div x-show="locations.length === 0" class="text-center py-16 text-gray-600 text-sm" x-text="labels.no_locations || 'Немає місць'"></div>
+        </div>
+    </div>
+
+    <!-- Модалка створення/редагування локації -->
+    <div x-show="showLocationFormModal" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="showLocationFormModal = false">
+        <div class="w-full max-w-md bg-[#1a1a1a] rounded-3xl p-6 border border-[#333] shadow-2xl space-y-4">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-black text-gray-300 tracking-widest" x-text="editingLocationId ? (labels.edit_location || 'Редагувати') : (labels.add_location || 'Додати локацію')"></span>
+                <button @click="showLocationFormModal = false" class="text-gray-500 hover:text-gray-300 text-xl leading-none">&times;</button>
+            </div>
+            <div class="space-y-3">
+                <input type="text" x-model="locationForm.name" :placeholder="labels.location_name_placeholder || 'Назва місця'" class="w-full text-base bg-[#262626] text-gray-200 px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500">
+                <input type="text" x-model="locationForm.description" :placeholder="labels.location_description_placeholder || 'Опис'" class="w-full text-base bg-[#262626] text-gray-200 px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500">
+                <div>
+                    <label class="text-xs font-bold text-gray-500 mb-2 block">📍 Google Maps</label>
+                    <div class="flex items-center gap-2">
+                        <input type="text" x-model="locationForm.googleMapsUrl" placeholder="Вставте посилання з Google Maps"
+                               class="flex-1 text-sm bg-[#262626] text-gray-200 px-4 py-2.5 rounded-xl border border-[#444] focus:outline-none focus:border-blue-500">
+                        <button @click="copyGoogleMapsUrl(locationForm.googleMapsUrl)" type="button"
+                                class="flex-shrink-0 p-2.5 rounded-xl bg-[#262626] border border-[#444] text-gray-400 hover:text-blue-400 hover:border-blue-500 transition"
+                                title="Копіювати">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-500 mb-2 block">Колір</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button @click.prevent="locationForm.color = '#3b82f6'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#3b82f6' ? 'border-white scale-110' : 'border-transparent'" style="background:#3b82f6"></button>
+                        <button @click.prevent="locationForm.color = '#10b981'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#10b981' ? 'border-white scale-110' : 'border-transparent'" style="background:#10b981"></button>
+                        <button @click.prevent="locationForm.color = '#f97316'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#f97316' ? 'border-white scale-110' : 'border-transparent'" style="background:#f97316"></button>
+                        <button @click.prevent="locationForm.color = '#ef4444'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#ef4444' ? 'border-white scale-110' : 'border-transparent'" style="background:#ef4444"></button>
+                        <button @click.prevent="locationForm.color = '#a855f7'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#a855f7' ? 'border-white scale-110' : 'border-transparent'" style="background:#a855f7"></button>
+                        <button @click.prevent="locationForm.color = '#ec4899'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#ec4899' ? 'border-white scale-110' : 'border-transparent'" style="background:#ec4899"></button>
+                        <button @click.prevent="locationForm.color = '#06b6d4'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#06b6d4' ? 'border-white scale-110' : 'border-transparent'" style="background:#06b6d4"></button>
+                        <button @click.prevent="locationForm.color = '#eab308'" type="button" class="w-8 h-8 rounded-full border-2 transition" :class="locationForm.color === '#eab308' ? 'border-white scale-110' : 'border-transparent'" style="background:#eab308"></button>
+                    </div>
+                </div>
+            </div>
+            <button @click="saveLocation()" :disabled="!locationForm.name || locationForm.name.trim() === ''" class="w-full ig-gradient text-white py-4 rounded-xl font-bold tracking-widest text-xs sm:text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" x-text="editingLocationId ? (labels.update_location || 'Оновити') : (labels.add_location || 'Додати локацію')"></button>
+        </div>
+    </div>
+</th:block>
+</body>
+</html>

@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
+  globalSetup: './global-setup.ts',
   testDir: './tests',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
@@ -14,6 +15,7 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || 'http://localhost:8080',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    permissions: ['clipboard-read', 'clipboard-write'],
   },
   projects: [
     {

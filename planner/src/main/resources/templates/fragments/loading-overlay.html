@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="content">
+<div x-show="loading" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" style="top: 0; left: 0; width: 100%; height: 100%;">
+    <div class="flex flex-col items-center gap-4">
+        <svg class="animate-spin h-10 w-10 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="text-white text-lg font-bold">Завантаження…</span>
+        <template x-if="loadingStuck">
+            <div class="flex flex-col items-center gap-2 mt-2">
+                <span class="text-gray-400 text-sm text-center px-6">Завантаження займає більше часу, ніж очікувалось. Спробуйте оновити.</span>
+                <button @click="window.location.reload()" class="mt-1 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition active:scale-95">Оновити</button>
+            </div>
+        </template>
+    </div>
+</div>
+</th:block>
+</body>
+</html>

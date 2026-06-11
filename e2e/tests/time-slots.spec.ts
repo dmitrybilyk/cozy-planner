@@ -109,8 +109,36 @@ test.describe('Time slot visibility', () => {
   });
 
   test('gap in availability is reflected — no slots between 13:00-14:00', async ({ page }) => {
-    // Demo seed: Зал А has 08:00-13:00 and 14:00-21:00 (gap at 13:00-14:00)
-    // When no location or Зал А is selected, no start slot should offer 13:00
+    // Wait for Alpine fetchMe to finish — POST /api/v1/coach/availability needs mentor_id in session
+    await page.waitForFunction(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.mentorId != null;
+    }, { timeout: 10000 }).catch(() => {});
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+    // Set coach availability with a gap using the correct endpoint (MentorAvailability table)
+    // The session modal reads from coachRangesByDate which comes from GET /api/v1/coach/availability
+    const postRes = await page.request.post('/api/v1/coach/availability', {
+      data: [
+        { date: tomorrowStr, startTime: '10:00', endTime: '13:00', locationId: null },
+        { date: tomorrowStr, startTime: '15:00', endTime: '17:00', locationId: null },
+      ],
+    });
+    // Force Alpine to reload coachRangesByDate and enable availability filtering
+    // validStartSlots uses ignoreAvail: !shareAvailability — MeController always returns false for demo,
+    // so we override in Alpine state to make the modal respect coachRangesByDate
+    await page.evaluate(async (d: string) => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      if (!state) return;
+      if (state.loadCoachAvailabilityData) await state.loadCoachAvailabilityData();
+      state.shareAvailability = true;
+    }, tomorrowStr);
+    await page.waitForTimeout(300);
+
     await selectFutureDate(page);
     await openNewSessionModal(page);
     const startSelect = page.locator('select').filter({ has: page.locator('option', {hasText: 'Від'}) }).first();

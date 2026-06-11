@@ -18,6 +18,13 @@ test.describe('Coach availability', () => {
     });
     await page.waitForTimeout(300);
 
+    // The availability nav button is hidden when shareAvailability=false (demo default)
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      if (el?._x_dataStack?.[0]) el._x_dataStack[0].shareAvailability = true;
+    });
+    await page.waitForTimeout(200);
+
     await page.locator('[data-tour="availability"]').click();
     await page.waitForTimeout(800);
   });

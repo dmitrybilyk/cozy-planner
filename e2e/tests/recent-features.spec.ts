@@ -169,11 +169,11 @@ test.describe('Recurring sessions', () => {
     }, res.body.id);
   });
 
-  test('session creation modal shows recurring checkbox', async ({ page }) => {
+  test('session creation modal does NOT show recurring checkbox (moved to plan modal)', async ({ page }) => {
     await page.locator('[data-tour="add-session"]').click();
     await page.waitForTimeout(500);
     const checkbox = page.locator('input[type="checkbox"][x-model="sessionForm.recurring"]');
-    await expect(checkbox).toBeAttached({ timeout: 5000 });
+    expect(await checkbox.count()).toBe(0);
     await page.locator('.modal-footer button').filter({ hasText: 'Скасувати' }).click().catch(() => {});
   });
 });
@@ -511,6 +511,140 @@ test.describe('Web push notification endpoints', () => {
   });
 });
 
+// ─── Plan sessions — weekly fill ──────────────────────────────────────────
+
+test.describe('Plan sessions — weekly fill (Заповнити)', () => {
+  test('plan modal has weekly count input with default 8', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(400);
+
+    const countInput = page.locator('[data-testid="plan-weekly-count"]');
+    await expect(countInput).toBeVisible({ timeout: 3000 });
+    // Read weeklyCount from Alpine state (more reliable than inputValue() for x-model.number)
+    const weeklyCount = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.planModal?.weeklyCount;
+    });
+    expect(weeklyCount).toBe(8);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('plan modal has Заповнити button', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(400);
+
+    const fillBtn = page.locator('[data-testid="plan-fill-weekly"]');
+    await expect(fillBtn).toBeVisible({ timeout: 3000 });
+    await expect(fillBtn).toContainText('Заповнити');
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('fillWeeklyPlan generates correct slot count and 7-day spacing', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(400);
+
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+    // Set weeklyCount and first slot date, then call fillWeeklyPlan directly via Alpine
+    const slots = await page.evaluate((d: string) => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      if (!state) return [];
+      // Replace slot to ensure Alpine reactivity picks up the new date
+      state.planModal.slots = [{ ...state.planModal.slots[0], date: d }];
+      state.planModal.weeklyCount = 3;
+      state.fillWeeklyPlan();
+      return state.planModal.slots;
+    }, tomorrow);
+
+    expect(slots.length).toBe(3);
+
+    // Each slot should be exactly 7 days after the previous
+    for (let i = 1; i < slots.length; i++) {
+      const prev = new Date(slots[i - 1].date).getTime();
+      const curr = new Date(slots[i].date).getTime();
+      expect(curr - prev).toBe(7 * 24 * 60 * 60 * 1000);
+    }
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('weekly fill does nothing when first slot has no date', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(400);
+
+    // Clear the first slot date
+    await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      if (!state) return;
+      state.planModal.slots = [{ date: '', startTime: null, endTime: null, locationId: null }];
+      state.planModal.weeklyCount = 3;
+    });
+    await page.waitForTimeout(200);
+
+    await page.locator('[data-testid="plan-fill-weekly"]').click();
+    await page.waitForTimeout(200);
+
+    const slots = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.planModal?.slots ?? [];
+    });
+    // Should stay unchanged (1 slot, not filled)
+    expect(slots.length).toBe(1);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('weekly fill clamps count between 2 and 52', async ({ page }) => {
+    await goToTrainees(page);
+    await setCompactView(page, false);
+    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
+    await expect(btn).toBeVisible({ timeout: 5000 });
+    await btn.click();
+    await page.waitForTimeout(400);
+
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    // count=1 should be clamped to min 2
+    const slots = await page.evaluate((d: string) => {
+      const el = document.querySelector('[x-data]') as any;
+      const state = el?._x_dataStack?.[0];
+      if (!state) return [];
+      state.planModal.slots = [{ ...state.planModal.slots[0], date: d }];
+      state.planModal.weeklyCount = 1;
+      state.fillWeeklyPlan();
+      return state.planModal.slots;
+    }, tomorrow);
+
+    expect(slots.length).toBe(2);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+});
+
 // ─── Admin audit log: SESSION_CREATED has email ────────────────────────────
 
 test.describe('Audit log email capture', () => {
@@ -641,11 +775,11 @@ test.describe('recurringCount parameter', () => {
     await cleanupRecurring(page, res.body.recurrenceGroupId, ids.mentorId);
   });
 
-  test('session creation modal has recurringCount input', async ({ page }) => {
+  test('session creation modal does NOT have recurringCount input (moved to plan modal)', async ({ page }) => {
     await page.locator('[data-tour="add-session"]').click();
     await page.waitForTimeout(500);
     const countInput = page.locator('input[x-model\\.number="sessionForm.recurringCount"]');
-    await expect(countInput).toBeAttached({ timeout: 5000 });
+    expect(await countInput.count()).toBe(0);
     await page.locator('.modal-footer button').filter({ hasText: 'Скасувати' }).click().catch(() => {});
   });
 });

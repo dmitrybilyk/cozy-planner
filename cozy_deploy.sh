@@ -20,7 +20,9 @@ REMOTE_PROJECT_DIR="cozy-planner"
 # Дані для Oracle Cloud Infrastructure Registry (OCIR)
 OCIR_REGISTRY="fra.ocir.io"
 OCIR_NAMESPACE="frdhgyiuxpkq"
-OCIR_USER="dmitry.bilyk@gmail.com"
+# For Google-federated OCI accounts the login username must include the identity domain:
+# frdhgyiuxpkq/oracleidentitycloudservice/dmitry.bilyk@gmail.com
+OCIR_USER="oracleidentitycloudservice/dmitry.bilyk@gmail.com"
 OCIR_IMAGE_TAG="fra.ocir.io/frdhgyiuxpkq/cozy-planner:latest"
 
 echo "--- 🛠️ Локальні дії (Комміт, Збірка та Пуш образу) ---"

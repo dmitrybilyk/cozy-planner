@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<th:block th:fragment="content">
+<!-- ПРОФІЛЬ -->
+<div x-show="activeTab === 'profile'" class="max-w-2xl mx-auto p-4 pb-28">
+    <!-- Profile sub-tab bar -->
+    <div class="flex bg-[#1a1a1a] rounded-2xl border border-[#333] p-1 mb-4 gap-1">
+        <button @click="profileTab = 'main'"
+                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+                :class="profileTab === 'main' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">Основні</button>
+        <button @click="profileTab = 'time'"
+                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+                :class="profileTab === 'time' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">⏰ Час</button>
+        <button @click="profileTab = 'telegram'"
+                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all relative"
+                :class="profileTab === 'telegram' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">
+            Telegram
+            <span x-show="mentorTg.connected" class="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-green-500"></span>
+        </button>
+    </div>
+
+    <!-- ===== ОСНОВНІ ===== -->
+    <div x-show="profileTab === 'main'">
+        <div x-show="!isStandalone" class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+            <button @click="installPwa()" class="w-full flex items-center justify-center gap-3 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-white/5 active:scale-[0.97]">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+                <span>Встановити додаток</span>
+            </button>
+        </div>
+        <!-- Photo -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">📷 Фото</h4>
+            <div class="flex items-center gap-4">
+                <div class="relative w-16 h-16 rounded-2xl overflow-hidden bg-[#262626] flex-shrink-0">
+                    <template x-if="photoUrl">
+                        <img :src="photoUrl" class="w-full h-full object-cover">
+                    </template>
+                    <template x-if="!photoUrl">
+                        <div class="w-full h-full flex items-center justify-center text-gray-500 text-2xl">👤</div>
+                    </template>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-xl text-xs font-bold transition text-center">
+                        Завантажити
+                        <input type="file" accept="image/*" class="hidden" @change="uploadPhoto($event)">
+                    </label>
+                    <button x-show="photoUrl" @click="photoUrl = null; fetch('/api/v1/mentor/profile', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({photoUrl: ''})})" class="text-xs font-bold text-red-400">Видалити</button>
+                </div>
+            </div>
+        </div>
+        <!-- Features: availability & locations -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⚙️ Функції</h4>
+            <div class="space-y-3">
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Ділитися доступністю</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Учні бачать ваш вільний час і можуть записатися</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="shareAvailability = !shareAvailability; saveShareAvailability()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="shareAvailability ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="shareAvailability ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Підтримка локацій</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Зал, майданчик, онлайн — кілька місць проведення</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="multiLocation = !multiLocation; saveMultiLocation()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="multiLocation ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="multiLocation ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
+        <!-- Theme -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🎨 Тема оформлення</h4>
+            <div class="grid grid-cols-3 gap-2">
+                <button @click="saveTheme('default')"
+                        class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                        :class="theme === 'default' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
+                    <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1a1a1a 0%, #262626 40%, #121212 100%)">
+                        <div class="h-2 w-full" style="background: #333"></div>
+                        <div class="flex gap-1 p-1.5">
+                            <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
+                            <div class="h-3 rounded flex-1" style="background: #1c1c1c"></div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'default' ? 'text-blue-400' : 'text-gray-400'">Стандартна</span>
+                    <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'default' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
+                </button>
+                <button @click="saveTheme('male')"
+                        class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                        :class="theme === 'male' ? 'border-blue-500 bg-blue-500/10' : 'border-[#333] hover:border-[#555]'">
+                    <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #0c1e2e 0%, #152b3c 40%, #07111c 100%)">
+                        <div class="h-2 w-full" style="background: #1c3550"></div>
+                        <div class="flex gap-1 p-1.5">
+                            <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
+                            <div class="h-3 rounded flex-1" style="background: #0f2032"></div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'male' ? 'text-blue-400' : 'text-gray-400'">Кобальт</span>
+                    <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'male' ? 'bg-blue-500 opacity-100' : 'opacity-0'"></div>
+                </button>
+                <button @click="saveTheme('female')"
+                        class="flex flex-col items-center gap-2 p-2.5 rounded-xl border-2 transition-all active:scale-[0.97]"
+                        :class="theme === 'female' ? 'border-pink-500 bg-pink-500/10' : 'border-[#333] hover:border-[#555]'">
+                    <div class="w-full h-10 rounded-lg overflow-hidden" style="background: linear-gradient(135deg, #1e0d26 0%, #281332 40%, #0f0712 100%)">
+                        <div class="h-2 w-full" style="background: #38164a"></div>
+                        <div class="flex gap-1 p-1.5">
+                            <div class="h-3 rounded flex-1" style="background: #200d28"></div>
+                            <div class="h-3 rounded flex-1" style="background: #200d28"></div>
+                        </div>
+                    </div>
+                    <span class="text-[11px] font-bold leading-tight text-center" :class="theme === 'female' ? 'text-pink-400' : 'text-gray-400'">Аметист</span>
+                    <div class="w-2 h-2 rounded-full transition-opacity" :class="theme === 'female' ? 'bg-pink-500 opacity-100' : 'opacity-0'"></div>
+                </button>
+            </div>
+        </div>
+        <!-- Contact developer -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">✉️ Зворотній зв'язок</h4>
+            <button @click="openContactModal()"
+                    class="w-full flex items-center justify-center gap-2 bg-blue-900/30 text-blue-400 py-3 rounded-xl font-bold transition hover:bg-blue-900/50 active:scale-[0.97]">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <span>Написати розробнику</span>
+            </button>
+        </div>
+        <div class="pt-4 space-y-3">
+            <form method="POST" action="/logout" class="w-full">
+                <button type="submit" class="w-full flex items-center justify-center gap-2 bg-red-900/30 text-red-400 py-3 rounded-xl font-bold transition hover:bg-red-900/50 active:scale-[0.97]">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    <span>Вийти</span>
+                </button>
+            </form>
+            <button @click="startFresh()"
+                    class="w-full flex items-center justify-center gap-2 bg-orange-900/30 text-orange-400 py-3 rounded-xl font-bold transition hover:bg-orange-900/50 active:scale-[0.97]">
+                <span>🔄</span>
+                <span>Видалити всі дані</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== ЧАС ===== -->
+    <div x-show="profileTab === 'time'">
+        <!-- Work hours -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏰ Робочі години</h4>
+            <div class="flex items-center gap-3">
+                <div class="flex-1">
+                    <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">Від</label>
+                    <select x-model="workStart" @change="if (workEnd <= workStart) { workEnd = Array.from({length:19},(_, i)=>String(i+5).padStart(2,'0')+':00').find(h=>h>workStart)||'23:00'; } saveWorkHours();" x-effect="$nextTick(() => $el.value = workStart)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                        <template x-for="h in Array.from({length: 18}, (_, i) => String(i + 5).padStart(2,'0') + ':00')" :key="h">
+                            <option :value="h" x-text="h"></option>
+                        </template>
+                    </select>
+                </div>
+                <span class="text-gray-500 mt-5">—</span>
+                <div class="flex-1">
+                    <label class="text-[11px] font-bold text-gray-500 uppercase mb-1 block">До</label>
+                    <select x-model="workEnd" @change="saveWorkHours()" x-effect="$nextTick(() => $el.value = workEnd)" class="w-full text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                        <template x-for="h in Array.from({length:19},(_, i)=>String(i+5).padStart(2,'0')+':00').filter(h=>h>workStart)" :key="h">
+                            <option :value="h" x-text="h"></option>
+                        </template>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <!-- Timezone -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🌍 Часовий пояс</h4>
+            <div class="flex items-center gap-2">
+                <select x-model="editingTimezone" @change="saveTimezone()" class="flex-1 text-sm bg-[#262626] text-gray-200 px-3 py-2 rounded-xl border border-[#444]">
+                    <option value="Europe/Kyiv">Europe/Kyiv (UTC+2/+3)</option>
+                    <option value="Europe/Warsaw">Europe/Warsaw (UTC+1/+2)</option>
+                    <option value="Europe/Berlin">Europe/Berlin (UTC+1/+2)</option>
+                    <option value="Europe/Paris">Europe/Paris (UTC+1/+2)</option>
+                    <option value="Europe/London">Europe/London (UTC+0/+1)</option>
+                    <option value="Europe/Moscow">Europe/Moscow (UTC+3)</option>
+                    <option value="Europe/Istanbul">Europe/Istanbul (UTC+3)</option>
+                    <option value="Asia/Dubai">Asia/Dubai (UTC+4)</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo (UTC+9)</option>
+                    <option value="America/New_York">America/New_York (UTC-5/-4)</option>
+                    <option value="America/Chicago">America/Chicago (UTC-6/-5)</option>
+                    <option value="America/Denver">America/Denver (UTC-7/-6)</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles (UTC-8/-7)</option>
+                </select>
+            </div>
+        </div>
+        <!-- Time interval -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⏱ Інтервал вибору часу</h4>
+            <p class="text-xs text-gray-600 mb-3">Крок для вибору доступного часу</p>
+            <div class="flex bg-[#262626] rounded-xl p-1 gap-1">
+                <button @click="availStep = 15; saveAvailStep()"
+                        class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
+                        :class="availStep === 15 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
+                    <span class="block text-sm">15</span>
+                    <span class="block text-xs font-medium opacity-70">хвилин</span>
+                </button>
+                <button @click="availStep = 30; saveAvailStep()"
+                        class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
+                        :class="availStep === 30 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
+                    <span class="block text-sm">30</span>
+                    <span class="block text-xs font-medium opacity-70">хвилин</span>
+                </button>
+                <button @click="availStep = 60; saveAvailStep()"
+                        class="flex-1 py-2.5 rounded-lg text-xs font-bold transition-all duration-150 active:scale-[0.97]"
+                        :class="availStep === 60 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'">
+                    <span class="block text-sm">1</span>
+                    <span class="block text-xs font-medium opacity-70">година</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== TELEGRAM ===== -->
+    <div x-show="profileTab === 'telegram'">
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
+            <!-- Integration toggle -->
+            <label class="flex items-center justify-between cursor-pointer select-none">
+                <div>
+                    <div class="text-sm text-gray-200 font-medium">Інтеграція з Телеграм</div>
+                    <div class="text-xs text-gray-500 mt-0.5">Сповіщення та зв'язок через Telegram</div>
+                </div>
+                <div class="relative ml-3 flex-shrink-0" @click="telegramIntegration = !telegramIntegration; saveTelegramIntegration()">
+                    <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="telegramIntegration ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="telegramIntegration ? 'translate-x-5' : 'translate-x-0'"></div>
+                </div>
+            </label>
+            <!-- TG connect status / button (when integration on) -->
+            <div x-show="telegramIntegration" class="mt-4 space-y-3">
+                <template x-if="!mentorTg.enabled">
+                    <p class="text-sm text-gray-500">Telegram не налаштовано адміністратором.</p>
+                </template>
+                <template x-if="mentorTg.enabled && mentorTg.connected">
+                    <div class="flex items-center gap-2 bg-green-900/20 rounded-xl px-3 py-2.5">
+                        <span class="w-2.5 h-2.5 bg-green-500 rounded-full flex-shrink-0"></span>
+                        <span class="text-sm text-green-400 font-medium">Telegram підключено</span>
+                        <span x-show="mentorTg.username" class="text-sm text-gray-500" x-text="'@' + mentorTg.username"></span>
+                    </div>
+                </template>
+                <template x-if="mentorTg.enabled && !mentorTg.connected">
+                    <button @click="openMentorTelegramLink()"
+                            class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-sm transition active:scale-[0.97]">
+                        <span>📲</span><span>Під'єднати Телеграм</span>
+                    </button>
+                </template>
+            </div>
+            <!-- Sub-features — always visible, disabled until TG integration is on and connected -->
+            <div class="mt-4 pt-3 border-t border-[#2a2a2a] space-y-3"
+                 :class="(!telegramIntegration || !mentorTg.connected) ? 'opacity-40 pointer-events-none' : ''">
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Підтверджування тренувань</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Статуси підтвердження та кнопки на картках сесій</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="sessionConfirmations = !sessionConfirmations; saveSessionConfirmations()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionConfirmations ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionConfirmations ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Комунікація зі спортсменом</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Відгуки та повідомлення між тренером і учнем</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="traineeComm = !traineeComm; saveTraineeComm()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="traineeComm ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="traineeComm ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none" data-testid="notifications-section">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Нагадування про тренування (за 1 год)</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Telegram-повідомлення перед заняттям</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0">
+                        <input type="checkbox" x-model="sessionReminderEnabled" @change="saveSessionReminderEnabled()" class="sr-only" data-testid="mentor-session-reminder-toggle">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionReminderEnabled ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionReminderEnabled ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
+</th:block>
+</body>
+</html>
