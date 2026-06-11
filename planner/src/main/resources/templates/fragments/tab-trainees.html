@@ -171,8 +171,9 @@
     </div>
 
     <!-- Модалка створення/редагування учня -->
-    <div x-show="showTraineeFormModal" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="showTraineeFormModal = false">
-        <div class="w-full max-w-md bg-[#1a1a1a] rounded-3xl p-6 border border-[#333] shadow-2xl space-y-4">
+    <div x-show="showTraineeFormModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="showTraineeFormModal = false">
+        <div class="flex min-h-full items-end sm:items-center justify-center px-0 sm:px-4 py-4">
+        <div class="w-full sm:max-w-md bg-[#1a1a1a] rounded-t-3xl sm:rounded-3xl p-6 border border-[#333] shadow-2xl space-y-4">
             <div class="flex items-center gap-3">
                 <button @click="showTraineeFormModal = false" class="text-gray-400 hover:text-white transition p-1 -ml-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
@@ -202,6 +203,7 @@
                 <button @click="traineeForm.photoBase64 = null" type="button" class="text-red-400 text-xs font-bold ">Видалити фото</button>
             </div>
             <button @click="saveTrainee()" :disabled="!traineeForm.name || traineeForm.name.trim() === ''" class="w-full ig-gradient text-white py-4 rounded-xl font-bold tracking-widest text-xs sm:text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" x-text="editingTraineeId ? (labels.update_trainee || 'Оновити') : (labels.add_trainee || 'Додати учня')"></button>
+        </div>
         </div>
     </div>
 </th:block>

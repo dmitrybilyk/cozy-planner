@@ -446,7 +446,12 @@
         recurring: false
       };
       this.showModal = true;
-      this.$nextTick(() => this._validateFormTime());
+      this.$nextTick(() => {
+        // temporarily use source session id so getBusyMinuteRanges skips it
+        this.editingSessionId = w.id;
+        this._validateFormTime();
+        this.editingSessionId = null;
+      });
     },
 
     copySessionById(id) {
@@ -479,7 +484,11 @@
         recurring: false
       };
       this.showModal = true;
-      this.$nextTick(() => this._validateFormTime());
+      this.$nextTick(() => {
+        this.editingSessionId = session.id;
+        this._validateFormTime();
+        this.editingSessionId = null;
+      });
     },
 
     openSessionFromFreeSlot(slot, date) {
@@ -558,13 +567,15 @@
     // ── Session form helpers ─────────────────────────────────────────────────
 
     onSessionDateChange(date) {
+      const prevStart = this.sessionForm.startTime;
+      const prevEnd = this.sessionForm.endTime;
       this.sessionForm.date = date;
-      this.sessionForm.startTime = null;
-      this.sessionForm.endTime = null;
+      this.sessionForm.startTime = prevStart;
+      this.sessionForm.endTime = prevEnd;
       this.sessionForm._prevStartTime = null;
       this.sessionForm._prevEndTime = null;
       this.sessionForm.locationId = this.defaultLocationId(date);
-      this.$nextTick(() => this.onSessionStartChange());
+      this.$nextTick(() => this._validateFormTime());
     },
 
     onSessionStartChange() {

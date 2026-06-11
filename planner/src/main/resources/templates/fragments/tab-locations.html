@@ -42,8 +42,9 @@
     </div>
 
     <!-- Модалка створення/редагування локації -->
-    <div x-show="showLocationFormModal" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="showLocationFormModal = false">
-        <div class="w-full max-w-md bg-[#1a1a1a] rounded-3xl p-6 border border-[#333] shadow-2xl space-y-4">
+    <div x-show="showLocationFormModal" class="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm" x-cloak x-transition @click.self="showLocationFormModal = false">
+        <div class="flex min-h-full items-end sm:items-center justify-center px-0 sm:px-4 py-4">
+        <div class="w-full sm:max-w-md bg-[#1a1a1a] rounded-t-3xl sm:rounded-3xl p-6 border border-[#333] shadow-2xl space-y-4">
             <div class="flex items-center justify-between">
                 <span class="text-sm font-black text-gray-300 tracking-widest" x-text="editingLocationId ? (labels.edit_location || 'Редагувати') : (labels.add_location || 'Додати локацію')"></span>
                 <button @click="showLocationFormModal = false" class="text-gray-500 hover:text-gray-300 text-xl leading-none">&times;</button>
@@ -78,6 +79,7 @@
                 </div>
             </div>
             <button @click="saveLocation()" :disabled="!locationForm.name || locationForm.name.trim() === ''" class="w-full ig-gradient text-white py-4 rounded-xl font-bold tracking-widest text-xs sm:text-sm shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" x-text="editingLocationId ? (labels.update_location || 'Оновити') : (labels.add_location || 'Додати локацію')"></button>
+        </div>
         </div>
     </div>
 </th:block>

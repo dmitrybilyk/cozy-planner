@@ -513,135 +513,75 @@ test.describe('Web push notification endpoints', () => {
 
 // ─── Plan sessions — weekly fill ──────────────────────────────────────────
 
-test.describe('Plan sessions — weekly fill (Заповнити)', () => {
-  test('plan modal has weekly count input with default 8', async ({ page }) => {
+test.describe('Plan sessions modal — save guard and Escape', () => {
+  async function openPlanModal(page: any) {
     await goToTrainees(page);
     await setCompactView(page, false);
     const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
     await expect(btn).toBeVisible({ timeout: 5000 });
     await btn.click();
     await page.waitForTimeout(400);
+  }
 
-    const countInput = page.locator('[data-testid="plan-weekly-count"]');
-    await expect(countInput).toBeVisible({ timeout: 3000 });
-    // Read weeklyCount from Alpine state (more reliable than inputValue() for x-model.number)
-    const weeklyCount = await page.evaluate(() => {
-      const el = document.querySelector('[x-data]') as any;
-      return el?._x_dataStack?.[0]?.planModal?.weeklyCount;
-    });
-    expect(weeklyCount).toBe(8);
-
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-  });
-
-  test('plan modal has Заповнити button', async ({ page }) => {
-    await goToTrainees(page);
-    await setCompactView(page, false);
-    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
-    await expect(btn).toBeVisible({ timeout: 5000 });
-    await btn.click();
-    await page.waitForTimeout(400);
-
+  test('Заповнити button no longer present in plan modal', async ({ page }) => {
+    await openPlanModal(page);
     const fillBtn = page.locator('[data-testid="plan-fill-weekly"]');
-    await expect(fillBtn).toBeVisible({ timeout: 3000 });
-    await expect(fillBtn).toContainText('Заповнити');
-
+    expect(await fillBtn.count()).toBe(0);
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
   });
 
-  test('fillWeeklyPlan generates correct slot count and 7-day spacing', async ({ page }) => {
-    await goToTrainees(page);
-    await setCompactView(page, false);
-    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
-    await expect(btn).toBeVisible({ timeout: 5000 });
-    await btn.click();
-    await page.waitForTimeout(400);
-
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-
-    // Set weeklyCount and first slot date, then call fillWeeklyPlan directly via Alpine
-    const slots = await page.evaluate((d: string) => {
-      const el = document.querySelector('[x-data]') as any;
-      const state = el?._x_dataStack?.[0];
-      if (!state) return [];
-      // Replace slot to ensure Alpine reactivity picks up the new date
-      state.planModal.slots = [{ ...state.planModal.slots[0], date: d }];
-      state.planModal.weeklyCount = 3;
-      state.fillWeeklyPlan();
-      return state.planModal.slots;
-    }, tomorrow);
-
-    expect(slots.length).toBe(3);
-
-    // Each slot should be exactly 7 days after the previous
-    for (let i = 1; i < slots.length; i++) {
-      const prev = new Date(slots[i - 1].date).getTime();
-      const curr = new Date(slots[i].date).getTime();
-      expect(curr - prev).toBe(7 * 24 * 60 * 60 * 1000);
-    }
-
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-  });
-
-  test('weekly fill does nothing when first slot has no date', async ({ page }) => {
-    await goToTrainees(page);
-    await setCompactView(page, false);
-    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
-    await expect(btn).toBeVisible({ timeout: 5000 });
-    await btn.click();
-    await page.waitForTimeout(400);
-
-    // Clear the first slot date
+  test('Save button disabled when a slot has no startTime or endTime', async ({ page }) => {
+    await openPlanModal(page);
+    // Force an incomplete slot — no date means onPlanDateChange won't auto-fill times
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       const state = el?._x_dataStack?.[0];
-      if (!state) return;
+      if (!state?.planModal) return;
       state.planModal.slots = [{ date: '', startTime: null, endTime: null, locationId: null }];
-      state.planModal.weeklyCount = 3;
     });
-    await page.waitForTimeout(200);
-
-    await page.locator('[data-testid="plan-fill-weekly"]').click();
-    await page.waitForTimeout(200);
-
-    const slots = await page.evaluate(() => {
-      const el = document.querySelector('[x-data]') as any;
-      return el?._x_dataStack?.[0]?.planModal?.slots ?? [];
-    });
-    // Should stay unchanged (1 slot, not filled)
-    expect(slots.length).toBe(1);
-
+    await page.waitForTimeout(300);
+    // The plan modal save button has a unique purple gradient — use that as the locator
+    const saveBtn = page.locator('button[style*="7c3aed"]').first();
+    await expect(saveBtn).toBeDisabled({ timeout: 3000 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
   });
 
-  test('weekly fill clamps count between 2 and 52', async ({ page }) => {
-    await goToTrainees(page);
-    await setCompactView(page, false);
-    const btn = page.locator('[data-tour="plan-sessions-btn"]').first();
-    await expect(btn).toBeVisible({ timeout: 5000 });
-    await btn.click();
-    await page.waitForTimeout(400);
-
+  test('Save button enabled when all slots have startTime and endTime', async ({ page }) => {
+    await openPlanModal(page);
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    // count=1 should be clamped to min 2
-    const slots = await page.evaluate((d: string) => {
+    // Set a complete slot
+    await page.evaluate((d: string) => {
       const el = document.querySelector('[x-data]') as any;
       const state = el?._x_dataStack?.[0];
-      if (!state) return [];
-      state.planModal.slots = [{ ...state.planModal.slots[0], date: d }];
-      state.planModal.weeklyCount = 1;
-      state.fillWeeklyPlan();
-      return state.planModal.slots;
+      if (!state) return;
+      state.planModal.slots = [{ date: d, startTime: '10:00', endTime: '11:00', locationId: null }];
     }, tomorrow);
-
-    expect(slots.length).toBe(2);
-
+    await page.waitForTimeout(300);
+    const saveBtn = page.locator('button[style*="7c3aed"]').first();
+    await expect(saveBtn).toBeEnabled({ timeout: 3000 });
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
+  });
+
+  test('Escape closes plan modal without navigating away', async ({ page }) => {
+    await openPlanModal(page);
+    // Read tab AFTER navigation to trainees (inside openPlanModal)
+    const tabWithModalOpen = await getAlpineState(page, 'activeTab');
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+
+    const modalOpen = await page.evaluate(() => {
+      const el = document.querySelector('[x-data]') as any;
+      return el?._x_dataStack?.[0]?.planModal?.show;
+    });
+    expect(modalOpen).toBe(false);
+
+    // activeTab must not change when plan modal closes — Escape should not trigger closeModal()
+    const tabAfter = await getAlpineState(page, 'activeTab');
+    expect(tabAfter).toBe(tabWithModalOpen);
   });
 });
 

@@ -5,7 +5,7 @@
 <!-- PLAN SESSIONS MODAL -->
 <div x-show="planModal.show" x-cloak x-transition
      class="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4"
-     @keydown.escape.window="planModal.show = false">
+     @keydown.escape.window="planModal.show && (planModal.show = false)">
     <div class="modal-container" @click.away="planModal.show = false">
         <div class="p-6 border-b border-[#333] flex justify-between items-center">
             <div>
@@ -78,17 +78,8 @@
                 </div>
             </template>
             <div class="flex items-center gap-2 pt-1">
-                <span class="text-xs text-gray-500 flex-shrink-0">🔁 Щотижня:</span>
-                <input type="number" x-model.number="planModal.weeklyCount" min="2" max="52"
-                       data-testid="plan-weekly-count"
-                       class="w-14 text-sm text-center bg-[#262626] border border-[#444] rounded-lg px-2 py-1 focus:border-blue-500 focus:outline-none text-gray-200">
-                <span class="text-xs text-gray-600" x-text="'(' + (planModal.weeklyCount || 8) + ' тренув.)'"></span>
-                <button @click="fillWeeklyPlan()" type="button" data-testid="plan-fill-weekly"
-                        class="text-xs font-bold text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 transition">
-                    Заповнити
-                </button>
                 <button @click="addPlanSlot()" type="button"
-                        class="ml-auto text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg border border-dashed border-[#444] hover:border-gray-500 transition">
+                        class="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 rounded-lg border border-dashed border-[#444] hover:border-gray-500 transition">
                     + Ще дату
                 </button>
             </div>
@@ -96,7 +87,7 @@
         </div>
         <div class="modal-footer flex space-x-3">
             <button @click="planModal.show = false" class="flex-1 py-4 font-bold text-gray-500 text-sm">Скасувати</button>
-            <button @click="savePlanSessions()" :disabled="planModal.saving"
+            <button @click="savePlanSessions()" :disabled="planModal.saving || planModal.slots.some(s => !s.startTime || !s.endTime)"
                     class="flex-1 py-4 font-bold rounded-2xl text-white transition disabled:opacity-50"
                     style="background: linear-gradient(135deg, #7c3aed, #6d28d9)">
                 <span x-show="!planModal.saving" x-text="'Зберегти ' + planModal.slots.length + ' тренув.'"></span>

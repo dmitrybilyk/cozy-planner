@@ -23,6 +23,15 @@ test.describe('Trainees', () => {
   // ─── helpers ───────────────────────────────────────────────────────────────
 
   async function enableTgAndTraineeFeatures(page: any) {
+    // wait for init() to finish (including fetchMentorTelegramStatus) so our
+    // state assignments aren't overwritten by the background server fetch
+    await page.waitForFunction(
+      () => {
+        const el = document.querySelector('[x-data]') as any;
+        return el?._x_dataStack?.[0]?.loading === false;
+      },
+      { timeout: 15000 }
+    ).catch(() => {});
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
       if (!el?._x_dataStack?.[0]) return;
@@ -30,7 +39,6 @@ test.describe('Trainees', () => {
       state.telegramIntegration = true;
       state.mentorTg = { ...state.mentorTg, connected: true, enabled: true };
       state.traineeComm = true;
-      // enable telegramEnabled on all trainees so x-if resolves to true
       if (Array.isArray(state.trainees)) {
         state.trainees = state.trainees.map((t: any) => ({ ...t, telegramEnabled: true }));
       }

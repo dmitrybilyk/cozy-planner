@@ -9,15 +9,15 @@
         <button @click="profileTab = 'main'"
                 class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
                 :class="profileTab === 'main' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">Основні</button>
-        <button @click="profileTab = 'time'"
-                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
-                :class="profileTab === 'time' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">⏰ Час</button>
         <button @click="profileTab = 'telegram'"
                 class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all relative"
                 :class="profileTab === 'telegram' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">
-            Telegram
+            Додаткові
             <span x-show="mentorTg.connected" class="absolute top-1.5 right-2 w-1.5 h-1.5 rounded-full bg-green-500"></span>
         </button>
+        <button @click="profileTab = 'time'"
+                class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+                :class="profileTab === 'time' ? 'bg-[#2a2a2a] text-white shadow' : 'text-gray-500 hover:text-gray-300'">⏰ Час</button>
     </div>
 
     <!-- ===== ОСНОВНІ ===== -->
@@ -47,32 +47,6 @@
                     </label>
                     <button x-show="photoUrl" @click="photoUrl = null; fetch('/api/v1/mentor/profile', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({photoUrl: ''})})" class="text-xs font-bold text-red-400">Видалити</button>
                 </div>
-            </div>
-        </div>
-        <!-- Features: availability & locations -->
-        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
-            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">⚙️ Функції</h4>
-            <div class="space-y-3">
-                <label class="flex items-center justify-between cursor-pointer select-none">
-                    <div>
-                        <div class="text-sm text-gray-200 font-medium">Ділитися доступністю</div>
-                        <div class="text-xs text-gray-500 mt-0.5">Учні бачать ваш вільний час і можуть записатися</div>
-                    </div>
-                    <div class="relative ml-3 flex-shrink-0" @click="shareAvailability = !shareAvailability; saveShareAvailability()">
-                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="shareAvailability ? 'bg-blue-600' : 'bg-[#333]'"></div>
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="shareAvailability ? 'translate-x-5' : 'translate-x-0'"></div>
-                    </div>
-                </label>
-                <label class="flex items-center justify-between cursor-pointer select-none">
-                    <div>
-                        <div class="text-sm text-gray-200 font-medium">Підтримка локацій</div>
-                        <div class="text-xs text-gray-500 mt-0.5">Зал, майданчик, онлайн — кілька місць проведення</div>
-                    </div>
-                    <div class="relative ml-3 flex-shrink-0" @click="multiLocation = !multiLocation; saveMultiLocation()">
-                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="multiLocation ? 'bg-blue-600' : 'bg-[#333]'"></div>
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="multiLocation ? 'translate-x-5' : 'translate-x-0'"></div>
-                    </div>
-                </label>
             </div>
         </div>
         <!-- Theme -->
@@ -120,6 +94,15 @@
                 </button>
             </div>
         </div>
+        <!-- Tour -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">🗺️ Знайомство</h4>
+            <button @click="showIntro = true; introSlide = 0"
+                    class="w-full flex items-center justify-center gap-2 bg-purple-900/30 text-purple-400 py-3 rounded-xl font-bold transition hover:bg-purple-900/50 active:scale-[0.97]">
+                <span>🗺️</span>
+                <span>Переглянути знайомство</span>
+            </button>
+        </div>
         <!-- Contact developer -->
         <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
             <h4 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">✉️ Зворотній зв'язок</h4>
@@ -145,6 +128,101 @@
                 <span>🔄</span>
                 <span>Видалити всі дані</span>
             </button>
+        </div>
+    </div>
+
+    <!-- ===== ДОДАТКОВІ ===== -->
+    <div x-show="profileTab === 'telegram'">
+        <!-- Availability & locations (moved here from main tab) -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] space-y-3">
+            <label class="flex items-center justify-between cursor-pointer select-none">
+                <div>
+                    <div class="text-sm text-gray-200 font-medium">Ділитися доступністю</div>
+                    <div class="text-xs text-gray-500 mt-0.5">Учні бачать ваш вільний час і можуть записатися</div>
+                </div>
+                <div class="relative ml-3 flex-shrink-0" @click="shareAvailability = !shareAvailability; saveShareAvailability()">
+                    <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="shareAvailability ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="shareAvailability ? 'translate-x-5' : 'translate-x-0'"></div>
+                </div>
+            </label>
+            <label class="flex items-center justify-between cursor-pointer select-none">
+                <div>
+                    <div class="text-sm text-gray-200 font-medium">Підтримка локацій</div>
+                    <div class="text-xs text-gray-500 mt-0.5">Зал, майданчик, онлайн — кілька місць проведення</div>
+                </div>
+                <div class="relative ml-3 flex-shrink-0" @click="multiLocation = !multiLocation; saveMultiLocation()">
+                    <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="multiLocation ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="multiLocation ? 'translate-x-5' : 'translate-x-0'"></div>
+                </div>
+            </label>
+        </div>
+        <!-- Telegram integration -->
+        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333] mt-4">
+            <!-- Integration toggle -->
+            <label class="flex items-center justify-between cursor-pointer select-none">
+                <div>
+                    <div class="text-sm text-gray-200 font-medium">Інтеграція з Телеграм</div>
+                    <div class="text-xs text-gray-500 mt-0.5">Сповіщення та зв'язок через Telegram</div>
+                </div>
+                <div class="relative ml-3 flex-shrink-0" @click="telegramIntegration = !telegramIntegration; saveTelegramIntegration()">
+                    <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="telegramIntegration ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="telegramIntegration ? 'translate-x-5' : 'translate-x-0'"></div>
+                </div>
+            </label>
+            <!-- TG connect status / button (when integration on) -->
+            <div x-show="telegramIntegration" class="mt-4 space-y-3">
+                <template x-if="!mentorTg.enabled">
+                    <p class="text-sm text-gray-500">Telegram не налаштовано адміністратором.</p>
+                </template>
+                <template x-if="mentorTg.enabled && mentorTg.connected">
+                    <div class="flex items-center gap-2 bg-green-900/20 rounded-xl px-3 py-2.5">
+                        <span class="w-2.5 h-2.5 bg-green-500 rounded-full flex-shrink-0"></span>
+                        <span class="text-sm text-green-400 font-medium">Telegram підключено</span>
+                        <span x-show="mentorTg.username" class="text-sm text-gray-500" x-text="'@' + mentorTg.username"></span>
+                    </div>
+                </template>
+                <template x-if="mentorTg.enabled && !mentorTg.connected">
+                    <button @click="openMentorTelegramLink()"
+                            class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-sm transition active:scale-[0.97]">
+                        <span>📲</span><span>Під'єднати Телеграм</span>
+                    </button>
+                </template>
+            </div>
+            <!-- Sub-features — always visible, disabled until TG integration is on and connected -->
+            <div class="mt-4 pt-3 border-t border-[#2a2a2a] space-y-3"
+                 :class="(!telegramIntegration || !mentorTg.connected) ? 'opacity-40 pointer-events-none' : ''">
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Підтверджування тренувань</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Статуси підтвердження та кнопки на картках сесій</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="sessionConfirmations = !sessionConfirmations; saveSessionConfirmations()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionConfirmations ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionConfirmations ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Комунікація зі спортсменом</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Відгуки та повідомлення між тренером і учнем</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0" @click="traineeComm = !traineeComm; saveTraineeComm()">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="traineeComm ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="traineeComm ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+                <label class="flex items-center justify-between cursor-pointer select-none" data-testid="notifications-section">
+                    <div>
+                        <div class="text-sm text-gray-200 font-medium">Нагадування про тренування (за 1 год)</div>
+                        <div class="text-xs text-gray-500 mt-0.5">Telegram-повідомлення перед заняттям</div>
+                    </div>
+                    <div class="relative ml-3 flex-shrink-0">
+                        <input type="checkbox" x-model="sessionReminderEnabled" @change="saveSessionReminderEnabled()" class="sr-only" data-testid="mentor-session-reminder-toggle">
+                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionReminderEnabled ? 'bg-blue-600' : 'bg-[#333]'"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionReminderEnabled ? 'translate-x-5' : 'translate-x-0'"></div>
+                    </div>
+                </label>
+            </div>
         </div>
     </div>
 
@@ -217,77 +295,6 @@
                     <span class="block text-sm">1</span>
                     <span class="block text-xs font-medium opacity-70">година</span>
                 </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== TELEGRAM ===== -->
-    <div x-show="profileTab === 'telegram'">
-        <div class="bg-[#1a1a1a] rounded-2xl p-4 sm:p-5 border border-[#333]">
-            <!-- Integration toggle -->
-            <label class="flex items-center justify-between cursor-pointer select-none">
-                <div>
-                    <div class="text-sm text-gray-200 font-medium">Інтеграція з Телеграм</div>
-                    <div class="text-xs text-gray-500 mt-0.5">Сповіщення та зв'язок через Telegram</div>
-                </div>
-                <div class="relative ml-3 flex-shrink-0" @click="telegramIntegration = !telegramIntegration; saveTelegramIntegration()">
-                    <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="telegramIntegration ? 'bg-blue-600' : 'bg-[#333]'"></div>
-                    <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="telegramIntegration ? 'translate-x-5' : 'translate-x-0'"></div>
-                </div>
-            </label>
-            <!-- TG connect status / button (when integration on) -->
-            <div x-show="telegramIntegration" class="mt-4 space-y-3">
-                <template x-if="!mentorTg.enabled">
-                    <p class="text-sm text-gray-500">Telegram не налаштовано адміністратором.</p>
-                </template>
-                <template x-if="mentorTg.enabled && mentorTg.connected">
-                    <div class="flex items-center gap-2 bg-green-900/20 rounded-xl px-3 py-2.5">
-                        <span class="w-2.5 h-2.5 bg-green-500 rounded-full flex-shrink-0"></span>
-                        <span class="text-sm text-green-400 font-medium">Telegram підключено</span>
-                        <span x-show="mentorTg.username" class="text-sm text-gray-500" x-text="'@' + mentorTg.username"></span>
-                    </div>
-                </template>
-                <template x-if="mentorTg.enabled && !mentorTg.connected">
-                    <button @click="openMentorTelegramLink()"
-                            class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-sm transition active:scale-[0.97]">
-                        <span>📲</span><span>Під'єднати Телеграм</span>
-                    </button>
-                </template>
-            </div>
-            <!-- Sub-features — always visible, disabled until TG integration is on and connected -->
-            <div class="mt-4 pt-3 border-t border-[#2a2a2a] space-y-3"
-                 :class="(!telegramIntegration || !mentorTg.connected) ? 'opacity-40 pointer-events-none' : ''">
-                <label class="flex items-center justify-between cursor-pointer select-none">
-                    <div>
-                        <div class="text-sm text-gray-200 font-medium">Підтверджування тренувань</div>
-                        <div class="text-xs text-gray-500 mt-0.5">Статуси підтвердження та кнопки на картках сесій</div>
-                    </div>
-                    <div class="relative ml-3 flex-shrink-0" @click="sessionConfirmations = !sessionConfirmations; saveSessionConfirmations()">
-                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionConfirmations ? 'bg-blue-600' : 'bg-[#333]'"></div>
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionConfirmations ? 'translate-x-5' : 'translate-x-0'"></div>
-                    </div>
-                </label>
-                <label class="flex items-center justify-between cursor-pointer select-none">
-                    <div>
-                        <div class="text-sm text-gray-200 font-medium">Комунікація зі спортсменом</div>
-                        <div class="text-xs text-gray-500 mt-0.5">Відгуки та повідомлення між тренером і учнем</div>
-                    </div>
-                    <div class="relative ml-3 flex-shrink-0" @click="traineeComm = !traineeComm; saveTraineeComm()">
-                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="traineeComm ? 'bg-blue-600' : 'bg-[#333]'"></div>
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="traineeComm ? 'translate-x-5' : 'translate-x-0'"></div>
-                    </div>
-                </label>
-                <label class="flex items-center justify-between cursor-pointer select-none" data-testid="notifications-section">
-                    <div>
-                        <div class="text-sm text-gray-200 font-medium">Нагадування про тренування (за 1 год)</div>
-                        <div class="text-xs text-gray-500 mt-0.5">Telegram-повідомлення перед заняттям</div>
-                    </div>
-                    <div class="relative ml-3 flex-shrink-0">
-                        <input type="checkbox" x-model="sessionReminderEnabled" @change="saveSessionReminderEnabled()" class="sr-only" data-testid="mentor-session-reminder-toggle">
-                        <div class="w-10 h-5 rounded-full transition-colors duration-200" :class="sessionReminderEnabled ? 'bg-blue-600' : 'bg-[#333]'"></div>
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200" :class="sessionReminderEnabled ? 'translate-x-5' : 'translate-x-0'"></div>
-                    </div>
-                </label>
             </div>
         </div>
     </div>

@@ -3,7 +3,7 @@
 <body>
 <th:block th:fragment="content">
 <!-- МОДАЛКА ТРЕНУВАННЯ -->
-<div x-show="showModal" data-tour="session-modal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition @keydown.escape.window="closeModal()">
+<div x-show="showModal" data-tour="session-modal" class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm px-0 sm:px-4" x-cloak x-transition @keydown.escape.window="showModal && closeModal()">
     <div class="modal-container" @click.away="closeModal()">
         <div class="p-6 border-b border-[#333] flex justify-between items-center">
             <h3 class="text-2xl sm:text-3xl font-bold text-white" x-text="editingSessionId ? (labels.edit || 'Редагувати') : (labels.new_session || 'Нова сесія')"></h3>
@@ -76,28 +76,33 @@
                         <p class="text-xs sm:text-sm font-black text-gray-400 uppercase" x-text="labels.manage_trainees || 'Учні'"></p>
                         <span x-show="sessionForm.traineeIds.length" class="text-xs sm:text-sm font-bold text-blue-400 bg-blue-900/30 px-2.5 py-0.5 rounded-full" x-text="sessionForm.traineeIds.length + ' ' + (labels.selected_count || 'вибр.')"></span>
                     </div>
-                    <div x-show="sessionForm.traineeIds.length" class="flex flex-wrap gap-1.5 mb-2">
-                        <template x-for="aId in sessionForm.traineeIds" :key="aId">
-                            <button @click="toggleTraineeSelection(aId)" type="button"
-                                    class="inline-flex items-center gap-1 bg-blue-900/40 text-blue-300 text-xs sm:text-sm font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 active:scale-95 transition-all">
-                                <span x-text="getTraineeName(aId)"></span>
-                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
-                        </template>
-                    </div>
-                    <div class="relative" x-data="{ traineeDropOpen: false }" @click.outside="traineeDropOpen = false; traineeSearch = ''">
-                        <button type="button" @click="traineeDropOpen = !traineeDropOpen; $nextTick(() => { if (traineeDropOpen && $refs.traineeSearchInput) $refs.traineeSearchInput.focus(); })"
-                                class="w-full flex items-center gap-2 py-2 border-b border-[#333] text-left focus:outline-none text-sm text-gray-500 hover:text-gray-300 transition">
-                            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            <span x-text="labels.trainee_search || 'Додати учня...'"></span>
-                        </button>
-                        <div x-show="traineeDropOpen" class="absolute z-30 top-full left-0 right-0 mt-1 bg-[#2a2a2a] border border-[#444] rounded-xl shadow-xl overflow-hidden">
-                            <div class="px-3 pt-2.5 pb-1.5 border-b border-[#3a3a3a]">
-                                <input x-ref="traineeSearchInput" x-model="traineeSearch" type="text" :placeholder="labels.trainee_search || 'Пошук...'" @click.stop class="w-full bg-[#1a1a1a] text-sm text-gray-200 placeholder-gray-600 rounded-lg px-3 py-2 focus:outline-none border border-[#444] focus:border-blue-500 transition">
-                            </div>
-                            <div class="max-h-48 overflow-y-auto">
+                    <div x-data="{ traineePickerOpen: false }"
+                         x-effect="if (!showModal) { traineePickerOpen = false; traineeSearch = ''; }"
+                         @click.outside="traineePickerOpen = false; traineeSearch = ''">
+                        <!-- Selected chips -->
+                        <div x-show="sessionForm.traineeIds.length" class="flex flex-wrap gap-1.5 mb-2">
+                            <template x-for="aId in sessionForm.traineeIds" :key="aId">
+                                <button @click="toggleTraineeSelection(aId)" type="button"
+                                        class="inline-flex items-center gap-1 bg-blue-900/40 text-blue-300 text-xs sm:text-sm font-semibold px-2.5 py-1.5 rounded-full border border-blue-500/30 active:scale-95 transition-all">
+                                    <span x-text="getTraineeName(aId)"></span>
+                                    <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </template>
+                        </div>
+                        <!-- Combobox input -->
+                        <div class="relative">
+                            <input x-ref="traineeSearchInput" x-model="traineeSearch" type="text"
+                                   @focus="traineePickerOpen = true"
+                                   @click="traineePickerOpen = true"
+                                   @keydown.escape="traineePickerOpen = false; traineeSearch = ''"
+                                   :placeholder="sessionForm.traineeIds.length ? (labels.add_trainee || 'Додати ще...') : (labels.trainee_search || 'Пошук учня...')"
+                                   class="w-full bg-[#1a1a1a] text-sm text-gray-200 placeholder-gray-600 rounded-xl px-3 py-2.5 focus:outline-none border border-[#333] focus:border-blue-500 transition">
+                            <!-- Dropdown -->
+                            <div x-show="traineePickerOpen" x-cloak
+                                 class="absolute z-40 left-0 right-0 mt-1 bg-[#222] border border-[#444] rounded-xl shadow-2xl overflow-hidden max-h-52 overflow-y-auto">
                                 <template x-for="trainee in filteredTrainees" :key="trainee.id">
-                                    <button type="button" @click.stop="toggleTraineeSelection(trainee.id); traineeDropOpen = false; traineeSearch = ''"
+                                    <button type="button"
+                                            @mousedown.prevent="toggleTraineeSelection(trainee.id); traineeSearch = ''; if (sessionForm.traineeIds.includes(trainee.id)) { traineePickerOpen = false; }"
                                             class="w-full flex items-center gap-2.5 px-3 py-2.5 hover:bg-[#333] transition text-left"
                                             :class="sessionForm.traineeIds.includes(trainee.id) ? 'bg-blue-600/15' : ''">
                                         <span :class="isAvailable(trainee.id, sessionForm.date)?.length > 0 ? 'w-2 h-2 rounded-full bg-green-500 flex-shrink-0' : isAvailable(trainee.id, sessionForm.date) !== null ? 'w-2 h-2 rounded-full bg-red-500 flex-shrink-0' : 'w-2 h-2 rounded-full bg-gray-600 flex-shrink-0'"></span>

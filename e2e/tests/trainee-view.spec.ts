@@ -367,6 +367,16 @@ test.describe('Trainee view — My Availability tab', () => {
       });
       await tp.locator('button').filter({ hasText: 'Додати' }).first().click();
       await tp.waitForTimeout(300);
+      // Set start/end times so the save button is enabled (disabled when times are empty)
+      await tp.evaluate(() => {
+        const el = document.querySelector('[x-data]') as any;
+        const state = el?._x_dataStack?.[0];
+        if (state?.availRanges?.[0]) {
+          state.availRanges[0].startTime = '10:00';
+          state.availRanges[0].endTime = '11:00';
+        }
+      });
+      await tp.waitForTimeout(200);
       await tp.locator('button').filter({ hasText: 'Зберегти' }).first().click();
       await tp.waitForTimeout(1500);
       expect(apiCalled).toBe(true);
