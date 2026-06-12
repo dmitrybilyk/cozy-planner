@@ -10,8 +10,6 @@ public interface MentorRepository extends ReactiveCrudRepository<Mentor, Long> {
 
     Flux<Mentor> findAllByClubId(Long clubId);
 
-    Flux<Mentor> findAllByNameContainingIgnoreCase(String name);
-
     @Query("SELECT * FROM mentors WHERE telegram_token = :token")
     Mono<Mentor> findByTelegramToken(String token);
 

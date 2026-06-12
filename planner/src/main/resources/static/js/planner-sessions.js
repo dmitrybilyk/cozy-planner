@@ -782,10 +782,6 @@
       }
     },
 
-    async saveRaw(w) {
-      await fetch('/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...w, mentorId: this.mentorId }) });
-    },
-
     askDeleteSession() {
       this.confirmData = { show: true, title: this.labels.confirm_delete_title || 'Видалити?', message: this.labels.confirm_delete_session || 'Дію неможливо скасувати.', onConfirm: async () => { await fetch(`/api/v1/sessions/${this.editingSessionId}`, { method: 'DELETE' }); this._prevTab = null; this.showModal = false; await this.fetchData(); this.$nextTick(() => this.scrollToActive()); } };
     },

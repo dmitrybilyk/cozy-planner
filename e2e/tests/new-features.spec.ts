@@ -233,15 +233,20 @@ test.describe('Bulk availability request', () => {
     // Bulk select is in compact view only
     await page.evaluate(() => {
       const el = document.querySelector('[x-data]') as any;
-      if (el?._x_dataStack) el._x_dataStack[0].traineeCompactView = true;
+      if (el?._x_dataStack) {
+        el._x_dataStack[0].traineeCompactView = true;
+        el._x_dataStack[0].bulkAvailTrainees = [];
+        el._x_dataStack[0].bulkAvailResult = null;
+      }
     });
     await page.waitForTimeout(300);
 
     // Initially bar is hidden
     const bar = page.locator('[data-testid="bulk-avail-bar"]');
 
-    // Select first trainee
+    // Wait for checkbox to be visible before clicking (Alpine re-render may lag under load)
     const checkbox = page.locator('[data-testid="bulk-select-trainee"]').first();
+    await expect(checkbox).toBeVisible({ timeout: 5000 });
     await checkbox.click();
     await page.waitForTimeout(300);
 

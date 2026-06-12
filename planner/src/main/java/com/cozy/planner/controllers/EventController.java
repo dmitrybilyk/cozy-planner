@@ -1,6 +1,6 @@
 package com.cozy.planner.controllers;
 
-import com.cozy.planner.service.EventBroadcastService;
+import com.cozy.planner.service.websocket.EventBroadcastService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
