@@ -88,7 +88,8 @@ public class SecurityConfig {
                             var req = exchange.getRequest();
                             String path = req.getURI().getPath();
                             String ua = req.getHeaders().getFirst("User-Agent");
-                            String ip = req.getRemoteAddress() != null ? req.getRemoteAddress().getAddress().getHostAddress() : "?";
+                            var remoteAddr = req.getRemoteAddress();
+                            String ip = (remoteAddr != null && remoteAddr.getAddress() != null) ? remoteAddr.getAddress().getHostAddress() : "?";
                             log.warn("[security] UNAUTHENTICATED access → 302 /signin | path={} ip={} ua={}", path, ip, ua);
                             var response = exchange.getResponse();
                             response.getHeaders().setLocation(URI.create("/signin"));

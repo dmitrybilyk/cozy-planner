@@ -49,7 +49,8 @@ public class MeController {
     public Mono<Map<String, Object>> me(ServerWebExchange exchange,
                                          @RequestParam(name = "inviteToken", required = false) String inviteToken) {
         String ua = exchange.getRequest().getHeaders().getFirst("User-Agent");
-        String ip = exchange.getRequest().getRemoteAddress() != null ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress() : "?";
+        var remoteAddr = exchange.getRequest().getRemoteAddress();
+        String ip = (remoteAddr != null && remoteAddr.getAddress() != null) ? remoteAddr.getAddress().getHostAddress() : "?";
         return exchange.getSession().flatMap(session -> {
             String sessionId = session.getId();
             Object traineeIdFromSession = session.getAttribute("trainee_id");
