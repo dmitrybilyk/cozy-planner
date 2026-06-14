@@ -1,0 +1,45 @@
+package com.linkease
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+
+private val LOCATION_COLORS = listOf(
+    "#6A1B9A", "#4527A0", "#283593", "#1565C0",
+    "#01579B", "#006064", "#00695C", "#1B5E20",
+    "#33691E", "#827717", "#E65100", "#5D4037"
+)
+
+@Composable
+fun AddEditLocationDialog(
+    initial: Location? = null,
+    onDismiss: () -> Unit,
+    onConfirm: (name: String, address: String, colorHex: String) -> Unit,
+) {
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var address by remember { mutableStateOf(initial?.address ?: "") }
+    var colorHex by remember { mutableStateOf(initial?.colorHex ?: LOCATION_COLORS.first()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial == null) "Нова локація" else "Редагувати локацію", fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Назва *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Адреса") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Text("Колір", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                ColorPicker(selected = colorHex, colors = LOCATION_COLORS, onSelect = { colorHex = it })
+            }
+        },
+        confirmButton = {
+            Button(onClick = { if (name.isNotBlank()) onConfirm(name.trim(), address.trim(), colorHex) }) {
+                Text("Зберегти")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
+    )
+}

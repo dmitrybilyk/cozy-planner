@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_widget_short">Заняття</string>
+    <string name="shortcut_widget_long">Додати віджет занять</string>
+    <string name="shortcut_freetime_short">Вільний час</string>
+    <string name="shortcut_freetime_long">Додати віджет вільного часу</string>
+</resources>

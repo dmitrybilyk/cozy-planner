@@ -1,0 +1,11 @@
+abi_version=1.201.0
+builtins_platform=WASM
+compiler_version=2.1.0
+depends=components.resources\:library org.jetbrains.kotlinx\:kotlinx-datetime org.jetbrains.compose.material3\:material3 org.jetbrains.compose.material\:material-ripple org.jetbrains.compose.foundation\:foundation org.jetbrains.compose.animation\:animation org.jetbrains.compose.material\:material-icons-core org.jetbrains.compose.foundation\:foundation-layout org.jetbrains.compose.ui\:ui org.jetbrains.kotlinx\:kotlinx-browser org.jetbrains.kotlinx\:kotlinx-serialization-core org.jetbrains.compose.animation\:animation-core org.jetbrains.kotlinx\:kotlinx-coroutines-core org.jetbrains.kotlinx\:atomicfu org.jetbrains.compose.runtime\:runtime-saveable kotlin org.jetbrains.compose.runtime\:runtime org.jetbrains.compose.ui\:ui-text org.jetbrains.compose.ui\:ui-graphics org.jetbrains.compose.ui\:ui-unit org.jetbrains.skiko\:skiko org.jetbrains.compose.ui\:ui-geometry org.jetbrains.compose.ui\:ui-util
+ir_signature_versions=1,2
+jsOutputName=composeApp
+metadata_version=1.4.1
+serializedIrFileFingerprints=2du6o7ivu8xa3.209rk7h848o0q 3omqwcyoe56w.357qqa45qbwby 1h23wtx92h89e.2p4h1ziv2kwr0 3kxel7pum2lrf.1jujdyq9hkn7f bnkwr1762bn7.33u3ojpmqh2mn 3k8yo4ujp6eni.2fxvv5zsr1s68 fhupg6zuu4kh.2vxmhvfv1tuxi 3tcw9fgasj53j.6bif6clyc6ne 284lhquml2k5f.3lux26kcc011y 13aydfmaml8j9.fiwjsme68wgw 25kxf8v2ep3rl.aci0muz0g8l6 p06cz6n19gkj.2qkwb37mpt6mp grsuqu9hv0ca.s0nuvlu8ax1w x6k33f46iv7j.331uhawetnqnd 3lgw13licx57l.f2lytld7fv24 2miy8qjdz04af.284rjs0ynbzsq jfo2my492x58.18wscp7r2c0jx 3mvl16jlx30j2.1512y29vl47b4 34v3sz1tgevun.3lz18y5pw03x0 4wbswb8sytvx.1arx3mm965moj 1dw3u5iopaz25.3jstbchp2euv4 j5jtft8t3kkr.16y2657fzhz0 1f3zw5p3gwr1m.2w7lm4gzmah0d 3r9z4lzdoccmz.19w6m86fa4p6c 359ori6p8n902.36cxefv7ni1sr 17fibb0e7hi31.iaufigswjtba aqua3wrkcpa5.1nfroskcs40fe
+serializedKlibFingerprint=24t37swnui1g8.2z5jug40e794d
+unique_name=linkease\:composeApp
+wasm_targets=wasm-js

@@ -1,0 +1,9 @@
+R_DEF: Internal format may change without notice
+local
+string shortcut_freetime_long
+string shortcut_freetime_short
+string shortcut_widget_long
+string shortcut_widget_short
+xml freetime_widget_info
+xml linkease_widget_info
+xml shortcuts

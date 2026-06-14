@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <shortcut
+        android:shortcutId="pin_widget_sessions"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:shortcutShortLabel="@string/shortcut_widget_short"
+        android:shortcutLongLabel="@string/shortcut_widget_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetClass="com.linkease.PinWidgetActivity"
+            android:targetPackage="com.linkease" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="pin_widget_freetime"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_my_calendar"
+        android:shortcutShortLabel="@string/shortcut_freetime_short"
+        android:shortcutLongLabel="@string/shortcut_freetime_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetClass="com.linkease.PinWidgetActivity"
+            android:targetPackage="com.linkease">
+            <extra android:name="widget" android:value="freetime" />
+        </intent>
+    </shortcut>
+
+</shortcuts>
