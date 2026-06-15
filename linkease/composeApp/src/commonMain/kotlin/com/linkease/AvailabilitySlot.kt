@@ -1,5 +1,6 @@
 package com.linkease
 
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 const val CALENDAR_HOURS_START = 7
@@ -7,7 +8,7 @@ const val CALENDAR_HOURS_END   = 22
 
 data class AvailabilitySlot(
     val id: Long = 0,
-    val dayOfWeek: Int,  // 1=Mon … 7=Sun (ISO)
+    val date: LocalDate,
     val startTime: LocalTime,
     val endTime: LocalTime,
     val locationId: Long? = null
@@ -18,21 +19,25 @@ data class FreeSlot(val startTime: LocalTime, val endTime: LocalTime, val locati
 fun calculateFreeSlots(
     sessions: List<Session>,
     availSlots: List<AvailabilitySlot>,
-    dayOfWeek: Int
+    date: LocalDate,
+    workHoursStart: Int = CALENDAR_HOURS_START,
+    workHoursEnd: Int = CALENDAR_HOURS_END,
 ): List<FreeSlot> {
-    val dayAvail = availSlots.filter { it.dayOfWeek == dayOfWeek }
+    val dayAvail = availSlots.filter { it.date == date }
 
-    // If no explicit availability for this day → assume free all day
     val effectiveSlots = if (dayAvail.isEmpty()) {
         listOf(AvailabilitySlot(
-            dayOfWeek = dayOfWeek,
-            startTime = LocalTime(CALENDAR_HOURS_START, 0),
-            endTime   = LocalTime(CALENDAR_HOURS_END, 0),
+            date = date,
+            startTime = LocalTime(workHoursStart, 0),
+            endTime   = LocalTime(workHoursEnd, 0),
             locationId = null
         ))
     } else dayAvail
 
-    return effectiveSlots.flatMap { avail ->
+    val workStartMin = workHoursStart * 60
+    val workEndMin   = workHoursEnd * 60
+
+    val raw = effectiveSlots.flatMap { avail ->
         val relevant = sessions
             .filter { it.startTime.toMinutes() < avail.endTime.toMinutes() && it.endTime.toMinutes() > avail.startTime.toMinutes() }
             .sortedBy { it.startTime.toMinutes() }
@@ -47,4 +52,15 @@ fun calculateFreeSlots(
         if (cursor < avail.endTime.toMinutes()) free.add(FreeSlot(minutesToLocalTime(cursor), avail.endTime, avail.locationId))
         free
     }
+
+    return raw
+        .filter { it.endTime.toMinutes() > workStartMin && it.startTime.toMinutes() < workEndMin }
+        .map { slot ->
+            FreeSlot(
+                startTime = if (slot.startTime.toMinutes() < workStartMin) minutesToLocalTime(workStartMin) else slot.startTime,
+                endTime   = if (slot.endTime.toMinutes()   > workEndMin)   minutesToLocalTime(workEndMin)   else slot.endTime,
+                locationId = slot.locationId
+            )
+        }
+        .filter { it.endTime.toMinutes() > it.startTime.toMinutes() }
 }

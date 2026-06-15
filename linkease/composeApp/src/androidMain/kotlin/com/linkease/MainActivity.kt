@@ -1,9 +1,13 @@
 package com.linkease
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.CalendarContract
@@ -38,6 +42,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private var createSessionVersion by mutableStateOf(0L)
+    private var refreshVersion by mutableStateOf(0L)
+
+    private val pickBackupFile = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) importFromUri(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +78,21 @@ class MainActivity : ComponentActivity() {
         val locationRepo = AndroidLocationRepository(dbHelper)
         val availRepo   = AndroidAvailabilityRepository(dbHelper)
 
+        val prefs = getSharedPreferences("linkease_prefs", MODE_PRIVATE)
+        val workHoursStart  = prefs.getInt("work_hours_start", 7)
+        val workHoursEnd    = prefs.getInt("work_hours_end", 22)
+        val compactModeInit = prefs.getBoolean("compact_mode", true)
+        val gcalSyncInit    = prefs.getBoolean("gcal_sync", false)
+
+        // Write initial backup so share works even before the first data change.
+        DataSyncHelper.exportAll(
+            this,
+            sessionRepo.getAll(),
+            clientRepo.getAll(),
+            locationRepo.getAll(),
+            availRepo.getAll(),
+        )
+
         setContent {
             App(
                 sessionRepository      = sessionRepo,
@@ -86,6 +112,51 @@ class MainActivity : ComponentActivity() {
                 onExportDayDirect  = { date, sessions, clients, locations ->
                     exportDayToCalendar(date, sessions, clients, locations)
                 },
+                onDataChanged = { sessions, clients, locations, availability ->
+                    DataSyncHelper.exportAll(this, sessions, clients, locations, availability)
+                },
+                refreshVersion = refreshVersion,
+                onExportBackup = { DataSyncHelper.shareBackup(this) },
+                onImportBackup = { pickBackupFile.launch(arrayOf("application/json", "*/*")) },
+                workHoursStartInitial = workHoursStart,
+                workHoursEndInitial   = workHoursEnd,
+                onWorkHoursChange = { s, e ->
+                    prefs.edit().putInt("work_hours_start", s).putInt("work_hours_end", e).apply()
+                },
+                compactModeInitial = compactModeInit,
+                onCompactModeChange = { v ->
+                    prefs.edit().putBoolean("compact_mode", v).apply()
+                },
+                gcalSyncInitial = gcalSyncInit,
+                onGcalSyncChange = { v ->
+                    prefs.edit().putBoolean("gcal_sync", v).apply()
+                },
+                onSessionSyncCreate = { session, clients, location ->
+                    CalendarSyncHelper.insertEvent(this, session, clients, location)
+                },
+                onSessionSyncUpdate = { session, clients, location ->
+                    CalendarSyncHelper.updateEvent(this, session, clients, location)
+                },
+                onSessionSyncDelete = { sessionId ->
+                    CalendarSyncHelper.deleteEvent(this, sessionId)
+                },
+                onCopyToClipboard = { text ->
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("free_time", text))
+                    Toast.makeText(this, "Скопійовано", Toast.LENGTH_SHORT).show()
+                },
+                onShareFreeTimeImage = { title, lines ->
+                    FreeTimeImageHelper.share(this, title, lines)
+                },
+                onCopyFreeTimeImage = { title, lines ->
+                    FreeTimeImageHelper.copyToClipboard(this, title, lines)
+                },
+                onShareAvailabilityImage = { title, lines ->
+                    FreeTimeImageHelper.share(this, title, lines, heading = "Доступність")
+                },
+                onCopyAvailabilityImage = { title, lines ->
+                    FreeTimeImageHelper.copyToClipboard(this, title, lines, heading = "Доступність")
+                },
             )
         }
     }
@@ -93,6 +164,23 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.getStringExtra("action") == "create_session") createSessionVersion++
+    }
+
+    // ─── Import helper ───────────────────────────────────────────────────────
+
+    private fun importFromUri(uri: Uri) {
+        val data = DataSyncHelper.parseFromUri(uri, this)
+        if (data == null) {
+            Toast.makeText(this, "Помилка читання файлу резервної копії", Toast.LENGTH_SHORT).show()
+            return
+        }
+        DataSyncHelper.replaceAllData(this, data)
+        refreshVersion++
+        Toast.makeText(
+            this,
+            "✅ Відновлено: ${data.clients.size} клієнтів, ${data.sessions.size} занять",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     // ─── Export helpers ──────────────────────────────────────────────────────

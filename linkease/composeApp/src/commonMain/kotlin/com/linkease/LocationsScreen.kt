@@ -32,7 +32,7 @@ fun LocationsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Зали / Локації", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { IconButton(onClick = onSettingsClick) { Text("⚙", fontSize = 20.sp) } },
+                navigationIcon = { TextButton(onClick = onSettingsClick) { Text("◀ Назад") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },

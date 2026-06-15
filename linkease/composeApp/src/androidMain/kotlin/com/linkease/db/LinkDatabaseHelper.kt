@@ -4,7 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease.db", null, 3) {
+class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease.db", null, 5) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""
@@ -13,7 +13,8 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
                 name TEXT NOT NULL,
                 phone TEXT NOT NULL DEFAULT '',
                 email TEXT NOT NULL DEFAULT '',
-                colorHex TEXT NOT NULL DEFAULT '#2196F3'
+                colorHex TEXT NOT NULL DEFAULT '#2196F3',
+                hourlyRate REAL NOT NULL DEFAULT 0
             )
         """.trimIndent())
 
@@ -48,7 +49,7 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
         db.execSQL("""
             CREATE TABLE availability (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                dayOfWeek INTEGER NOT NULL,
+                date TEXT NOT NULL,
                 startTime TEXT NOT NULL,
                 endTime TEXT NOT NULL,
                 locationId INTEGER
@@ -58,8 +59,6 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
-            // v1→v2: sessions gained startTime/endTime/locationId columns, added session_clients
-            // (handled by recreate since v1 was pre-release)
             db.execSQL("DROP TABLE IF EXISTS session_clients")
             db.execSQL("DROP TABLE IF EXISTS sessions")
             db.execSQL("DROP TABLE IF EXISTS clients")
@@ -77,6 +76,23 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
                     locationId INTEGER
                 )
             """.trimIndent())
+        }
+        if (oldVersion < 4) {
+            // Migrate availability from dayOfWeek to date-specific slots.
+            // Old data is not convertible (no target date), so we drop and recreate.
+            db.execSQL("DROP TABLE IF EXISTS availability")
+            db.execSQL("""
+                CREATE TABLE availability (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date TEXT NOT NULL,
+                    startTime TEXT NOT NULL,
+                    endTime TEXT NOT NULL,
+                    locationId INTEGER
+                )
+            """.trimIndent())
+        }
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE clients ADD COLUMN hourlyRate REAL NOT NULL DEFAULT 0")
         }
     }
 }

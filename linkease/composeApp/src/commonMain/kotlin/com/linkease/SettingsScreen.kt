@@ -1,15 +1,13 @@
 package com.linkease
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -18,13 +16,39 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    currentTheme: AppTheme,
-    onThemeChange: (AppTheme) -> Unit,
+    workHoursStart: Int = 7,
+    workHoursEnd: Int = 22,
+    onWorkHoursChange: ((Int, Int) -> Unit)? = null,
+    gcalSync: Boolean = false,
+    onGcalSyncChange: ((Boolean) -> Unit)? = null,
+    onSyncAllFutureSessions: (() -> Unit)? = null,
     onBack: () -> Unit,
-    onAvailabilityClick: () -> Unit,
     onClientsClick: () -> Unit,
     onLocationsClick: () -> Unit,
+    onReportClick: (() -> Unit)? = null,
+    onExportBackup: (() -> Unit)? = null,
+    onImportBackup: (() -> Unit)? = null,
 ) {
+    var localStart by remember { mutableStateOf(workHoursStart) }
+    var localEnd   by remember { mutableStateOf(workHoursEnd) }
+    var showImportConfirm by remember { mutableStateOf(false) }
+
+    if (showImportConfirm) {
+        AlertDialog(
+            onDismissRequest = { showImportConfirm = false },
+            title = { Text("Відновити дані?") },
+            text = { Text("Це замінить усі поточні дані на дані з файлу. Цю дію неможливо скасувати.") },
+            confirmButton = {
+                TextButton(onClick = { showImportConfirm = false; onImportBackup?.invoke() }) {
+                    Text("Відновити", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportConfirm = false }) { Text("Скасувати") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -34,65 +58,138 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding)) {
 
-            // ── Color theme picker ──
+            // ── Clients & Locations ────────────────────────────────────────
+            SettingsItem(icon = "👥", title = "Клієнти", subtitle = "Додати або редагувати клієнтів", onClick = onClientsClick)
+            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+            SettingsItem(icon = "🏢", title = "Локації", subtitle = "Додати або редагувати локації", onClick = onLocationsClick)
+            if (onReportClick != null) {
+                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                SettingsItem(icon = "📊", title = "Звіт", subtitle = "Статистика по клієнтах та доходах", onClick = onReportClick)
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+
+            // ── Working hours ──────────────────────────────────────────────
             Text(
-                "Кольорова тема",
+                "Робочий час",
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.Gray,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
             )
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                AppTheme.entries.forEach { theme ->
-                    val isSelected = theme == currentTheme
-                    val primary = hexToColor(theme.primaryHex)
-                    val secondary = hexToColor(theme.secondaryHex)
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .border(
-                                width = if (isSelected) 2.5.dp else 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                                shape = RoundedCornerShape(10.dp)
-                            )
-                            .clickable { onThemeChange(theme) }
-                            .padding(vertical = 8.dp, horizontal = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        // Color swatch
-                        Row(
-                            modifier = Modifier.height(28.dp).fillMaxWidth().clip(RoundedCornerShape(6.dp)),
-                        ) {
-                            Box(Modifier.weight(1f).fillMaxHeight().background(primary))
-                            Box(Modifier.weight(1f).fillMaxHeight().background(secondary))
-                        }
-                        Text(
-                            theme.label,
-                            fontSize = 12.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
+                Text("Початок", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                HourStepper(
+                    hour = localStart,
+                    min = 0,
+                    max = localEnd - 1,
+                    onChange = { localStart = it; onWorkHoursChange?.invoke(it, localEnd) }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Кінець", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                HourStepper(
+                    hour = localEnd,
+                    min = localStart + 1,
+                    max = 24,
+                    onChange = { localEnd = it; onWorkHoursChange?.invoke(localStart, it) }
+                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
 
-            // ── Navigation items ──
-            SettingsItem(icon = "📅", title = "Мій графік роботи", subtitle = "Налаштувати години доступності", onClick = onAvailabilityClick)
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingsItem(icon = "👥", title = "Клієнти", subtitle = "Додати або редагувати клієнтів", onClick = onClientsClick)
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingsItem(icon = "🏢", title = "Зали / Локації", subtitle = "Додати або редагувати локації", onClick = onLocationsClick)
+            // ── Google Calendar sync ──────────────────────────────────────
+            Text(
+                "Інтеграції",
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.Gray,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("📅", fontSize = 22.sp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Синхронізація з Google Calendar", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                    Text("Автоматично додавати сесії до календаря", fontSize = 12.sp, color = Color.Gray)
+                }
+                Switch(
+                    checked = gcalSync,
+                    onCheckedChange = { onGcalSyncChange?.invoke(it) },
+                    colors = SwitchDefaults.colors(
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                    )
+                )
+            }
+            if (gcalSync && onSyncAllFutureSessions != null) {
+                OutlinedButton(
+                    onClick = onSyncAllFutureSessions,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Text("Синхронізувати всі майбутні сесії", fontSize = 13.sp)
+                }
+            }
+
+            if (onExportBackup != null || onImportBackup != null) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                Text(
+                    "Резервна копія",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                if (onExportBackup != null) {
+                    SettingsItem(
+                        icon = "📤",
+                        title = "Поділитися резервною копією",
+                        subtitle = "Надіслати JSON-файл на інший пристрій",
+                        onClick = onExportBackup
+                    )
+                }
+                if (onImportBackup != null) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                    SettingsItem(
+                        icon = "📥",
+                        title = "Відновити з файлу",
+                        subtitle = "Завантажити JSON-файл резервної копії",
+                        onClick = { showImportConfirm = true }
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun HourStepper(hour: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FilledTonalIconButton(
+            onClick = { if (hour > min) onChange(hour - 1) },
+            modifier = Modifier.size(32.dp),
+            colors = IconButtonDefaults.filledTonalIconButtonColors()
+        ) { Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+        Text(
+            "${hour.toString().padStart(2, '0')}:00",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 8.dp).width(52.dp),
+        )
+        FilledTonalIconButton(
+            onClick = { if (hour < max) onChange(hour + 1) },
+            modifier = Modifier.size(32.dp),
+            colors = IconButtonDefaults.filledTonalIconButtonColors()
+        ) { Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
     }
 }
 

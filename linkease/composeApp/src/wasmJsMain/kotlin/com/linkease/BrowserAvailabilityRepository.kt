@@ -1,5 +1,6 @@
 package com.linkease
 
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
 class BrowserAvailabilityRepository : AvailabilityRepository {
@@ -8,8 +9,8 @@ class BrowserAvailabilityRepository : AvailabilityRepository {
 
     override fun getAll(): List<AvailabilitySlot> = slots.toList()
 
-    override fun save(dayOfWeek: Int, startTime: LocalTime, endTime: LocalTime, locationId: Long?): AvailabilitySlot {
-        val slot = AvailabilitySlot(nextId++, dayOfWeek, startTime, endTime, locationId)
+    override fun save(date: LocalDate, startTime: LocalTime, endTime: LocalTime, locationId: Long?): AvailabilitySlot {
+        val slot = AvailabilitySlot(nextId++, date, startTime, endTime, locationId)
         slots.add(slot)
         return slot
     }

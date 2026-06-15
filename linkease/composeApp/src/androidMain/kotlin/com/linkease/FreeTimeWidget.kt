@@ -75,7 +75,7 @@ private fun FreeTimeWidgetContent(context: Context) {
     val db         = LinkDatabaseHelper(context)
     val sessions   = AndroidSessionRepository(db).getAll().filter { it.date == date }
     val avail      = AndroidAvailabilityRepository(db).getAll()
-    val freeSlots  = calculateFreeSlots(sessions, avail, date.dayOfWeek.isoDayNumber)
+    val freeSlots  = calculateFreeSlots(sessions, avail, date)
 
     val dayName   = W_DAYS_FT[date.dayOfWeek.ordinal]
     val monthName = W_MONTHS_FT[date.monthNumber - 1]

@@ -21,15 +21,41 @@ import kotlinx.datetime.LocalTime
 fun AddEditAvailabilityDialog(
     dayLabel: String,
     initial: AvailabilitySlot? = null,
+    defaultStartTime: LocalTime = LocalTime(9, 0),
+    defaultEndTime: LocalTime = LocalTime(18, 0),
+    existingSlotsOnDay: List<AvailabilitySlot> = emptyList(),
     locations: List<Location>,
+    hoursStart: Int = CALENDAR_HOURS_START,
+    hoursEnd: Int = CALENDAR_HOURS_END,
+    onDelete: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onConfirm: (start: LocalTime, end: LocalTime, locationId: Long?) -> Unit,
 ) {
-    var startTime by remember { mutableStateOf(initial?.startTime ?: LocalTime(9, 0)) }
-    var endTime by remember { mutableStateOf(initial?.endTime ?: LocalTime(18, 0)) }
+    val otherSlots = remember(existingSlotsOnDay, initial) {
+        existingSlotsOnDay.filter { it.id != (initial?.id ?: -1L) }
+    }
+
+    var startTime by remember { mutableStateOf(initial?.startTime ?: defaultStartTime) }
+    var endTime by remember { mutableStateOf(initial?.endTime ?: defaultEndTime) }
     var selectedLocationId by remember { mutableStateOf(initial?.locationId) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
+
+    val startHiddenMinutes = remember(otherSlots) {
+        otherSlots.flatMap { slot ->
+            (slot.startTime.toMinutes() until slot.endTime.toMinutes()).toList()
+        }.toSet()
+    }
+
+    val endHiddenMinutes = remember(startTime, otherSlots, hoursStart, hoursEnd) {
+        val nextSlot = otherSlots
+            .filter { it.startTime.toMinutes() > startTime.toMinutes() }
+            .minByOrNull { it.startTime.toMinutes() }
+        val ceil = nextSlot?.startTime?.toMinutes() ?: (hoursEnd * 60)
+        val blocked = ((ceil + 1)..(hoursEnd * 60 + 59)).toSet()
+        val beforeStart = (hoursStart * 60..startTime.toMinutes()).toSet()
+        beforeStart + blocked
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -91,14 +117,44 @@ fun AddEditAvailabilityDialog(
                 if (endTime.toMinutes() > startTime.toMinutes()) onConfirm(startTime, endTime, selectedLocationId)
             }) { Text("Зберегти") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
+        dismissButton = {
+            Row {
+                if (onDelete != null) {
+                    TextButton(
+                        onClick = onDelete,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) { Text("Видалити") }
+                }
+                TextButton(onClick = onDismiss) { Text("Скасувати") }
+            }
+        }
     )
 
     if (showStartPicker) {
-        TimePickerDialog(initial = startTime, onDismiss = { showStartPicker = false }, onConfirm = { startTime = it; showStartPicker = false })
+        TimePickerDialog(
+            initial = startTime,
+            minHour = hoursStart,
+            maxHour = hoursEnd,
+            hiddenMinutes = startHiddenMinutes,
+            onDismiss = { showStartPicker = false },
+            onConfirm = { t ->
+                startTime = t
+                if (endTime.toMinutes() <= t.toMinutes()) {
+                    endTime = minutesToLocalTime((t.toMinutes() + 60).coerceAtMost(hoursEnd * 60))
+                }
+                showStartPicker = false
+            }
+        )
     }
     if (showEndPicker) {
-        TimePickerDialog(initial = endTime, onDismiss = { showEndPicker = false }, onConfirm = { endTime = it; showEndPicker = false })
+        TimePickerDialog(
+            initial = endTime,
+            minHour = hoursStart,
+            maxHour = hoursEnd,
+            hiddenMinutes = endHiddenMinutes,
+            onDismiss = { showEndPicker = false },
+            onConfirm = { endTime = it; showEndPicker = false }
+        )
     }
 }
 

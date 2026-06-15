@@ -5,5 +5,6 @@ data class Client(
     val name: String,
     val phone: String = "",
     val email: String = "",
-    val colorHex: String = "#2196F3"
+    val colorHex: String = "#2196F3",
+    val hourlyRate: Double = 0.0
 )
