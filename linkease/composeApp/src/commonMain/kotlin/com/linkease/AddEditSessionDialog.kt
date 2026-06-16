@@ -656,7 +656,7 @@ fun TimePickerDialog(
     }
 
     val initialClosest = slots.minByOrNull { kotlin.math.abs(it.toMinutes() - initial.toMinutes()) } ?: initial
-    var selected by remember { mutableStateOf(if (initial.toMinutes() !in hiddenMinutes) initial else initialClosest) }
+    var selected by remember { mutableStateOf(if (initial in slots) initial else initialClosest) }
 
     // Snap selected to closest available slot when step changes
     val snappedSelected = slots.minByOrNull { kotlin.math.abs(it.toMinutes() - selected.toMinutes()) } ?: selected

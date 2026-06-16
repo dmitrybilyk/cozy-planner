@@ -16,6 +16,26 @@ data class AvailabilitySlot(
 
 data class FreeSlot(val startTime: LocalTime, val endTime: LocalTime, val locationId: Long?)
 
+// Splits this slot around every session that overlaps it, returning the leftover pieces.
+private fun FreeSlot.minus(sessions: List<Session>): List<FreeSlot> {
+    var pieces = listOf(this)
+    for (s in sessions) {
+        val sStart = s.startTime.toMinutes()
+        val sEnd = s.endTime.toMinutes()
+        if (sEnd <= sStart) continue
+        pieces = pieces.flatMap { p ->
+            val pStart = p.startTime.toMinutes()
+            val pEnd = p.endTime.toMinutes()
+            if (sEnd <= pStart || sStart >= pEnd) listOf(p)
+            else buildList {
+                if (sStart > pStart) add(FreeSlot(p.startTime, minutesToLocalTime(sStart), p.locationId))
+                if (sEnd < pEnd) add(FreeSlot(minutesToLocalTime(sEnd), p.endTime, p.locationId))
+            }
+        }
+    }
+    return pieces
+}
+
 fun calculateFreeSlots(
     sessions: List<Session>,
     availSlots: List<AvailabilitySlot>,
@@ -53,7 +73,12 @@ fun calculateFreeSlots(
         free
     }
 
-    return raw
+    // Belt-and-suspenders: carve out any session overlap that survived the per-window
+    // sweep above (e.g. a session straddling two overlapping availability windows).
+    // Guarantees a session's time range can never be reported as free.
+    val sessionFree = raw.flatMap { it.minus(sessions) }
+
+    return sessionFree
         .filter { it.endTime.toMinutes() > workStartMin && it.startTime.toMinutes() < workEndMin }
         .map { slot ->
             FreeSlot(

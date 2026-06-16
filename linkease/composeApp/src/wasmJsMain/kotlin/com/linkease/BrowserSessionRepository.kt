@@ -23,4 +23,6 @@ class BrowserSessionRepository : SessionRepository {
     }
 
     override fun delete(id: Long) { sessions.removeAll { it.id == id } }
+
+    override fun deleteAll() { sessions.clear() }
 }

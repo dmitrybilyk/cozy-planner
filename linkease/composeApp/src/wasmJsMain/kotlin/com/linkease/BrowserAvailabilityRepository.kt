@@ -21,4 +21,6 @@ class BrowserAvailabilityRepository : AvailabilityRepository {
     }
 
     override fun delete(id: Long) { slots.removeAll { it.id == id } }
+
+    override fun deleteAll() { slots.clear() }
 }

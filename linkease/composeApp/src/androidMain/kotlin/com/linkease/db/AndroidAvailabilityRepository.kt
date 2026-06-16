@@ -53,4 +53,8 @@ class AndroidAvailabilityRepository(private val helper: LinkDatabaseHelper) : Av
     override fun delete(id: Long) {
         helper.writableDatabase.delete("availability", "id = ?", arrayOf(id.toString()))
     }
+
+    override fun deleteAll() {
+        helper.writableDatabase.delete("availability", null, null)
+    }
 }

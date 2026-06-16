@@ -4,9 +4,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +28,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import kotlinx.datetime.*
 
 private val DAYS_AVAIL_FULL = listOf("Понеділок","Вівторок","Середа","Четвер","П'ятниця","Субота","Неділя")
@@ -45,9 +50,14 @@ private val AVAIL_TIME_COL   = 48.dp
 fun AvailabilityScreen(
     availability: List<AvailabilitySlot>,
     locations: List<Location>,
+    sessions: List<Session> = emptyList(),
+    clients: List<Client> = emptyList(),
     hoursStart: Int = CALENDAR_HOURS_START,
     hoursEnd: Int = CALENDAR_HOURS_END,
     onSettingsClick: () -> Unit,
+    onAvailabilityNavClick: () -> Unit,
+    onCreateClick: () -> Unit,
+    onFreeTimeClick: () -> Unit,
     onSave: (date: LocalDate, start: LocalTime, end: LocalTime, locationId: Long?) -> Unit,
     onUpdate: (AvailabilitySlot) -> Unit,
     onDelete: (Long) -> Unit,
@@ -55,11 +65,36 @@ fun AvailabilityScreen(
     onCopySchedule: ((String) -> Unit)? = null,
     onShareAvailabilityImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
     onCopyAvailabilityImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
+    onSessionClick: ((Session) -> Unit)? = null,
+    onAddSession: ((LocalDate) -> Unit)? = null,
 ) {
     val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
+    // Default to a Google-Calendar-style continuous agenda of the real schedule; the
+    // availability slot editor (time grid / month) is reached via a button and toggles this off.
+    var scheduleMode by remember { mutableStateOf(true) }
     var currentView by remember { mutableStateOf(CalendarView.THREE_DAY) }
     var startDate by remember { mutableStateOf(today) }
-    var swipeDelta by remember { mutableFloatStateOf(0f) }
+    val clientsById = remember(clients) { clients.associateBy { it.id } }
+    val locationsById = remember(locations) { locations.associateBy { it.id } }
+
+    // Agenda filters — client / location, only applied in schedule mode.
+    var filterClientIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var filterLocationIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val filteredSessions = remember(sessions, filterClientIds, filterLocationIds) {
+        if (filterClientIds.isEmpty() && filterLocationIds.isEmpty()) sessions
+        else sessions.filter { s ->
+            (filterClientIds.isEmpty() || s.clientIds.any { it in filterClientIds }) &&
+            (filterLocationIds.isEmpty() || s.locationId in filterLocationIds)
+        }
+    }
+
+    fun setScheduleMode(enabled: Boolean) {
+        scheduleMode = enabled
+        if (enabled && currentView == CalendarView.MONTH) {
+            currentView = CalendarView.THREE_DAY
+            startDate = today
+        }
+    }
 
     // Edit/add state
     var editingSlot by remember { mutableStateOf<AvailabilitySlot?>(null) }
@@ -79,17 +114,17 @@ fun AvailabilityScreen(
         }
     }
 
+    // Editor-mode arrow nav — same ±1-day-even-in-THREE_DAY convention as CalendarScreen,
+    // so the top-bar arrows always step in sync with the swipe-pager granularity below.
     fun navPrev() {
         startDate = when (currentView) {
-            CalendarView.DAY -> startDate.minus(1, DateTimeUnit.DAY)
-            CalendarView.THREE_DAY -> startDate.minus(3, DateTimeUnit.DAY)
+            CalendarView.DAY, CalendarView.THREE_DAY -> startDate.minus(1, DateTimeUnit.DAY)
             CalendarView.MONTH -> LocalDate(startDate.year, startDate.month, 1).minus(1, DateTimeUnit.MONTH).let { LocalDate(it.year, it.month, 1) }
         }
     }
     fun navNext() {
         startDate = when (currentView) {
-            CalendarView.DAY -> startDate.plus(1, DateTimeUnit.DAY)
-            CalendarView.THREE_DAY -> startDate.plus(3, DateTimeUnit.DAY)
+            CalendarView.DAY, CalendarView.THREE_DAY -> startDate.plus(1, DateTimeUnit.DAY)
             CalendarView.MONTH -> LocalDate(startDate.year, startDate.month, 1).plus(1, DateTimeUnit.MONTH).let { LocalDate(it.year, it.month, 1) }
         }
     }
@@ -129,7 +164,7 @@ fun AvailabilityScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Майбутня доступність", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+                            Text("Розклад", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
                                 color = MaterialTheme.colorScheme.primary)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 IconButton(onClick = ::navPrev, modifier = Modifier.size(32.dp)) { Text("◀", fontSize = 14.sp) }
@@ -138,11 +173,11 @@ fun AvailabilityScreen(
                             }
                         }
                     },
-                    navigationIcon = { TextButton(onClick = onSettingsClick) { Text("◀ Назад") } },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
                 )
-                // View selector
-                val views = CalendarView.entries
+                // View selector — Month only makes sense for the availability editor,
+                // since the compact schedule agenda mirrors the calendar's day/3-day view.
+                val views = if (scheduleMode) listOf(CalendarView.DAY, CalendarView.THREE_DAY) else CalendarView.entries.toList()
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
                     views.forEachIndexed { i, v ->
                         SegmentedButton(
@@ -157,30 +192,52 @@ fun AvailabilityScreen(
         },
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (onCopySchedule != null) {
-                        TextButton(
-                            onClick = {
-                                if (onCopyAvailabilityImage != null && shareLines.isNotEmpty())
-                                    onCopyAvailabilityImage(shareTitle, shareLines)
-                                else onCopySchedule(shareText)
-                            },
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                        ) { Text("📋 Копіювати", fontSize = 12.sp) }
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (scheduleMode) {
+                            TextButton(
+                                onClick = { setScheduleMode(false) },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) { Text("🗓️ Налаштувати доступність", fontSize = 12.sp) }
+                        } else {
+                            TextButton(
+                                onClick = { setScheduleMode(true) },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) { Text("← Розклад", fontSize = 12.sp) }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        if (!scheduleMode) {
+                            if (onCopySchedule != null) {
+                                TextButton(
+                                    onClick = {
+                                        if (onCopyAvailabilityImage != null && shareLines.isNotEmpty())
+                                            onCopyAvailabilityImage(shareTitle, shareLines)
+                                        else onCopySchedule(shareText)
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) { Text("📋 Копіювати", fontSize = 12.sp) }
+                            }
+                            TextButton(
+                                onClick = {
+                                    if (onShareAvailabilityImage != null && shareLines.isNotEmpty())
+                                        onShareAvailabilityImage(shareTitle, shareLines)
+                                    else onShareSchedule(shareText)
+                                },
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) { Text("📤 Поширити", fontSize = 12.sp) }
+                        }
                     }
-                    TextButton(
-                        onClick = {
-                            if (onShareAvailabilityImage != null && shareLines.isNotEmpty())
-                                onShareAvailabilityImage(shareTitle, shareLines)
-                            else onShareSchedule(shareText)
-                        },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                    ) { Text("📤 Поширити", fontSize = 12.sp) }
+                    MainBottomNav(
+                        currentScreen = Screen.AVAILABILITY,
+                        onSettingsClick = onSettingsClick,
+                        onAvailabilityClick = onAvailabilityNavClick,
+                        onFreeTimeClick = onFreeTimeClick,
+                        onCreateClick = onCreateClick,
+                    )
                 }
             }
         },
@@ -201,15 +258,28 @@ fun AvailabilityScreen(
                     )
                 }
         ) {
-            when (currentView) {
-                CalendarView.MONTH -> AvailabilityMonthView(
+            when {
+                scheduleMode -> CompactDayView(
+                    days = days,
+                    today = today,
+                    sessions = sessions,
+                    clientsById = clientsById,
+                    locationsById = locationsById,
+                    onSessionClick = { session -> onSessionClick?.invoke(session) },
+                    onAddSession = { date -> onAddSession?.invoke(date) },
+                    onDayHeaderClick = if (currentView == CalendarView.THREE_DAY) { date ->
+                        startDate = date
+                        currentView = CalendarView.DAY
+                    } else null,
+                )
+                currentView == CalendarView.MONTH -> AvailabilityMonthView(
                     startDate = startDate,
                     today = today,
                     availability = availability,
                     locations = locations,
                     onDayClick = { date -> dayDialogDate = date }
                 )
-                CalendarView.DAY, CalendarView.THREE_DAY -> AvailabilityTimeGrid(
+                else -> AvailabilityTimeGrid(
                     days = days,
                     today = today,
                     availability = availability,

@@ -6,8 +6,8 @@ class BrowserLocationRepository : LocationRepository {
 
     override fun getAll(): List<Location> = locations.toList()
 
-    override fun save(name: String, address: String, colorHex: String): Location {
-        val location = Location(nextId++, name, address, colorHex)
+    override fun save(name: String, address: String, colorHex: String, mapsLink: String?): Location {
+        val location = Location(nextId++, name, address, colorHex, mapsLink)
         locations.add(location)
         return location
     }
@@ -18,4 +18,6 @@ class BrowserLocationRepository : LocationRepository {
     }
 
     override fun delete(id: Long) { locations.removeAll { it.id == id } }
+
+    override fun deleteAll() { locations.clear() }
 }

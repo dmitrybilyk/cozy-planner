@@ -39,13 +39,13 @@ private fun adjustStartForView(date: LocalDate, view: CalendarView): LocalDate =
 
 private fun navigatePrev(date: LocalDate, view: CalendarView): LocalDate = when (view) {
     CalendarView.DAY       -> date.minus(1, DateTimeUnit.DAY)
-    CalendarView.THREE_DAY -> date.minus(3, DateTimeUnit.DAY)
+    CalendarView.THREE_DAY -> date.minus(1, DateTimeUnit.DAY)
     CalendarView.MONTH     -> LocalDate(date.year, date.month, 1).minus(1, DateTimeUnit.MONTH).let { LocalDate(it.year, it.month, 1) }
 }
 
 private fun navigateNext(date: LocalDate, view: CalendarView): LocalDate = when (view) {
     CalendarView.DAY       -> date.plus(1, DateTimeUnit.DAY)
-    CalendarView.THREE_DAY -> date.plus(3, DateTimeUnit.DAY)
+    CalendarView.THREE_DAY -> date.plus(1, DateTimeUnit.DAY)
     CalendarView.MONTH     -> LocalDate(date.year, date.month, 1).plus(1, DateTimeUnit.MONTH).let { LocalDate(it.year, it.month, 1) }
 }
 
@@ -80,6 +80,11 @@ fun App(
     onCopyFreeTimeImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
     onShareAvailabilityImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
     onCopyAvailabilityImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
+    onOpenUrl: ((String) -> Unit)? = null,
+    onEraseAllData: ((sessionIds: List<Long>) -> Unit)? = null,
+    notificationSoundName: String = "Стандартний",
+    onPickNotificationSound: (() -> Unit)? = null,
+    onSendTestNotification: (() -> Unit)? = null,
 ) {
     val tz = TimeZone.currentSystemDefault()
     val todayDate = Clock.System.now().toLocalDateTime(tz).date
@@ -88,6 +93,11 @@ fun App(
     val screen = screenHistory.last()
     fun navigateTo(s: Screen) { screenHistory = screenHistory + s }
     fun goBack() { if (screenHistory.size > 1) screenHistory = screenHistory.dropLast(1) }
+    // Calendar / Розклад / Налаштування are peer tabs reached via the persistent bottom
+    // nav — switching tabs replaces the whole stack (no "Назад" needed between them),
+    // while sub-screens pushed from Settings (Clients/Locations/Report) still use
+    // navigateTo/goBack above.
+    fun switchRootScreen(s: Screen) { screenHistory = listOf(s) }
 
     BackHandler(enabled = screenHistory.size > 1) { goBack() }
 
@@ -132,6 +142,20 @@ fun App(
         onSessionSyncDelete?.invoke(sessionId)
     }
 
+    fun eraseAllData() {
+        val sessionIds = sessions.map { it.id }
+        sessionRepository.deleteAll()
+        clientRepository.deleteAll()
+        locationRepository.deleteAll()
+        availabilityRepository.deleteAll()
+        sessions = emptyList()
+        clients = emptyList()
+        locations = emptyList()
+        availability = emptyList()
+        onEraseAllData?.invoke(sessionIds)
+        syncData()
+    }
+
     var showAddSession by remember { mutableStateOf(false) }
     var addSessionDate by remember { mutableStateOf(selectedDay) }
     var addSessionStartTime by remember { mutableStateOf(LocalTime(9, 0)) }
@@ -145,6 +169,26 @@ fun App(
         addSessionEndTime = end
         editingSession = null
         showAddSession = true
+    }
+
+    // Bottom-nav tab toggles: tapping a screen's own icon while already there returns
+    // to Calendar, so Розклад/Налаштування need no separate "Назад" button.
+    fun onSettingsTabClick() {
+        switchRootScreen(if (screen == Screen.SETTINGS) Screen.CALENDAR else Screen.SETTINGS)
+    }
+    fun onAvailabilityTabClick() {
+        switchRootScreen(if (screen == Screen.AVAILABILITY) Screen.CALENDAR else Screen.AVAILABILITY)
+    }
+    fun onFreeTimeTabClick() { switchRootScreen(Screen.CALENDAR) }
+
+    fun quickCreateSession() {
+        val target = selectedDay
+        val desiredStart = if (target == todayDate) {
+            val now = Clock.System.now().toLocalDateTime(tz).time
+            val mins = now.hour * 60 + now.minute
+            minutesToLocalTime(((mins + 29) / 30) * 30)
+        } else LocalTime(9, 0)
+        openNewSession(target, findNextAvailableStart(sessions, target, desiredStart, workHoursEnd = workHoursEnd))
     }
 
     fun switchView(newView: CalendarView) {
@@ -204,6 +248,10 @@ fun App(
                     selectedDay = todayDate
                     startDate = adjustStartForView(todayDate, currentView)
                 },
+                onDateChange = { date ->
+                    startDate = date
+                    selectedDay = date
+                },
                 onViewChange = { switchView(it) },
                 selectedDay = selectedDay,
                 onAddSession = { date, time -> openNewSession(date, time) },
@@ -215,8 +263,8 @@ fun App(
                     refreshSessions()
                 },
                 onCopySession = { copyingSession = it },
-                onAvailabilityClick = { navigateTo(Screen.AVAILABILITY) },
-                onSettingsClick = { navigateTo(Screen.SETTINGS) },
+                onAvailabilityClick = { onAvailabilityTabClick() },
+                onSettingsClick = { onSettingsTabClick() },
                 onShareFreeTime = { _, text -> onShare(text) },
                 onDayClickInMonth = { date ->
                     selectedDay = date
@@ -245,22 +293,30 @@ fun App(
             Screen.LOCATIONS -> LocationsScreen(
                 locations = locations,
                 onSettingsClick = { goBack() },
-                onSave = { n, a, c ->
-                    locationRepository.save(n, a, c)
+                onSave = { n, a, c, m ->
+                    locationRepository.save(n, a, c, m)
                     locations = locationRepository.getAll()
                     onScheduleNotifications?.invoke(sessions, clients, locations)
                     syncData()
                 },
                 onUpdate = { locationRepository.update(it); locations = locationRepository.getAll(); syncData() },
-                onDelete = { locationRepository.delete(it); locations = locationRepository.getAll(); syncData() }
+                onDelete = { locationRepository.delete(it); locations = locationRepository.getAll(); syncData() },
+                onShare = onShare,
+                onCopyToClipboard = onCopyToClipboard,
+                onOpenMap = onOpenUrl,
             )
 
             Screen.AVAILABILITY -> AvailabilityScreen(
                 availability = availability,
                 locations = locations,
+                sessions = sessions,
+                clients = clients,
                 hoursStart = workHoursStart,
                 hoursEnd = workHoursEnd,
-                onSettingsClick = { goBack() },
+                onSettingsClick = { onSettingsTabClick() },
+                onAvailabilityNavClick = { onAvailabilityTabClick() },
+                onCreateClick = { quickCreateSession() },
+                onFreeTimeClick = { onFreeTimeTabClick() },
                 onSave = { date, start, end, locId ->
                     availabilityRepository.save(date, start, end, locId)
                     availability = availabilityRepository.getAll()
@@ -272,6 +328,8 @@ fun App(
                 onCopySchedule = onCopyToClipboard,
                 onShareAvailabilityImage = onShareAvailabilityImage,
                 onCopyAvailabilityImage = onCopyAvailabilityImage,
+                onSessionClick = { editingSession = it; addSessionEndTime = null; showAddSession = true },
+                onAddSession = { date -> openNewSession(date, LocalTime(9, 0)) },
             )
 
             Screen.SETTINGS -> SettingsScreen(
@@ -292,12 +350,19 @@ fun App(
                         futureSessions.forEach { s -> syncSessionUpdate(s) }
                     }
                 } else null,
-                onBack = { goBack() },
+                onSettingsClick = { onSettingsTabClick() },
+                onAvailabilityClick = { onAvailabilityTabClick() },
+                onCreateClick = { quickCreateSession() },
+                onFreeTimeClick = { onFreeTimeTabClick() },
                 onClientsClick = { navigateTo(Screen.CLIENTS) },
                 onLocationsClick = { navigateTo(Screen.LOCATIONS) },
                 onReportClick = { navigateTo(Screen.REPORT) },
                 onExportBackup = onExportBackup,
                 onImportBackup = onImportBackup,
+                onEraseAllData = { eraseAllData() },
+                notificationSoundName = notificationSoundName,
+                onPickNotificationSound = onPickNotificationSound,
+                onSendTestNotification = onSendTestNotification,
             )
 
             Screen.REPORT -> ReportScreen(

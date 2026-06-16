@@ -17,7 +17,9 @@ fun main() {
                 // Try Web Share API, fall back to clipboard
                 window.navigator.clipboard.writeText(text)
                 window.alert("Текст скопійовано в буфер обміну:\n\n$text")
-            }
+            },
+            onCopyToClipboard = { text -> window.navigator.clipboard.writeText(text) },
+            onOpenUrl = { url -> window.open(url, "_blank") },
         )
     }
 }

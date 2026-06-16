@@ -46,4 +46,8 @@ class AndroidClientRepository(private val helper: LinkDatabaseHelper) : ClientRe
     override fun delete(id: Long) {
         helper.writableDatabase.delete("clients", "id = ?", arrayOf(id.toString()))
     }
+
+    override fun deleteAll() {
+        helper.writableDatabase.delete("clients", null, null)
+    }
 }

@@ -85,6 +85,12 @@ class AndroidSessionRepository(private val helper: LinkDatabaseHelper) : Session
         db.delete("sessions", "id = ?", arrayOf(id.toString()))
     }
 
+    override fun deleteAll() {
+        val db = helper.writableDatabase
+        db.delete("session_clients", null, null)
+        db.delete("sessions", null, null)
+    }
+
     private fun getClientIdsForSession(sessionId: Long): List<Long> {
         val cursor = helper.readableDatabase.query(
             "session_clients", arrayOf("clientId"), "sessionId = ?", arrayOf(sessionId.toString()), null, null, null

@@ -7,10 +7,12 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.CalendarContract
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -21,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.lifecycleScope
 import com.linkease.db.*
@@ -43,11 +46,25 @@ class MainActivity : ComponentActivity() {
 
     private var createSessionVersion by mutableStateOf(0L)
     private var refreshVersion by mutableStateOf(0L)
+    private var notificationSoundUriState by mutableStateOf<String?>(null)
 
     private val pickBackupFile = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) importFromUri(uri)
+    }
+
+    private val pickNotificationSound = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val uri = result.data?.let { IntentCompat.getParcelableExtra(it, RingtoneManager.EXTRA_RINGTONE_PICKED_URI, Uri::class.java) }
+            val uriString = uri?.toString()
+            getSharedPreferences("linkease_prefs", MODE_PRIVATE).edit()
+                .putString("notification_sound_uri", uriString).apply()
+            notificationSoundUriState = uriString
+            NotificationHelper.recreateChannelWithSound(this, uri)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,7 +73,9 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.parseColor("#1A1A2E"))
         )
 
-        NotificationHelper.createChannel(this)
+        val prefs = getSharedPreferences("linkease_prefs", MODE_PRIVATE)
+        notificationSoundUriState = prefs.getString("notification_sound_uri", null)
+        NotificationHelper.createChannel(this, notificationSoundUriState?.let(Uri::parse))
         QuickNotification.createChannel(this)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -78,7 +97,6 @@ class MainActivity : ComponentActivity() {
         val locationRepo = AndroidLocationRepository(dbHelper)
         val availRepo   = AndroidAvailabilityRepository(dbHelper)
 
-        val prefs = getSharedPreferences("linkease_prefs", MODE_PRIVATE)
         val workHoursStart  = prefs.getInt("work_hours_start", 7)
         val workHoursEnd    = prefs.getInt("work_hours_end", 22)
         val compactModeInit = prefs.getBoolean("compact_mode", true)
@@ -157,6 +175,17 @@ class MainActivity : ComponentActivity() {
                 onCopyAvailabilityImage = { title, lines ->
                     FreeTimeImageHelper.copyToClipboard(this, title, lines, heading = "Доступність")
                 },
+                onOpenUrl = { url ->
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                },
+                onEraseAllData = { sessionIds ->
+                    sessionIds.forEach { NotificationHelper.cancelSession(this, it) }
+                    lifecycleScope.launch { LinkEaseWidget().updateAll(this@MainActivity) }
+                    Toast.makeText(this, "✅ Усі дані видалено", Toast.LENGTH_SHORT).show()
+                },
+                notificationSoundName = notificationSoundDisplayName(notificationSoundUriState),
+                onPickNotificationSound = { launchSoundPicker() },
+                onSendTestNotification = { NotificationHelper.sendTestNotification(this) },
             )
         }
     }
@@ -164,6 +193,30 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.getStringExtra("action") == "create_session") createSessionVersion++
+    }
+
+    // ─── Notification sound ──────────────────────────────────────────────────
+
+    private fun launchSoundPicker() {
+        val currentUri = notificationSoundUriState?.let(Uri::parse) ?: Settings.System.DEFAULT_NOTIFICATION_URI
+        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_NOTIFICATION)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Звук нагадування")
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI, Settings.System.DEFAULT_NOTIFICATION_URI)
+            putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, currentUri)
+        }
+        pickNotificationSound.launch(intent)
+    }
+
+    private fun notificationSoundDisplayName(uriString: String?): String {
+        if (uriString == null) return "Стандартний"
+        return try {
+            RingtoneManager.getRingtone(this, Uri.parse(uriString))?.getTitle(this) ?: "Стандартний"
+        } catch (e: SecurityException) {
+            "Стандартний"
+        }
     }
 
     // ─── Import helper ───────────────────────────────────────────────────────

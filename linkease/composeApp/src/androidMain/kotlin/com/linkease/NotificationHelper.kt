@@ -6,14 +6,18 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import androidx.core.app.NotificationCompat
 import kotlinx.datetime.*
 
 object NotificationHelper {
     const val CHANNEL_ID = "linkease_sessions"
     private const val REMIND_MINUTES_BEFORE = 10L
 
-    fun createChannel(context: Context) {
+    fun createChannel(context: Context, soundUri: Uri? = null) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
@@ -22,10 +26,38 @@ object NotificationHelper {
             ).apply {
                 description = "Нагадування перед початком заняття"
                 enableVibration(true)
+                val audioAttributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+                setSound(soundUri ?: Settings.System.DEFAULT_NOTIFICATION_URI, audioAttributes)
             }
             (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(channel)
         }
+    }
+
+    // Channels are immutable once created on Android O+ — changing the sound
+    // requires deleting and recreating the channel under the same id.
+    fun recreateChannelWithSound(context: Context, soundUri: Uri?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .deleteNotificationChannel(CHANNEL_ID)
+        }
+        createChannel(context, soundUri)
+    }
+
+    fun sendTestNotification(context: Context) {
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle("⏰ Тестове сповіщення")
+            .setContentText("Так виглядатиме нагадування про заняття")
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .build()
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .notify(-1, notification)
     }
 
     fun scheduleSession(context: Context, session: Session, clients: List<Client>, location: Location?) {

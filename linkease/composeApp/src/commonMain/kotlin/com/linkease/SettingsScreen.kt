@@ -22,16 +22,24 @@ fun SettingsScreen(
     gcalSync: Boolean = false,
     onGcalSyncChange: ((Boolean) -> Unit)? = null,
     onSyncAllFutureSessions: (() -> Unit)? = null,
-    onBack: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onAvailabilityClick: () -> Unit,
+    onCreateClick: () -> Unit,
+    onFreeTimeClick: () -> Unit,
     onClientsClick: () -> Unit,
     onLocationsClick: () -> Unit,
     onReportClick: (() -> Unit)? = null,
     onExportBackup: (() -> Unit)? = null,
     onImportBackup: (() -> Unit)? = null,
+    onEraseAllData: (() -> Unit)? = null,
+    notificationSoundName: String = "Стандартний",
+    onPickNotificationSound: (() -> Unit)? = null,
+    onSendTestNotification: (() -> Unit)? = null,
 ) {
     var localStart by remember { mutableStateOf(workHoursStart) }
     var localEnd   by remember { mutableStateOf(workHoursEnd) }
     var showImportConfirm by remember { mutableStateOf(false) }
+    var showEraseConfirm by remember { mutableStateOf(false) }
 
     if (showImportConfirm) {
         AlertDialog(
@@ -49,12 +57,36 @@ fun SettingsScreen(
         )
     }
 
+    if (showEraseConfirm) {
+        AlertDialog(
+            onDismissRequest = { showEraseConfirm = false },
+            title = { Text("Видалити всі дані?") },
+            text = { Text("Усі клієнти, локації, сесії та доступність будуть видалені незворотно. Цю дію неможливо скасувати.") },
+            confirmButton = {
+                TextButton(onClick = { showEraseConfirm = false; onEraseAllData?.invoke() }) {
+                    Text("Видалити все", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEraseConfirm = false }) { Text("Скасувати") }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Налаштування", fontWeight = FontWeight.SemiBold) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("◀ Назад") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+        },
+        bottomBar = {
+            MainBottomNav(
+                currentScreen = Screen.SETTINGS,
+                onSettingsClick = onSettingsClick,
+                onAvailabilityClick = onAvailabilityClick,
+                onFreeTimeClick = onFreeTimeClick,
+                onCreateClick = onCreateClick,
             )
         }
     ) { padding ->
@@ -101,6 +133,33 @@ fun SettingsScreen(
                     max = 24,
                     onChange = { localEnd = it; onWorkHoursChange?.invoke(localStart, it) }
                 )
+            }
+
+            if (onPickNotificationSound != null || onSendTestNotification != null) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                Text(
+                    "Сповіщення",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                if (onPickNotificationSound != null) {
+                    SettingsItem(
+                        icon = "🔔",
+                        title = "Звук нагадування",
+                        subtitle = notificationSoundName,
+                        onClick = onPickNotificationSound
+                    )
+                }
+                if (onSendTestNotification != null) {
+                    if (onPickNotificationSound != null) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                    SettingsItem(
+                        icon = "🔊",
+                        title = "Надіслати тестове сповіщення",
+                        subtitle = "Перевірити, як воно виглядає і звучить",
+                        onClick = onSendTestNotification
+                    )
+                }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
@@ -166,6 +225,22 @@ fun SettingsScreen(
                         onClick = { showImportConfirm = true }
                     )
                 }
+            }
+
+            if (onEraseAllData != null) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                Text(
+                    "Тестування",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                SettingsItem(
+                    icon = "🗑️",
+                    title = "Видалити всі дані",
+                    subtitle = "Стерти клієнтів, локації, сесії та доступність",
+                    onClick = { showEraseConfirm = true }
+                )
             }
         }
     }

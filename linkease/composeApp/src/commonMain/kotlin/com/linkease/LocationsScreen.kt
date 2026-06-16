@@ -20,9 +20,12 @@ import androidx.compose.ui.unit.sp
 fun LocationsScreen(
     locations: List<Location>,
     onSettingsClick: () -> Unit,
-    onSave: (name: String, address: String, colorHex: String) -> Unit,
+    onSave: (name: String, address: String, colorHex: String, mapsLink: String?) -> Unit,
     onUpdate: (Location) -> Unit,
     onDelete: (Long) -> Unit,
+    onShare: (String) -> Unit = {},
+    onCopyToClipboard: ((String) -> Unit)? = null,
+    onOpenMap: ((String) -> Unit)? = null,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Location?>(null) }
@@ -51,7 +54,10 @@ fun LocationsScreen(
                 LocationCard(
                     location = loc,
                     onEdit = { editing = loc; showDialog = true },
-                    onDelete = { deleteCandidate = loc }
+                    onDelete = { deleteCandidate = loc },
+                    onOpenMap = onOpenMap,
+                    onCopyLocation = onCopyToClipboard?.let { copy -> { copy(locationShareText(loc)) } },
+                    onShareLocation = { onShare(locationShareText(loc)) },
                 )
             }
             if (locations.isEmpty()) {
@@ -68,10 +74,11 @@ fun LocationsScreen(
         AddEditLocationDialog(
             initial = editing,
             onDismiss = { showDialog = false; editing = null },
-            onConfirm = { name, address, colorHex ->
+            onOpenMap = onOpenMap,
+            onConfirm = { name, address, colorHex, mapsLink ->
                 val e = editing
-                if (e == null) onSave(name, address, colorHex)
-                else onUpdate(e.copy(name = name, address = address, colorHex = colorHex))
+                if (e == null) onSave(name, address, colorHex, mapsLink)
+                else onUpdate(e.copy(name = name, address = address, colorHex = colorHex, mapsLink = mapsLink))
                 showDialog = false; editing = null
             }
         )
@@ -93,28 +100,60 @@ fun LocationsScreen(
     }
 }
 
+private fun locationShareText(location: Location): String = buildString {
+    append(location.name)
+    if (location.address.isNotBlank()) { append("\n"); append(location.address) }
+    location.mapsUrl()?.let { append("\n"); append(it) }
+}
+
 @Composable
-private fun LocationCard(location: Location, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun LocationCard(
+    location: Location,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onOpenMap: ((String) -> Unit)? = null,
+    onCopyLocation: (() -> Unit)? = null,
+    onShareLocation: (() -> Unit)? = null,
+) {
     val color = hexToColor(location.colorHex)
+    val mapsUrl = location.mapsUrl()
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
         onClick = onEdit
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier.width(6.dp).height(44.dp).clip(RoundedCornerShape(3.dp)).background(color)
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(location.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                if (location.address.isNotBlank()) Text(location.address, fontSize = 13.sp, color = Color.Gray)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier.width(6.dp).height(44.dp).clip(RoundedCornerShape(3.dp)).background(color)
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(location.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    if (location.address.isNotBlank()) Text(location.address, fontSize = 13.sp, color = Color.Gray)
+                }
+                TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Text("✕")
+                }
             }
-            TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                Text("✕")
+            if (mapsUrl != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (onOpenMap != null) {
+                        TextButton(onClick = { onOpenMap(mapsUrl) }) { Text("📍 Карта", fontSize = 13.sp) }
+                    }
+                    if (onCopyLocation != null) {
+                        TextButton(onClick = onCopyLocation) { Text("📋", fontSize = 15.sp) }
+                    }
+                    if (onShareLocation != null) {
+                        TextButton(onClick = onShareLocation) { Text("↗", fontSize = 17.sp) }
+                    }
+                }
             }
         }
     }

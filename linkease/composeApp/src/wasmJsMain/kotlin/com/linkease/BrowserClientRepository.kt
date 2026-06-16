@@ -18,4 +18,6 @@ class BrowserClientRepository : ClientRepository {
     }
 
     override fun delete(id: Long) { clients.removeAll { it.id == id } }
+
+    override fun deleteAll() { clients.clear() }
 }

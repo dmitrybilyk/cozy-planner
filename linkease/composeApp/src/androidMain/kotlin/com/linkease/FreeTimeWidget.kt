@@ -72,10 +72,14 @@ private fun FreeTimeWidgetContent(context: Context) {
     val today = Clock.System.now().toLocalDateTime(tz).date
     val date  = today.plus(dayOffset, DateTimeUnit.DAY)
 
+    val sharedPrefs    = context.getSharedPreferences("linkease_prefs", Context.MODE_PRIVATE)
+    val workHoursStart = sharedPrefs.getInt("work_hours_start", CALENDAR_HOURS_START)
+    val workHoursEnd   = sharedPrefs.getInt("work_hours_end",   CALENDAR_HOURS_END)
+
     val db         = LinkDatabaseHelper(context)
     val sessions   = AndroidSessionRepository(db).getAll().filter { it.date == date }
     val avail      = AndroidAvailabilityRepository(db).getAll()
-    val freeSlots  = calculateFreeSlots(sessions, avail, date)
+    val freeSlots  = calculateFreeSlots(sessions, avail, date, workHoursStart, workHoursEnd)
 
     val dayName   = W_DAYS_FT[date.dayOfWeek.ordinal]
     val monthName = W_MONTHS_FT[date.monthNumber - 1]

@@ -8,14 +8,18 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PageSize
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,9 +29,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -46,6 +53,11 @@ val MONTHS_UK_FULL = listOf(
 val HOUR_HEIGHT = 64.dp
 private val TIME_COL_WIDTH  = 48.dp
 
+// Virtual page range for the day/3-day pager: a fixed window of dates around the
+// date the pager was first mounted at, so swiping never has to "teleport" pages.
+private const val PAGER_PAGE_COUNT = 20001
+private const val PAGER_CENTER = PAGER_PAGE_COUNT / 2
+
 private val WEEKEND_BG        = Color(0xFFFAFAFA)
 private val WEEKEND_HEADER    = Color(0xFFBF360C)
 private val PAST_OVERLAY      = Color(0x14000000)
@@ -57,6 +69,95 @@ fun hexToColor(hex: String): Color = try {
     val h = hex.removePrefix("#")
     Color(h.substring(0,2).toInt(16), h.substring(2,4).toInt(16), h.substring(4,6).toInt(16))
 } catch (_: Exception) { Color(0xFF3949AB) }
+
+// ─────────────────────────────────────────────
+// Shared smooth-swipe pager controllers — used by both CalendarScreen and
+// AvailabilityScreen so day/3-day/month swiping feels identical everywhere.
+// ─────────────────────────────────────────────
+
+class DayPagerController(
+    val pagerState: PagerState,
+    val pageToDate: (Int) -> LocalDate,
+    val dateToPage: (LocalDate) -> Int,
+)
+
+@Composable
+fun rememberDayPagerController(
+    startDate: LocalDate,
+    onDateChange: ((LocalDate) -> Unit)?,
+): DayPagerController {
+    val pagerAnchorDate = remember { startDate }
+    val pagerState = rememberPagerState(initialPage = PAGER_CENTER) { PAGER_PAGE_COUNT }
+    val latestStartDate by rememberUpdatedState(startDate)
+    val latestOnDateChange by rememberUpdatedState(onDateChange)
+
+    fun pageToDate(page: Int): LocalDate = pagerAnchorDate.plus(page - PAGER_CENTER, DateTimeUnit.DAY)
+    fun dateToPage(date: LocalDate): Int = PAGER_CENTER + (date.toEpochDays() - pagerAnchorDate.toEpochDays())
+
+    // Pager swiped → tell the caller the logical date moved (rememberUpdatedState keeps
+    // this long-running coroutine's comparisons fresh even though it never restarts).
+    LaunchedEffect(pagerState, pagerAnchorDate) {
+        snapshotFlow { pagerState.currentPage }.collect { page ->
+            val date = pageToDate(page)
+            if (date != latestStartDate) latestOnDateChange?.invoke(date)
+        }
+    }
+    // External date change (top bar arrows, "today", tapping a day) → move the pager.
+    LaunchedEffect(startDate) {
+        val target = dateToPage(startDate)
+        if (pagerState.currentPage != target) {
+            val distance = kotlin.math.abs(target - pagerState.currentPage)
+            if (distance in 1..7) pagerState.animateScrollToPage(target)
+            else pagerState.scrollToPage(target)
+        }
+    }
+    return remember(pagerState) { DayPagerController(pagerState, ::pageToDate, ::dateToPage) }
+}
+
+class MonthPagerController(
+    val pagerState: PagerState,
+    val pageToMonth: (Int) -> LocalDate,
+    val monthToPage: (LocalDate) -> Int,
+)
+
+private const val MONTH_PAGER_PAGE_COUNT = 2001
+private const val MONTH_PAGER_CENTER = MONTH_PAGER_PAGE_COUNT / 2
+
+@Composable
+fun rememberMonthPagerController(
+    startDate: LocalDate,
+    onDateChange: ((LocalDate) -> Unit)?,
+): MonthPagerController {
+    val anchorMonth = remember { LocalDate(startDate.year, startDate.month, 1) }
+    val pagerState = rememberPagerState(initialPage = MONTH_PAGER_CENTER) { MONTH_PAGER_PAGE_COUNT }
+    val latestStartDate by rememberUpdatedState(startDate)
+    val latestOnDateChange by rememberUpdatedState(onDateChange)
+
+    fun absoluteMonth(d: LocalDate) = d.year * 12 + (d.monthNumber - 1)
+    fun pageToMonth(page: Int): LocalDate {
+        val total = absoluteMonth(anchorMonth) + (page - MONTH_PAGER_CENTER)
+        return LocalDate(total.floorDiv(12), total.mod(12) + 1, 1)
+    }
+    fun monthToPage(date: LocalDate): Int =
+        MONTH_PAGER_CENTER + (absoluteMonth(LocalDate(date.year, date.month, 1)) - absoluteMonth(anchorMonth))
+
+    LaunchedEffect(pagerState, anchorMonth) {
+        snapshotFlow { pagerState.currentPage }.collect { page ->
+            val month = pageToMonth(page)
+            val currentMonth = LocalDate(latestStartDate.year, latestStartDate.month, 1)
+            if (month != currentMonth) latestOnDateChange?.invoke(month)
+        }
+    }
+    LaunchedEffect(startDate) {
+        val target = monthToPage(startDate)
+        if (pagerState.currentPage != target) {
+            val distance = kotlin.math.abs(target - pagerState.currentPage)
+            if (distance in 1..3) pagerState.animateScrollToPage(target)
+            else pagerState.scrollToPage(target)
+        }
+    }
+    return remember(pagerState) { MonthPagerController(pagerState, ::pageToMonth, ::monthToPage) }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +173,7 @@ fun CalendarScreen(
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onGoToToday: () -> Unit,
+    onDateChange: ((LocalDate) -> Unit)? = null,
     onViewChange: (CalendarView) -> Unit,
     selectedDay: LocalDate? = null,
     onAddSession: (date: LocalDate, startTime: LocalTime) -> Unit,
@@ -110,16 +212,22 @@ fun CalendarScreen(
 
     val scrollState = rememberScrollState()
     var sessionMenu by remember { mutableStateOf<Session?>(null) }
-    var swipeDelta by remember { mutableFloatStateOf(0f) }
     var showFreeChips by remember { mutableStateOf(false) }
     var compactMode by remember { mutableStateOf(compactModeInitial) }
+    // Month view has no natural "days" window, so free time there shares the
+    // next N days starting today; user controls N via a stepper (1..365, default 7).
+    var monthFreeDayCount by remember { mutableStateOf(7) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Free chips: current period (visible days), clamped to working hours
-    val freeChips = remember(days, sessions, availability, hoursStart, hoursEnd) {
-        days.flatMap { day ->
+    val freeTimeDays = if (currentView == CalendarView.MONTH)
+        (0 until monthFreeDayCount).map { today.plus(it, DateTimeUnit.DAY) }
+    else days
+
+    // Free chips: current period (visible days, or the month-view day-count window), clamped to working hours
+    val freeChips = remember(freeTimeDays, sessions, availability, hoursStart, hoursEnd) {
+        freeTimeDays.flatMap { day ->
             val daySessions = sessions.filter { it.date == day }
             calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
                 .map { Pair(day, it) }
@@ -142,7 +250,7 @@ fun CalendarScreen(
                     currentView = currentView,
                     onViewChange = onViewChange,
                     compactMode = compactMode,
-                    onToggleCompact = if (currentView == CalendarView.DAY) {{
+                    onToggleCompact = if (currentView != CalendarView.MONTH) {{
                         val newMode = !compactMode
                         compactMode = newMode
                         onCompactModeChange?.invoke(newMode)
@@ -153,30 +261,36 @@ fun CalendarScreen(
         },
         bottomBar = {
             Column {
-                if (currentView != CalendarView.MONTH) {
-                    AnimatedVisibility(
-                        visible = showFreeChips,
-                        enter = expandVertically(expandFrom = Alignment.Bottom),
-                        exit = shrinkVertically(shrinkTowards = Alignment.Bottom)
-                    ) {
+                AnimatedVisibility(
+                    visible = showFreeChips,
+                    enter = expandVertically(expandFrom = Alignment.Bottom),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Bottom)
+                ) {
+                    Column {
+                        if (currentView == CalendarView.MONTH) {
+                            DayCountStepper(
+                                count = monthFreeDayCount,
+                                onCountChange = { monthFreeDayCount = it.coerceIn(1, 365) },
+                            )
+                        }
                         FreeTimeChipsPanel(
                             chips = freeChips,
-                            days = days,
+                            days = freeTimeDays,
                             locationsById = locationsById,
                             onChipClick = { date, start, end ->
                                 showFreeChips = false
                                 onAddSessionFromSlot(date, start, end)
                             },
-                            onShare = { text -> onShareFreeTime(days.firstOrNull() ?: today, text) },
+                            onShare = { text -> onShareFreeTime(freeTimeDays.firstOrNull() ?: today, text) },
                             onCopy = onCopyToClipboard,
                             onShareImage = onShareFreeTimeImage,
                             onCopyImage = onCopyFreeTimeImage,
                         )
                     }
                 }
-                BottomBar(
-                    showFreeChipsActive = showFreeChips && currentView != CalendarView.MONTH,
-                    showFreeTimeItem = currentView != CalendarView.MONTH,
+                MainBottomNav(
+                    currentScreen = Screen.CALENDAR,
+                    showFreeChipsActive = showFreeChips,
                     onSettingsClick = onSettingsClick,
                     onAvailabilityClick = onAvailabilityClick,
                     onFreeTimeClick = { showFreeChips = !showFreeChips },
@@ -191,84 +305,108 @@ fun CalendarScreen(
                             val mins = now.hour * 60 + now.minute
                             minutesToLocalTime(((mins + 29) / 30) * 30)
                         } else LocalTime(9, 0)
-                        onAddSession(targetDay, findNextAvailableStart(sessions, targetDay, desiredStart))
+                        onAddSession(targetDay, findNextAvailableStart(sessions, targetDay, desiredStart, workHoursEnd = hoursEnd))
                     },
                 )
             }
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .pointerInput(onPrev, onNext) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (swipeDelta > 80f) onPrev() else if (swipeDelta < -80f) onNext()
-                            swipeDelta = 0f
-                        },
-                        onDragCancel = { swipeDelta = 0f },
-                        onHorizontalDrag = { _, delta -> swipeDelta += delta }
-                    )
-                }
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (currentView) {
                 CalendarView.MONTH -> {
-                    MonthView(
-                        startDate = startDate,
-                        today = today,
-                        sessions = sessions,
-                        locationsById = locationsById,
-                        onDayClick = onDayClickInMonth,
-                    )
+                    // Smooth animated month-to-month swipe, same feel as day/3-day below.
+                    val monthPager = rememberMonthPagerController(startDate, onDateChange)
+                    HorizontalPager(state = monthPager.pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                        val pageMonth = monthPager.pageToMonth(page)
+                        MonthView(
+                            startDate = pageMonth,
+                            today = today,
+                            sessions = sessions,
+                            locationsById = locationsById,
+                            clientsById = clientsById,
+                            onDayClick = onDayClickInMonth,
+                        )
+                    }
                 }
                 CalendarView.DAY, CalendarView.THREE_DAY -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        if (compactMode && currentView == CalendarView.DAY) {
-                            // Compact card list
-                            CompactDayView(
-                                days = days,
-                                today = today,
-                                sessions = sessions,
-                                clientsById = clientsById,
-                                locationsById = locationsById,
-                                onSessionClick = { sessionMenu = it },
-                                onAddSession = { day ->
-                                    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
-                                    val mins = now.hour * 60 + now.minute
-                                    val desired = if (day == today)
-                                        minutesToLocalTime(((mins + 29) / 30) * 30)
-                                    else LocalTime(9, 0)
-                                    onAddSession(day, findNextAvailableStart(sessions, day, desired))
-                                },
-                            )
+                        // Shared paging state: each page is exactly ONE day; swiping moves the
+                        // logical date by one day at a time regardless of compact/grid mode — the
+                        // two branches below only differ in what they draw on each page.
+                        val dayPager = rememberDayPagerController(startDate, onDateChange)
+                        val pagerState = dayPager.pagerState
+
+                        val pagerCurrentDate = dayPager.pageToDate(pagerState.currentPage)
+                        val pagerDays = remember(pagerCurrentDate, numDays) {
+                            (0 until numDays).map { pagerCurrentDate.plus(it, DateTimeUnit.DAY) }
+                        }
+
+                        if (compactMode) {
+                            // Compact card list — each page renders a full `numDays`-day window
+                            // starting at that page's date, so the whole screen slides as one block
+                            // (same animated feel as the grid view below, one day per swipe).
+                            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                                val pageDate = dayPager.pageToDate(page)
+                                val pageDays = (0 until numDays).map { pageDate.plus(it, DateTimeUnit.DAY) }
+                                CompactDayView(
+                                    days = pageDays,
+                                    today = today,
+                                    sessions = sessions,
+                                    clientsById = clientsById,
+                                    locationsById = locationsById,
+                                    onSessionClick = { sessionMenu = it },
+                                    onAddSession = { day ->
+                                        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
+                                        val mins = now.hour * 60 + now.minute
+                                        val desired = if (day == today)
+                                            minutesToLocalTime(((mins + 29) / 30) * 30)
+                                        else LocalTime(9, 0)
+                                        onAddSession(day, findNextAvailableStart(sessions, day, desired, workHoursEnd = hoursEnd))
+                                    },
+                                    onDayHeaderClick = if (currentView == CalendarView.THREE_DAY) onDayClickInThreeDay else null,
+                                )
+                            }
                         } else {
-                            // Time-grid view
+                            // Time-grid view — paged horizontally like Google Calendar. Each page is
+                            // exactly ONE day; `numDays` of them are shown side by side via a fixed
+                            // page width, so swiping slides the whole strip by one day at a time and
+                            // no day is ever rendered by two pages at once (which caused the visual
+                            // "duplicate day" glitch with a window-per-page approach).
+                            val totalHours = hoursEnd - hoursStart + 1
+
                             if (currentView == CalendarView.THREE_DAY) {
-                                DayHeaderRow(days = days, today = today, onDayClick = onDayClickInThreeDay)
+                                DayHeaderRow(days = pagerDays, today = today, onDayClick = onDayClickInThreeDay)
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                             }
                             Row(modifier = Modifier.weight(1f).verticalScroll(scrollState)) {
                                 HourLabels(hoursStart = hoursStart, hoursEnd = hoursEnd)
-                                days.forEach { day ->
-                                    val daySessions = sessions.filter { it.date == day }
-                                    val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
-                                    DayColumn(
-                                        date = day, today = today,
-                                        sessions = daySessions,
-                                        freeSlots = freeSlots,
-                                        availability = availability,
-                                        locationsById = locationsById, clientsById = clientsById,
-                                        hoursStart = hoursStart, hoursEnd = hoursEnd,
-                                        modifier = Modifier.weight(1f),
-                                        onEmptyClick = { time -> onAddSession(day, time) },
-                                        onSlotClick = { start, end -> onAddSessionFromSlot(day, start, end) },
-                                        onOutOfScope = {
-                                            scope.launch { snackbarHostState.showSnackbar("Поза межами вашого графіку") }
-                                        },
-                                        onSessionClick = { sessionMenu = it },
-                                    )
+                                BoxWithConstraints(modifier = Modifier.weight(1f).height(HOUR_HEIGHT * totalHours)) {
+                                    val dayWidth = maxWidth / numDays
+                                    HorizontalPager(
+                                        state = pagerState,
+                                        pageSize = PageSize.Fixed(dayWidth),
+                                        modifier = Modifier.fillMaxSize(),
+                                    ) { page ->
+                                        val day = dayPager.pageToDate(page)
+                                        val daySessions = sessions.filter { it.date == day }
+                                        val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
+                                        DayColumn(
+                                            date = day, today = today,
+                                            sessions = daySessions,
+                                            freeSlots = freeSlots,
+                                            availability = availability,
+                                            locationsById = locationsById, clientsById = clientsById,
+                                            hoursStart = hoursStart, hoursEnd = hoursEnd,
+                                            modifier = Modifier.fillMaxWidth(),
+                                            onEmptyClick = { time -> onAddSession(day, time) },
+                                            onSlotClick = { start, end -> onAddSessionFromSlot(day, start, end) },
+                                            onOutOfScope = {
+                                                scope.launch { snackbarHostState.showSnackbar("Поза межами вашого графіку") }
+                                            },
+                                            onSessionClick = { sessionMenu = it },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -325,21 +463,11 @@ private fun CalendarTopBar(
         animationSpec = tween(300), label = "titleColor"
     )
 
-    CenterAlignedTopAppBar(
+    TopAppBar(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPrev) { Text("◀", fontSize = 16.sp) }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(label,
-                        fontWeight = if (isExactToday) FontWeight.Bold else FontWeight.SemiBold,
-                        fontSize = if (isExactToday) 14.sp else 13.sp,
-                        color = titleColor)
-                    if (isExactToday) {
-                        Text("Сьогодні", fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
-                            fontWeight = FontWeight.Medium)
-                    }
-                }
+                Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = titleColor)
                 IconButton(onClick = onNext) { Text("▶", fontSize = 16.sp) }
             }
         },
@@ -358,7 +486,7 @@ private fun CalendarTopBar(
                 }
             }
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
     )
 }
 
@@ -412,7 +540,7 @@ private fun ViewSelector(
 // ─────────────────────────────────────────────
 
 @Composable
-private fun CompactDayView(
+fun CompactDayView(
     days: List<LocalDate>,
     today: LocalDate,
     sessions: List<Session>,
@@ -420,12 +548,16 @@ private fun CompactDayView(
     locationsById: Map<Long, Location>,
     onSessionClick: (Session) -> Unit,
     onAddSession: (LocalDate) -> Unit,
+    onDayHeaderClick: ((LocalDate) -> Unit)? = null,
 ) {
     if (days.size > 1) {
-        // THREE_DAY: side-by-side columns sharing a single vertical scroll
+        // THREE_DAY: side-by-side columns sharing a single vertical scroll. The Row is
+        // measured at IntrinsicSize.Max so every column can fillMaxHeight() and match
+        // the tallest one — otherwise columns with fewer sessions end early and their
+        // background/divider don't reach the bottom of the row.
         Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                days.forEach { day ->
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max)) {
+                days.forEachIndexed { index, day ->
                     val daySessions = sessions.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
                     val isToday = day == today
                     val isWeekend = day.dayOfWeek == DayOfWeek.SATURDAY || day.dayOfWeek == DayOfWeek.SUNDAY
@@ -433,13 +565,19 @@ private fun CompactDayView(
                         targetValue = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
                         animationSpec = tween(300), label = "todayCircleCompact"
                     )
+                    val columnBg = when {
+                        isToday   -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                        isWeekend -> WEEKEND_BG
+                        else      -> Color.Transparent
+                    }
                     Column(
-                        modifier = Modifier.weight(1f)
-                            .background(if (isWeekend) WEEKEND_BG else Color.Transparent)
+                        modifier = Modifier.weight(1f).fillMaxHeight().background(columnBg)
                     ) {
-                        // Day header
+                        // Day header — tappable to switch into single-day view, like the grid view's header
                         Column(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                            modifier = Modifier.fillMaxWidth()
+                                .then(if (onDayHeaderClick != null) Modifier.clickable { onDayHeaderClick(day) } else Modifier)
+                                .padding(vertical = 6.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(DAYS_UK[day.dayOfWeek.ordinal],
@@ -464,8 +602,8 @@ private fun CompactDayView(
                         }
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                         Column(
-                            modifier = Modifier.padding(4.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            modifier = Modifier.padding(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             if (daySessions.isEmpty()) {
                                 Box(
@@ -477,10 +615,16 @@ private fun CompactDayView(
                                 ) { Text("+", fontSize = 20.sp, color = Color.Gray.copy(alpha = 0.4f)) }
                             } else {
                                 daySessions.forEach { session ->
-                                    CompactSessionCard(session, clientsById, locationsById, onClick = { onSessionClick(session) })
+                                    CompactSessionCard(
+                                        session, clientsById, locationsById, compact = true,
+                                        onClick = { onSessionClick(session) }
+                                    )
                                 }
                             }
                         }
+                    }
+                    if (index != days.lastIndex) {
+                        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                     }
                 }
             }
@@ -516,6 +660,7 @@ private fun CompactSessionCard(
     session: Session,
     clientsById: Map<Long, Client>,
     locationsById: Map<Long, Location>,
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
     val sessionClients = session.clientIds.mapNotNull { clientsById[it] }
@@ -525,6 +670,33 @@ private fun CompactSessionCard(
         ?: Color(0xFF1A237E)
     val durationMin = session.endTime.toMinutes() - session.startTime.toMinutes()
     val clientNames = sessionClients.joinToString(", ") { it.name }
+
+    // The 3-day layout gives each card roughly a third of the screen width, so the
+    // narrow variant drops the side-by-side time column in favor of a single compact
+    // line and tightens padding — otherwise client names truncate almost immediately.
+    if (compact) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(blockColor.copy(alpha = 0.08f))
+                .border(1.dp, blockColor.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick)
+                .padding(horizontal = 6.dp, vertical = 5.dp)
+        ) {
+            Text(
+                "${session.startTime.toStorageString()}–${session.endTime.toStorageString()}",
+                fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = blockColor,
+                maxLines = 1, overflow = TextOverflow.Ellipsis
+            )
+            if (clientNames.isNotEmpty())
+                Text(clientNames, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1C1C1E),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (location != null)
+                Text(location.name, fontSize = 10.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        return
+    }
 
     Row(
         modifier = Modifier
@@ -547,10 +719,11 @@ private fun CompactSessionCard(
         // Content
         Column(modifier = Modifier.weight(1f)) {
             if (clientNames.isNotEmpty())
-                Text(clientNames, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1C1C1E))
+                Text(clientNames, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1C1C1E),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(formatDuration(durationMin), fontSize = 11.sp, color = Color.Gray)
-                if (location != null) Text(location.name, fontSize = 11.sp, color = Color.Gray)
+                if (location != null) Text(location.name, fontSize = 11.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -560,10 +733,13 @@ private fun CompactSessionCard(
 // Bottom bar
 // ─────────────────────────────────────────────
 
+// Persistent tab-style bottom nav shown on Calendar, Розклад (Availability) and
+// Налаштування (Settings) — these three screens are peers, so there's no "Назад"
+// button on the latter two; tapping the active screen's own icon returns to Calendar.
 @Composable
-private fun BottomBar(
-    showFreeChipsActive: Boolean,
-    showFreeTimeItem: Boolean,
+fun MainBottomNav(
+    currentScreen: Screen,
+    showFreeChipsActive: Boolean = false,
     onFreeTimeClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onAvailabilityClick: () -> Unit,
@@ -578,7 +754,10 @@ private fun BottomBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Settings – bright amber icon to stand out
-        BottomNavItem(modifier = Modifier.weight(1f), onClick = onSettingsClick, label = "Налаштування") {
+        BottomNavItem(
+            modifier = Modifier.weight(1f), onClick = onSettingsClick, label = "Налаштування",
+            selected = currentScreen == Screen.SETTINGS,
+        ) {
             Box(
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFFFCA28).copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center
@@ -595,19 +774,20 @@ private fun BottomBar(
                 Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
-        // Free time (hidden in Month view)
-        if (showFreeTimeItem) {
-            BottomNavItem(
-                modifier = Modifier.weight(1f),
-                onClick = onFreeTimeClick,
-                label = "Вільний час",
-                selected = showFreeChipsActive,
-            ) {
-                Text(if (showFreeChipsActive) "🟢" else "⏰", fontSize = 20.sp)
-            }
+        // Free time
+        BottomNavItem(
+            modifier = Modifier.weight(1f),
+            onClick = onFreeTimeClick,
+            label = "Вільний час",
+            selected = showFreeChipsActive,
+        ) {
+            Text(if (showFreeChipsActive) "🟢" else "⏰", fontSize = 20.sp)
         }
         // Availability (rightmost)
-        BottomNavItem(modifier = Modifier.weight(1f), onClick = onAvailabilityClick, label = "Майб. доступність") {
+        BottomNavItem(
+            modifier = Modifier.weight(1f), onClick = onAvailabilityClick, label = "Розклад",
+            selected = currentScreen == Screen.AVAILABILITY,
+        ) {
             Text("📅", fontSize = 20.sp)
         }
     }
@@ -649,14 +829,17 @@ private fun MonthView(
     today: LocalDate,
     sessions: List<Session>,
     locationsById: Map<Long, Location>,
+    clientsById: Map<Long, Client>,
     onDayClick: (LocalDate) -> Unit,
 ) {
     val firstOfMonth = LocalDate(startDate.year, startDate.month, 1)
     val lastOfMonth = firstOfMonth.plus(1, DateTimeUnit.MONTH).minus(1, DateTimeUnit.DAY)
     val daysInMonth = lastOfMonth.dayOfMonth
     val startDow = firstOfMonth.dayOfWeek.isoDayNumber  // 1=Mon
+    val totalCells = startDow - 1 + daysInMonth
+    val rows = (totalCells + 6) / 7
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(8.dp)) {
         // Weekday header
         Row(modifier = Modifier.fillMaxWidth()) {
             DAYS_UK.forEach { d ->
@@ -666,25 +849,33 @@ private fun MonthView(
         }
         Spacer(Modifier.height(4.dp))
 
-        var dayCounter = 1 - (startDow - 1)
-        val totalCells = startDow - 1 + daysInMonth
-        val rows = (totalCells + 6) / 7
-        repeat(rows) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                repeat(7) {
-                    if (dayCounter < 1 || dayCounter > daysInMonth) {
-                        Box(modifier = Modifier.weight(1f).height(56.dp))
-                    } else {
-                        val date = LocalDate(firstOfMonth.year, firstOfMonth.month, dayCounter)
-                        val daySessions = sessions.filter { it.date == date }
-                        MonthDayCell(
-                            date = date, today = today,
-                            sessions = daySessions, locationsById = locationsById,
-                            onClick = { onDayClick(date) },
-                            modifier = Modifier.weight(1f)
-                        )
+        // Cells stretch to fill whatever height remains so the grid uses the whole
+        // screen (fewer rows = taller cells with room for session previews); below a
+        // usable minimum they stay readable and the month scrolls instead of shrinking.
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            val cellHeight = (maxHeight / rows).coerceAtLeast(64.dp)
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                var dayCounter = 1 - (startDow - 1)
+                repeat(rows) {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        repeat(7) {
+                            if (dayCounter < 1 || dayCounter > daysInMonth) {
+                                Box(modifier = Modifier.weight(1f).height(cellHeight))
+                            } else {
+                                val date = LocalDate(firstOfMonth.year, firstOfMonth.month, dayCounter)
+                                val daySessions = sessions.filter { it.date == date }
+                                MonthDayCell(
+                                    date = date, today = today,
+                                    sessions = daySessions, locationsById = locationsById,
+                                    clientsById = clientsById,
+                                    cellHeight = cellHeight,
+                                    onClick = { onDayClick(date) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            dayCounter++
+                        }
                     }
-                    dayCounter++
                 }
             }
         }
@@ -697,54 +888,137 @@ private fun MonthDayCell(
     today: LocalDate,
     sessions: List<Session>,
     locationsById: Map<Long, Location>,
+    clientsById: Map<Long, Client>,
+    cellHeight: Dp,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val isToday = date == today
     val isPast  = date < today
     val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
-    Box(
+    val sorted = remember(sessions) { sessions.sortedBy { it.startTime.toMinutes() } }
+    // The taller the cell (more vertical room), the more session previews it can fit.
+    val maxChips = when {
+        cellHeight >= 100.dp -> 4
+        cellHeight >= 80.dp  -> 2
+        else                 -> 0
+    }
+    Column(
         modifier = modifier
-            .height(56.dp)
+            .height(cellHeight)
             .background(if (isWeekend) WEEKEND_BG else Color.Transparent)
             .clickable { onClick() }
-            .padding(2.dp),
-        contentAlignment = Alignment.TopCenter
+            .padding(horizontal = 2.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier.size(26.dp).clip(CircleShape)
-                    .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "${date.dayOfMonth}", fontSize = 13.sp,
-                    color = when {
-                        isToday   -> Color.White
-                        isPast    -> Color(0xFFBDBDBD)
-                        isWeekend -> WEEKEND_HEADER
-                        else      -> MaterialTheme.colorScheme.onSurface
-                    }
-                )
-            }
-            if (sessions.isNotEmpty()) {
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier.padding(top = 2.dp)
+        Box(
+            modifier = Modifier.size(if (maxChips > 0) 22.dp else 26.dp).clip(CircleShape)
+                .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "${date.dayOfMonth}", fontSize = if (maxChips > 0) 12.sp else 13.sp,
+                color = when {
+                    isToday   -> Color.White
+                    isPast    -> Color(0xFFBDBDBD)
+                    isWeekend -> WEEKEND_HEADER
+                    else      -> MaterialTheme.colorScheme.onSurface
+                }
+            )
+        }
+        if (maxChips > 0) {
+            if (sorted.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 1.dp),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
-                    sessions.take(3).forEach { s ->
-                        val dotColor = s.locationId?.let { locationsById[it] }
+                    sorted.take(maxChips).forEach { s ->
+                        val chipColor = s.locationId?.let { locationsById[it] }
                             ?.let { hexToColor(it.colorHex) } ?: MaterialTheme.colorScheme.primary
+                        val clientName = s.clientIds.firstOrNull()?.let { clientsById[it]?.name }
                         Box(
-                            modifier = Modifier.size(5.dp).clip(CircleShape)
-                                .background(dotColor.copy(alpha = if (isPast) 0.4f else 1f))
-                        )
-                        Spacer(Modifier.width(2.dp))
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(3.dp))
+                                .background(chipColor.copy(alpha = if (isPast) 0.10f else 0.16f))
+                                .padding(horizontal = 3.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                buildString {
+                                    append(s.startTime.toStorageString())
+                                    if (clientName != null) { append(' '); append(clientName) }
+                                },
+                                fontSize = 9.sp,
+                                color = chipColor.copy(alpha = if (isPast) 0.6f else 1f),
+                                maxLines = 1, overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
-                    if (sessions.size > 3) Text("+${sessions.size - 3}", fontSize = 8.sp, color = Color.Gray)
+                    if (sorted.size > maxChips) {
+                        Text("+${sorted.size - maxChips}", fontSize = 8.sp, color = Color.Gray,
+                            modifier = Modifier.align(Alignment.CenterHorizontally))
+                    }
                 }
             }
+        } else if (sorted.isNotEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                sorted.take(3).forEach { s ->
+                    val dotColor = s.locationId?.let { locationsById[it] }
+                        ?.let { hexToColor(it.colorHex) } ?: MaterialTheme.colorScheme.primary
+                    Box(
+                        modifier = Modifier.size(5.dp).clip(CircleShape)
+                            .background(dotColor.copy(alpha = if (isPast) 0.4f else 1f))
+                    )
+                    Spacer(Modifier.width(2.dp))
+                }
+                if (sorted.size > 3) Text("+${sorted.size - 3}", fontSize = 8.sp, color = Color.Gray)
+            }
         }
+    }
+}
+
+// ─────────────────────────────────────────────
+// Month-view free time day-count stepper
+// ─────────────────────────────────────────────
+
+@Composable
+private fun DayCountStepper(
+    count: Int,
+    onCountChange: (Int) -> Unit,
+) {
+    var text by remember(count) { mutableStateOf(count.toString()) }
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text("Кількість днів для поширення", fontSize = 13.sp, modifier = Modifier.weight(1f))
+            IconButton(
+                onClick = { onCountChange(count - 1) },
+                modifier = Modifier.size(32.dp),
+                enabled = count > 1,
+            ) { Text("−", fontSize = 18.sp) }
+            OutlinedTextField(
+                value = text,
+                onValueChange = { v ->
+                    text = v.filter { it.isDigit() }.take(3)
+                    text.toIntOrNull()?.let(onCountChange)
+                },
+                modifier = Modifier.width(64.dp),
+                textStyle = TextStyle(fontSize = 14.sp, textAlign = TextAlign.Center),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
+            IconButton(
+                onClick = { onCountChange(count + 1) },
+                modifier = Modifier.size(32.dp),
+                enabled = count < 365,
+            ) { Text("+", fontSize = 18.sp) }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
     }
 }
 

@@ -16,4 +16,5 @@ interface SessionRepository {
     ): Session
     fun update(session: Session)
     fun delete(id: Long)
+    fun deleteAll()
 }
