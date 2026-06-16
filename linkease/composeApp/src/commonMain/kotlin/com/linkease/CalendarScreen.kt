@@ -342,30 +342,57 @@ fun CalendarScreen(
                             (0 until numDays).map { pagerCurrentDate.plus(it, DateTimeUnit.DAY) }
                         }
 
+                        val onAddSessionAt: (LocalDate) -> Unit = { day ->
+                            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
+                            val mins = now.hour * 60 + now.minute
+                            val desired = if (day == today)
+                                minutesToLocalTime(((mins + 29) / 30) * 30)
+                            else LocalTime(9, 0)
+                            onAddSession(day, findNextAvailableStart(sessions, day, desired, workHoursEnd = hoursEnd))
+                        }
+
                         if (compactMode) {
-                            // Compact card list — each page renders a full `numDays`-day window
-                            // starting at that page's date, so the whole screen slides as one block
-                            // (same animated feel as the grid view below, one day per swipe).
-                            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                                val pageDate = dayPager.pageToDate(page)
-                                val pageDays = (0 until numDays).map { pageDate.plus(it, DateTimeUnit.DAY) }
-                                CompactDayView(
-                                    days = pageDays,
-                                    today = today,
-                                    sessions = sessions,
-                                    clientsById = clientsById,
-                                    locationsById = locationsById,
-                                    onSessionClick = { sessionMenu = it },
-                                    onAddSession = { day ->
-                                        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
-                                        val mins = now.hour * 60 + now.minute
-                                        val desired = if (day == today)
-                                            minutesToLocalTime(((mins + 29) / 30) * 30)
-                                        else LocalTime(9, 0)
-                                        onAddSession(day, findNextAvailableStart(sessions, day, desired, workHoursEnd = hoursEnd))
-                                    },
-                                    onDayHeaderClick = if (currentView == CalendarView.THREE_DAY) onDayClickInThreeDay else null,
-                                )
+                            if (numDays > 1) {
+                                // Narrow per-day pages laid out side by side, exactly like the
+                                // time-grid view below — this is what makes swiping slide the whole
+                                // strip by one day-width instead of swapping in a whole new 3-day
+                                // window per page (which felt like a full-screen cut, not a slide).
+                                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                    val dayWidth = maxWidth / numDays
+                                    HorizontalPager(
+                                        state = pagerState,
+                                        pageSize = PageSize.Fixed(dayWidth),
+                                        modifier = Modifier.fillMaxSize(),
+                                    ) { page ->
+                                        val day = dayPager.pageToDate(page)
+                                        Row(modifier = Modifier.fillMaxHeight()) {
+                                            CompactDayColumn(
+                                                day = day,
+                                                today = today,
+                                                sessions = sessions,
+                                                clientsById = clientsById,
+                                                locationsById = locationsById,
+                                                onSessionClick = { sessionMenu = it },
+                                                onAddSession = onAddSessionAt,
+                                                onHeaderClick = if (currentView == CalendarView.THREE_DAY) onDayClickInThreeDay else null,
+                                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                            )
+                                            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                                        }
+                                    }
+                                }
+                            } else {
+                                HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                                    CompactDayView(
+                                        day = dayPager.pageToDate(page),
+                                        today = today,
+                                        sessions = sessions,
+                                        clientsById = clientsById,
+                                        locationsById = locationsById,
+                                        onSessionClick = { sessionMenu = it },
+                                        onAddSession = onAddSessionAt,
+                                    )
+                                }
                             }
                         } else {
                             // Time-grid view — paged horizontally like Google Calendar. Each page is
@@ -541,114 +568,110 @@ private fun ViewSelector(
 
 @Composable
 fun CompactDayView(
-    days: List<LocalDate>,
+    day: LocalDate,
     today: LocalDate,
     sessions: List<Session>,
     clientsById: Map<Long, Client>,
     locationsById: Map<Long, Location>,
     onSessionClick: (Session) -> Unit,
     onAddSession: (LocalDate) -> Unit,
-    onDayHeaderClick: ((LocalDate) -> Unit)? = null,
 ) {
-    if (days.size > 1) {
-        // THREE_DAY: side-by-side columns sharing a single vertical scroll. The Row is
-        // measured at IntrinsicSize.Max so every column can fillMaxHeight() and match
-        // the tallest one — otherwise columns with fewer sessions end early and their
-        // background/divider don't reach the bottom of the row.
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max)) {
-                days.forEachIndexed { index, day ->
-                    val daySessions = sessions.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
-                    val isToday = day == today
-                    val isWeekend = day.dayOfWeek == DayOfWeek.SATURDAY || day.dayOfWeek == DayOfWeek.SUNDAY
-                    val circleBgCompact by animateColorAsState(
-                        targetValue = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
-                        animationSpec = tween(300), label = "todayCircleCompact"
-                    )
-                    val columnBg = when {
-                        isToday   -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
-                        isWeekend -> WEEKEND_BG
-                        else      -> Color.Transparent
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f).fillMaxHeight().background(columnBg)
-                    ) {
-                        // Day header — tappable to switch into single-day view, like the grid view's header
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .then(if (onDayHeaderClick != null) Modifier.clickable { onDayHeaderClick(day) } else Modifier)
-                                .padding(vertical = 6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(DAYS_UK[day.dayOfWeek.ordinal],
-                                fontSize = if (isToday) 11.sp else 10.sp,
-                                color = if (isToday) MaterialTheme.colorScheme.primary
-                                        else if (isWeekend) WEEKEND_HEADER else Color(0xFF757575),
-                                fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Medium)
-                            Spacer(Modifier.height(2.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(if (isToday) 34.dp else 28.dp)
-                                    .clip(CircleShape)
-                                    .background(circleBgCompact),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("${day.dayOfMonth}",
-                                    fontSize = if (isToday) 16.sp else 14.sp,
-                                    fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Normal,
-                                    color = if (isToday) Color.White
-                                            else if (isWeekend) WEEKEND_HEADER else MaterialTheme.colorScheme.onSurface)
-                            }
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                        Column(
-                            modifier = Modifier.padding(6.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            if (daySessions.isEmpty()) {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable { onAddSession(day) }
-                                        .padding(vertical = 12.dp),
-                                    contentAlignment = Alignment.Center
-                                ) { Text("+", fontSize = 20.sp, color = Color.Gray.copy(alpha = 0.4f)) }
-                            } else {
-                                daySessions.forEach { session ->
-                                    CompactSessionCard(
-                                        session, clientsById, locationsById, compact = true,
-                                        onClick = { onSessionClick(session) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (index != days.lastIndex) {
-                        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    }
-                }
+    // DAY: single scrollable column
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        val daySessions = sessions.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
+        if (daySessions.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .clickable { onAddSession(day) }
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) { Text("+ Додати сесію", fontSize = 13.sp, color = Color.Gray) }
+        } else {
+            daySessions.forEach { session ->
+                CompactSessionCard(session, clientsById, locationsById, onClick = { onSessionClick(session) })
             }
         }
-    } else {
-        // DAY: single scrollable column
+    }
+}
+
+// THREE_DAY: one narrow column per pager page, styled like CompactDayView's cards but
+// with its own header (tappable to switch into single-day view) and its own vertical
+// scroll, since pages are laid out side by side and no longer share one scroll container.
+@Composable
+private fun CompactDayColumn(
+    day: LocalDate,
+    today: LocalDate,
+    sessions: List<Session>,
+    clientsById: Map<Long, Client>,
+    locationsById: Map<Long, Location>,
+    onSessionClick: (Session) -> Unit,
+    onAddSession: (LocalDate) -> Unit,
+    onHeaderClick: ((LocalDate) -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val daySessions = sessions.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
+    val isToday = day == today
+    val isWeekend = day.dayOfWeek == DayOfWeek.SATURDAY || day.dayOfWeek == DayOfWeek.SUNDAY
+    val circleBgCompact by animateColorAsState(
+        targetValue = if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = tween(300), label = "todayCircleCompact"
+    )
+    val columnBg = when {
+        isToday   -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+        isWeekend -> WEEKEND_BG
+        else      -> Color.Transparent
+    }
+    Column(modifier = modifier.background(columnBg)) {
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(8.dp),
+            modifier = Modifier.fillMaxWidth()
+                .then(if (onHeaderClick != null) Modifier.clickable { onHeaderClick(day) } else Modifier)
+                .padding(vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(DAYS_UK[day.dayOfWeek.ordinal],
+                fontSize = if (isToday) 11.sp else 10.sp,
+                color = if (isToday) MaterialTheme.colorScheme.primary
+                        else if (isWeekend) WEEKEND_HEADER else Color(0xFF757575),
+                fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Medium)
+            Spacer(Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .size(if (isToday) 34.dp else 28.dp)
+                    .clip(CircleShape)
+                    .background(circleBgCompact),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("${day.dayOfMonth}",
+                    fontSize = if (isToday) 16.sp else 14.sp,
+                    fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Normal,
+                    color = if (isToday) Color.White
+                            else if (isWeekend) WEEKEND_HEADER else MaterialTheme.colorScheme.onSurface)
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            val day = days.firstOrNull() ?: return@Column
-            val daySessions = sessions.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
             if (daySessions.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable { onAddSession(day) }
-                        .padding(vertical = 16.dp),
+                        .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
-                ) { Text("+ Додати сесію", fontSize = 13.sp, color = Color.Gray) }
+                ) { Text("+", fontSize = 20.sp, color = Color.Gray.copy(alpha = 0.4f)) }
             } else {
                 daySessions.forEach { session ->
-                    CompactSessionCard(session, clientsById, locationsById, onClick = { onSessionClick(session) })
+                    CompactSessionCard(
+                        session, clientsById, locationsById, compact = true,
+                        onClick = { onSessionClick(session) }
+                    )
                 }
             }
         }
@@ -656,7 +679,7 @@ fun CompactDayView(
 }
 
 @Composable
-private fun CompactSessionCard(
+fun CompactSessionCard(
     session: Session,
     clientsById: Map<Long, Client>,
     locationsById: Map<Long, Location>,

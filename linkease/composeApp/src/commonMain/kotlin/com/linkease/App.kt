@@ -1,6 +1,5 @@
 package com.linkease
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
@@ -85,6 +84,8 @@ fun App(
     notificationSoundName: String = "Стандартний",
     onPickNotificationSound: (() -> Unit)? = null,
     onSendTestNotification: (() -> Unit)? = null,
+    telegramLinked: Boolean = false,
+    onLinkTelegram: ((code: String) -> Unit)? = null,
 ) {
     val tz = TimeZone.currentSystemDefault()
     val todayDate = Clock.System.now().toLocalDateTime(tz).date
@@ -176,8 +177,14 @@ fun App(
     fun onSettingsTabClick() {
         switchRootScreen(if (screen == Screen.SETTINGS) Screen.CALENDAR else Screen.SETTINGS)
     }
+    var availabilityScheduleModeInitial by remember { mutableStateOf(true) }
     fun onAvailabilityTabClick() {
+        availabilityScheduleModeInitial = true
         switchRootScreen(if (screen == Screen.AVAILABILITY) Screen.CALENDAR else Screen.AVAILABILITY)
+    }
+    fun onAvailabilitySettingsTabClick() {
+        availabilityScheduleModeInitial = false
+        switchRootScreen(Screen.AVAILABILITY)
     }
     fun onFreeTimeTabClick() { switchRootScreen(Screen.CALENDAR) }
 
@@ -313,6 +320,7 @@ fun App(
                 clients = clients,
                 hoursStart = workHoursStart,
                 hoursEnd = workHoursEnd,
+                scheduleModeInitial = availabilityScheduleModeInitial,
                 onSettingsClick = { onSettingsTabClick() },
                 onAvailabilityNavClick = { onAvailabilityTabClick() },
                 onCreateClick = { quickCreateSession() },
@@ -356,6 +364,7 @@ fun App(
                 onFreeTimeClick = { onFreeTimeTabClick() },
                 onClientsClick = { navigateTo(Screen.CLIENTS) },
                 onLocationsClick = { navigateTo(Screen.LOCATIONS) },
+                onAvailabilitySettingsClick = { onAvailabilitySettingsTabClick() },
                 onReportClick = { navigateTo(Screen.REPORT) },
                 onExportBackup = onExportBackup,
                 onImportBackup = onImportBackup,
@@ -363,6 +372,8 @@ fun App(
                 notificationSoundName = notificationSoundName,
                 onPickNotificationSound = onPickNotificationSound,
                 onSendTestNotification = onSendTestNotification,
+                telegramLinked = telegramLinked,
+                onLinkTelegram = onLinkTelegram,
             )
 
             Screen.REPORT -> ReportScreen(

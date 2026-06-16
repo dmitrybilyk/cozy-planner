@@ -1,3 +1,14 @@
+SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:55432/linkease_db?stringtype=unspecified" \
+DB_USER=user DB_PASSWORD=password \
+SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID=743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com \
+SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET=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 \
+APP_OWNER_EMAIL=dmitry.bilyk@gmail.com \
+TELEGRAM_ENABLED=false \
+./gradlew :server:bootRun
+
+
+
+
 # Linkease
 
 Kotlin Multiplatform app (Android + Web) built with Compose Multiplatform.

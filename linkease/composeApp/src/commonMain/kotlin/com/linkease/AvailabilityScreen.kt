@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -45,6 +46,11 @@ private val AVAIL_DEFAULT_BG = Color(0x14008000)   // subtle green: "free by def
 private val AVAIL_DISABLED   = Color(0x18000000)   // gray: outside configured window
 private val AVAIL_TIME_COL   = 48.dp
 
+// Virtual page range for the continuous agenda, anchored at "today" — same trick as
+// CalendarScreen's day/month pagers, just driven by a vertical LazyColumn instead.
+private const val AGENDA_PAGE_COUNT = 20001
+private const val AGENDA_CENTER = AGENDA_PAGE_COUNT / 2
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AvailabilityScreen(
@@ -54,6 +60,7 @@ fun AvailabilityScreen(
     clients: List<Client> = emptyList(),
     hoursStart: Int = CALENDAR_HOURS_START,
     hoursEnd: Int = CALENDAR_HOURS_END,
+    scheduleModeInitial: Boolean = true,
     onSettingsClick: () -> Unit,
     onAvailabilityNavClick: () -> Unit,
     onCreateClick: () -> Unit,
@@ -71,7 +78,7 @@ fun AvailabilityScreen(
     val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
     // Default to a Google-Calendar-style continuous agenda of the real schedule; the
     // availability slot editor (time grid / month) is reached via a button and toggles this off.
-    var scheduleMode by remember { mutableStateOf(true) }
+    var scheduleMode by remember { mutableStateOf(scheduleModeInitial) }
     var currentView by remember { mutableStateOf(CalendarView.THREE_DAY) }
     var startDate by remember { mutableStateOf(today) }
     val clientsById = remember(clients) { clients.associateBy { it.id } }
@@ -87,6 +94,11 @@ fun AvailabilityScreen(
             (filterLocationIds.isEmpty() || s.locationId in filterLocationIds)
         }
     }
+    val sessionsByDate = remember(filteredSessions) { filteredSessions.groupBy { it.date } }
+
+    // Agenda scroll state — hoisted so the top bar's "Сьогодні" action can jump it.
+    val agendaListState = rememberLazyListState(initialFirstVisibleItemIndex = AGENDA_CENTER)
+    val agendaScope = rememberCoroutineScope()
 
     fun setScheduleMode(enabled: Boolean) {
         scheduleMode = enabled
@@ -99,7 +111,7 @@ fun AvailabilityScreen(
     // Edit/add state
     var editingSlot by remember { mutableStateOf<AvailabilitySlot?>(null) }
     var addingForDate by remember { mutableStateOf<LocalDate?>(null) }
-    var addingDefaultStart by remember { mutableStateOf(LocalTime(9, 0)) }
+    var addingDefaultStart by remember { mutableStateOf(LocalTime(hoursStart, 0)) }
     var dayDialogDate by remember { mutableStateOf<LocalDate?>(null) } // month-view day tap
 
     val days: List<LocalDate> = remember(currentView, startDate) {
@@ -151,40 +163,63 @@ fun AvailabilityScreen(
 
     // Share period = current view's days (only days that have slots for image; all days for text)
     val shareTitle = buildShareTitle(days, currentView, startDate)
-    val shareLines = remember(days, availability, locations) {
-        buildAvailabilityImageLines(availability, locations, days)
+    val shareLines = remember(days, availability, sessions, locations, hoursStart, hoursEnd) {
+        buildAvailabilityImageLines(availability, sessions, locations, days, hoursStart, hoursEnd)
     }
-    val shareText = remember(days, availability, locations) {
-        buildPeriodText(availability, locations, days)
+    val shareText = remember(days, availability, sessions, locations, hoursStart, hoursEnd) {
+        buildPeriodText(availability, sessions, locations, days, hoursStart, hoursEnd)
     }
 
     Scaffold(
         topBar = {
             Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                CenterAlignedTopAppBar(
-                    title = {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (scheduleMode) {
+                    // Continuous agenda — no prev/next window to page through, just a
+                    // jump back to "today" and filters for the list below.
+                    CenterAlignedTopAppBar(
+                        title = {
                             Text("Розклад", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
                                 color = MaterialTheme.colorScheme.primary)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = ::navPrev, modifier = Modifier.size(32.dp)) { Text("◀", fontSize = 14.sp) }
-                                Text(navLabel, fontWeight = FontWeight.Medium, fontSize = 12.sp)
-                                IconButton(onClick = ::navNext, modifier = Modifier.size(32.dp)) { Text("▶", fontSize = 14.sp) }
+                        },
+                        actions = {
+                            TextButton(onClick = { agendaScope.launch { agendaListState.animateScrollToItem(AGENDA_CENTER) } }) {
+                                Text("Сьогодні", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                             }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                    )
+                    AgendaFilterRow(
+                        clients = clients,
+                        locations = locations,
+                        filterClientIds = filterClientIds,
+                        onFilterClientIdsChange = { filterClientIds = it },
+                        filterLocationIds = filterLocationIds,
+                        onFilterLocationIdsChange = { filterLocationIds = it },
+                    )
+                } else {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Налаштування доступності", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.primary)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(onClick = ::navPrev, modifier = Modifier.size(32.dp)) { Text("◀", fontSize = 14.sp) }
+                                    Text(navLabel, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                                    IconButton(onClick = ::navNext, modifier = Modifier.size(32.dp)) { Text("▶", fontSize = 14.sp) }
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                    )
+                    val views = CalendarView.entries.toList()
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        views.forEachIndexed { i, v ->
+                            SegmentedButton(
+                                selected = currentView == v, onClick = { switchView(v) },
+                                shape = SegmentedButtonDefaults.itemShape(i, views.size),
+                                label = { Text(v.label, fontSize = 13.sp) }
+                            )
                         }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
-                )
-                // View selector — Month only makes sense for the availability editor,
-                // since the compact schedule agenda mirrors the calendar's day/3-day view.
-                val views = if (scheduleMode) listOf(CalendarView.DAY, CalendarView.THREE_DAY) else CalendarView.entries.toList()
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    views.forEachIndexed { i, v ->
-                        SegmentedButton(
-                            selected = currentView == v, onClick = { switchView(v) },
-                            shape = SegmentedButtonDefaults.itemShape(i, views.size),
-                            label = { Text(v.label, fontSize = 13.sp) }
-                        )
                     }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
@@ -193,24 +228,17 @@ fun AvailabilityScreen(
         bottomBar = {
             Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (scheduleMode) {
-                            TextButton(
-                                onClick = { setScheduleMode(false) },
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                            ) { Text("🗓️ Налаштувати доступність", fontSize = 12.sp) }
-                        } else {
+                    if (!scheduleMode) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             TextButton(
                                 onClick = { setScheduleMode(true) },
                                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                             ) { Text("← Розклад", fontSize = 12.sp) }
-                        }
-                        Spacer(Modifier.weight(1f))
-                        if (!scheduleMode) {
+                            Spacer(Modifier.weight(1f))
                             if (onCopySchedule != null) {
                                 TextButton(
                                     onClick = {
@@ -243,59 +271,68 @@ fun AvailabilityScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .pointerInput(currentView, startDate) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (swipeDelta > 80f) navPrev() else if (swipeDelta < -80f) navNext()
-                            swipeDelta = 0f
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (scheduleMode) {
+                // Continuous Google-Calendar-style agenda, infinitely scrollable in both
+                // directions and centered on "today" at first composition.
+                LazyColumn(state = agendaListState, modifier = Modifier.fillMaxSize()) {
+                    items(count = AGENDA_PAGE_COUNT) { index ->
+                        val date = today.plus(index - AGENDA_CENTER, DateTimeUnit.DAY)
+                        AgendaDaySection(
+                            date = date,
+                            today = today,
+                            sessions = (sessionsByDate[date] ?: emptyList()).sortedBy { it.startTime.toMinutes() },
+                            clientsById = clientsById,
+                            locationsById = locationsById,
+                            onSessionClick = { session -> onSessionClick?.invoke(session) },
+                            onAddSession = { onAddSession?.invoke(date) },
+                        )
+                    }
+                }
+            } else when (currentView) {
+                CalendarView.MONTH -> {
+                    val monthPager = rememberMonthPagerController(startDate) { startDate = it }
+                    HorizontalPager(state = monthPager.pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                        val pageMonth = monthPager.pageToMonth(page)
+                        AvailabilityMonthView(
+                            startDate = pageMonth,
+                            today = today,
+                            availability = availability,
+                            locations = locations,
+                            onDayClick = { date -> dayDialogDate = date }
+                        )
+                    }
+                }
+                else -> {
+                    // Smooth animated swipe — same shared pager controller CalendarScreen
+                    // uses, so Day/3-day feels identical between the two screens.
+                    val dayPager = rememberDayPagerController(startDate) { startDate = it }
+                    val pagerCurrentDate = dayPager.pageToDate(dayPager.pagerState.currentPage)
+                    val numDays = if (currentView == CalendarView.THREE_DAY) 3 else 1
+                    val headerDays = remember(pagerCurrentDate, numDays) {
+                        (0 until numDays).map { pagerCurrentDate.plus(it, DateTimeUnit.DAY) }
+                    }
+                    AvailabilityTimeGrid(
+                        pagerState = dayPager.pagerState,
+                        pageToDate = dayPager.pageToDate,
+                        numDays = numDays,
+                        headerDays = headerDays,
+                        today = today,
+                        availability = availability,
+                        locations = locations,
+                        hoursStart = hoursStart,
+                        hoursEnd = hoursEnd,
+                        onSlotClick = { slot -> editingSlot = slot },
+                        onEmptyTap = { date, time ->
+                            addingForDate = date
+                            addingDefaultStart = time
                         },
-                        onDragCancel = { swipeDelta = 0f },
-                        onHorizontalDrag = { _, delta -> swipeDelta += delta }
+                        onDayClick = if (currentView == CalendarView.THREE_DAY) { date ->
+                            startDate = date
+                            currentView = CalendarView.DAY
+                        } else null,
                     )
                 }
-        ) {
-            when {
-                scheduleMode -> CompactDayView(
-                    days = days,
-                    today = today,
-                    sessions = sessions,
-                    clientsById = clientsById,
-                    locationsById = locationsById,
-                    onSessionClick = { session -> onSessionClick?.invoke(session) },
-                    onAddSession = { date -> onAddSession?.invoke(date) },
-                    onDayHeaderClick = if (currentView == CalendarView.THREE_DAY) { date ->
-                        startDate = date
-                        currentView = CalendarView.DAY
-                    } else null,
-                )
-                currentView == CalendarView.MONTH -> AvailabilityMonthView(
-                    startDate = startDate,
-                    today = today,
-                    availability = availability,
-                    locations = locations,
-                    onDayClick = { date -> dayDialogDate = date }
-                )
-                else -> AvailabilityTimeGrid(
-                    days = days,
-                    today = today,
-                    availability = availability,
-                    locations = locations,
-                    hoursStart = hoursStart,
-                    hoursEnd = hoursEnd,
-                    onSlotClick = { slot -> editingSlot = slot },
-                    onEmptyTap = { date, time ->
-                        addingForDate = date
-                        addingDefaultStart = time
-                    },
-                    onDayClick = if (currentView == CalendarView.THREE_DAY) { date ->
-                        startDate = date
-                        currentView = CalendarView.DAY
-                    } else null,
-                )
             }
         }
     }
@@ -312,7 +349,7 @@ fun AvailabilityScreen(
             onDismiss = { dayDialogDate = null },
             onAddSlot = {
                 addingForDate = date
-                addingDefaultStart = daySlots.lastOrNull()?.endTime ?: LocalTime(9, 0)
+                addingDefaultStart = daySlots.lastOrNull()?.endTime ?: LocalTime(hoursStart, 0)
                 dayDialogDate = null
             },
             onEditSlot = { slot -> editingSlot = slot; dayDialogDate = null },
@@ -326,10 +363,9 @@ fun AvailabilityScreen(
         val nextSlotStart = existingSlots
             .filter { it.startTime.toMinutes() > addingDefaultStart.toMinutes() }
             .minByOrNull { it.startTime.toMinutes() }?.startTime
-        val defaultEnd = minutesToLocalTime(
-            (addingDefaultStart.toMinutes() + 60)
-                .coerceAtMost(nextSlotStart?.toMinutes() ?: (hoursEnd * 60))
-        )
+        // Default to the full working-hours range — not a narrow +60min window — so a
+        // new slot doesn't depend on tap position or existing slots to cover the whole day.
+        val defaultEnd = minutesToLocalTime(nextSlotStart?.toMinutes() ?: (hoursEnd * 60))
         val dow = date.dayOfWeek.isoDayNumber
         AddEditAvailabilityDialog(
             dayLabel = "${DAYS_AVAIL_SHORT[dow - 1]}, ${date.dayOfMonth} ${MONTHS_AVAIL_SHORT[date.month.ordinal]}",
@@ -369,12 +405,154 @@ fun AvailabilityScreen(
 }
 
 // ─────────────────────────────────────────────
+// Continuous agenda (schedule mode)
+// ─────────────────────────────────────────────
+
+@Composable
+private fun AgendaDaySection(
+    date: LocalDate,
+    today: LocalDate,
+    sessions: List<Session>,
+    clientsById: Map<Long, Client>,
+    locationsById: Map<Long, Location>,
+    onSessionClick: (Session) -> Unit,
+    onAddSession: () -> Unit,
+) {
+    val isToday = date == today
+    val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .background(if (isToday) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f) else Color.Transparent)
+                .padding(horizontal = 8.dp, vertical = 8.dp)
+        ) {
+            Column(modifier = Modifier.width(56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(DAYS_AVAIL_SHORT[date.dayOfWeek.ordinal],
+                    fontSize = 11.sp,
+                    fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Medium,
+                    color = when {
+                        isToday   -> MaterialTheme.colorScheme.primary
+                        isWeekend -> Color(0xFFBF360C)
+                        else      -> Color(0xFF757575)
+                    })
+                Spacer(Modifier.height(2.dp))
+                Box(
+                    modifier = Modifier.size(30.dp).clip(CircleShape)
+                        .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("${date.dayOfMonth}",
+                        fontSize = 15.sp,
+                        fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Normal,
+                        color = when {
+                            isToday   -> Color.White
+                            isWeekend -> Color(0xFFBF360C)
+                            else      -> MaterialTheme.colorScheme.onSurface
+                        })
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (sessions.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onAddSession)
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) { Text("+ Додати", fontSize = 12.sp, color = Color.Gray.copy(alpha = 0.6f)) }
+                } else {
+                    sessions.forEach { session ->
+                        CompactSessionCard(session, clientsById, locationsById, onClick = { onSessionClick(session) })
+                    }
+                }
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AgendaFilterRow(
+    clients: List<Client>,
+    locations: List<Location>,
+    filterClientIds: Set<Long>,
+    onFilterClientIdsChange: (Set<Long>) -> Unit,
+    filterLocationIds: Set<Long>,
+    onFilterLocationIdsChange: (Set<Long>) -> Unit,
+) {
+    var clientMenuOpen by remember { mutableStateOf(false) }
+    var locationMenuOpen by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box {
+            FilterChip(
+                selected = filterClientIds.isNotEmpty(),
+                onClick = { clientMenuOpen = true },
+                label = { Text(if (filterClientIds.isEmpty()) "Клієнт" else "Клієнт (${filterClientIds.size})", fontSize = 12.sp) }
+            )
+            DropdownMenu(expanded = clientMenuOpen, onDismissRequest = { clientMenuOpen = false }) {
+                if (clients.isEmpty()) {
+                    DropdownMenuItem(text = { Text("Немає клієнтів", fontSize = 13.sp, color = Color.Gray) }, onClick = { clientMenuOpen = false })
+                }
+                clients.forEach { client ->
+                    DropdownMenuItem(
+                        text = { Text(client.name, fontSize = 13.sp) },
+                        leadingIcon = { Checkbox(checked = client.id in filterClientIds, onCheckedChange = null) },
+                        onClick = {
+                            onFilterClientIdsChange(
+                                if (client.id in filterClientIds) filterClientIds - client.id else filterClientIds + client.id
+                            )
+                        }
+                    )
+                }
+            }
+        }
+        Box {
+            FilterChip(
+                selected = filterLocationIds.isNotEmpty(),
+                onClick = { locationMenuOpen = true },
+                label = { Text(if (filterLocationIds.isEmpty()) "Локація" else "Локація (${filterLocationIds.size})", fontSize = 12.sp) }
+            )
+            DropdownMenu(expanded = locationMenuOpen, onDismissRequest = { locationMenuOpen = false }) {
+                if (locations.isEmpty()) {
+                    DropdownMenuItem(text = { Text("Немає локацій", fontSize = 13.sp, color = Color.Gray) }, onClick = { locationMenuOpen = false })
+                }
+                locations.forEach { loc ->
+                    DropdownMenuItem(
+                        text = { Text(loc.name, fontSize = 13.sp) },
+                        leadingIcon = { Checkbox(checked = loc.id in filterLocationIds, onCheckedChange = null) },
+                        onClick = {
+                            onFilterLocationIdsChange(
+                                if (loc.id in filterLocationIds) filterLocationIds - loc.id else filterLocationIds + loc.id
+                            )
+                        }
+                    )
+                }
+            }
+        }
+        if (filterClientIds.isNotEmpty() || filterLocationIds.isNotEmpty()) {
+            AssistChip(
+                onClick = { onFilterClientIdsChange(emptySet()); onFilterLocationIdsChange(emptySet()) },
+                label = { Text("Очистити", fontSize = 12.sp) }
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────
 // Time-grid view (Day / Three-day)
 // ─────────────────────────────────────────────
 
 @Composable
 private fun AvailabilityTimeGrid(
-    days: List<LocalDate>,
+    pagerState: PagerState,
+    pageToDate: (Int) -> LocalDate,
+    numDays: Int,
+    headerDays: List<LocalDate>,
     today: LocalDate,
     availability: List<AvailabilitySlot>,
     locations: List<Location>,
@@ -385,24 +563,33 @@ private fun AvailabilityTimeGrid(
     onDayClick: ((LocalDate) -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
+    val totalHours = hoursEnd - hoursStart + 1
     Column(modifier = Modifier.fillMaxSize()) {
-        AvailDayHeaderRow(days = days, today = today, onDayClick = onDayClick)
+        AvailDayHeaderRow(days = headerDays, today = today, onDayClick = onDayClick)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
         Row(modifier = Modifier.weight(1f).verticalScroll(scrollState)) {
             AvailHourLabels(hoursStart = hoursStart, hoursEnd = hoursEnd)
-            days.forEach { day ->
-                val daySlots = availability.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
-                AvailabilityDayColumn(
-                    date = day,
-                    today = today,
-                    slots = daySlots,
-                    locations = locations,
-                    hoursStart = hoursStart,
-                    hoursEnd = hoursEnd,
-                    modifier = Modifier.weight(1f),
-                    onSlotClick = onSlotClick,
-                    onEmptyTap = { time -> onEmptyTap(day, time) },
-                )
+            BoxWithConstraints(modifier = Modifier.weight(1f).height(HOUR_HEIGHT * totalHours)) {
+                val dayWidth = maxWidth / numDays
+                HorizontalPager(
+                    state = pagerState,
+                    pageSize = PageSize.Fixed(dayWidth),
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    val day = pageToDate(page)
+                    val daySlots = availability.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
+                    AvailabilityDayColumn(
+                        date = day,
+                        today = today,
+                        slots = daySlots,
+                        locations = locations,
+                        hoursStart = hoursStart,
+                        hoursEnd = hoursEnd,
+                        modifier = Modifier.fillMaxWidth(),
+                        onSlotClick = onSlotClick,
+                        onEmptyTap = { time -> onEmptyTap(day, time) },
+                    )
+                }
             }
         }
     }
@@ -791,17 +978,22 @@ private fun buildShareTitle(days: List<LocalDate>, view: CalendarView, startDate
 
 private fun buildAvailabilityImageLines(
     availability: List<AvailabilitySlot>,
+    sessions: List<Session>,
     locations: List<Location>,
     days: List<LocalDate>,
+    hoursStart: Int,
+    hoursEnd: Int,
 ): List<ScheduleImageLine> {
     val locById = locations.associateBy { it.id }
     val result = mutableListOf<ScheduleImageLine>()
     days.forEach { day ->
-        val slots = availability.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
-        if (slots.isNotEmpty()) {
+        val daySessions = sessions.filter { it.date == day }
+        val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
+            .sortedBy { it.startTime.toMinutes() }
+        if (freeSlots.isNotEmpty()) {
             val dow = DAYS_AVAIL_SHORT[day.dayOfWeek.isoDayNumber - 1]
             result.add(ScheduleImageLine("$dow, ${day.dayOfMonth} ${MONTHS_AVAIL_SHORT[day.month.ordinal]}", isHeader = true))
-            slots.forEach { slot ->
+            freeSlots.forEach { slot ->
                 val loc = slot.locationId?.let { locById[it] }
                 val locStr = if (loc != null) "  ${loc.name}" else ""
                 result.add(ScheduleImageLine(
@@ -817,8 +1009,11 @@ private fun buildAvailabilityImageLines(
 
 private fun buildPeriodText(
     availability: List<AvailabilitySlot>,
+    sessions: List<Session>,
     locations: List<Location>,
     days: List<LocalDate>,
+    hoursStart: Int,
+    hoursEnd: Int,
 ): String {
     val locById = locations.associateBy { it.id }
     return buildString {
@@ -826,12 +1021,14 @@ private fun buildPeriodText(
         appendLine()
         days.forEach { day ->
             val dow = day.dayOfWeek.isoDayNumber
-            val slots = availability.filter { it.date == day }.sortedBy { it.startTime.toMinutes() }
             val label = "${DAYS_AVAIL_SHORT[dow - 1]}, ${day.dayOfMonth} ${MONTHS_AVAIL_SHORT[day.month.ordinal]}"
-            if (slots.isEmpty()) {
-                appendLine("$label: за робочими годинами")
+            val daySessions = sessions.filter { it.date == day }
+            val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
+                .sortedBy { it.startTime.toMinutes() }
+            if (freeSlots.isEmpty()) {
+                appendLine("$label: немає вільного часу")
             } else {
-                slots.forEach { slot ->
+                freeSlots.forEach { slot ->
                     val loc = slot.locationId?.let { locById[it] }
                     val locPart = if (loc != null) " (${loc.name})" else ""
                     appendLine("$label: ${slot.startTime.toStorageString()} – ${slot.endTime.toStorageString()}$locPart")

@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:15
+    container_name: linkease-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: linkease_db
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - linkease-db-data:/var/lib/postgresql/data
+
+volumes:
+  linkease-db-data:

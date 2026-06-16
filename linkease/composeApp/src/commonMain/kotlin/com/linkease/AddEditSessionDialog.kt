@@ -147,11 +147,19 @@ fun AddEditSessionDialog(
     var selectedClientIds by remember {
         mutableStateOf(initial?.clientIds?.toSet() ?: defaultClientIds.toSet())
     }
-    var selectedLocationId by remember { mutableStateOf(initial?.locationId ?: defaultLocationId) }
+    fun availabilityLocationFor(d: LocalDate, t: LocalTime): Long? {
+        val daySlots = availability.filter { it.date == d && it.locationId != null }
+        val containing = daySlots.firstOrNull { it.startTime.toMinutes() <= t.toMinutes() && it.endTime.toMinutes() > t.toMinutes() }
+        return (containing ?: daySlots.firstOrNull())?.locationId
+    }
+    var selectedLocationId by remember {
+        mutableStateOf(initial?.locationId ?: defaultLocationId ?: availabilityLocationFor(date, startTime))
+    }
     var notes by remember { mutableStateOf(initial?.notes ?: defaultNotes) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
     var clientSearch by remember { mutableStateOf("") }
+    var locationSearch by remember { mutableStateOf("") }
     var recentlyCreatedClientIds by remember { mutableStateOf(setOf<Long>()) }
 
     val searchFocus = remember { FocusRequester() }
@@ -184,6 +192,11 @@ fun AddEditSessionDialog(
 
     val clientExactMatch = clients.any { it.name.equals(clientSearch.trim(), ignoreCase = true) }
     val canCreateClient = onCreateClient != null && clientSearch.isNotBlank() && !clientExactMatch
+
+    val displayedLocations = remember(locationSearch, sortedLocations) {
+        if (locationSearch.isBlank()) sortedLocations.take(5)
+        else sortedLocations.filter { it.name.contains(locationSearch.trim(), ignoreCase = true) }
+    }
 
     // Reactive: sessions that conflict with the current time window (for single session)
     val overlapError = remember(date, startTime, endTime, existingSessions) {
@@ -440,7 +453,7 @@ fun AddEditSessionDialog(
 
     if (showClientPicker) {
         AlertDialog(
-            onDismissRequest = { showClientPicker = false },
+            onDismissRequest = { showClientPicker = false; clientSearch = "" },
             modifier = Modifier.widthIn(max = 340.dp),
             title = { Text("Клієнти", fontWeight = FontWeight.SemiBold) },
             text = {
@@ -452,42 +465,63 @@ fun AddEditSessionDialog(
                         singleLine = true,
                         trailingIcon = { if (clientSearch.isNotEmpty()) IconButton(onClick = { clientSearch = "" }) { Text("✕", fontSize = 14.sp, color = Color.Gray) } }
                     )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        displayedClients.forEach { client ->
-                            val selected = client.id in selectedClientIds
-                            SelectableChip(name = client.name, color = hexToColor(client.colorHex), selected = selected,
-                                onClick = { selectedClientIds = if (selected) selectedClientIds - client.id else selectedClientIds + client.id })
-                        }
-                        if (canCreateClient) {
-                            CreateChip(name = clientSearch.trim()) {
-                                val newClient = onCreateClient!!(clientSearch.trim())
-                                selectedClientIds = selectedClientIds + newClient.id
-                                recentlyCreatedClientIds = recentlyCreatedClientIds + newClient.id
-                                clientSearch = ""
+                    if (displayedClients.isEmpty() && !canCreateClient) {
+                        Text("Нічого не знайдено", fontSize = 13.sp, color = Color.Gray)
+                    } else {
+                        Column(modifier = Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                displayedClients.forEach { client ->
+                                    val selected = client.id in selectedClientIds
+                                    SelectableChip(name = client.name, color = hexToColor(client.colorHex), selected = selected,
+                                        onClick = { selectedClientIds = if (selected) selectedClientIds - client.id else selectedClientIds + client.id })
+                                }
+                                if (canCreateClient) {
+                                    CreateChip(name = clientSearch.trim()) {
+                                        val newClient = onCreateClient!!(clientSearch.trim())
+                                        selectedClientIds = selectedClientIds + newClient.id
+                                        recentlyCreatedClientIds = recentlyCreatedClientIds + newClient.id
+                                        clientSearch = ""
+                                    }
+                                }
                             }
                         }
                     }
                 }
             },
-            confirmButton = { Button(onClick = { showClientPicker = false }) { Text("OK") } }
+            confirmButton = { Button(onClick = { showClientPicker = false; clientSearch = "" }) { Text("OK") } }
         )
     }
 
     if (showLocationPicker && sortedLocations.isNotEmpty()) {
         AlertDialog(
-            onDismissRequest = { showLocationPicker = false },
+            onDismissRequest = { showLocationPicker = false; locationSearch = "" },
             modifier = Modifier.widthIn(max = 340.dp),
             title = { Text("Локація", fontWeight = FontWeight.SemiBold) },
             text = {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    sortedLocations.forEach { loc ->
-                        val selected = loc.id == selectedLocationId
-                        SelectableChip(name = loc.name, color = hexToColor(loc.colorHex), selected = selected,
-                            onClick = { selectedLocationId = if (selected) null else loc.id })
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = locationSearch, onValueChange = { locationSearch = it },
+                        placeholder = { Text("Пошук…", fontSize = 13.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        trailingIcon = { if (locationSearch.isNotEmpty()) IconButton(onClick = { locationSearch = "" }) { Text("✕", fontSize = 14.sp, color = Color.Gray) } }
+                    )
+                    if (displayedLocations.isEmpty()) {
+                        Text("Нічого не знайдено", fontSize = 13.sp, color = Color.Gray)
+                    } else {
+                        Column(modifier = Modifier.heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                displayedLocations.forEach { loc ->
+                                    val selected = loc.id == selectedLocationId
+                                    SelectableChip(name = loc.name, color = hexToColor(loc.colorHex), selected = selected,
+                                        onClick = { selectedLocationId = if (selected) null else loc.id })
+                                }
+                            }
+                        }
                     }
                 }
             },
-            confirmButton = { Button(onClick = { showLocationPicker = false }) { Text("OK") } }
+            confirmButton = { Button(onClick = { showLocationPicker = false; locationSearch = "" }) { Text("OK") } }
         )
     }
 

@@ -6,6 +6,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 kotlin {
@@ -13,6 +14,14 @@ kotlin {
         compilations.all {
             kotlinOptions {
                 jvmTarget = "11"
+            }
+        }
+    }
+
+    jvm {
+        compilations.all {
+            kotlinOptions {
+                jvmTarget = "21"
             }
         }
     }
@@ -48,6 +57,7 @@ kotlin {
 
         wasmJsMain.dependencies {
             implementation("org.jetbrains.kotlinx:kotlinx-browser:0.3")
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
         }
 
         androidMain.dependencies {

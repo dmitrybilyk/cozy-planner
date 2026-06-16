@@ -1,0 +1,10 @@
+spring:
+  flyway:
+    clean-disabled: true
+
+app:
+  base-url: ${APP_BASE_URL}
+
+telegram:
+  enabled: true
+  webhook-url: ${APP_BASE_URL}/api/telegram/webhook

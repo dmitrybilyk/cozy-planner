@@ -1,0 +1,65 @@
+services:
+  linkease-db:
+    image: postgres:15-alpine
+    container_name: linkease-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${LINKEASE_DB_USER:-user}
+      POSTGRES_PASSWORD: ${LINKEASE_DB_PASSWORD:-password}
+      POSTGRES_DB: ${LINKEASE_DB_NAME:-linkease_db}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - linkease_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LINKEASE_DB_USER:-user} -d ${LINKEASE_DB_NAME:-linkease_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - linkease-net
+
+  linkease-app:
+    image: linkease-server:latest
+    container_name: linkease-app
+    restart: unless-stopped
+    env_file:
+      - /etc/linkease/secrets.env
+    depends_on:
+      linkease-db:
+        condition: service_healthy
+    ports:
+      - "8443:8080"
+    volumes:
+      - /home/ubuntu/keystore.p12:/app/keystore.p12:ro
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_SSL_KEY_STORE: /app/keystore.p12
+      SERVER_SSL_KEY_STORE_PASSWORD: ${KEYSTORE_PASSWORD:-035645}
+      SERVER_SSL_KEY_STORE_TYPE: PKCS12
+      SERVER_SSL_KEY_ALIAS: tomcat
+      DB_USER: ${LINKEASE_DB_USER:-user}
+      DB_PASSWORD: ${LINKEASE_DB_PASSWORD:-password}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://linkease-db:5432/${LINKEASE_DB_NAME:-linkease_db}?stringtype=unspecified
+      SPRING_FLYWAY_URL: jdbc:postgresql://linkease-db:5432/${LINKEASE_DB_NAME:-linkease_db}?stringtype=unspecified
+      SPRING_FLYWAY_USER: ${LINKEASE_DB_USER:-user}
+      SPRING_FLYWAY_PASSWORD: ${LINKEASE_DB_PASSWORD:-password}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET: ${SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET}
+      APP_BASE_URL: ${LINKEASE_APP_BASE_URL:-https://92.5.42.35:8443}
+      APP_OWNER_EMAIL: ${LINKEASE_OWNER_EMAIL}
+      TELEGRAM_ENABLED: ${LINKEASE_TELEGRAM_ENABLED:-true}
+      LINKEASE_TELEGRAM_BOT_TOKEN: ${LINKEASE_TELEGRAM_BOT_TOKEN}
+      LINKEASE_TELEGRAM_BOT_USERNAME: ${LINKEASE_TELEGRAM_BOT_USERNAME}
+      LINKEASE_TELEGRAM_WEBHOOK_URL: ${LINKEASE_TELEGRAM_WEBHOOK_URL}
+      LINKEASE_TELEGRAM_WEBHOOK_SECRET: ${LINKEASE_TELEGRAM_WEBHOOK_SECRET}
+      TELEGRAM_REMINDER_MINUTES_BEFORE: ${TELEGRAM_REMINDER_MINUTES_BEFORE:-60}
+    networks:
+      - linkease-net
+
+networks:
+  linkease-net:
+    driver: bridge
+
+volumes:
+  linkease_postgres_data:

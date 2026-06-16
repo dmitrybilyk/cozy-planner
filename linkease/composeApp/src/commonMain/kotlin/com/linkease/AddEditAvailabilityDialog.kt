@@ -21,8 +21,8 @@ import kotlinx.datetime.LocalTime
 fun AddEditAvailabilityDialog(
     dayLabel: String,
     initial: AvailabilitySlot? = null,
-    defaultStartTime: LocalTime = LocalTime(9, 0),
-    defaultEndTime: LocalTime = LocalTime(18, 0),
+    defaultStartTime: LocalTime = LocalTime(CALENDAR_HOURS_START, 0),
+    defaultEndTime: LocalTime = LocalTime(CALENDAR_HOURS_END, 0),
     existingSlotsOnDay: List<AvailabilitySlot> = emptyList(),
     locations: List<Location>,
     hoursStart: Int = CALENDAR_HOURS_START,
