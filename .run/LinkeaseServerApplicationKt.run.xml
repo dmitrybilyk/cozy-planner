@@ -1,0 +1,23 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="LinkeaseServerApplicationKt" type="JetRunConfigurationType" nameIsGenerated="true">
+    <envs>
+      <env name="SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_ID" value="743966281289-o803jlglnt18dev0mma0c3ui78oskatb.apps.googleusercontent.com" />
+      <env name="SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_GOOGLE_CLIENT_SECRET" value="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" />
+      <env name="TELEGRAM_BOT_TOKEN" value="8656350779:AAGYurnNw5iz5iJ71R43m0E2SVlP9ZjCjHY" />
+      <env name="MENTOR_TELEGRAM_BOT_TOKEN" value="8090987292:AAEDolG1vaazyAIUJRRxKDpgNGqxUcXtL2c" />
+      <env name="DEVELOPER_BOT_TOKEN" value="8853226093:AAH_vbu30n72jB-bog19L78WBHYegJl0JqA" />
+      <env name="DEVELOPER_CHAT_ID" value="8462773868" />
+      <env name="SPRING_DATASOURCE_URL" value="jdbc:postgresql://localhost:55432/linkease_db?stringtype=unspecified" />
+      <env name="DB_USER" value="user" />
+      <env name="DB_PASSWORD" value="password" />
+      <env name="APP_OWNER_EMAIL" value="dmitry.bilyk@gmail.com" />
+      <env name="TELEGRAM_ENABLED" value="false" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.linkease.server.LinkeaseServerApplicationKt" />
+    <module name="linkease.server.main" />
+    <shortenClasspath name="NONE" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
