@@ -452,6 +452,7 @@ fun CalendarScreen(
                 currentView = availabilityView,
                 startDate = availabilityStartDate,
                 onStartDateChange = { availabilityStartDate = it },
+                onViewChange = { view, date -> availabilityView = view; availabilityStartDate = date },
                 availability = availability,
                 locations = locations,
                 hoursStart = hoursStart,
@@ -591,14 +592,16 @@ fun CalendarScreen(
             }
         }
 
-        // FAB row overlay — exact right-edge padding so Availability button always has proper gap
+        // FAB row overlay — exact right-edge padding; Availability hidden when free time is expanded
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .padding(start = 16.dp, end = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom,
         ) {
+            // Left: free time button (hidden when availability panel is open)
             if (!showAvailabilityPanel) {
                 if (showFreeChips) {
                     ExtendedFloatingActionButton(
@@ -620,18 +623,21 @@ fun CalendarScreen(
             } else {
                 Spacer(Modifier.width(1.dp))
             }
-            ExtendedFloatingActionButton(
-                onClick = onAvailabilityPanelToggle,
-                containerColor = if (showAvailabilityPanel) Color(0xFF7C3AED) else Color(0xFF8E24AA),
-                contentColor = Color.White,
-                icon = {
-                    Icon(
-                        if (showAvailabilityPanel) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                        null, modifier = Modifier.size(20.dp)
-                    )
-                },
-                text = { Text("Доступність", fontSize = 12.sp) },
-            )
+            // Right: Availability button — hidden when free time chips are expanded
+            if (!showFreeChips) {
+                ExtendedFloatingActionButton(
+                    onClick = onAvailabilityPanelToggle,
+                    containerColor = if (showAvailabilityPanel) Color(0xFF7C3AED) else Color(0xFF8E24AA),
+                    contentColor = Color.White,
+                    icon = {
+                        Icon(
+                            if (showAvailabilityPanel) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                            null, modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    text = { Text("Доступність", fontSize = 12.sp) },
+                )
+            }
         }
         } // Box
     }
@@ -1070,34 +1076,30 @@ private fun MonthView(
         }
         Spacer(Modifier.height(4.dp))
 
-        // Cells stretch to fill whatever height remains so the grid uses the whole
-        // screen (fewer rows = taller cells with room for session previews); below a
-        // usable minimum they stay readable and the month scrolls instead of shrinking.
-        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            val cellHeight = (maxHeight / rows).coerceAtLeast(64.dp)
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                var dayCounter = 1 - (startDow - 1)
-                repeat(rows) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        repeat(7) {
-                            if (dayCounter < 1 || dayCounter > daysInMonth) {
-                                Box(modifier = Modifier.weight(1f).height(cellHeight))
-                            } else {
-                                val date = LocalDate(firstOfMonth.year, firstOfMonth.month, dayCounter)
-                                val daySessions = sessions.filter { it.date == date }
-                                MonthDayCell(
-                                    date = date, today = today,
-                                    sessions = daySessions, locationsById = locationsById,
-                                    clientsById = clientsById,
-                                    cellHeight = cellHeight,
-                                    onClick = { onDayClick(date) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            dayCounter++
+        val cellHeight = 72.dp
+        Column(modifier = Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState())) {
+            var dayCounter = 1 - (startDow - 1)
+            repeat(rows) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    repeat(7) {
+                        if (dayCounter < 1 || dayCounter > daysInMonth) {
+                            Box(modifier = Modifier.weight(1f).height(cellHeight))
+                        } else {
+                            val date = LocalDate(firstOfMonth.year, firstOfMonth.month, dayCounter)
+                            val daySessions = sessions.filter { it.date == date }
+                            MonthDayCell(
+                                date = date, today = today,
+                                sessions = daySessions, locationsById = locationsById,
+                                clientsById = clientsById,
+                                cellHeight = cellHeight,
+                                onClick = { onDayClick(date) },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
+                        dayCounter++
                     }
                 }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3.toFloat()))
             }
         }
     }

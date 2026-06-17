@@ -62,6 +62,7 @@ fun App(
     createSessionVersion: Long = 0L,
     showFreeTimeVersion: Long = 0L,
     createClientVersion: Long = 0L,
+    showAvailabilityVersion: Long = 0L,
     onExportDayDirect: ((date: LocalDate, sessions: List<Session>, clients: List<Client>, locations: List<Location>) -> Unit)? = null,
     onDataChanged: ((sessions: List<Session>, clients: List<Client>, locations: List<Location>, availability: List<AvailabilitySlot>) -> Unit)? = null,
     refreshVersion: Long = 0L,
@@ -224,6 +225,13 @@ fun App(
         if (createClientVersion > 0L) {
             switchRootScreen(Screen.CALENDAR)
             navigateTo(Screen.CLIENTS)
+        }
+    }
+
+    LaunchedEffect(showAvailabilityVersion) {
+        if (showAvailabilityVersion > 0L) {
+            switchRootScreen(Screen.CALENDAR)
+            showAvailabilityPanel = true
         }
     }
 

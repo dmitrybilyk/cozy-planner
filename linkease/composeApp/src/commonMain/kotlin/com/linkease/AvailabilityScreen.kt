@@ -197,8 +197,11 @@ fun AvailabilityScreen(
                                 color = MaterialTheme.colorScheme.primary)
                         },
                         actions = {
-                            TextButton(onClick = { agendaScope.launch { agendaListState.animateScrollToItem(AGENDA_CENTER) } }) {
-                                Text("Сьогодні", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                            val todayVisible by remember { derivedStateOf { agendaListState.layoutInfo.visibleItemsInfo.any { it.index == AGENDA_CENTER } } }
+                            if (!todayVisible) {
+                                TextButton(onClick = { agendaScope.launch { agendaListState.animateScrollToItem(AGENDA_CENTER) } }) {
+                                    Text("Сьогодні", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                }
                             }
                         },
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)

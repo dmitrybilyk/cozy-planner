@@ -47,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private var createSessionVersion by mutableStateOf(0L)
     private var showFreeTimeVersion by mutableStateOf(0L)
     private var createClientVersion by mutableStateOf(0L)
+    private var showAvailabilityVersion by mutableStateOf(0L)
     private var refreshVersion by mutableStateOf(0L)
     private var notificationSoundUriState by mutableStateOf<String?>(null)
 
@@ -92,9 +93,10 @@ class MainActivity : ComponentActivity() {
         }
 
         when (intent.getStringExtra("action")) {
-            "create_session" -> createSessionVersion++
-            "show_free_time" -> showFreeTimeVersion++
-            "create_client"  -> createClientVersion++
+            "create_session"    -> createSessionVersion++
+            "show_free_time"    -> showFreeTimeVersion++
+            "create_client"     -> createClientVersion++
+            "show_availability" -> showAvailabilityVersion++
         }
 
         val dbHelper    = LinkDatabaseHelper(applicationContext)
@@ -135,6 +137,7 @@ class MainActivity : ComponentActivity() {
                 createSessionVersion = createSessionVersion,
                 showFreeTimeVersion = showFreeTimeVersion,
                 createClientVersion = createClientVersion,
+                showAvailabilityVersion = showAvailabilityVersion,
                 onExportDayDirect  = { date, sessions, clients, locations ->
                     exportDayToCalendar(date, sessions, clients, locations)
                 },
@@ -201,9 +204,10 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         when (intent.getStringExtra("action")) {
-            "create_session" -> createSessionVersion++
-            "show_free_time" -> showFreeTimeVersion++
-            "create_client"  -> createClientVersion++
+            "create_session"    -> createSessionVersion++
+            "show_free_time"    -> showFreeTimeVersion++
+            "create_client"     -> createClientVersion++
+            "show_availability" -> showAvailabilityVersion++
         }
     }
 
