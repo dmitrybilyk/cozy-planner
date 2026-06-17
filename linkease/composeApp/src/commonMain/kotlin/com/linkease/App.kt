@@ -59,6 +59,8 @@ fun App(
     onScheduleNotifications: ((sessions: List<Session>, clients: List<Client>, locations: List<Location>) -> Unit)? = null,
     onPinToStatusBar: (() -> Unit)? = null,
     createSessionVersion: Long = 0L,
+    showFreeTimeVersion: Long = 0L,
+    createClientVersion: Long = 0L,
     onExportDayDirect: ((date: LocalDate, sessions: List<Session>, clients: List<Client>, locations: List<Location>) -> Unit)? = null,
     onDataChanged: ((sessions: List<Session>, clients: List<Client>, locations: List<Location>, availability: List<AvailabilitySlot>) -> Unit)? = null,
     refreshVersion: Long = 0L,
@@ -211,6 +213,17 @@ fun App(
         if (createSessionVersion > 0L) openNewSession(todayDate, LocalTime(9, 0))
     }
 
+    LaunchedEffect(showFreeTimeVersion) {
+        if (showFreeTimeVersion > 0L) switchRootScreen(Screen.CALENDAR)
+    }
+
+    LaunchedEffect(createClientVersion) {
+        if (createClientVersion > 0L) {
+            switchRootScreen(Screen.CALENDAR)
+            navigateTo(Screen.CLIENTS)
+        }
+    }
+
     // Reload all data after external import.
     LaunchedEffect(refreshVersion) {
         if (refreshVersion > 0L) {
@@ -225,6 +238,7 @@ fun App(
     MaterialTheme(colorScheme = appColorScheme) {
         when (screen) {
             Screen.CALENDAR -> CalendarScreen(
+                showFreeTimeVersion = showFreeTimeVersion,
                 startDate = startDate,
                 currentView = currentView,
                 sessions = sessions,
@@ -283,6 +297,7 @@ fun App(
             )
 
             Screen.CLIENTS -> ClientsScreen(
+                openDialogVersion = createClientVersion,
                 clients = clients,
                 sessions = sessions,
                 locations = locations,

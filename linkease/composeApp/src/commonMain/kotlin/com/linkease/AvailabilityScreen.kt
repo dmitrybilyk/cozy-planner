@@ -16,6 +16,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -177,6 +179,11 @@ fun AvailabilityScreen(
                     // Continuous agenda — no prev/next window to page through, just a
                     // jump back to "today" and filters for the list below.
                     CenterAlignedTopAppBar(
+                        navigationIcon = {
+                            IconButton(onClick = onSettingsClick) {
+                                Icon(Icons.Default.Settings, contentDescription = "Налаштування", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
                         title = {
                             Text("Розклад", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
                                 color = MaterialTheme.colorScheme.primary)
@@ -198,6 +205,11 @@ fun AvailabilityScreen(
                     )
                 } else {
                     CenterAlignedTopAppBar(
+                        navigationIcon = {
+                            IconButton(onClick = onSettingsClick) {
+                                Icon(Icons.Default.Settings, contentDescription = "Налаштування", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
                         title = {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text("Налаштування доступності", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
@@ -261,9 +273,8 @@ fun AvailabilityScreen(
                     }
                     MainBottomNav(
                         currentScreen = Screen.AVAILABILITY,
-                        onSettingsClick = onSettingsClick,
+                        onHomeClick = onFreeTimeClick,
                         onAvailabilityClick = onAvailabilityNavClick,
-                        onFreeTimeClick = onFreeTimeClick,
                         onCreateClick = onCreateClick,
                     )
                 }
@@ -474,7 +485,7 @@ private fun AgendaDaySection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AgendaFilterRow(
+internal fun AgendaFilterRow(
     clients: List<Client>,
     locations: List<Location>,
     filterClientIds: Set<Long>,
@@ -482,63 +493,76 @@ private fun AgendaFilterRow(
     filterLocationIds: Set<Long>,
     onFilterLocationIdsChange: (Set<Long>) -> Unit,
 ) {
-    var clientMenuOpen by remember { mutableStateOf(false) }
-    var locationMenuOpen by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Box {
-            FilterChip(
-                selected = filterClientIds.isNotEmpty(),
-                onClick = { clientMenuOpen = true },
-                label = { Text(if (filterClientIds.isEmpty()) "Клієнт" else "Клієнт (${filterClientIds.size})", fontSize = 12.sp) }
-            )
-            DropdownMenu(expanded = clientMenuOpen, onDismissRequest = { clientMenuOpen = false }) {
-                if (clients.isEmpty()) {
-                    DropdownMenuItem(text = { Text("Немає клієнтів", fontSize = 13.sp, color = Color.Gray) }, onClick = { clientMenuOpen = false })
-                }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // ── Clients row ────────────────────────────────────────────────────
+        if (clients.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 clients.forEach { client ->
-                    DropdownMenuItem(
-                        text = { Text(client.name, fontSize = 13.sp) },
-                        leadingIcon = { Checkbox(checked = client.id in filterClientIds, onCheckedChange = null) },
+                    val clientColor = hexToColor(client.colorHex)
+                    FilterChip(
+                        selected = client.id in filterClientIds,
                         onClick = {
                             onFilterClientIdsChange(
-                                if (client.id in filterClientIds) filterClientIds - client.id else filterClientIds + client.id
+                                if (client.id in filterClientIds) filterClientIds - client.id
+                                else filterClientIds + client.id
                             )
-                        }
+                        },
+                        leadingIcon = {
+                            Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(clientColor))
+                        },
+                        label = { Text(client.name, fontSize = 12.sp, maxLines = 1) },
+                    )
+                }
+                if (filterClientIds.isNotEmpty()) {
+                    Box(modifier = Modifier.width(1.dp).height(20.dp).background(Color(0x33000000)))
+                    InputChip(
+                        selected = false,
+                        onClick = { onFilterClientIdsChange(emptySet()) },
+                        label = { Text("✕", fontSize = 12.sp) },
                     )
                 }
             }
         }
-        Box {
-            FilterChip(
-                selected = filterLocationIds.isNotEmpty(),
-                onClick = { locationMenuOpen = true },
-                label = { Text(if (filterLocationIds.isEmpty()) "Локація" else "Локація (${filterLocationIds.size})", fontSize = 12.sp) }
-            )
-            DropdownMenu(expanded = locationMenuOpen, onDismissRequest = { locationMenuOpen = false }) {
-                if (locations.isEmpty()) {
-                    DropdownMenuItem(text = { Text("Немає локацій", fontSize = 13.sp, color = Color.Gray) }, onClick = { locationMenuOpen = false })
-                }
+
+        // ── Locations row ──────────────────────────────────────────────────
+        if (locations.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 locations.forEach { loc ->
-                    DropdownMenuItem(
-                        text = { Text(loc.name, fontSize = 13.sp) },
-                        leadingIcon = { Checkbox(checked = loc.id in filterLocationIds, onCheckedChange = null) },
+                    FilterChip(
+                        selected = loc.id in filterLocationIds,
                         onClick = {
                             onFilterLocationIdsChange(
-                                if (loc.id in filterLocationIds) filterLocationIds - loc.id else filterLocationIds + loc.id
+                                if (loc.id in filterLocationIds) filterLocationIds - loc.id
+                                else filterLocationIds + loc.id
                             )
-                        }
+                        },
+                        leadingIcon = { Text("📍", fontSize = 11.sp) },
+                        label = { Text(loc.name, fontSize = 12.sp, maxLines = 1) },
+                    )
+                }
+                if (filterLocationIds.isNotEmpty()) {
+                    Box(modifier = Modifier.width(1.dp).height(20.dp).background(Color(0x33000000)))
+                    InputChip(
+                        selected = false,
+                        onClick = { onFilterLocationIdsChange(emptySet()) },
+                        label = { Text("✕", fontSize = 12.sp) },
                     )
                 }
             }
-        }
-        if (filterClientIds.isNotEmpty() || filterLocationIds.isNotEmpty()) {
-            AssistChip(
-                onClick = { onFilterClientIdsChange(emptySet()); onFilterLocationIdsChange(emptySet()) },
-                label = { Text("Очистити", fontSize = 12.sp) }
-            )
         }
     }
 }

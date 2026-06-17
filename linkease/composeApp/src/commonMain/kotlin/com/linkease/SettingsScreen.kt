@@ -86,9 +86,8 @@ fun SettingsScreen(
         bottomBar = {
             MainBottomNav(
                 currentScreen = Screen.SETTINGS,
-                onSettingsClick = onSettingsClick,
+                onHomeClick = onFreeTimeClick,
                 onAvailabilityClick = onAvailabilityClick,
-                onFreeTimeClick = onFreeTimeClick,
                 onCreateClick = onCreateClick,
             )
         }

@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.sp
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
@@ -32,12 +31,14 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.layout.wrapContentWidth
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
+import com.linkease.db.AndroidAvailabilityRepository
 import com.linkease.db.AndroidClientRepository
 import com.linkease.db.AndroidLocationRepository
 import com.linkease.db.AndroidSessionRepository
@@ -71,16 +72,25 @@ private fun SessionWidgetContent(context: Context) {
     val dayOffset = prefs[DAY_OFFSET_KEY] ?: 0
     val size      = LocalSize.current
     val isCompact = size.width < 160.dp
+    val isTall    = size.height >= 200.dp
 
     val tz    = TimeZone.currentSystemDefault()
     val today = Clock.System.now().toLocalDateTime(tz).date
     val date  = today.plus(dayOffset, DateTimeUnit.DAY)
+
+    val sharedPrefs    = context.getSharedPreferences("linkease_prefs", Context.MODE_PRIVATE)
+    val workHoursStart = sharedPrefs.getInt("work_hours_start", CALENDAR_HOURS_START)
+    val workHoursEnd   = sharedPrefs.getInt("work_hours_end",   CALENDAR_HOURS_END)
 
     val db          = LinkDatabaseHelper(context)
     val sessions    = AndroidSessionRepository(db).getAll()
         .filter { it.date == date }.sortedBy { it.startTime }
     val clientsById = AndroidClientRepository(db).getAll().associateBy { it.id }
     val locsById    = AndroidLocationRepository(db).getAll().associateBy { it.id }
+    val freeSlots   = if (isTall) {
+        val avail = AndroidAvailabilityRepository(db).getAll()
+        calculateFreeSlots(sessions, avail, date, workHoursStart, workHoursEnd)
+    } else emptyList()
 
     val dayName   = W_DAYS[date.dayOfWeek.ordinal]
     val monthName = W_MONTHS[date.monthNumber - 1]
@@ -92,6 +102,10 @@ private fun SessionWidgetContent(context: Context) {
     }
     val createIntent = Intent(context, MainActivity::class.java).apply {
         putExtra("action", "create_session")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    val createClientIntent = Intent(context, MainActivity::class.java).apply {
+        putExtra("action", "create_client")
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
 
@@ -136,26 +150,19 @@ private fun SessionWidgetContent(context: Context) {
 
         Spacer(GlanceModifier.height(4.dp))
 
-        // ── Session list ──────────────────────────────────────────────────
-        if (sessions.isEmpty()) {
-            Box(
-                modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Немає занять", style = TextStyle(color = C_DIM, fontSize = 12.sp))
-            }
-        } else {
-            LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                items(sessions.size, itemId = { sessions[it].id }) { i ->
-                    val s     = sessions[i]
+        if (isTall) {
+            // ── Sessions (capped at 4 rows) ───────────────────────────────
+            if (sessions.isEmpty()) {
+                Text("Немає занять", style = TextStyle(color = C_DIM, fontSize = 11.sp))
+            } else {
+                sessions.take(4).forEach { s ->
                     val hh    = s.startTime.hour.toString().padStart(2, '0')
                     val mm    = s.startTime.minute.toString().padStart(2, '0')
                     val names = s.clientIds.mapNotNull { clientsById[it]?.name }.joinToString(", ")
                     val loc   = s.locationId?.let { locsById[it]?.name }
-                    Row(
-                        modifier = GlanceModifier
-                            .fillMaxWidth()
-                            .padding(vertical = 2.dp)
+                    Box(
+                        modifier = GlanceModifier.fillMaxWidth()
+                            .padding(vertical = 1.dp)
                             .clickable(actionStartActivity(openIntent))
                     ) {
                         Text(
@@ -168,21 +175,159 @@ private fun SessionWidgetContent(context: Context) {
                         )
                     }
                 }
+                if (sessions.size > 4) {
+                    Text("+ ${sessions.size - 4} ще", style = TextStyle(color = C_DIM, fontSize = 10.sp))
+                }
             }
-        }
 
-        if (!isCompact) {
+            Spacer(GlanceModifier.height(6.dp))
+
+            // ── Free time ─────────────────────────────────────────────────
+            Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(Color(0x40FFFFFF))) {}
             Spacer(GlanceModifier.height(4.dp))
-            Box(
-                modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .background(Color(0xFF3949AB))
-                    .cornerRadius(6.dp)
-                    .clickable(actionStartActivity(createIntent))
-                    .padding(vertical = 5.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("+ Створити", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold))
+            Text("⏰ Вільний час", style = TextStyle(color = C_DIM, fontSize = 10.sp, fontWeight = FontWeight.Bold))
+            Spacer(GlanceModifier.height(2.dp))
+            if (freeSlots.isEmpty()) {
+                Text("Немає вільного часу", style = TextStyle(color = C_DIM, fontSize = 11.sp))
+            } else {
+                freeSlots.take(3).forEach { slot ->
+                    val sh = slot.startTime.hour.toString().padStart(2, '0')
+                    val sm = slot.startTime.minute.toString().padStart(2, '0')
+                    val eh = slot.endTime.hour.toString().padStart(2, '0')
+                    val em = slot.endTime.minute.toString().padStart(2, '0')
+                    Row(
+                        modifier = GlanceModifier.fillMaxWidth().padding(vertical = 1.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("$sh:$sm – $eh:$em", style = TextStyle(color = C_W, fontSize = 11.sp))
+                        Spacer(GlanceModifier.defaultWeight())
+                        Box(
+                            modifier = GlanceModifier
+                                .wrapContentWidth()
+                                .background(Color(0xFF3949AB))
+                                .cornerRadius(4.dp)
+                                .clickable(actionStartActivity(createIntent))
+                                .padding(horizontal = 6.dp, vertical = 1.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("+", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
+                    }
+                }
+            }
+
+            Spacer(GlanceModifier.defaultWeight())
+
+            // ── Action buttons ────────────────────────────────────────────
+            Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .background(Color(0xFF3949AB))
+                        .cornerRadius(6.dp)
+                        .clickable(actionStartActivity(createIntent))
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("+ Заняття", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
+
+                Spacer(GlanceModifier.width(6.dp))
+
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .background(Color(0xFF283593))
+                        .cornerRadius(6.dp)
+                        .clickable(actionStartActivity(createClientIntent))
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("+ Клієнт", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
+            }
+
+        } else if (!isCompact) {
+            // ── Medium: session list + action buttons ─────────────────────
+            LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                if (sessions.isEmpty()) {
+                    item {
+                        Box(modifier = GlanceModifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("Немає занять", style = TextStyle(color = C_DIM, fontSize = 12.sp))
+                        }
+                    }
+                } else {
+                    items(sessions.size, itemId = { sessions[it].id }) { i ->
+                        val s     = sessions[i]
+                        val hh    = s.startTime.hour.toString().padStart(2, '0')
+                        val mm    = s.startTime.minute.toString().padStart(2, '0')
+                        val names = s.clientIds.mapNotNull { clientsById[it]?.name }.joinToString(", ")
+                        val loc   = s.locationId?.let { locsById[it]?.name }
+                        Row(
+                            modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)
+                                .clickable(actionStartActivity(openIntent))
+                        ) {
+                            Text(
+                                buildString {
+                                    append("$hh:$mm")
+                                    if (names.isNotEmpty()) append("  $names")
+                                    if (!loc.isNullOrEmpty()) append(" · $loc")
+                                },
+                                style = TextStyle(color = C_W, fontSize = 11.sp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(GlanceModifier.height(4.dp))
+            Row(modifier = GlanceModifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .background(Color(0xFF3949AB))
+                        .cornerRadius(6.dp)
+                        .clickable(actionStartActivity(createIntent))
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("+ Заняття", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
+
+                Spacer(GlanceModifier.width(6.dp))
+
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .background(Color(0xFF283593))
+                        .cornerRadius(6.dp)
+                        .clickable(actionStartActivity(createClientIntent))
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("+ Клієнт", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
+            }
+
+        } else {
+            // ── Compact: session list only ────────────────────────────────
+            LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                if (sessions.isEmpty()) {
+                    item {
+                        Box(modifier = GlanceModifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("Немає занять", style = TextStyle(color = C_DIM, fontSize = 11.sp))
+                        }
+                    }
+                } else {
+                    items(sessions.size, itemId = { sessions[it].id }) { i ->
+                        val s     = sessions[i]
+                        val hh    = s.startTime.hour.toString().padStart(2, '0')
+                        val mm    = s.startTime.minute.toString().padStart(2, '0')
+                        val names = s.clientIds.mapNotNull { clientsById[it]?.name }.joinToString(", ")
+                        Row(
+                            modifier = GlanceModifier.fillMaxWidth().padding(vertical = 2.dp)
+                                .clickable(actionStartActivity(openIntent))
+                        ) {
+                            Text(
+                                buildString {
+                                    append("$hh:$mm")
+                                    if (names.isNotEmpty()) append(" $names")
+                                },
+                                style = TextStyle(color = C_W, fontSize = 11.sp),
+                            )
+                        }
+                    }
+                }
             }
         }
     }

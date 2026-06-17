@@ -19,6 +19,7 @@ import kotlinx.datetime.LocalDate
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClientsScreen(
+    openDialogVersion: Long = 0L,
     clients: List<Client>,
     sessions: List<Session> = emptyList(),
     locations: List<Location> = emptyList(),
@@ -29,6 +30,10 @@ fun ClientsScreen(
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Client?>(null) }
+
+    LaunchedEffect(openDialogVersion) {
+        if (openDialogVersion > 0L) { editing = null; showDialog = true }
+    }
     var deleteCandidate by remember { mutableStateOf<Client?>(null) }
     var viewingClient by remember { mutableStateOf<Client?>(null) }
 

@@ -57,14 +57,15 @@ private suspend fun isAuthenticated(): Boolean =
     try {
         apiGetRaw("/api/me")
         true
-    } catch (e: ApiException) {
+    } catch (e: Throwable) {
+        println("isAuthenticated: ${e::class.simpleName} — ${e.message}")
         false
     }
 
 private suspend fun fetchTelegramLinked(): Boolean =
     try {
         apiGet("/api/telegram/status", TelegramStatusDto.serializer()).linked
-    } catch (e: ApiException) {
+    } catch (e: Throwable) {
         false
     }
 

@@ -2,28 +2,30 @@
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
 
     <shortcut
-        android:shortcutId="pin_widget_sessions"
+        android:shortcutId="create_session"
         android:enabled="true"
-        android:icon="@android:drawable/ic_menu_agenda"
-        android:shortcutShortLabel="@string/shortcut_widget_short"
-        android:shortcutLongLabel="@string/shortcut_widget_long">
+        android:icon="@android:drawable/ic_input_add"
+        android:shortcutShortLabel="@string/shortcut_create_session_short"
+        android:shortcutLongLabel="@string/shortcut_create_session_long">
         <intent
             android:action="android.intent.action.MAIN"
-            android:targetClass="com.linkease.PinWidgetActivity"
-            android:targetPackage="com.linkease" />
+            android:targetClass="com.linkease.MainActivity"
+            android:targetPackage="com.linkease">
+            <extra android:name="action" android:value="create_session" />
+        </intent>
     </shortcut>
 
     <shortcut
-        android:shortcutId="pin_widget_freetime"
+        android:shortcutId="show_free_time"
         android:enabled="true"
         android:icon="@android:drawable/ic_menu_my_calendar"
-        android:shortcutShortLabel="@string/shortcut_freetime_short"
-        android:shortcutLongLabel="@string/shortcut_freetime_long">
+        android:shortcutShortLabel="@string/shortcut_free_time_short"
+        android:shortcutLongLabel="@string/shortcut_free_time_long">
         <intent
             android:action="android.intent.action.MAIN"
-            android:targetClass="com.linkease.PinWidgetActivity"
+            android:targetClass="com.linkease.MainActivity"
             android:targetPackage="com.linkease">
-            <extra android:name="widget" android:value="freetime" />
+            <extra android:name="action" android:value="show_free_time" />
         </intent>
     </shortcut>
 

@@ -25,6 +25,12 @@ spring:
           google:
             authorization-uri: https://accounts.google.com/o/oauth2/v2/auth?access_type=offline
 
+  session:
+    store-type: jdbc
+    timeout: 30d
+    jdbc:
+      initialize-schema: never
+
   jackson:
     serialization:
       write-dates-as-timestamps: false

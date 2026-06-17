@@ -5,7 +5,6 @@ import kotlinx.coroutines.await
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import org.w3c.fetch.Headers
 import org.w3c.fetch.RequestInit
 import org.w3c.fetch.Response
 
@@ -13,11 +12,20 @@ private val json = Json { ignoreUnknownKeys = true }
 
 class ApiException(val status: Int) : Exception("API request failed with status $status")
 
+// Construct a plain JS object literal as RequestInit to avoid Kotlin/Wasm passing an opaque
+// Wasm reference to the browser's native fetch() — which rejects anything that isn't a plain JS object.
+@JsFun("""(method, body) => {
+    const init = { method, credentials: 'same-origin' };
+    if (body !== null) {
+        init.headers = { 'Content-Type': 'application/json' };
+        init.body = body;
+    }
+    return init;
+}""")
+private external fun makeInit(method: String, body: String?): RequestInit
+
 private suspend fun fetchText(path: String, method: String, body: String? = null): String {
-    val headers = Headers()
-    if (body != null) headers.append("Content-Type", "application/json")
-    val init = RequestInit(method = method, headers = headers, body = body?.toJsString())
-    val response = window.fetch(path, init).await<Response>()
+    val response = window.fetch(path, makeInit(method, body)).await<Response>()
     if (!response.ok) throw ApiException(response.status.toInt())
     return response.text().await<JsString>().toString()
 }

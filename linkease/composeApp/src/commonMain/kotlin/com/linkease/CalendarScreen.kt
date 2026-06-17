@@ -21,6 +21,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -162,6 +170,7 @@ fun rememberMonthPagerController(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
+    showFreeTimeVersion: Long = 0L,
     startDate: LocalDate,
     currentView: CalendarView,
     sessions: List<Session>,
@@ -213,10 +222,24 @@ fun CalendarScreen(
     val scrollState = rememberScrollState()
     var sessionMenu by remember { mutableStateOf<Session?>(null) }
     var showFreeChips by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showFreeTimeVersion) {
+        if (showFreeTimeVersion > 0L) showFreeChips = true
+    }
     var compactMode by remember { mutableStateOf(compactModeInitial) }
     // Month view has no natural "days" window, so free time there shares the
     // next N days starting today; user controls N via a stepper (1..365, default 7).
     var monthFreeDayCount by remember { mutableStateOf(7) }
+
+    var filterClientIds   by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var filterLocationIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val displaySessions = remember(sessions, filterClientIds, filterLocationIds) {
+        if (filterClientIds.isEmpty() && filterLocationIds.isEmpty()) sessions
+        else sessions.filter { s ->
+            (filterClientIds.isEmpty() || s.clientIds.any { it in filterClientIds }) &&
+            (filterLocationIds.isEmpty() || s.locationId in filterLocationIds)
+        }
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -225,7 +248,7 @@ fun CalendarScreen(
         (0 until monthFreeDayCount).map { today.plus(it, DateTimeUnit.DAY) }
     else days
 
-    // Free chips: current period (visible days, or the month-view day-count window), clamped to working hours
+    // Free chips: use unfiltered sessions so free time reflects the real schedule
     val freeChips = remember(freeTimeDays, sessions, availability, hoursStart, hoursEnd) {
         freeTimeDays.flatMap { day ->
             val daySessions = sessions.filter { it.date == day }
@@ -236,6 +259,16 @@ fun CalendarScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = { showFreeChips = !showFreeChips },
+                containerColor = if (showFreeChips) Color(0xFF43A047) else Color(0xFF00ACC1),
+                contentColor = Color.White,
+                icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                text = { Text("Вільний час", fontSize = 12.sp) },
+            )
+        },
+        floatingActionButtonPosition = FabPosition.Start,
         topBar = {
             Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
                 CalendarTopBar(
@@ -256,6 +289,16 @@ fun CalendarScreen(
                         onCompactModeChange?.invoke(newMode)
                     }} else null,
                 )
+                if (clients.isNotEmpty() || locations.isNotEmpty()) {
+                    AgendaFilterRow(
+                        clients = clients,
+                        locations = locations,
+                        filterClientIds = filterClientIds,
+                        onFilterClientIdsChange = { filterClientIds = it },
+                        filterLocationIds = filterLocationIds,
+                        onFilterLocationIdsChange = { filterLocationIds = it },
+                    )
+                }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
             }
         },
@@ -290,10 +333,8 @@ fun CalendarScreen(
                 }
                 MainBottomNav(
                     currentScreen = Screen.CALENDAR,
-                    showFreeChipsActive = showFreeChips,
-                    onSettingsClick = onSettingsClick,
+                    onHomeClick = {},
                     onAvailabilityClick = onAvailabilityClick,
-                    onFreeTimeClick = { showFreeChips = !showFreeChips },
                     onCreateClick = {
                         val targetDay = when {
                             currentView != CalendarView.MONTH -> startDate
@@ -322,7 +363,7 @@ fun CalendarScreen(
                         MonthView(
                             startDate = pageMonth,
                             today = today,
-                            sessions = sessions,
+                            sessions = displaySessions,
                             locationsById = locationsById,
                             clientsById = clientsById,
                             onDayClick = onDayClickInMonth,
@@ -369,7 +410,7 @@ fun CalendarScreen(
                                             CompactDayColumn(
                                                 day = day,
                                                 today = today,
-                                                sessions = sessions,
+                                                sessions = displaySessions,
                                                 clientsById = clientsById,
                                                 locationsById = locationsById,
                                                 onSessionClick = { sessionMenu = it },
@@ -386,7 +427,7 @@ fun CalendarScreen(
                                     CompactDayView(
                                         day = dayPager.pageToDate(page),
                                         today = today,
-                                        sessions = sessions,
+                                        sessions = displaySessions,
                                         clientsById = clientsById,
                                         locationsById = locationsById,
                                         onSessionClick = { sessionMenu = it },
@@ -416,8 +457,8 @@ fun CalendarScreen(
                                         modifier = Modifier.fillMaxSize(),
                                     ) { page ->
                                         val day = dayPager.pageToDate(page)
-                                        val daySessions = sessions.filter { it.date == day }
-                                        val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
+                                        val daySessions = displaySessions.filter { it.date == day }
+                                        val freeSlots = calculateFreeSlots(sessions.filter { it.date == day }, availability, day, hoursStart, hoursEnd)
                                         DayColumn(
                                             date = day, today = today,
                                             sessions = daySessions,
@@ -491,11 +532,16 @@ private fun CalendarTopBar(
     )
 
     TopAppBar(
+        navigationIcon = {
+            IconButton(onClick = onSettingsClick) {
+                Icon(Icons.Default.Settings, contentDescription = "Налаштування", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onPrev) { Text("◀", fontSize = 16.sp) }
+                IconButton(onClick = onPrev) { Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Назад", tint = MaterialTheme.colorScheme.onSurface) }
                 Text(label, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = titleColor)
-                IconButton(onClick = onNext) { Text("▶", fontSize = 16.sp) }
+                IconButton(onClick = onNext) { Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Вперед", tint = MaterialTheme.colorScheme.onSurface) }
             }
         },
         actions = {
@@ -757,14 +803,10 @@ fun CompactSessionCard(
 // ─────────────────────────────────────────────
 
 // Persistent tab-style bottom nav shown on Calendar, Розклад (Availability) and
-// Налаштування (Settings) — these three screens are peers, so there's no "Назад"
-// button on the latter two; tapping the active screen's own icon returns to Calendar.
 @Composable
 fun MainBottomNav(
     currentScreen: Screen,
-    showFreeChipsActive: Boolean = false,
-    onFreeTimeClick: () -> Unit,
-    onSettingsClick: () -> Unit,
+    onHomeClick: () -> Unit,
     onAvailabilityClick: () -> Unit,
     onCreateClick: () -> Unit,
 ) {
@@ -776,42 +818,41 @@ fun MainBottomNav(
             .height(64.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Settings – bright amber icon to stand out
+        // Home
         BottomNavItem(
-            modifier = Modifier.weight(1f), onClick = onSettingsClick, label = "Налаштування",
-            selected = currentScreen == Screen.SETTINGS,
+            modifier = Modifier.weight(1f), onClick = onHomeClick, label = "Головна",
+            selected = currentScreen == Screen.CALENDAR,
         ) {
-            Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFFFCA28).copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("⚙", fontSize = 17.sp, color = Color(0xFFFFCA28))
-            }
+            Icon(
+                Icons.Default.Home,
+                contentDescription = "Головна",
+                tint = if (currentScreen == Screen.CALENDAR) Color(0xFF64B5F6) else Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(26.dp)
+            )
         }
-        // Create
+        // Create — center accent button
         BottomNavItem(modifier = Modifier.weight(1f), onClick = onCreateClick, label = "Створити") {
             Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f)),
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFF8F00)),
                 contentAlignment = Alignment.Center
             ) {
-                Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Icon(Icons.Default.Add, contentDescription = "Створити", tint = Color.White, modifier = Modifier.size(26.dp))
             }
         }
-        // Free time
-        BottomNavItem(
-            modifier = Modifier.weight(1f),
-            onClick = onFreeTimeClick,
-            label = "Вільний час",
-            selected = showFreeChipsActive,
-        ) {
-            Text(if (showFreeChipsActive) "🟢" else "⏰", fontSize = 20.sp)
-        }
-        // Availability (rightmost)
+        // Availability
         BottomNavItem(
             modifier = Modifier.weight(1f), onClick = onAvailabilityClick, label = "Розклад",
             selected = currentScreen == Screen.AVAILABILITY,
         ) {
-            Text("📅", fontSize = 20.sp)
+            Icon(
+                Icons.Default.DateRange,
+                contentDescription = "Розклад",
+                tint = if (currentScreen == Screen.AVAILABILITY) Color(0xFFCE93D8) else Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(26.dp)
+            )
         }
     }
 }

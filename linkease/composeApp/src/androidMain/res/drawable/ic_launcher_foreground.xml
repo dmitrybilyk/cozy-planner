@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  108×108 dp canvas; safe zone is 72×72 centred (18dp inset each side).
+  Design: white calendar card with a navy header, two peg circles,
+          and a 3×3 day-dot grid where the top-centre dot is highlighted.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Calendar card (white) -->
+    <path
+        android:pathData="M28,26 Q28,22 32,22 L76,22 Q80,22 80,26 L80,84 Q80,88 76,88 L32,88 Q28,88 28,84 Z"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- Header bar (indigo) -->
+    <path
+        android:pathData="M28,26 Q28,22 32,22 L76,22 Q80,22 80,26 L80,43 L28,43 Z"
+        android:fillColor="#283593"/>
+
+    <!-- Left peg circle -->
+    <path
+        android:pathData="M40,33 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.9"/>
+
+    <!-- Right peg circle -->
+    <path
+        android:pathData="M68,33 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.9"/>
+
+    <!-- Day dots: row 0 — top-left, top-centre (highlighted), top-right -->
+    <!-- top-centre highlight ring -->
+    <path
+        android:pathData="M54,57 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"
+        android:fillColor="#283593"/>
+    <!-- top-centre white dot -->
+    <path
+        android:pathData="M54,57 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#FFFFFF"/>
+
+    <!-- top-left dot -->
+    <path
+        android:pathData="M38,57 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+    <!-- top-right dot -->
+    <path
+        android:pathData="M70,57 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+
+    <!-- row 1 dots -->
+    <path
+        android:pathData="M38,69 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+    <path
+        android:pathData="M54,69 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+    <path
+        android:pathData="M70,69 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+
+    <!-- row 2 dots -->
+    <path
+        android:pathData="M38,81 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+    <path
+        android:pathData="M54,81 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+    <path
+        android:pathData="M70,81 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#C5CAE9"/>
+
+</vector>

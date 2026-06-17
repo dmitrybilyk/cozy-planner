@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="shortcut_widget_short">Заняття</string>
-    <string name="shortcut_widget_long">Додати віджет занять</string>
-    <string name="shortcut_freetime_short">Вільний час</string>
-    <string name="shortcut_freetime_long">Додати віджет вільного часу</string>
+    <string name="shortcut_create_session_short">Нове заняття</string>
+    <string name="shortcut_create_session_long">Створити нове заняття</string>
+    <string name="shortcut_free_time_short">Вільний час</string>
+    <string name="shortcut_free_time_long">Показати вільний час</string>
+    <string name="widget_schedule_description">Заняття, вільний час та швидкі дії</string>
+    <string name="widget_freetime_description">Вільні слоти на день</string>
 </resources>

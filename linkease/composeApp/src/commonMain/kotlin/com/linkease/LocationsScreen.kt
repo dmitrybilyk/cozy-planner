@@ -34,7 +34,7 @@ fun LocationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Зали / Локації", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Локації", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = { TextButton(onClick = onSettingsClick) { Text("◀ Назад") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
