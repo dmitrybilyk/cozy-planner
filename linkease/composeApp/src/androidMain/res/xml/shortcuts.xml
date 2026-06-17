@@ -29,4 +29,18 @@
         </intent>
     </shortcut>
 
+    <shortcut
+        android:shortcutId="show_availability"
+        android:enabled="true"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:shortcutShortLabel="@string/shortcut_availability_short"
+        android:shortcutLongLabel="@string/shortcut_availability_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetClass="com.linkease.MainActivity"
+            android:targetPackage="com.linkease">
+            <extra android:name="action" android:value="show_availability" />
+        </intent>
+    </shortcut>
+
 </shortcuts>

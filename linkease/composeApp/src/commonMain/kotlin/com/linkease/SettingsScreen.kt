@@ -28,13 +28,10 @@ fun SettingsScreen(
     onFreeTimeClick: () -> Unit,
     onClientsClick: () -> Unit,
     onLocationsClick: () -> Unit,
-    onAvailabilitySettingsClick: () -> Unit,
     onReportClick: (() -> Unit)? = null,
     onExportBackup: (() -> Unit)? = null,
     onImportBackup: (() -> Unit)? = null,
     onEraseAllData: (() -> Unit)? = null,
-    notificationSoundName: String = "Стандартний",
-    onPickNotificationSound: (() -> Unit)? = null,
     onSendTestNotification: (() -> Unit)? = null,
     telegramLinked: Boolean = false,
     onLinkTelegram: ((code: String) -> Unit)? = null,
@@ -98,8 +95,6 @@ fun SettingsScreen(
             SettingsItem(icon = "👥", title = "Клієнти", subtitle = "Додати або редагувати клієнтів", onClick = onClientsClick)
             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
             SettingsItem(icon = "🏢", title = "Локації", subtitle = "Додати або редагувати локації", onClick = onLocationsClick)
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingsItem(icon = "🗓️", title = "Доступність", subtitle = "Налаштувати, коли ви доступні", onClick = onAvailabilitySettingsClick)
             if (onReportClick != null) {
                 HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
                 SettingsItem(icon = "📊", title = "Звіт", subtitle = "Статистика по клієнтах та доходах", onClick = onReportClick)
@@ -139,7 +134,7 @@ fun SettingsScreen(
                 )
             }
 
-            if (onPickNotificationSound != null || onSendTestNotification != null) {
+            if (onSendTestNotification != null) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
                 Text(
                     "Сповіщення",
@@ -147,23 +142,12 @@ fun SettingsScreen(
                     color = Color.Gray,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
-                if (onPickNotificationSound != null) {
-                    SettingsItem(
-                        icon = "🔔",
-                        title = "Звук нагадування",
-                        subtitle = notificationSoundName,
-                        onClick = onPickNotificationSound
-                    )
-                }
-                if (onSendTestNotification != null) {
-                    if (onPickNotificationSound != null) HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                    SettingsItem(
-                        icon = "🔊",
-                        title = "Надіслати тестове сповіщення",
-                        subtitle = "Перевірити, як воно виглядає і звучить",
-                        onClick = onSendTestNotification
-                    )
-                }
+                SettingsItem(
+                    icon = "🔊",
+                    title = "Надіслати тестове сповіщення",
+                    subtitle = "Перевірити, як воно виглядає і звучить",
+                    onClick = onSendTestNotification
+                )
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
@@ -183,7 +167,7 @@ fun SettingsScreen(
                 Text("📅", fontSize = 22.sp)
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Синхронізація з Google Calendar", fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                    Text("Автоматично додавати сесії до календаря", fontSize = 12.sp, color = Color.Gray)
+                    Text("Нові та відредаговані сесії синхронізуються автоматично", fontSize = 12.sp, color = Color.Gray)
                 }
                 Switch(
                     checked = gcalSync,

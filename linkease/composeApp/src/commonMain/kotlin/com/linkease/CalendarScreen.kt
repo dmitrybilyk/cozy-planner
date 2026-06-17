@@ -23,11 +23,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -102,18 +103,20 @@ fun rememberDayPagerController(
     fun pageToDate(page: Int): LocalDate = pagerAnchorDate.plus(page - PAGER_CENTER, DateTimeUnit.DAY)
     fun dateToPage(date: LocalDate): Int = PAGER_CENTER + (date.toEpochDays() - pagerAnchorDate.toEpochDays())
 
-    // Pager swiped → tell the caller the logical date moved (rememberUpdatedState keeps
-    // this long-running coroutine's comparisons fresh even though it never restarts).
+    // Pager swiped → tell the caller the logical date moved. Use targetPage (not
+    // currentPage) so programmatic animateScrollToPage doesn't emit intermediate
+    // pages that would re-trigger this effect and cancel the ongoing animation.
     LaunchedEffect(pagerState, pagerAnchorDate) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
+        snapshotFlow { pagerState.targetPage }.collect { page ->
             val date = pageToDate(page)
             if (date != latestStartDate) latestOnDateChange?.invoke(date)
         }
     }
     // External date change (top bar arrows, "today", tapping a day) → move the pager.
+    // Guard against targetPage too so a pending animation isn't restarted.
     LaunchedEffect(startDate) {
         val target = dateToPage(startDate)
-        if (pagerState.currentPage != target) {
+        if (pagerState.currentPage != target && pagerState.targetPage != target) {
             val distance = kotlin.math.abs(target - pagerState.currentPage)
             if (distance in 1..7) pagerState.animateScrollToPage(target)
             else pagerState.scrollToPage(target)
@@ -150,7 +153,7 @@ fun rememberMonthPagerController(
         MONTH_PAGER_CENTER + (absoluteMonth(LocalDate(date.year, date.month, 1)) - absoluteMonth(anchorMonth))
 
     LaunchedEffect(pagerState, anchorMonth) {
-        snapshotFlow { pagerState.currentPage }.collect { page ->
+        snapshotFlow { pagerState.targetPage }.collect { page ->
             val month = pageToMonth(page)
             val currentMonth = LocalDate(latestStartDate.year, latestStartDate.month, 1)
             if (month != currentMonth) latestOnDateChange?.invoke(month)
@@ -158,7 +161,7 @@ fun rememberMonthPagerController(
     }
     LaunchedEffect(startDate) {
         val target = monthToPage(startDate)
-        if (pagerState.currentPage != target) {
+        if (pagerState.currentPage != target && pagerState.targetPage != target) {
             val distance = kotlin.math.abs(target - pagerState.currentPage)
             if (distance in 1..3) pagerState.animateScrollToPage(target)
             else pagerState.scrollToPage(target)
@@ -191,8 +194,14 @@ fun CalendarScreen(
     onDeleteSession: (Long) -> Unit,
     onCopySession: (Session) -> Unit,
     onAvailabilityClick: () -> Unit = {},
+    showAvailabilityPanel: Boolean = false,
+    onAvailabilityPanelToggle: () -> Unit = {},
+    onSaveAvailability: (date: LocalDate, start: LocalTime, end: LocalTime, locationId: Long?) -> Unit = { _, _, _, _ -> },
+    onUpdateAvailability: (AvailabilitySlot) -> Unit = {},
+    onDeleteAvailability: (Long) -> Unit = {},
     onSettingsClick: () -> Unit,
     onShareFreeTime: (date: LocalDate, text: String) -> Unit,
+    onShareAvailability: ((text: String) -> Unit)? = null,
     onDayClickInMonth: (LocalDate) -> Unit,
     onDayClickInThreeDay: ((LocalDate) -> Unit)? = null,
     onPinToStatusBar: (() -> Unit)? = null,
@@ -206,6 +215,41 @@ fun CalendarScreen(
     val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val clientsById = clients.associateBy { it.id }
     val locationsById = locations.associateBy { it.id }
+
+    // Availability panel state — only active when showAvailabilityPanel = true
+    var availabilityView by remember { mutableStateOf(CalendarView.THREE_DAY) }
+    var availabilityStartDate by remember { mutableStateOf(today) }
+    val availabilityIncludesToday = when (availabilityView) {
+        CalendarView.DAY -> availabilityStartDate == today
+        CalendarView.THREE_DAY -> today >= availabilityStartDate && today <= availabilityStartDate.plus(2, DateTimeUnit.DAY)
+        CalendarView.MONTH -> availabilityStartDate.year == today.year && availabilityStartDate.month == today.month
+    }
+    val availabilityNavLabel = when (availabilityView) {
+        CalendarView.DAY -> "${DAYS_UK[availabilityStartDate.dayOfWeek.ordinal]}, ${availabilityStartDate.dayOfMonth} ${MONTHS_UK_SHORT[availabilityStartDate.month.ordinal]} ${availabilityStartDate.year}"
+        CalendarView.THREE_DAY -> {
+            val last = availabilityStartDate.plus(2, DateTimeUnit.DAY)
+            buildString {
+                append(availabilityStartDate.dayOfMonth)
+                if (availabilityStartDate.month != last.month) append(" ${MONTHS_UK_SHORT[availabilityStartDate.month.ordinal]}")
+                append("–${last.dayOfMonth} ${MONTHS_UK_SHORT[last.month.ordinal]} ${last.year}")
+            }
+        }
+        CalendarView.MONTH -> "${MONTHS_UK_FULL[availabilityStartDate.month.ordinal]} ${availabilityStartDate.year}"
+    }
+    val availabilityDays = remember(availabilityView, availabilityStartDate) {
+        when (availabilityView) {
+            CalendarView.DAY -> listOf(availabilityStartDate)
+            CalendarView.THREE_DAY -> (0..2).map { availabilityStartDate.plus(it, DateTimeUnit.DAY) }
+            CalendarView.MONTH -> {
+                val first = LocalDate(availabilityStartDate.year, availabilityStartDate.month, 1)
+                val last = first.plus(1, DateTimeUnit.MONTH).let { LocalDate(it.year, it.month, 1).minus(1, DateTimeUnit.DAY) }
+                (1..last.dayOfMonth).map { LocalDate(first.year, first.month, it) }
+            }
+        }
+    }
+    val availabilityShareText = remember(availabilityDays, sessions, availability, locations, hoursStart, hoursEnd) {
+        buildAvailabilityShareText(availabilityDays, sessions, availability, locations, hoursStart, hoursEnd)
+    }
 
     val numDays = when (currentView) {
         CalendarView.DAY       -> 1
@@ -231,16 +275,6 @@ fun CalendarScreen(
     // next N days starting today; user controls N via a stepper (1..365, default 7).
     var monthFreeDayCount by remember { mutableStateOf(7) }
 
-    var filterClientIds   by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    var filterLocationIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
-    val displaySessions = remember(sessions, filterClientIds, filterLocationIds) {
-        if (filterClientIds.isEmpty() && filterLocationIds.isEmpty()) sessions
-        else sessions.filter { s ->
-            (filterClientIds.isEmpty() || s.clientIds.any { it in filterClientIds }) &&
-            (filterLocationIds.isEmpty() || s.locationId in filterLocationIds)
-        }
-    }
-
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -259,44 +293,98 @@ fun CalendarScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showFreeChips = !showFreeChips },
-                containerColor = if (showFreeChips) Color(0xFF43A047) else Color(0xFF00ACC1),
-                contentColor = Color.White,
-                icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                text = { Text("Вільний час", fontSize = 12.sp) },
-            )
-        },
-        floatingActionButtonPosition = FabPosition.Start,
         topBar = {
             Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                CalendarTopBar(
-                    currentView = currentView,
-                    startDate = startDate,
-                    today = today,
-                    onPrev = onPrev, onNext = onNext, onGoToToday = onGoToToday,
-                    onSettingsClick = onSettingsClick,
-                    includesTODAY = includesTODAY,
-                )
-                ViewSelector(
-                    currentView = currentView,
-                    onViewChange = onViewChange,
-                    compactMode = compactMode,
-                    onToggleCompact = if (currentView != CalendarView.MONTH) {{
-                        val newMode = !compactMode
-                        compactMode = newMode
-                        onCompactModeChange?.invoke(newMode)
-                    }} else null,
-                )
-                if (clients.isNotEmpty() || locations.isNotEmpty()) {
-                    AgendaFilterRow(
-                        clients = clients,
-                        locations = locations,
-                        filterClientIds = filterClientIds,
-                        onFilterClientIdsChange = { filterClientIds = it },
-                        filterLocationIds = filterLocationIds,
-                        onFilterLocationIdsChange = { filterLocationIds = it },
+                if (showAvailabilityPanel) {
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    IconButton(
+                                        onClick = {
+                                            availabilityStartDate = when (availabilityView) {
+                                                CalendarView.DAY, CalendarView.THREE_DAY -> availabilityStartDate.minus(1, DateTimeUnit.DAY)
+                                                CalendarView.MONTH -> LocalDate(availabilityStartDate.year, availabilityStartDate.month, 1).minus(1, DateTimeUnit.MONTH).let { LocalDate(it.year, it.month, 1) }
+                                            }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) { Icon(Icons.Default.KeyboardArrowLeft, contentDescription = null) }
+                                    Text(availabilityNavLabel, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                                    IconButton(
+                                        onClick = {
+                                            availabilityStartDate = when (availabilityView) {
+                                                CalendarView.DAY, CalendarView.THREE_DAY -> availabilityStartDate.plus(1, DateTimeUnit.DAY)
+                                                CalendarView.MONTH -> LocalDate(availabilityStartDate.year, availabilityStartDate.month, 1).plus(1, DateTimeUnit.MONTH).let { LocalDate(it.year, it.month, 1) }
+                                            }
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) { Icon(Icons.Default.KeyboardArrowRight, contentDescription = null) }
+                                }
+                                Text("Майбутня доступність", fontSize = 10.sp, color = Color.Gray, fontWeight = FontWeight.Normal)
+                            }
+                        },
+                        actions = {
+                            if (onShareAvailability != null) {
+                                TextButton(
+                                    onClick = { onShareAvailability(availabilityShareText) },
+                                    contentPadding = PaddingValues(horizontal = 6.dp),
+                                ) { Text("📤", fontSize = 16.sp) }
+                            }
+                            if (!availabilityIncludesToday) {
+                                TextButton(
+                                    onClick = {
+                                        availabilityStartDate = when (availabilityView) {
+                                            CalendarView.MONTH -> LocalDate(today.year, today.month, 1)
+                                            else -> today
+                                        }
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 8.dp),
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Box(
+                                            modifier = Modifier.size(20.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text("${today.dayOfMonth}", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold, lineHeight = 10.sp)
+                                        }
+                                        Text("Сьогодні", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                    )
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        CalendarView.entries.forEachIndexed { i, v ->
+                            SegmentedButton(
+                                selected = availabilityView == v,
+                                onClick = {
+                                    availabilityView = v
+                                    availabilityStartDate = if (v == CalendarView.MONTH) LocalDate(today.year, today.month, 1) else today
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(i, CalendarView.entries.size),
+                                label = { Text(v.label, fontSize = 13.sp) }
+                            )
+                        }
+                    }
+                } else {
+                    CalendarTopBar(
+                        currentView = currentView,
+                        startDate = startDate,
+                        today = today,
+                        onPrev = onPrev, onNext = onNext, onGoToToday = onGoToToday,
+                        onSettingsClick = onSettingsClick,
+                        includesTODAY = includesTODAY,
+                    )
+                    ViewSelector(
+                        currentView = currentView,
+                        onViewChange = onViewChange,
+                        compactMode = compactMode,
+                        onToggleCompact = if (currentView != CalendarView.MONTH) {{
+                            val newMode = !compactMode
+                            compactMode = newMode
+                            onCompactModeChange?.invoke(newMode)
+                        }} else null,
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
@@ -331,29 +419,49 @@ fun CalendarScreen(
                         )
                     }
                 }
-                MainBottomNav(
-                    currentScreen = Screen.CALENDAR,
-                    onHomeClick = {},
-                    onAvailabilityClick = onAvailabilityClick,
-                    onCreateClick = {
-                        val targetDay = when {
-                            currentView != CalendarView.MONTH -> startDate
-                            selectedDay != null -> selectedDay
-                            else -> today
-                        }
-                        val desiredStart = if (targetDay == today) {
-                            val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
-                            val mins = now.hour * 60 + now.minute
-                            minutesToLocalTime(((mins + 29) / 30) * 30)
-                        } else LocalTime(9, 0)
-                        onAddSession(targetDay, findNextAvailableStart(sessions, targetDay, desiredStart, workHoursEnd = hoursEnd))
-                    },
-                )
+                if (!showAvailabilityPanel) {
+                    MainBottomNav(
+                        currentScreen = Screen.CALENDAR,
+                        onHomeClick = { showFreeChips = false },
+                        onAvailabilityClick = onAvailabilityClick,
+                        onCreateClick = {
+                            val targetDay = when {
+                                currentView != CalendarView.MONTH -> startDate
+                                selectedDay != null -> selectedDay
+                                else -> today
+                            }
+                            val desiredStart = if (targetDay == today) {
+                                val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
+                                val mins = now.hour * 60 + now.minute
+                                minutesToLocalTime(((mins + 29) / 30) * 30)
+                            } else LocalTime(9, 0)
+                            onAddSession(targetDay, findNextAvailableStart(sessions, targetDay, desiredStart, workHoursEnd = hoursEnd))
+                        },
+                    )
+                } else {
+                    // Keep nav-bar inset so the FAB stays above the system navigation bar.
+                    Spacer(Modifier.navigationBarsPadding())
+                }
             }
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+        if (showAvailabilityPanel) {
+            AvailabilityEditorContent(
+                currentView = availabilityView,
+                startDate = availabilityStartDate,
+                onStartDateChange = { availabilityStartDate = it },
+                availability = availability,
+                locations = locations,
+                hoursStart = hoursStart,
+                hoursEnd = hoursEnd,
+                onSave = onSaveAvailability,
+                onUpdate = onUpdateAvailability,
+                onDelete = onDeleteAvailability,
+                modifier = Modifier.padding(padding),
+            )
+        } else Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (currentView) {
                 CalendarView.MONTH -> {
                     // Smooth animated month-to-month swipe, same feel as day/3-day below.
@@ -363,7 +471,7 @@ fun CalendarScreen(
                         MonthView(
                             startDate = pageMonth,
                             today = today,
-                            sessions = displaySessions,
+                            sessions = sessions,
                             locationsById = locationsById,
                             clientsById = clientsById,
                             onDayClick = onDayClickInMonth,
@@ -410,7 +518,7 @@ fun CalendarScreen(
                                             CompactDayColumn(
                                                 day = day,
                                                 today = today,
-                                                sessions = displaySessions,
+                                                sessions = sessions,
                                                 clientsById = clientsById,
                                                 locationsById = locationsById,
                                                 onSessionClick = { sessionMenu = it },
@@ -427,7 +535,7 @@ fun CalendarScreen(
                                     CompactDayView(
                                         day = dayPager.pageToDate(page),
                                         today = today,
-                                        sessions = displaySessions,
+                                        sessions = sessions,
                                         clientsById = clientsById,
                                         locationsById = locationsById,
                                         onSessionClick = { sessionMenu = it },
@@ -441,7 +549,7 @@ fun CalendarScreen(
                             // page width, so swiping slides the whole strip by one day at a time and
                             // no day is ever rendered by two pages at once (which caused the visual
                             // "duplicate day" glitch with a window-per-page approach).
-                            val totalHours = hoursEnd - hoursStart + 1
+                            val totalHours = hoursEnd - hoursStart
 
                             if (currentView == CalendarView.THREE_DAY) {
                                 DayHeaderRow(days = pagerDays, today = today, onDayClick = onDayClickInThreeDay)
@@ -457,7 +565,7 @@ fun CalendarScreen(
                                         modifier = Modifier.fillMaxSize(),
                                     ) { page ->
                                         val day = dayPager.pageToDate(page)
-                                        val daySessions = displaySessions.filter { it.date == day }
+                                        val daySessions = sessions.filter { it.date == day }
                                         val freeSlots = calculateFreeSlots(sessions.filter { it.date == day }, availability, day, hoursStart, hoursEnd)
                                         DayColumn(
                                             date = day, today = today,
@@ -482,6 +590,50 @@ fun CalendarScreen(
                 }
             }
         }
+
+        // FAB row overlay — exact right-edge padding so Availability button always has proper gap
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .padding(start = 16.dp, end = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            if (!showAvailabilityPanel) {
+                if (showFreeChips) {
+                    ExtendedFloatingActionButton(
+                        onClick = { showFreeChips = false },
+                        containerColor = Color(0xFF43A047),
+                        contentColor = Color.White,
+                        icon = { Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(20.dp)) },
+                        text = { Text("Вільний час", fontSize = 12.sp) },
+                    )
+                } else {
+                    ExtendedFloatingActionButton(
+                        onClick = { showFreeChips = true },
+                        containerColor = Color(0xFF00ACC1),
+                        contentColor = Color.White,
+                        icon = { Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(20.dp)) },
+                        text = { Text("Вільний час", fontSize = 12.sp) },
+                    )
+                }
+            } else {
+                Spacer(Modifier.width(1.dp))
+            }
+            ExtendedFloatingActionButton(
+                onClick = onAvailabilityPanelToggle,
+                containerColor = if (showAvailabilityPanel) Color(0xFF7C3AED) else Color(0xFF8E24AA),
+                contentColor = Color.White,
+                icon = {
+                    Icon(
+                        if (showAvailabilityPanel) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                        null, modifier = Modifier.size(20.dp)
+                    )
+                },
+                text = { Text("Доступність", fontSize = 12.sp) },
+            )
+        }
+        } // Box
     }
 
     sessionMenu?.let { session ->
@@ -810,49 +962,54 @@ fun MainBottomNav(
     onAvailabilityClick: () -> Unit,
     onCreateClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF1A1A2E))
-            .navigationBarsPadding()
-            .height(64.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        color = Color(0xFF12111F),
+        shadowElevation = 8.dp,
     ) {
-        // Home
-        BottomNavItem(
-            modifier = Modifier.weight(1f), onClick = onHomeClick, label = "Головна",
-            selected = currentScreen == Screen.CALENDAR,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .height(64.dp)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                Icons.Default.Home,
-                contentDescription = "Головна",
-                tint = if (currentScreen == Screen.CALENDAR) Color(0xFF64B5F6) else Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(26.dp)
-            )
-        }
-        // Create — center accent button
-        BottomNavItem(modifier = Modifier.weight(1f), onClick = onCreateClick, label = "Створити") {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFFF8F00)),
-                contentAlignment = Alignment.Center
+            // Home
+            BottomNavItem(
+                modifier = Modifier.weight(1f), onClick = onHomeClick, label = "Головна",
+                selected = currentScreen == Screen.CALENDAR,
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Створити", tint = Color.White, modifier = Modifier.size(26.dp))
+                Icon(
+                    Icons.Default.Home,
+                    contentDescription = "Головна",
+                    tint = if (currentScreen == Screen.CALENDAR) Color(0xFF818CF8) else Color.White.copy(alpha = 0.45f),
+                    modifier = Modifier.size(24.dp)
+                )
             }
-        }
-        // Availability
-        BottomNavItem(
-            modifier = Modifier.weight(1f), onClick = onAvailabilityClick, label = "Розклад",
-            selected = currentScreen == Screen.AVAILABILITY,
-        ) {
-            Icon(
-                Icons.Default.DateRange,
-                contentDescription = "Розклад",
-                tint = if (currentScreen == Screen.AVAILABILITY) Color(0xFFCE93D8) else Color.White.copy(alpha = 0.6f),
-                modifier = Modifier.size(26.dp)
-            )
+            // Create — center accent button
+            BottomNavItem(modifier = Modifier.weight(1f), onClick = onCreateClick, label = "Створити") {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFF59E0B)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Створити", tint = Color.White, modifier = Modifier.size(24.dp))
+                }
+            }
+            // Availability
+            BottomNavItem(
+                modifier = Modifier.weight(1f), onClick = onAvailabilityClick, label = "Розклад",
+                selected = currentScreen == Screen.AVAILABILITY,
+            ) {
+                Icon(
+                    Icons.Default.DateRange,
+                    contentDescription = "Розклад",
+                    tint = if (currentScreen == Screen.AVAILABILITY) Color(0xFFA78BFA) else Color.White.copy(alpha = 0.45f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }
@@ -867,17 +1024,17 @@ private fun BottomNavItem(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) Color.White.copy(alpha = 0.10f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         icon()
         Text(
             label, fontSize = 10.sp, textAlign = TextAlign.Center,
-            color = Color.White.copy(alpha = if (selected) 1f else 0.7f),
+            color = Color.White.copy(alpha = if (selected) 0.95f else 0.45f),
             lineHeight = 12.sp
         )
     }
@@ -1312,7 +1469,7 @@ private fun DayHeaderRow(
 private fun HourLabels(hoursStart: Int, hoursEnd: Int) {
     Column(modifier = Modifier.width(TIME_COL_WIDTH)) {
         Spacer(Modifier.height(HOUR_HEIGHT / 2))
-        for (h in hoursStart..hoursEnd) {
+        for (h in hoursStart until hoursEnd) {
             Box(modifier = Modifier.height(HOUR_HEIGHT), contentAlignment = Alignment.TopEnd) {
                 Text(
                     "${h.toString().padStart(2, '0')}:00",
@@ -1347,7 +1504,7 @@ private fun DayColumn(
 ) {
     val isPast     = date < today
     val isWeekend  = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
-    val totalHours = hoursEnd - hoursStart + 1
+    val totalHours = hoursEnd - hoursStart
     val density    = LocalDensity.current
 
     val tz = TimeZone.currentSystemDefault()
@@ -1368,7 +1525,7 @@ private fun DayColumn(
                 if (cursor < slot.startTime.toMinutes()) ranges.add(cursor to slot.startTime.toMinutes())
                 cursor = maxOf(cursor, slot.endTime.toMinutes())
             }
-            if (cursor < (hoursEnd + 1) * 60) ranges.add(cursor to (hoursEnd + 1) * 60)
+            if (cursor < hoursEnd * 60) ranges.add(cursor to hoursEnd * 60)
             ranges
         }
     }
@@ -1587,6 +1744,38 @@ private fun SessionContextMenu(
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
+
+private fun buildAvailabilityShareText(
+    days: List<LocalDate>,
+    sessions: List<Session>,
+    availability: List<AvailabilitySlot>,
+    locations: List<Location>,
+    hoursStart: Int,
+    hoursEnd: Int,
+): String {
+    val locById = locations.associateBy { it.id }
+    return buildString {
+        appendLine("📅 Моя доступність:")
+        appendLine()
+        days.forEach { day ->
+            val dow = DAYS_UK[day.dayOfWeek.ordinal]
+            val label = "$dow, ${day.dayOfMonth} ${MONTHS_UK_SHORT[day.month.ordinal]}"
+            val daySessions = sessions.filter { it.date == day }
+            val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
+                .sortedBy { it.startTime.toMinutes() }
+            if (freeSlots.isNotEmpty()) {
+                appendLine("$label:")
+                freeSlots.forEach { slot ->
+                    val loc = slot.locationId?.let { locById[it] }
+                    val locPart = if (loc != null) " (${loc.name})" else ""
+                    appendLine("  • ${slot.startTime.toStorageString()} – ${slot.endTime.toStorageString()}$locPart")
+                }
+            }
+        }
+        appendLine()
+        append("Для запису — напишіть у особисті 📅")
+    }.trim()
+}
 
 fun buildFreeTimeText(date: LocalDate, freeSlots: List<FreeSlot>, locationsById: Map<Long, Location>): String {
     val dow = DAYS_UK[date.dayOfWeek.ordinal]

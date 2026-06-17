@@ -6,4 +6,6 @@
     <string name="shortcut_free_time_long">Показати вільний час</string>
     <string name="widget_schedule_description">Заняття, вільний час та швидкі дії</string>
     <string name="widget_freetime_description">Вільні слоти на день</string>
+    <string name="shortcut_availability_short">Доступність</string>
+    <string name="shortcut_availability_long">Відкрити доступність</string>
 </resources>

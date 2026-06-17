@@ -13,20 +13,21 @@ enum class CalendarView(val label: String) {
 }
 
 private val appColorScheme = lightColorScheme(
-    primary              = Color(0xFF1A237E),
+    primary              = Color(0xFF4F46E5),   // modern indigo-600
     onPrimary            = Color.White,
-    primaryContainer     = Color(0xFFE8EAF6),
-    secondary            = Color(0xFF004D40),
+    primaryContainer     = Color(0xFFEDE9FE),   // violet-100
+    onPrimaryContainer   = Color(0xFF3730A3),
+    secondary            = Color(0xFF0891B2),   // cyan-600
     onSecondary          = Color.White,
-    secondaryContainer   = Color(0xFF80CBC4),
-    onSecondaryContainer = Color(0xFF00251A),
-    tertiary             = Color(0xFFBF360C),
-    background           = Color(0xFFFFFFFF),
+    secondaryContainer   = Color(0xFFE0F2FE),
+    onSecondaryContainer = Color(0xFF0C4A6E),
+    tertiary             = Color(0xFFDC2626),
+    background           = Color(0xFFF8F8FC),   // very light lavender-white
     surface              = Color(0xFFFFFFFF),
-    surfaceVariant       = Color(0xFFF1F3F4),
-    outline              = Color(0xFFDADCE0),
-    outlineVariant       = Color(0xFFE8EAED),
-    error                = Color(0xFFC62828),
+    surfaceVariant       = Color(0xFFF1F0F9),   // soft lavender-gray
+    outline              = Color(0xFFE2E0EF),
+    outlineVariant       = Color(0xFFECEBF6),
+    error                = Color(0xFFDC2626),
 )
 
 enum class Screen { CALENDAR, CLIENTS, LOCATIONS, AVAILABILITY, SETTINGS, REPORT }
@@ -159,6 +160,8 @@ fun App(
         syncData()
     }
 
+    var showAvailabilityPanel by remember { mutableStateOf(false) }
+
     var showAddSession by remember { mutableStateOf(false) }
     var addSessionDate by remember { mutableStateOf(selectedDay) }
     var addSessionStartTime by remember { mutableStateOf(LocalTime(9, 0)) }
@@ -285,8 +288,18 @@ fun App(
                 },
                 onCopySession = { copyingSession = it },
                 onAvailabilityClick = { onAvailabilityTabClick() },
+                showAvailabilityPanel = showAvailabilityPanel,
+                onAvailabilityPanelToggle = { showAvailabilityPanel = !showAvailabilityPanel },
+                onSaveAvailability = { date, start, end, locId ->
+                    availabilityRepository.save(date, start, end, locId)
+                    availability = availabilityRepository.getAll()
+                    syncData()
+                },
+                onUpdateAvailability = { availabilityRepository.update(it); availability = availabilityRepository.getAll(); syncData() },
+                onDeleteAvailability = { availabilityRepository.delete(it); availability = availabilityRepository.getAll(); syncData() },
                 onSettingsClick = { onSettingsTabClick() },
                 onShareFreeTime = { _, text -> onShare(text) },
+                onShareAvailability = { text -> onShare(text) },
                 onDayClickInMonth = { date ->
                     selectedDay = date
                     startDate = date
@@ -379,13 +392,10 @@ fun App(
                 onFreeTimeClick = { onFreeTimeTabClick() },
                 onClientsClick = { navigateTo(Screen.CLIENTS) },
                 onLocationsClick = { navigateTo(Screen.LOCATIONS) },
-                onAvailabilitySettingsClick = { onAvailabilitySettingsTabClick() },
                 onReportClick = { navigateTo(Screen.REPORT) },
                 onExportBackup = onExportBackup,
                 onImportBackup = onImportBackup,
                 onEraseAllData = { eraseAllData() },
-                notificationSoundName = notificationSoundName,
-                onPickNotificationSound = onPickNotificationSound,
                 onSendTestNotification = onSendTestNotification,
                 telegramLinked = telegramLinked,
                 onLinkTelegram = onLinkTelegram,
@@ -477,5 +487,6 @@ fun App(
                 }
             )
         }
+
     }
 }

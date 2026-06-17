@@ -17,6 +17,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -63,6 +70,7 @@ fun AvailabilityScreen(
     hoursStart: Int = CALENDAR_HOURS_START,
     hoursEnd: Int = CALENDAR_HOURS_END,
     scheduleModeInitial: Boolean = true,
+    isPanel: Boolean = false,
     onSettingsClick: () -> Unit,
     onAvailabilityNavClick: () -> Unit,
     onCreateClick: () -> Unit,
@@ -195,7 +203,7 @@ fun AvailabilityScreen(
                         },
                         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
                     )
-                    AgendaFilterRow(
+                    ScheduleFilterSection(
                         clients = clients,
                         locations = locations,
                         filterClientIds = filterClientIds,
@@ -215,9 +223,13 @@ fun AvailabilityScreen(
                                 Text("Налаштування доступності", fontWeight = FontWeight.SemiBold, fontSize = 15.sp,
                                     color = MaterialTheme.colorScheme.primary)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    IconButton(onClick = ::navPrev, modifier = Modifier.size(32.dp)) { Text("◀", fontSize = 14.sp) }
+                                    IconButton(onClick = ::navPrev, modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Назад")
+                                    }
                                     Text(navLabel, fontWeight = FontWeight.Medium, fontSize = 12.sp)
-                                    IconButton(onClick = ::navNext, modifier = Modifier.size(32.dp)) { Text("▶", fontSize = 14.sp) }
+                                    IconButton(onClick = ::navNext, modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Вперед")
+                                    }
                                 }
                             }
                         },
@@ -238,7 +250,7 @@ fun AvailabilityScreen(
             }
         },
         bottomBar = {
-            Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
+            if (!isPanel) Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
                 Column {
                     if (!scheduleMode) {
                         Row(
@@ -587,7 +599,7 @@ private fun AvailabilityTimeGrid(
     onDayClick: ((LocalDate) -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
-    val totalHours = hoursEnd - hoursStart + 1
+    val totalHours = hoursEnd - hoursStart
     Column(modifier = Modifier.fillMaxSize()) {
         AvailDayHeaderRow(days = headerDays, today = today, onDayClick = onDayClick)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
@@ -674,7 +686,7 @@ private fun AvailDayHeaderRow(
 private fun AvailHourLabels(hoursStart: Int, hoursEnd: Int) {
     Column(modifier = Modifier.width(AVAIL_TIME_COL)) {
         Spacer(Modifier.height(HOUR_HEIGHT / 2))
-        for (h in hoursStart..hoursEnd) {
+        for (h in hoursStart until hoursEnd) {
             Box(modifier = Modifier.height(HOUR_HEIGHT), contentAlignment = Alignment.TopEnd) {
                 Text("${h.toString().padStart(2, '0')}:00", fontSize = 10.sp, color = Color(0xFF70757A),
                     modifier = Modifier.padding(end = 6.dp))
@@ -697,7 +709,7 @@ private fun AvailabilityDayColumn(
 ) {
     val locById = locations.associateBy { it.id }
     val isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
-    val totalHours = hoursEnd - hoursStart + 1
+    val totalHours = hoursEnd - hoursStart
     val density = LocalDensity.current
 
     // Zones outside configured slots (shown as gray overlay)
@@ -709,11 +721,11 @@ private fun AvailabilityDayColumn(
             var cursor = hoursStart * 60
             sorted.forEach { slot ->
                 val sStart = slot.startTime.toMinutes().coerceAtLeast(hoursStart * 60)
-                val sEnd = slot.endTime.toMinutes().coerceAtMost((hoursEnd + 1) * 60)
+                val sEnd = slot.endTime.toMinutes().coerceAtMost(hoursEnd * 60)
                 if (cursor < sStart) ranges.add(cursor to sStart)
                 cursor = maxOf(cursor, sEnd)
             }
-            if (cursor < (hoursEnd + 1) * 60) ranges.add(cursor to (hoursEnd + 1) * 60)
+            if (cursor < hoursEnd * 60) ranges.add(cursor to hoursEnd * 60)
             ranges
         }
     }
@@ -1062,4 +1074,266 @@ private fun buildPeriodText(
         appendLine()
         append("Для запису — напишіть у особисті 📅")
     }.trim()
+}
+
+// ─────────────────────────────────────────────
+// Embeddable availability editor (no Scaffold — rendered in CalendarScreen's content area)
+// ─────────────────────────────────────────────
+
+@Composable
+internal fun AvailabilityEditorContent(
+    currentView: CalendarView,
+    startDate: LocalDate,
+    onStartDateChange: (LocalDate) -> Unit,
+    onViewChange: ((CalendarView, LocalDate) -> Unit)? = null,
+    availability: List<AvailabilitySlot>,
+    locations: List<Location>,
+    hoursStart: Int,
+    hoursEnd: Int,
+    onSave: (date: LocalDate, start: LocalTime, end: LocalTime, locationId: Long?) -> Unit,
+    onUpdate: (AvailabilitySlot) -> Unit,
+    onDelete: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
+    var editingSlot by remember { mutableStateOf<AvailabilitySlot?>(null) }
+    var addingForDate by remember { mutableStateOf<LocalDate?>(null) }
+    var addingDefaultStart by remember { mutableStateOf(LocalTime(hoursStart, 0)) }
+    var dayDialogDate by remember { mutableStateOf<LocalDate?>(null) }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        when (currentView) {
+            CalendarView.MONTH -> {
+                val monthPager = rememberMonthPagerController(startDate) { onStartDateChange(it) }
+                HorizontalPager(state = monthPager.pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                    AvailabilityMonthView(
+                        startDate = monthPager.pageToMonth(page),
+                        today = today,
+                        availability = availability,
+                        locations = locations,
+                        onDayClick = { date -> dayDialogDate = date }
+                    )
+                }
+            }
+            else -> {
+                val numDays = if (currentView == CalendarView.THREE_DAY) 3 else 1
+                val dayPager = rememberDayPagerController(startDate) { onStartDateChange(it) }
+                val pagerCurrentDate = dayPager.pageToDate(dayPager.pagerState.currentPage)
+                val headerDays = remember(pagerCurrentDate, numDays) {
+                    (0 until numDays).map { pagerCurrentDate.plus(it, DateTimeUnit.DAY) }
+                }
+                AvailabilityTimeGrid(
+                    pagerState = dayPager.pagerState,
+                    pageToDate = dayPager.pageToDate,
+                    numDays = numDays,
+                    headerDays = headerDays,
+                    today = today,
+                    availability = availability,
+                    locations = locations,
+                    hoursStart = hoursStart,
+                    hoursEnd = hoursEnd,
+                    onSlotClick = { slot -> editingSlot = slot },
+                    onEmptyTap = { date, time -> addingForDate = date; addingDefaultStart = time },
+                    onDayClick = if (currentView == CalendarView.THREE_DAY) { date ->
+                        onStartDateChange(date)
+                        onViewChange?.invoke(CalendarView.DAY, date)
+                    } else null,
+                )
+            }
+        }
+    }
+
+    dayDialogDate?.let { date ->
+        val daySlots = availability.filter { it.date == date }.sortedBy { it.startTime.toMinutes() }
+        val dow = date.dayOfWeek.isoDayNumber
+        DayAvailabilityDialog(
+            dateLabel = "${DAYS_AVAIL_SHORT[dow - 1]}, ${date.dayOfMonth} ${MONTHS_AVAIL_SHORT[date.month.ordinal]} ${date.year}",
+            slots = daySlots,
+            locations = locations,
+            onDismiss = { dayDialogDate = null },
+            onAddSlot = {
+                addingForDate = date
+                addingDefaultStart = daySlots.lastOrNull()?.endTime ?: LocalTime(hoursStart, 0)
+                dayDialogDate = null
+            },
+            onEditSlot = { slot -> editingSlot = slot; dayDialogDate = null },
+            onDeleteSlot = { id -> onDelete(id) }
+        )
+    }
+    addingForDate?.let { date ->
+        val existingSlots = availability.filter { it.date == date }
+        val nextSlotStart = existingSlots
+            .filter { it.startTime.toMinutes() > addingDefaultStart.toMinutes() }
+            .minByOrNull { it.startTime.toMinutes() }?.startTime
+        val defaultEnd = minutesToLocalTime(nextSlotStart?.toMinutes() ?: (hoursEnd * 60))
+        val dow = date.dayOfWeek.isoDayNumber
+        AddEditAvailabilityDialog(
+            dayLabel = "${DAYS_AVAIL_SHORT[dow - 1]}, ${date.dayOfMonth} ${MONTHS_AVAIL_SHORT[date.month.ordinal]}",
+            defaultStartTime = addingDefaultStart,
+            defaultEndTime = defaultEnd,
+            existingSlotsOnDay = existingSlots,
+            locations = locations,
+            hoursStart = hoursStart,
+            hoursEnd = hoursEnd,
+            onDismiss = { addingForDate = null },
+            onConfirm = { start, end, locationId -> onSave(date, start, end, locationId); addingForDate = null }
+        )
+    }
+    editingSlot?.let { slot ->
+        val dow = slot.date.dayOfWeek.isoDayNumber
+        AddEditAvailabilityDialog(
+            dayLabel = "${DAYS_AVAIL_SHORT[dow - 1]}, ${slot.date.dayOfMonth} ${MONTHS_AVAIL_SHORT[slot.date.month.ordinal]}",
+            initial = slot,
+            existingSlotsOnDay = availability.filter { it.date == slot.date },
+            locations = locations,
+            hoursStart = hoursStart,
+            hoursEnd = hoursEnd,
+            onDelete = { onDelete(slot.id); editingSlot = null },
+            onDismiss = { editingSlot = null },
+            onConfirm = { start, end, locationId ->
+                onUpdate(slot.copy(startTime = start, endTime = end, locationId = locationId))
+                editingSlot = null
+            }
+        )
+    }
+}
+
+// ─────────────────────────────────────────────
+// Schedule mode filter section (search + selected chips with labels)
+// ─────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScheduleFilterSection(
+    clients: List<Client>,
+    locations: List<Location>,
+    filterClientIds: Set<Long>,
+    onFilterClientIdsChange: (Set<Long>) -> Unit,
+    filterLocationIds: Set<Long>,
+    onFilterLocationIdsChange: (Set<Long>) -> Unit,
+) {
+    var showClientMenu by remember { mutableStateOf(false) }
+    var showLocationMenu by remember { mutableStateOf(false) }
+    val selectedClients = clients.filter { it.id in filterClientIds }
+    val selectedLocations = locations.filter { it.id in filterLocationIds }
+
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(modifier = Modifier.weight(1f)) {
+                FilterSelectorButton(
+                    label = "Клієнти",
+                    icon = "👤",
+                    selectedNames = selectedClients.map { it.name },
+                    onClick = { showClientMenu = !showClientMenu },
+                )
+                DropdownMenu(expanded = showClientMenu, onDismissRequest = { showClientMenu = false }) {
+                    clients.forEach { client ->
+                        val checked = client.id in filterClientIds
+                        DropdownMenuItem(
+                            text = {
+                                Text(client.name, fontSize = 13.sp,
+                                    fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                            },
+                            onClick = { onFilterClientIdsChange(if (checked) filterClientIds - client.id else filterClientIds + client.id) },
+                            leadingIcon = {
+                                if (checked) Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                else Spacer(Modifier.size(20.dp))
+                            },
+                        )
+                    }
+                }
+            }
+            if (locations.isNotEmpty()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    FilterSelectorButton(
+                        label = "Локації",
+                        icon = "📍",
+                        selectedNames = selectedLocations.map { it.name },
+                        onClick = { showLocationMenu = !showLocationMenu },
+                    )
+                    DropdownMenu(expanded = showLocationMenu, onDismissRequest = { showLocationMenu = false }) {
+                        locations.forEach { loc ->
+                            val checked = loc.id in filterLocationIds
+                            DropdownMenuItem(
+                                text = {
+                                    Text(loc.name, fontSize = 13.sp,
+                                        fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                                },
+                                onClick = { onFilterLocationIdsChange(if (checked) filterLocationIds - loc.id else filterLocationIds + loc.id) },
+                                leadingIcon = {
+                                    if (checked) Icon(Icons.Default.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    else Spacer(Modifier.size(20.dp))
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (selectedClients.isNotEmpty() || selectedLocations.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                selectedClients.forEach { c ->
+                    FilterChip(
+                        selected = true,
+                        onClick = { onFilterClientIdsChange(filterClientIds - c.id) },
+                        label = { Text(c.name, fontSize = 12.sp) },
+                        trailingIcon = { Icon(Icons.Default.Clear, null, modifier = Modifier.size(14.dp)) },
+                        shape = RoundedCornerShape(20.dp),
+                    )
+                }
+                selectedLocations.forEach { loc ->
+                    FilterChip(
+                        selected = true,
+                        onClick = { onFilterLocationIdsChange(filterLocationIds - loc.id) },
+                        label = { Text(loc.name, fontSize = 12.sp) },
+                        trailingIcon = { Icon(Icons.Default.Clear, null, modifier = Modifier.size(14.dp)) },
+                        shape = RoundedCornerShape(20.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilterSelectorButton(
+    label: String,
+    icon: String,
+    selectedNames: List<String>,
+    onClick: () -> Unit,
+) {
+    val hasSelection = selectedNames.isNotEmpty()
+    val bg = if (hasSelection) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (hasSelection) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = bg,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(icon, fontSize = 15.sp)
+            Text(
+                if (!hasSelection) label
+                else selectedNames.first() + if (selectedNames.size > 1) " +${selectedNames.size - 1}" else "",
+                fontSize = 13.sp,
+                fontWeight = if (hasSelection) FontWeight.SemiBold else FontWeight.Normal,
+                color = contentColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(Icons.Default.KeyboardArrowDown, null, tint = contentColor.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+        }
+    }
 }

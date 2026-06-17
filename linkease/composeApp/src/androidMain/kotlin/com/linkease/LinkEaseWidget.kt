@@ -108,6 +108,14 @@ private fun SessionWidgetContent(context: Context) {
         putExtra("action", "create_client")
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
+    val freeTimeIntent = Intent(context, MainActivity::class.java).apply {
+        putExtra("action", "show_free_time")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    val availabilityIntent = Intent(context, MainActivity::class.java).apply {
+        putExtra("action", "show_availability")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
 
     val prevAction = actionRunCallback<ChangeDayAction>(
         actionParametersOf(DELTA_PARAM to -1, WIDGET_TYPE_PARAM to "sessions")
@@ -228,17 +236,29 @@ private fun SessionWidgetContent(context: Context) {
                     contentAlignment = Alignment.Center
                 ) { Text("+ Заняття", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
 
-                Spacer(GlanceModifier.width(6.dp))
+                Spacer(GlanceModifier.width(4.dp))
 
                 Box(
                     modifier = GlanceModifier
                         .defaultWeight()
-                        .background(Color(0xFF283593))
+                        .background(Color(0xFF006064))
                         .cornerRadius(6.dp)
-                        .clickable(actionStartActivity(createClientIntent))
+                        .clickable(actionStartActivity(freeTimeIntent))
                         .padding(vertical = 5.dp),
                     contentAlignment = Alignment.Center
-                ) { Text("+ Клієнт", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
+                ) { Text("🕐 Вільний", style = TextStyle(color = C_W, fontSize = 10.sp, fontWeight = FontWeight.Bold)) }
+
+                Spacer(GlanceModifier.width(4.dp))
+
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .background(Color(0xFF4A148C))
+                        .cornerRadius(6.dp)
+                        .clickable(actionStartActivity(availabilityIntent))
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("📅 Доступ.", style = TextStyle(color = C_W, fontSize = 10.sp, fontWeight = FontWeight.Bold)) }
             }
 
         } else if (!isCompact) {
@@ -286,17 +306,29 @@ private fun SessionWidgetContent(context: Context) {
                     contentAlignment = Alignment.Center
                 ) { Text("+ Заняття", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
 
-                Spacer(GlanceModifier.width(6.dp))
+                Spacer(GlanceModifier.width(4.dp))
 
                 Box(
                     modifier = GlanceModifier
                         .defaultWeight()
-                        .background(Color(0xFF283593))
+                        .background(Color(0xFF006064))
                         .cornerRadius(6.dp)
-                        .clickable(actionStartActivity(createClientIntent))
+                        .clickable(actionStartActivity(freeTimeIntent))
                         .padding(vertical = 5.dp),
                     contentAlignment = Alignment.Center
-                ) { Text("+ Клієнт", style = TextStyle(color = C_W, fontSize = 11.sp, fontWeight = FontWeight.Bold)) }
+                ) { Text("🕐 Вільний", style = TextStyle(color = C_W, fontSize = 10.sp, fontWeight = FontWeight.Bold)) }
+
+                Spacer(GlanceModifier.width(4.dp))
+
+                Box(
+                    modifier = GlanceModifier
+                        .defaultWeight()
+                        .background(Color(0xFF4A148C))
+                        .cornerRadius(6.dp)
+                        .clickable(actionStartActivity(availabilityIntent))
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) { Text("📅 Доступ.", style = TextStyle(color = C_W, fontSize = 10.sp, fontWeight = FontWeight.Bold)) }
             }
 
         } else {
