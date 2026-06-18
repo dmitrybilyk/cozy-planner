@@ -29,11 +29,12 @@ services:
       linkease-db:
         condition: service_healthy
     ports:
-      - "8443:8080"
+      - "127.0.0.1:8445:8080"
     volumes:
       - /home/ubuntu/keystore.p12:/app/keystore.p12:ro
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      SERVER_FORWARD_HEADERS_STRATEGY: native
       SERVER_SSL_KEY_STORE: /app/keystore.p12
       SERVER_SSL_KEY_STORE_PASSWORD: ${KEYSTORE_PASSWORD:-035645}
       SERVER_SSL_KEY_STORE_TYPE: PKCS12
