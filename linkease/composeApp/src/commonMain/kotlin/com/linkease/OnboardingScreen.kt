@@ -69,7 +69,7 @@ fun OnboardingScreen(
                 }
 
                 "client" -> {
-                    Text("Підключення до тренера", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    Text("Підключення до спеціаліста", fontWeight = FontWeight.Bold, fontSize = 22.sp)
                     OutlinedTextField(
                         value = myEmailInput,
                         onValueChange = { myEmailInput = it.trim() },
@@ -80,7 +80,7 @@ fun OnboardingScreen(
                     OutlinedTextField(
                         value = trainerEmailInput,
                         onValueChange = { trainerEmailInput = it.trim() },
-                        label = { Text("Email тренера") },
+                        label = { Text("Email спеціаліста") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )

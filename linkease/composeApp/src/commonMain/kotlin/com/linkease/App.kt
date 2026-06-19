@@ -138,6 +138,7 @@ fun App(
     onPendingChatConsumed: (() -> Unit)? = null,
     pendingClientAvailabilityId: String? = null,
     onPendingClientAvailabilityConsumed: (() -> Unit)? = null,
+    openClientsScreenVersion: Long = 0L,
     onAskClientAvailability: ((clientFirebaseId: String, message: String) -> Unit)? = null,
 ) {
     val tz = TimeZone.currentSystemDefault()
@@ -298,6 +299,13 @@ fun App(
 
     LaunchedEffect(createClientVersion) {
         if (createClientVersion > 0L) {
+            switchRootScreen(Screen.CALENDAR)
+            navigateTo(Screen.CLIENTS)
+        }
+    }
+
+    LaunchedEffect(openClientsScreenVersion) {
+        if (openClientsScreenVersion > 0L) {
             switchRootScreen(Screen.CALENDAR)
             navigateTo(Screen.CLIENTS)
         }

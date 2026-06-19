@@ -62,7 +62,7 @@ fun ClientModeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Розклад тренера", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Розклад", fontWeight = FontWeight.SemiBold) },
                 actions = {
                     IconButton(onClick = { showChat = true }) { Text("💬", fontSize = 20.sp) }
                     TextButton(onClick = onDisconnect) { Text("Відключитись") }
@@ -79,8 +79,8 @@ fun ClientModeScreen(
                 Tab(
                     selected = selectedTab == 1, onClick = { selectedTab = 1 },
                     text = {
-                        if (unconfirmed > 0) Text("📋 Заняття ($unconfirmed)")
-                        else Text("📋 Заняття")
+                        if (unconfirmed > 0) Text("📋 Сесії ($unconfirmed)")
+                        else Text("📋 Сесії")
                     }
                 )
                 Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
@@ -137,7 +137,7 @@ fun ClientModeScreen(
     if (showChat) {
         ChatDialog(
             myId = myFirebaseId,
-            partnerName = "Тренер",
+            partnerName = "Спеціаліст",
             messages = chatMessages,
             onSend = onSendChat,
             onDismiss = { showChat = false }
@@ -234,14 +234,16 @@ private fun ScheduleTabContent(
                     ) {
                         dayAvail.sortedBy { it.startTime.toMinutes() }.forEach { slot ->
                             val freeSlots = computeClientFreeSlots(slot, dayBooked)
-                            val locationName = slot.locationId?.let { locationsById[it]?.name }
+                            val slotLocation = slot.locationId?.let { locationsById[it] }
                             freeSlots.forEach { free ->
                                 // skip slots that have already ended
                                 if (free.second.toMinutes() <= nowMinutes) return@forEach
                                 val clampedStart = if (free.first.toMinutes() < nowMinutes)
                                     minutesToLocalTime(nowMinutes) else free.first
                                 FreeSlotChip(
-                                    start = clampedStart, end = free.second, locationName = locationName,
+                                    start = clampedStart, end = free.second,
+                                    locationName = slotLocation?.name,
+                                    locationColor = slotLocation?.let { hexToColor(it.colorHex) },
                                     onBook = { onBook(day, clampedStart, free.second) }
                                 )
                             }
@@ -288,7 +290,7 @@ private fun ClientAvailabilityTabContent(
             Text("Мої вільні слоти", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f))
             TextButton(onClick = { showAddDialog = true }) { Text("+ Додати") }
         }
-        Text("Тренер побачить ваші вільні слоти і зможе призначити заняття",
+        Text("Спеціаліст побачить ваші вільні слоти і зможе призначити сесію",
             fontSize = 12.sp, color = Color.Gray)
 
         if (localSlots.isEmpty()) {
@@ -467,7 +469,7 @@ private fun MySessionsTabContent(
 
         // Sessions from trainer
         Spacer(Modifier.height(4.dp))
-        Text("Розклад від тренера", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+        Text("Розклад від спеціаліста", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
 
         val upcoming = clientSessions.filter { it.date >= today }.sortedBy { it.date }
         val past     = clientSessions.filter { it.date < today }.sortedByDescending { it.date }
@@ -475,7 +477,7 @@ private fun MySessionsTabContent(
 
         if (ordered.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), contentAlignment = Alignment.Center) {
-                Text("Тренер ще не опублікував ваш розклад", fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center)
+                Text("Спеціаліст ще не опублікував ваш розклад", fontSize = 13.sp, color = Color.Gray, textAlign = TextAlign.Center)
             }
         } else {
             ordered.forEach { session ->
@@ -603,7 +605,7 @@ private fun BookSessionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Записатись на заняття") },
+        title = { Text("Записатись на сесію") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -693,6 +695,7 @@ private fun computeClientFreeSlots(
 private fun FreeSlotChip(
     start: LocalTime, end: LocalTime,
     locationName: String? = null,
+    locationColor: Color? = null,
     isPast: Boolean = false,
     onBook: (() -> Unit)? = null,
 ) {
@@ -717,7 +720,8 @@ private fun FreeSlotChip(
             }
         }
         if (!locationName.isNullOrBlank()) {
-            Text("📍 $locationName", fontSize = 10.sp, color = FREE_COLOR.copy(alpha = 0.7f))
+            val locColor = locationColor ?: FREE_COLOR.copy(alpha = 0.7f)
+            Text("📍 $locationName", fontSize = 10.sp, color = locColor, fontWeight = FontWeight.Medium)
         }
     }
 }
@@ -758,13 +762,13 @@ fun ClientConnectScreen(
         ) {
             Text("Режим клієнта", fontWeight = FontWeight.Bold, fontSize = 22.sp)
             Text(
-                "Введіть email тренера",
+                "Введіть email спеціаліста",
                 fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center
             )
             OutlinedTextField(
                 value = idInput,
                 onValueChange = { idInput = it.trim() },
-                label = { Text("Email тренера") },
+                label = { Text("Email спеціаліста") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -784,7 +788,7 @@ fun ClientConnectScreen(
             }
             if (onSwitchToUserMode != null) {
                 TextButton(onClick = onSwitchToUserMode) {
-                    Text("← Перейти до тренерського режиму", fontSize = 13.sp)
+                    Text("← Перейти до режиму спеціаліста", fontSize = 13.sp)
                 }
             }
         }

@@ -106,7 +106,7 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(context, CLIENT_SESSIONS_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("✅ Заняття підтверджено тренером")
+            .setContentTitle("✅ Сесію підтверджено")
             .setContentText("$dateStr ${request.startTime.toStorageString()}–${request.endTime.toStorageString()}")
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -140,13 +140,42 @@ object NotificationHelper {
 
         val n = NotificationCompat.Builder(context, CLIENT_SESSIONS_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("📋 Нове заняття від тренера")
+            .setContentTitle("📋 Нова сесія")
             .setContentText("$dateStr ${session.startTime.toStorageString()}–${session.endTime.toStorageString()}")
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(openPending)
             .addAction(android.R.drawable.ic_media_play, "✓ Підтвердити", actionIntent("confirm"))
             .addAction(android.R.drawable.ic_delete, "✕ Відхилити", actionIntent("reject"))
+            .build()
+        nm.notify(notifId, n)
+    }
+
+    fun showClientSeriesNotification(context: Context, sessions: List<ClientSession>, clientFirebaseId: String) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notifId = 6500
+        val openIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val openPending = PendingIntent.getActivity(context, notifId, openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val count = sessions.size
+        val dateRange = if (sessions.size > 1) {
+            val sorted = sessions.sortedBy { it.date }
+            val first = sorted.first()
+            val last = sorted.last()
+            "${first.date.dayOfMonth}.${first.date.monthNumber.toString().padStart(2,'0')} – ${last.date.dayOfMonth}.${last.date.monthNumber.toString().padStart(2,'0')}"
+        } else {
+            val s = sessions.first()
+            "${s.date.dayOfMonth}.${s.date.monthNumber.toString().padStart(2,'0')} ${s.startTime.toStorageString()}–${s.endTime.toStorageString()}"
+        }
+        val n = NotificationCompat.Builder(context, CLIENT_SESSIONS_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle("📋 $count нових сесій")
+            .setContentText(dateRange)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(openPending)
             .build()
         nm.notify(notifId, n)
     }
@@ -175,7 +204,7 @@ object NotificationHelper {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("action", "open_client_availability")
+            putExtra("action", "open_clients_screen")
             putExtra("client_firebase_id", clientId)
         }
         val pending = PendingIntent.getActivity(context, clientId.hashCode() + 7000, intent,
@@ -183,7 +212,7 @@ object NotificationHelper {
         val n = NotificationCompat.Builder(context, CLIENT_AVAILABILITY_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle("📆 ${clientName ?: "Клієнт"} встановив доступність")
-            .setContentText("Перегляньте та призначте заняття")
+            .setContentText("Перегляньте та призначте сесію")
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pending)

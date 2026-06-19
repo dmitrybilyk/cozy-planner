@@ -19,7 +19,7 @@ fun AddSessionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Нове заняття — ${date.dayOfMonth}.${date.monthNumber.toString().padStart(2, '0')}") },
+        title = { Text("Нова сесія — ${date.dayOfMonth}.${date.monthNumber.toString().padStart(2, '0')}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(

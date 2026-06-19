@@ -55,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private var refreshVersion by mutableStateOf(0L)
     private var pendingChatSenderId by mutableStateOf<String?>(null)
     private var pendingClientAvailabilityId by mutableStateOf<String?>(null)
+    private var pendingOpenClientsScreen by mutableStateOf(0L)
     private var notificationSoundUriState by mutableStateOf<String?>(null)
     private var autoBackupEnabled by mutableStateOf(false)
     private var backupFolderName by mutableStateOf<String?>(null)
@@ -192,6 +193,7 @@ class MainActivity : ComponentActivity() {
             "show_availability"      -> showAvailabilityVersion++
             "open_chat"              -> pendingChatSenderId = intent.getStringExtra("chat_sender_id")
             "open_client_availability" -> pendingClientAvailabilityId = intent.getStringExtra("client_firebase_id")
+            "open_clients_screen"    -> pendingOpenClientsScreen++
         }
 
         val dbHelper    = LinkDatabaseHelper(applicationContext)
@@ -592,6 +594,7 @@ class MainActivity : ComponentActivity() {
                 onPendingChatConsumed = { pendingChatSenderId = null },
                 pendingClientAvailabilityId = pendingClientAvailabilityId,
                 onPendingClientAvailabilityConsumed = { pendingClientAvailabilityId = null },
+                openClientsScreenVersion = pendingOpenClientsScreen,
                 onAskClientAvailability = { clientFirebaseId, message ->
                     val uid = myUserId ?: return@App
                     val trainerId2 = uid
@@ -610,6 +613,7 @@ class MainActivity : ComponentActivity() {
             "show_availability"      -> showAvailabilityVersion++
             "open_chat"              -> pendingChatSenderId = intent.getStringExtra("chat_sender_id")
             "open_client_availability" -> pendingClientAvailabilityId = intent.getStringExtra("client_firebase_id")
+            "open_clients_screen"    -> pendingOpenClientsScreen++
         }
         handleDeepLink(intent)
     }
@@ -933,8 +937,10 @@ class MainActivity : ComponentActivity() {
     private fun checkAndNotifyClientSessions(sessions: List<ClientSession>, prefs: android.content.SharedPreferences) {
         val uid = myUserId ?: return
         val seenIds = prefs.getStringSet("seen_client_sessions", emptySet()) ?: emptySet()
-        sessions.filter { it.id !in seenIds && !it.clientConfirmed }.forEach {
-            NotificationHelper.showClientSessionNotification(this, it, uid)
+        val newSessions = sessions.filter { it.id !in seenIds && !it.clientConfirmed }
+        when {
+            newSessions.size == 1 -> NotificationHelper.showClientSessionNotification(this, newSessions.first(), uid)
+            newSessions.size > 1  -> NotificationHelper.showClientSeriesNotification(this, newSessions, uid)
         }
         prefs.edit().putStringSet("seen_client_sessions", (seenIds + sessions.map { it.id }).toSet()).apply()
     }

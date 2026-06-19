@@ -347,7 +347,7 @@ fun SettingsScreen(
                         } else {
                             Box(modifier = Modifier.fillMaxWidth().padding(32.dp),
                                 contentAlignment = Alignment.Center) {
-                                Text("Перейдіть у режим Тренера, щоб побачити налаштування зв'язку",
+                                Text("Перейдіть у режим Спеціаліста, щоб побачити налаштування зв'язку",
                                     fontSize = 13.sp, color = Color.Gray,
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                             }
@@ -461,7 +461,7 @@ fun SettingsScreen(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                     Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("user" to "🏋 Тренер", "client" to "🙋 Клієнт").forEach { (mode, label) ->
+                        listOf("user" to "🏋 Спеціаліст", "client" to "🙋 Клієнт").forEach { (mode, label) ->
                             if (appMode == mode) {
                                 Button(onClick = {}, modifier = Modifier.weight(1f)) { Text(label) }
                             } else {

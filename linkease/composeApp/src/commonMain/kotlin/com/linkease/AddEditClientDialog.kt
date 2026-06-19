@@ -30,10 +30,10 @@ fun AddEditClientDialog(
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var phone by remember { mutableStateOf(initial?.phone ?: "") }
+    var email by remember { mutableStateOf(initial?.email ?: "") }
     val colorHex = initial?.colorHex ?: CLIENT_COLORS.first()
     var pkgTotalText by remember { mutableStateOf(if ((initial?.packageTotal ?: 0) > 0) initial!!.packageTotal.toString() else "") }
     var pkgUsedText by remember { mutableStateOf(if ((initial?.packageUsed ?: 0) > 0) initial!!.packageUsed.toString() else "") }
-    var firebaseClientIdText by remember { mutableStateOf(initial?.firebaseClientId ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -42,6 +42,14 @@ fun AddEditClientDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Ім'я *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Телефон") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it.trim() },
+                    label = { Text("Email клієнта") },
+                    placeholder = { Text("email@example.com", color = Color.LightGray) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = pkgTotalText,
@@ -60,14 +68,6 @@ fun AddEditClientDialog(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                 }
-                OutlinedTextField(
-                    value = firebaseClientIdText,
-                    onValueChange = { firebaseClientIdText = it.trim() },
-                    label = { Text("Firebase ID клієнта") },
-                    placeholder = { Text("Вставте ID від клієнта", color = Color.LightGray) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                )
             }
         },
         confirmButton = {
@@ -75,9 +75,8 @@ fun AddEditClientDialog(
                 if (name.isNotBlank()) {
                     val pkgTotal = pkgTotalText.toIntOrNull() ?: 0
                     val pkgUsed = pkgUsedText.toIntOrNull() ?: 0
-                    val fbId = firebaseClientIdText.ifBlank { null }
-                    onConfirm(name.trim(), phone.trim(), initial?.email ?: "", colorHex,
-                        initial?.hourlyRate ?: 0.0, pkgTotal, pkgUsed, initial?.birthDate, fbId)
+                    onConfirm(name.trim(), phone.trim(), email.trim(), colorHex,
+                        initial?.hourlyRate ?: 0.0, pkgTotal, pkgUsed, initial?.birthDate, initial?.firebaseClientId)
                 }
             }) {
                 Text("Зберегти")
