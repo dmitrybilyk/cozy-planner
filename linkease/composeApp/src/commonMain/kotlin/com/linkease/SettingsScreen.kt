@@ -1,5 +1,6 @@
 package com.linkease
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,11 +37,45 @@ fun SettingsScreen(
     onSendTestNotification: (() -> Unit)? = null,
     telegramLinked: Boolean = false,
     onLinkTelegram: ((code: String) -> Unit)? = null,
+    autoBackupEnabled: Boolean = false,
+    onAutoBackupToggle: ((Boolean) -> Unit)? = null,
+    backupFolderName: String? = null,
+    onPickBackupFolder: (() -> Unit)? = null,
+    appMode: String = "user",
+    onAppModeChange: ((String) -> Unit)? = null,
+    myUserId: String? = null,
+    onCopyMyId: (() -> Unit)? = null,
+    onPublishToFirebase: (() -> Unit)? = null,
+    trainerEmail: String = "",
+    onSaveTrainerEmail: ((String) -> Unit)? = null,
+    onCopyTrainerEmail: (() -> Unit)? = null,
+    pendingBookingRequests: List<BookingRequest> = emptyList(),
+    onConfirmBookingRequest: ((BookingRequest) -> Unit)? = null,
+    onDeclineBookingRequest: ((BookingRequest) -> Unit)? = null,
+    clients: List<Client> = emptyList(),
+    clientAvailabilitySlots: List<ClientAvailabilitySlot> = emptyList(),
+    onClientAvailabilityCreateSession: ((ClientAvailabilitySlot) -> Unit)? = null,
+    onOpenChatWithClient: ((clientFirebaseId: String, clientName: String) -> Unit)? = null,
+    connectedClients: List<Triple<String, String, String?>> = emptyList(),
+    onLinkClientFirebaseId: ((firebaseId: String, localClientId: Long) -> Unit)? = null,
+    onClearFirebaseData: (() -> Unit)? = null,
+    highlightClientFirebaseId: String? = null,
+    onHighlightConsumed: (() -> Unit)? = null,
+    onAskClientAvailability: ((clientFirebaseId: String, message: String) -> Unit)? = null,
 ) {
     var localStart by remember { mutableStateOf(workHoursStart) }
     var localEnd   by remember { mutableStateOf(workHoursEnd) }
+    var selectedTab by remember { mutableStateOf(0) }
     var showImportConfirm by remember { mutableStateOf(false) }
     var showEraseConfirm by remember { mutableStateOf(false) }
+    var linkingFirebaseId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(highlightClientFirebaseId) {
+        if (highlightClientFirebaseId != null) {
+            selectedTab = 1 // Зв'язок tab
+            onHighlightConsumed?.invoke()
+        }
+    }
 
     if (showImportConfirm) {
         AlertDialog(
@@ -51,9 +87,7 @@ fun SettingsScreen(
                     Text("Відновити", color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showImportConfirm = false }) { Text("Скасувати") }
-            }
+            dismissButton = { TextButton(onClick = { showImportConfirm = false }) { Text("Скасувати") } }
         )
     }
 
@@ -61,15 +95,13 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showEraseConfirm = false },
             title = { Text("Видалити всі дані?") },
-            text = { Text("Усі клієнти, локації, сесії та доступність будуть видалені незворотно. Цю дію неможливо скасувати.") },
+            text = { Text("Усі клієнти, локації, сесії та доступність будуть видалені незворотно.") },
             confirmButton = {
                 TextButton(onClick = { showEraseConfirm = false; onEraseAllData?.invoke() }) {
                     Text("Видалити все", color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { showEraseConfirm = false }) { Text("Скасувати") }
-            }
+            dismissButton = { TextButton(onClick = { showEraseConfirm = false }) { Text("Скасувати") } }
         )
     }
 
@@ -89,226 +121,530 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding)) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
 
-            // ── Clients & Locations ────────────────────────────────────────
-            SettingsItem(icon = "👥", title = "Клієнти", subtitle = "Додати або редагувати клієнтів", onClick = onClientsClick)
-            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-            SettingsItem(icon = "🏢", title = "Локації", subtitle = "Додати або редагувати локації", onClick = onLocationsClick)
-            if (onReportClick != null) {
-                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                SettingsItem(icon = "📊", title = "Звіт", subtitle = "Статистика по клієнтах та доходах", onClick = onReportClick)
+            // ── Tabs ──────────────────────────────────────────────────────────
+            TabRow(selectedTabIndex = selectedTab) {
+                Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
+                    text = { Text("Загальне", fontSize = 13.sp) })
+                Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
+                    text = { Text("Зв'язок", fontSize = 13.sp) })
+                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
+                    text = { Text("Дані", fontSize = 13.sp) })
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-
-            // ── Working hours ──────────────────────────────────────────────
-            Text(
-                "Робочий час",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())
             ) {
-                Text("Початок", fontSize = 14.sp, modifier = Modifier.weight(1f))
-                HourStepper(
-                    hour = localStart,
-                    min = 0,
-                    max = localEnd - 1,
-                    onChange = { localStart = it; onWorkHoursChange?.invoke(it, localEnd) }
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Кінець", fontSize = 14.sp, modifier = Modifier.weight(1f))
-                HourStepper(
-                    hour = localEnd,
-                    min = localStart + 1,
-                    max = 24,
-                    onChange = { localEnd = it; onWorkHoursChange?.invoke(localStart, it) }
-                )
-            }
+                when (selectedTab) {
 
-            if (onSendTestNotification != null) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-                Text(
-                    "Сповіщення",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                SettingsItem(
-                    icon = "🔊",
-                    title = "Надіслати тестове сповіщення",
-                    subtitle = "Перевірити, як воно виглядає і звучить",
-                    onClick = onSendTestNotification
-                )
-            }
+                    // ── Tab 0: Загальне ───────────────────────────────────────
+                    0 -> {
+                        Spacer(Modifier.height(8.dp))
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-
-            // ── Google Calendar sync ──────────────────────────────────────
-            Text(
-                "Інтеграції",
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.Gray,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("📅", fontSize = 22.sp)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Синхронізація з Google Calendar", fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                    Text("Нові та відредаговані сесії синхронізуються автоматично", fontSize = 12.sp, color = Color.Gray)
-                }
-                Switch(
-                    checked = gcalSync,
-                    onCheckedChange = { onGcalSyncChange?.invoke(it) },
-                    colors = SwitchDefaults.colors(
-                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        uncheckedBorderColor = MaterialTheme.colorScheme.outline,
-                    )
-                )
-            }
-            if (gcalSync && onSyncAllFutureSessions != null) {
-                OutlinedButton(
-                    onClick = onSyncAllFutureSessions,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                ) {
-                    Text("Синхронізувати всі майбутні сесії", fontSize = 13.sp)
-                }
-            }
-
-            if (onLinkTelegram != null) {
-                if (telegramLinked) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("✈️", fontSize = 22.sp)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Telegram", fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                            Text("✅ Підключено — нагадування надходять у Telegram", fontSize = 12.sp, color = Color.Gray)
+                        SettingsItem(icon = "👥", title = "Клієнти", subtitle = "Додати або редагувати клієнтів", onClick = onClientsClick)
+                        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                        SettingsItem(icon = "🏢", title = "Локації", subtitle = "Додати або редагувати локації", onClick = onLocationsClick)
+                        if (onReportClick != null) {
+                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                            SettingsItem(icon = "📊", title = "Звіт", subtitle = "Статистика по клієнтах та доходах", onClick = onReportClick)
                         }
-                    }
-                } else {
-                    var telegramCode by remember { mutableStateOf("") }
-                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("✈️", fontSize = 22.sp)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Підключити Telegram", fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                                Text("Напишіть боту, отримайте код і введіть його тут", fontSize = 12.sp, color = Color.Gray)
-                            }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+
+                        Text("Робочий час", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("Початок", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            HourStepper(hour = localStart, min = 0, max = localEnd - 1,
+                                onChange = { localStart = it; onWorkHoursChange?.invoke(it, localEnd) })
                         }
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("Кінець", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            HourStepper(hour = localEnd, min = localStart + 1, max = 24,
+                                onChange = { localEnd = it; onWorkHoursChange?.invoke(localStart, it) })
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+
+                        Text("Інтеграції", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            OutlinedTextField(
-                                value = telegramCode,
-                                onValueChange = { telegramCode = it },
-                                label = { Text("Код") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Button(
-                                onClick = { onLinkTelegram(telegramCode); telegramCode = "" },
-                                enabled = telegramCode.isNotBlank(),
-                            ) {
-                                Text("OK")
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("📅", fontSize = 22.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Синхронізація з Google Calendar", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                Text("Нові та відредаговані сесії синхронізуються автоматично", fontSize = 12.sp, color = Color.Gray)
+                            }
+                            Switch(checked = gcalSync, onCheckedChange = { onGcalSyncChange?.invoke(it) },
+                                colors = SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                                ))
+                        }
+                        if (gcalSync && onSyncAllFutureSessions != null) {
+                            OutlinedButton(onClick = onSyncAllFutureSessions,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                Text("Синхронізувати всі майбутні сесії", fontSize = 13.sp)
                             }
                         }
                     }
-                }
-            }
 
-            if (onExportBackup != null || onImportBackup != null) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-                Text(
-                    "Резервна копія",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                if (onExportBackup != null) {
-                    SettingsItem(
-                        icon = "📤",
-                        title = "Поділитися резервною копією",
-                        subtitle = "Надіслати JSON-файл на інший пристрій",
-                        onClick = onExportBackup
-                    )
-                }
-                if (onImportBackup != null) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                    SettingsItem(
-                        icon = "📥",
-                        title = "Відновити з файлу",
-                        subtitle = "Завантажити JSON-файл резервної копії",
-                        onClick = { showImportConfirm = true }
-                    )
-                }
-            }
+                    // ── Tab 1: Зв'язок ────────────────────────────────────────
+                    1 -> {
+                        Spacer(Modifier.height(8.dp))
 
-            if (onEraseAllData != null) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-                Text(
-                    "Тестування",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-                SettingsItem(
-                    icon = "🗑️",
-                    title = "Видалити всі дані",
-                    subtitle = "Стерти клієнтів, локації, сесії та доступність",
-                    onClick = { showEraseConfirm = true }
-                )
+                        if (appMode == "user" && myUserId != null) {
+                            // Email field
+                            if (onSaveTrainerEmail != null) {
+                                var emailInput by remember { mutableStateOf(trainerEmail) }
+                                Text("Мій email (для підключення клієнтів)",
+                                    style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically) {
+                                    OutlinedTextField(
+                                        value = emailInput,
+                                        onValueChange = { emailInput = it.trim() },
+                                        label = { Text("Email") },
+                                        singleLine = true,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Button(
+                                        onClick = { onSaveTrainerEmail(emailInput) },
+                                        enabled = emailInput.isNotBlank() && emailInput != trainerEmail,
+                                    ) { Text("Зберегти") }
+                                }
+                                if (trainerEmail.isNotBlank()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text("✅ $trainerEmail", fontSize = 13.sp, color = Color(0xFF2E7D32),
+                                            modifier = Modifier.weight(1f))
+                                        if (onCopyTrainerEmail != null) {
+                                            OutlinedButton(onClick = onCopyTrainerEmail,
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                                                Text("Копіювати", fontSize = 12.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                Spacer(Modifier.height(8.dp))
+                            }
+
+                            if (onPublishToFirebase != null) {
+                                OutlinedButton(onClick = onPublishToFirebase,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                                    Text("☁️ Опублікувати розклад вручну")
+                                }
+                            }
+                            if (onClearFirebaseData != null) {
+                                OutlinedButton(
+                                    onClick = onClearFirebaseData,
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                                ) {
+                                    Text("🗑️ Видалити дані з Firebase")
+                                }
+                            }
+
+                            // Booking requests
+                            if (pendingBookingRequests.isNotEmpty() && onConfirmBookingRequest != null) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp))
+                                Text("Запити на бронювання (${pendingBookingRequests.size})",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                pendingBookingRequests.forEach { request ->
+                                    val reqClientName = clients.find { it.firebaseClientId == request.clientFirebaseId }?.name
+                                    BookingRequestItem(request = request,
+                                        clientName = reqClientName,
+                                        onConfirm = { onConfirmBookingRequest(request) },
+                                        onDecline = { onDeclineBookingRequest?.invoke(request) })
+                                }
+                            }
+
+                            // New client connections
+                            val linkedFirebaseIds = clients.mapNotNull { it.firebaseClientId }.toSet()
+                            val unlinkedConnections = connectedClients.filter { (uid, _, _) -> uid !in linkedFirebaseIds }
+                            if (unlinkedConnections.isNotEmpty() && onLinkClientFirebaseId != null) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp))
+                                Text("🔔 Нові підключення (${unlinkedConnections.size})",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.tertiary,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                unlinkedConnections.forEach { (uid, deviceModel, clientEmail) ->
+                                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            if (!clientEmail.isNullOrBlank()) {
+                                                Text(clientEmail, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                                Text("📱 $deviceModel", fontSize = 11.sp, color = Color.Gray)
+                                            } else {
+                                                Text("📱 $deviceModel", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                            }
+                                        }
+                                        Button(onClick = { linkingFirebaseId = uid },
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                                            Text("Хто це?", fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Client availability
+                            val linkedClients = clients.filter { it.firebaseClientId != null }
+                            if (linkedClients.isNotEmpty() && clientAvailabilitySlots.isNotEmpty()) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp))
+                                Text("Доступність клієнтів",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                                linkedClients.forEach { client ->
+                                    val cSlots = clientAvailabilitySlots.filter { it.clientFirebaseId == client.firebaseClientId }
+                                    ClientAvailabilityRow(
+                                        client = client, slots = cSlots,
+                                        isHighlighted = client.firebaseClientId == highlightClientFirebaseId,
+                                        onSlotClick = { slot -> onClientAvailabilityCreateSession?.invoke(slot) },
+                                        onChatClick = if (onOpenChatWithClient != null) {
+                                            { onOpenChatWithClient(client.firebaseClientId!!, client.name) }
+                                        } else null,
+                                        onAskAvailability = if (onAskClientAvailability != null && client.firebaseClientId != null) {
+                                            { msg -> onAskClientAvailability(client.firebaseClientId!!, msg) }
+                                        } else null,
+                                    )
+                                }
+                            }
+
+                            // Chat for clients without availability slots
+                            if (onOpenChatWithClient != null) {
+                                val linkedClients2 = clients.filter { it.firebaseClientId != null }
+                                val chatOnly = linkedClients2.filter { c ->
+                                    clientAvailabilitySlots.none { it.clientFirebaseId == c.firebaseClientId }
+                                }
+                                chatOnly.forEach { client ->
+                                    ClientAvailabilityRow(
+                                        client = client, slots = emptyList(),
+                                        isHighlighted = client.firebaseClientId == highlightClientFirebaseId,
+                                        onSlotClick = {},
+                                        onChatClick = { onOpenChatWithClient(client.firebaseClientId!!, client.name) },
+                                        onAskAvailability = if (onAskClientAvailability != null && client.firebaseClientId != null) {
+                                            { msg -> onAskClientAvailability(client.firebaseClientId!!, msg) }
+                                        } else null,
+                                    )
+                                }
+                            }
+                        } else {
+                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                contentAlignment = Alignment.Center) {
+                                Text("Перейдіть у режим Тренера, щоб побачити налаштування зв'язку",
+                                    fontSize = 13.sp, color = Color.Gray,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            }
+                        }
+                    }
+
+                    // ── Tab 2: Дані ───────────────────────────────────────────
+                    2 -> {
+                        Spacer(Modifier.height(8.dp))
+
+                        if (onSendTestNotification != null) {
+                            Text("Сповіщення", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                            SettingsItem(icon = "🔊", title = "Надіслати тестове сповіщення",
+                                subtitle = "Перевірити, як воно виглядає і звучить",
+                                onClick = onSendTestNotification)
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                        }
+
+                        if (onLinkTelegram != null) {
+                            if (telegramLinked) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text("✈️", fontSize = 22.sp)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("Telegram", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                        Text("✅ Підключено", fontSize = 12.sp, color = Color.Gray)
+                                    }
+                                }
+                            } else {
+                                var telegramCode by remember { mutableStateOf("") }
+                                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Text("✈️", fontSize = 22.sp)
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text("Підключити Telegram", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                            Text("Напишіть боту, отримайте код і введіть його тут", fontSize = 12.sp, color = Color.Gray)
+                                        }
+                                    }
+                                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        OutlinedTextField(value = telegramCode, onValueChange = { telegramCode = it },
+                                            label = { Text("Код") }, singleLine = true, modifier = Modifier.weight(1f))
+                                        Button(onClick = { onLinkTelegram(telegramCode); telegramCode = "" },
+                                            enabled = telegramCode.isNotBlank()) { Text("OK") }
+                                    }
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                        }
+
+                        if (onPickBackupFolder != null) {
+                            Text("Авто-резервне копіювання",
+                                style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("☁️", fontSize = 22.sp)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Щоденне резервне копіювання", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                    Text(if (backupFolderName != null) "Папка: $backupFolderName" else "Папку не вибрано",
+                                        fontSize = 12.sp, color = Color.Gray)
+                                }
+                                Switch(checked = autoBackupEnabled, onCheckedChange = { onAutoBackupToggle?.invoke(it) },
+                                    enabled = backupFolderName != null,
+                                    colors = SwitchDefaults.colors(
+                                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                                    ))
+                            }
+                            SettingsItem(icon = "📁", title = "Вибрати папку для копій",
+                                subtitle = "Google Drive або локальна папка", onClick = onPickBackupFolder)
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                        }
+
+                        if (onExportBackup != null || onImportBackup != null) {
+                            Text("Резервна копія", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                            if (onExportBackup != null) {
+                                SettingsItem(icon = "📤", title = "Поділитися резервною копією",
+                                    subtitle = "Надіслати JSON-файл на інший пристрій", onClick = onExportBackup)
+                            }
+                            if (onImportBackup != null) {
+                                HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                                SettingsItem(icon = "📥", title = "Відновити з файлу",
+                                    subtitle = "Завантажити JSON-файл резервної копії",
+                                    onClick = { showImportConfirm = true })
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                        }
+
+                        if (onEraseAllData != null) {
+                            SettingsItem(icon = "🗑️", title = "Видалити всі дані",
+                                subtitle = "Стерти клієнтів, локації, сесії та доступність",
+                                onClick = { showEraseConfirm = true })
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+
+                // ── Mode switch — always at the bottom of all tabs ──────────
+                if (onAppModeChange != null) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                    Text("Режим роботи", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("user" to "🏋 Тренер", "client" to "🙋 Клієнт").forEach { (mode, label) ->
+                            if (appMode == mode) {
+                                Button(onClick = {}, modifier = Modifier.weight(1f)) { Text(label) }
+                            } else {
+                                OutlinedButton(onClick = { onAppModeChange(mode) },
+                                    modifier = Modifier.weight(1f)) { Text(label) }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
     }
+
+    linkingFirebaseId?.let { fbId ->
+        LinkClientDialog(
+            firebaseId = fbId,
+            unlinkedClients = clients.filter { it.firebaseClientId == null },
+            onLink = { localClientId ->
+                onLinkClientFirebaseId?.invoke(fbId, localClientId)
+                linkingFirebaseId = null
+            },
+            onDismiss = { linkingFirebaseId = null }
+        )
+    }
+}
+
+@Composable
+private fun LinkClientDialog(
+    firebaseId: String,
+    unlinkedClients: List<Client>,
+    onLink: (Long) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Хто підключився?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (unlinkedClients.isEmpty()) {
+                    Text("Немає клієнтів без прив'язки. Спочатку додайте клієнта.", fontSize = 13.sp, color = Color.Gray)
+                } else {
+                    Text("Виберіть клієнта зі списку:", fontSize = 13.sp, color = Color.Gray)
+                    unlinkedClients.forEach { client ->
+                        TextButton(onClick = { onLink(client.id) }, modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
+                            Text(client.name, modifier = Modifier.fillMaxWidth(),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Start, fontSize = 15.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
+    )
 }
 
 @Composable
 private fun HourStepper(hour: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        FilledTonalIconButton(
-            onClick = { if (hour > min) onChange(hour - 1) },
-            modifier = Modifier.size(32.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors()
-        ) { Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-        Text(
-            "${hour.toString().padStart(2, '0')}:00",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.padding(horizontal = 8.dp).width(52.dp),
-        )
-        FilledTonalIconButton(
-            onClick = { if (hour < max) onChange(hour + 1) },
-            modifier = Modifier.size(32.dp),
-            colors = IconButtonDefaults.filledTonalIconButtonColors()
-        ) { Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+        FilledTonalIconButton(onClick = { if (hour > min) onChange(hour - 1) }, modifier = Modifier.size(32.dp),
+            colors = IconButtonDefaults.filledTonalIconButtonColors()) {
+            Text("−", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+        Text("${hour.toString().padStart(2, '0')}:00", fontSize = 15.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 8.dp).width(52.dp))
+        FilledTonalIconButton(onClick = { if (hour < max) onChange(hour + 1) }, modifier = Modifier.size(32.dp),
+            colors = IconButtonDefaults.filledTonalIconButtonColors()) {
+            Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
 @Composable
-private fun SettingsItem(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+private fun BookingRequestItem(request: BookingRequest, clientName: String? = null, onConfirm: () -> Unit, onDecline: () -> Unit) {
+    val dateStr = "${request.date.dayOfMonth}.${request.date.monthNumber.toString().padStart(2,'0')}.${request.date.year}"
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
+            if (!clientName.isNullOrBlank()) Text(clientName, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            Text("$dateStr · ${request.startTime.toStorageString()}–${request.endTime.toStorageString()}",
+                fontWeight = FontWeight.Medium, fontSize = 13.sp)
+            if (!request.clientNote.isNullOrBlank()) Text(request.clientNote, fontSize = 12.sp, color = Color.Gray)
+        }
+        TextButton(onClick = onConfirm,
+            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF2E7D32))) { Text("✓ Так") }
+        TextButton(onClick = onDecline,
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("✕") }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ClientAvailabilityRow(
+    client: Client,
+    slots: List<ClientAvailabilitySlot>,
+    isHighlighted: Boolean = false,
+    onSlotClick: (ClientAvailabilitySlot) -> Unit,
+    onChatClick: (() -> Unit)? = null,
+    onAskAvailability: ((message: String) -> Unit)? = null,
+) {
+    var showAskDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (isHighlighted) Modifier.background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 4.dp)
     ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("👤 ${client.name}", fontWeight = FontWeight.Medium, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            if (onAskAvailability != null) {
+                TextButton(onClick = { showAskDialog = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                    Text("📅", fontSize = 14.sp)
+                }
+            }
+            if (onChatClick != null) {
+                TextButton(onClick = onChatClick, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                    Text("💬", fontSize = 14.sp)
+                }
+            }
+        }
+        if (slots.isNotEmpty()) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                slots.sortedWith(compareBy({ it.date }, { it.startTime.toMinutes() })).forEach { slot ->
+                    val label = "${slot.date.dayOfMonth}.${slot.date.monthNumber.toString().padStart(2,'0')} ${slot.startTime.toStorageString()}–${slot.endTime.toStorageString()}"
+                    SuggestionChip(onClick = { onSlotClick(slot) },
+                        label = { Text(label, fontSize = 11.sp) },
+                        icon = { Text("📆", fontSize = 12.sp) })
+                }
+            }
+        }
+    }
+
+    if (showAskDialog && onAskAvailability != null) {
+        AskAvailabilityDialog(
+            clientName = client.name,
+            onDismiss = { showAskDialog = false },
+            onSend = { msg -> onAskAvailability(msg); showAskDialog = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AskAvailabilityDialog(
+    clientName: String,
+    onDismiss: () -> Unit,
+    onSend: (String) -> Unit,
+) {
+    var comment by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Запросити доступність") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Надіслати запит $clientName встановити доступність:", fontSize = 13.sp, color = Color.Gray)
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Коментар (необов'язково)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val msg = if (comment.isBlank())
+                    "Будь ласка, вкажіть свою доступність для занять 📅"
+                else
+                    "Будь ласка, вкажіть доступність: $comment"
+                onSend(msg)
+            }) { Text("Надіслати") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
+    )
+}
+
+@Composable
+private fun SettingsItem(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(icon, fontSize = 24.sp)
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.Medium, fontSize = 15.sp)

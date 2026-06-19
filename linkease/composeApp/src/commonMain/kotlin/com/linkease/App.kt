@@ -59,6 +59,10 @@ fun App(
     onExportToCalendar: ((Session, List<Client>, Location?) -> Unit)? = null,
     onScheduleNotifications: ((sessions: List<Session>, clients: List<Client>, locations: List<Location>) -> Unit)? = null,
     onPinToStatusBar: (() -> Unit)? = null,
+    autoBackupEnabled: Boolean = false,
+    onAutoBackupToggle: ((Boolean) -> Unit)? = null,
+    backupFolderName: String? = null,
+    onPickBackupFolder: (() -> Unit)? = null,
     createSessionVersion: Long = 0L,
     showFreeTimeVersion: Long = 0L,
     createClientVersion: Long = 0L,
@@ -90,9 +94,69 @@ fun App(
     onSendTestNotification: (() -> Unit)? = null,
     telegramLinked: Boolean = false,
     onLinkTelegram: ((code: String) -> Unit)? = null,
+    appMode: String = "user",
+    onAppModeChange: ((String) -> Unit)? = null,
+    myUserId: String? = null,
+    onCopyMyId: (() -> Unit)? = null,
+    onPublishToFirebase: (() -> Unit)? = null,
+    trainerData: TrainerData? = null,
+    isLoadingTrainer: Boolean = false,
+    trainerLoadError: String? = null,
+    onConnectToTrainer: ((String) -> Unit)? = null,
+    onDisconnectFromTrainer: (() -> Unit)? = null,
+    savedTrainerId: String? = null,
+    clientSessions: List<ClientSession> = emptyList(),
+    clientBookingRequests: List<BookingRequest> = emptyList(),
+    onBookSlot: ((date: LocalDate, start: LocalTime, end: LocalTime, note: String?) -> Unit)? = null,
+    onConfirmClientSession: ((sessionId: String) -> Unit)? = null,
+    onRejectClientSession: ((sessionId: String) -> Unit)? = null,
+    pendingBookingRequests: List<BookingRequest> = emptyList(),
+    onConfirmBookingRequest: ((BookingRequest) -> Unit)? = null,
+    onDeclineBookingRequest: ((BookingRequest) -> Unit)? = null,
+    clients: List<Client> = emptyList(),
+    clientAvailabilitySlots: List<ClientAvailabilitySlot> = emptyList(),
+    onClientAvailabilityCreateSession: ((ClientAvailabilitySlot) -> Unit)? = null,
+    myAvailability: List<ClientAvailabilitySlot> = emptyList(),
+    onSaveMyAvailability: ((List<ClientAvailabilitySlot>) -> Unit)? = null,
+    chatMessages: List<ChatMessage> = emptyList(),
+    onSendChat: ((String) -> Unit)? = null,
+    onOpenChatWithClient: ((clientFirebaseId: String, clientName: String) -> Unit)? = null,
+    connectedClients: List<Triple<String, String, String?>> = emptyList(),
+    onLinkClientFirebaseId: ((firebaseId: String, localClientId: Long) -> Unit)? = null,
+    trainerEmail: String = "",
+    onSaveTrainerEmail: ((String) -> Unit)? = null,
+    onCopyTrainerEmail: (() -> Unit)? = null,
+    onClearFirebaseData: (() -> Unit)? = null,
+    clientEmail: String = "",
+    onCopyClientEmail: (() -> Unit)? = null,
+    onShareClientEmail: (() -> Unit)? = null,
+    onboardingDone: Boolean = true,
+    emailHint: String = "",
+    onOnboardingSelectTrainer: ((String) -> Unit)? = null,
+    onOnboardingSelectClient: ((String, String) -> Unit)? = null,
+    pendingChatPartnerId: String? = null,
+    onPendingChatConsumed: (() -> Unit)? = null,
+    pendingClientAvailabilityId: String? = null,
+    onPendingClientAvailabilityConsumed: (() -> Unit)? = null,
+    onAskClientAvailability: ((clientFirebaseId: String, message: String) -> Unit)? = null,
 ) {
     val tz = TimeZone.currentSystemDefault()
     val todayDate = Clock.System.now().toLocalDateTime(tz).date
+
+    var chatOpenClientId   by remember { mutableStateOf<String?>(null) }
+    var chatOpenClientName by remember { mutableStateOf("") }
+
+    var highlightClientFirebaseId by remember { mutableStateOf<String?>(null) }
+
+    // Open chat dialog when triggered by notification tap
+    LaunchedEffect(pendingChatPartnerId) {
+        if (pendingChatPartnerId != null && appMode == "user") {
+            chatOpenClientId = pendingChatPartnerId
+            chatOpenClientName = clients.find { it.firebaseClientId == pendingChatPartnerId }?.name ?: ""
+            onOpenChatWithClient?.invoke(pendingChatPartnerId, chatOpenClientName)
+            onPendingChatConsumed?.invoke()
+        }
+    }
 
     var screenHistory by remember { mutableStateOf(listOf(Screen.CALENDAR)) }
     val screen = screenHistory.last()
@@ -105,6 +169,15 @@ fun App(
     fun switchRootScreen(s: Screen) { screenHistory = listOf(s) }
 
     BackHandler(enabled = screenHistory.size > 1) { goBack() }
+
+    // Navigate to Settings → client availability when tapped from notification
+    LaunchedEffect(pendingClientAvailabilityId) {
+        if (pendingClientAvailabilityId != null) {
+            highlightClientFirebaseId = pendingClientAvailabilityId
+            switchRootScreen(Screen.SETTINGS)
+            onPendingClientAvailabilityConsumed?.invoke()
+        }
+    }
 
     var selectedDay by remember { mutableStateOf(todayDate) }
     var startDate by remember { mutableStateOf(todayDate) }
@@ -167,13 +240,15 @@ fun App(
     var addSessionDate by remember { mutableStateOf(selectedDay) }
     var addSessionStartTime by remember { mutableStateOf(LocalTime(9, 0)) }
     var addSessionEndTime by remember { mutableStateOf<LocalTime?>(null) }
+    var addSessionDefaultClientIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var editingSession by remember { mutableStateOf<Session?>(null) }
     var copyingSession by remember { mutableStateOf<Session?>(null) }
 
-    fun openNewSession(date: LocalDate, start: LocalTime, end: LocalTime? = null) {
+    fun openNewSession(date: LocalDate, start: LocalTime, end: LocalTime? = null, clientIds: List<Long> = emptyList()) {
         addSessionDate = date
         addSessionStartTime = start
         addSessionEndTime = end
+        addSessionDefaultClientIds = clientIds
         editingSession = null
         showAddSession = true
     }
@@ -247,6 +322,49 @@ fun App(
     }
 
     MaterialTheme(colorScheme = appColorScheme) {
+        if (!onboardingDone) {
+            OnboardingScreen(
+                emailHint = emailHint,
+                isLoading = isLoadingTrainer,
+                error = trainerLoadError,
+                onSelectTrainer = { email -> onOnboardingSelectTrainer?.invoke(email) },
+                onSelectClient = { myEmail, trainerEmail -> onOnboardingSelectClient?.invoke(myEmail, trainerEmail) },
+            )
+            return@MaterialTheme
+        }
+
+        if (appMode == "client") {
+            if (trainerData != null) {
+                ClientModeScreen(
+                    trainerData = trainerData,
+                    myFirebaseId = myUserId ?: "",
+                    clientEmail = clientEmail,
+                    clientSessions = clientSessions,
+                    pendingBookingRequests = clientBookingRequests,
+                    myAvailability = myAvailability,
+                    chatMessages = chatMessages,
+                    onDisconnect = { onDisconnectFromTrainer?.invoke() },
+                    onBookSlot = { date, start, end, note -> onBookSlot?.invoke(date, start, end, note) },
+                    onConfirmSession = { sid -> onConfirmClientSession?.invoke(sid) },
+                    onRejectSession = { sid -> onRejectClientSession?.invoke(sid) },
+                    onCancelSession = { sid -> onRejectClientSession?.invoke(sid) },
+                    onSaveMyAvailability = { slots -> onSaveMyAvailability?.invoke(slots) },
+                    onSendChat = { msg -> onSendChat?.invoke(msg) },
+                    onCopyClientEmail = onCopyClientEmail,
+                    onShareClientEmail = onShareClientEmail,
+                )
+            } else {
+                ClientConnectScreen(
+                    savedTrainerId = null,
+                    isLoading = isLoadingTrainer,
+                    error = trainerLoadError,
+                    onConnect = { onConnectToTrainer?.invoke(it) },
+                    onSwitchToUserMode = { onAppModeChange?.invoke("user") }
+                )
+            }
+            return@MaterialTheme
+        }
+
         when (screen) {
             Screen.CALENDAR -> CalendarScreen(
                 showFreeTimeVersion = showFreeTimeVersion,
@@ -263,6 +381,20 @@ fun App(
                 onCopyToClipboard = onCopyToClipboard,
                 onShareFreeTimeImage = onShareFreeTimeImage,
                 onCopyFreeTimeImage = onCopyFreeTimeImage,
+                pendingBookingRequests = pendingBookingRequests,
+                onConfirmBookingRequest = { request ->
+                    val localClientId = clients.find { it.firebaseClientId == request.clientFirebaseId }?.id
+                    val newSession = sessionRepository.save(
+                        request.date, request.startTime, request.endTime,
+                        listOfNotNull(localClientId), null, ""
+                    )
+                    syncSessionCreate(newSession, listOfNotNull(localClientId), null)
+                    refreshSessions()
+                    onConfirmBookingRequest?.invoke(request)
+                },
+                onDeclineBookingRequest = { request ->
+                    onDeclineBookingRequest?.invoke(request)
+                },
                 onDayClickInThreeDay = { date ->
                     selectedDay = date
                     startDate = date
@@ -315,6 +447,20 @@ fun App(
                 },
                 onPinToStatusBar = onPinToStatusBar,
                 onExportDayToCalendar = onExportDayDirect,
+                onDuplicateWeek = {
+                    val dow = startDate.dayOfWeek.isoDayNumber
+                    val weekMon = startDate.minus(dow - 1, DateTimeUnit.DAY)
+                    val weekSun = weekMon.plus(6, DateTimeUnit.DAY)
+                    val weekSessions = sessions.filter { it.date in weekMon..weekSun }
+                    weekSessions.forEach { s ->
+                        val newSession = sessionRepository.save(
+                            s.date.plus(7, DateTimeUnit.DAY),
+                            s.startTime, s.endTime, s.clientIds, s.locationId, s.notes
+                        )
+                        syncSessionCreate(newSession, s.clientIds, s.locationId)
+                    }
+                    refreshSessions()
+                },
             )
 
             Screen.CLIENTS -> ClientsScreen(
@@ -322,9 +468,13 @@ fun App(
                 clients = clients,
                 sessions = sessions,
                 locations = locations,
+                clientAvailabilitySlots = clientAvailabilitySlots,
+                onAvailabilitySlotClick = { client, slot ->
+                    openNewSession(slot.date, slot.startTime, slot.endTime, listOf(client.id))
+                },
                 onSettingsClick = { goBack() },
-                onSave = { n, p, e, c, rate ->
-                    clientRepository.save(n, p, e, c, rate)
+                onSave = { n, p, e, c, rate, pkgTotal, pkgUsed, birthDate, fbId ->
+                    clientRepository.save(n, p, e, c, rate, pkgTotal, pkgUsed, birthDate, fbId)
                     clients = clientRepository.getAll()
                     onScheduleNotifications?.invoke(sessions, clients, locations)
                     syncData()
@@ -407,6 +557,64 @@ fun App(
                 onSendTestNotification = onSendTestNotification,
                 telegramLinked = telegramLinked,
                 onLinkTelegram = onLinkTelegram,
+                autoBackupEnabled = autoBackupEnabled,
+                onAutoBackupToggle = onAutoBackupToggle,
+                backupFolderName = backupFolderName,
+                onPickBackupFolder = onPickBackupFolder,
+                appMode = appMode,
+                onAppModeChange = onAppModeChange,
+                myUserId = myUserId,
+                onCopyMyId = onCopyMyId,
+                onPublishToFirebase = onPublishToFirebase,
+                pendingBookingRequests = pendingBookingRequests,
+                onConfirmBookingRequest = { request ->
+                    val localClientId = clients.find { it.firebaseClientId == request.clientFirebaseId }?.id
+                    val newSession = sessionRepository.save(
+                        request.date, request.startTime, request.endTime,
+                        listOfNotNull(localClientId), null, ""
+                    )
+                    syncSessionCreate(newSession, listOfNotNull(localClientId), null)
+                    refreshSessions()
+                    onConfirmBookingRequest?.invoke(request)
+                },
+                onDeclineBookingRequest = { request ->
+                    onDeclineBookingRequest?.invoke(request)
+                },
+                clients = clients,
+                clientAvailabilitySlots = clientAvailabilitySlots,
+                onClientAvailabilityCreateSession = { slot ->
+                    val localClientId = clients.find { it.firebaseClientId == slot.clientFirebaseId }?.id
+                    openNewSession(slot.date, slot.startTime, slot.endTime)
+                    if (localClientId != null) {
+                        addSessionDate = slot.date
+                        addSessionStartTime = slot.startTime
+                        addSessionEndTime = slot.endTime
+                        editingSession = null
+                        showAddSession = true
+                    }
+                    onClientAvailabilityCreateSession?.invoke(slot)
+                },
+                onOpenChatWithClient = { clientFirebaseId, clientName ->
+                    chatOpenClientId = clientFirebaseId
+                    chatOpenClientName = clientName
+                    onOpenChatWithClient?.invoke(clientFirebaseId, clientName)
+                },
+                connectedClients = connectedClients,
+                onLinkClientFirebaseId = { firebaseId, localClientId ->
+                    onLinkClientFirebaseId?.invoke(firebaseId, localClientId)
+                    val linkedClient = clients.find { it.id == localClientId }
+                    if (linkedClient != null) {
+                        clients = clientRepository.getAll()
+                        syncData()
+                    }
+                },
+                trainerEmail = trainerEmail,
+                onSaveTrainerEmail = onSaveTrainerEmail,
+                onCopyTrainerEmail = onCopyTrainerEmail,
+                onClearFirebaseData = onClearFirebaseData,
+                highlightClientFirebaseId = highlightClientFirebaseId,
+                onHighlightConsumed = { highlightClientFirebaseId = null },
+                onAskClientAvailability = onAskClientAvailability,
             )
 
             Screen.REPORT -> ReportScreen(
@@ -429,6 +637,7 @@ fun App(
                 defaultDate = addSessionDate,
                 defaultStartTime = addSessionStartTime,
                 defaultEndTime = addSessionEndTime,
+                defaultClientIds = addSessionDefaultClientIds,
                 clients = clients,
                 locations = locations,
                 existingSessions = sessions,
@@ -436,7 +645,7 @@ fun App(
                 workHoursStart = workHoursStart,
                 workHoursEnd = workHoursEnd,
                 onCreateClient = { name -> createNewClient(name) },
-                onDismiss = { showAddSession = false; editingSession = null; addSessionEndTime = null },
+                onDismiss = { showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList() },
                 onConfirm = { date, start, end, clientIds, locationId, notes ->
                     val existing = editingSession
                     if (existing == null) {
@@ -449,7 +658,7 @@ fun App(
                         syncSessionUpdate(updated)
                     }
                     refreshSessions()
-                    showAddSession = false; editingSession = null; addSessionEndTime = null
+                    showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList()
                 },
                 onConfirmSeries = { dates, start, end, clientIds, locationId, notes ->
                     dates.forEach { date ->
@@ -457,7 +666,7 @@ fun App(
                         syncSessionCreate(newSession, clientIds, locationId)
                     }
                     refreshSessions()
-                    showAddSession = false; editingSession = null; addSessionEndTime = null
+                    showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList()
                 }
             )
         }
@@ -493,6 +702,17 @@ fun App(
                     refreshSessions()
                     copyingSession = null
                 }
+            )
+        }
+
+        // Trainer-side chat dialog
+        chatOpenClientId?.let { partnerId ->
+            ChatDialog(
+                myId = myUserId ?: "",
+                partnerName = chatOpenClientName,
+                messages = chatMessages,
+                onSend = { msg -> onSendChat?.invoke(msg) },
+                onDismiss = { chatOpenClientId = null }
             )
         }
 

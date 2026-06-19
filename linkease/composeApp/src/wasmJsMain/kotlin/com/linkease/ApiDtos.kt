@@ -11,10 +11,14 @@ data class ClientApiDto(
     val email: String = "",
     val colorHex: String = "#2196F3",
     val hourlyRate: Double = 0.0,
+    val packageTotal: Int = 0,
+    val packageUsed: Int = 0,
+    val birthDate: String? = null,
+    val firebaseClientId: String? = null,
 )
 
-fun Client.toApiDto() = ClientApiDto(id, name, phone, email, colorHex, hourlyRate)
-fun ClientApiDto.toDomain() = Client(id, name, phone, email, colorHex, hourlyRate)
+fun Client.toApiDto() = ClientApiDto(id, name, phone, email, colorHex, hourlyRate, packageTotal, packageUsed, birthDate, firebaseClientId)
+fun ClientApiDto.toDomain() = Client(id, name, phone, email, colorHex, hourlyRate, packageTotal, packageUsed, birthDate, firebaseClientId)
 
 @Serializable
 data class LocationApiDto(

@@ -6,5 +6,9 @@ data class Client(
     val phone: String = "",
     val email: String = "",
     val colorHex: String = "#2196F3",
-    val hourlyRate: Double = 0.0
+    val hourlyRate: Double = 0.0,
+    val packageTotal: Int = 0,
+    val packageUsed: Int = 0,
+    val birthDate: String? = null, // "MM-DD" format
+    val firebaseClientId: String? = null,
 )

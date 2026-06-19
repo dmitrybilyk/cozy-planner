@@ -25,17 +25,15 @@ private val CLIENT_COLORS = listOf(
 fun AddEditClientDialog(
     initial: Client? = null,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, phone: String, email: String, colorHex: String, hourlyRate: Double) -> Unit,
+    onConfirm: (name: String, phone: String, email: String, colorHex: String, hourlyRate: Double,
+                packageTotal: Int, packageUsed: Int, birthDate: String?, firebaseClientId: String?) -> Unit,
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
     var phone by remember { mutableStateOf(initial?.phone ?: "") }
-    var email by remember { mutableStateOf(initial?.email ?: "") }
-    var colorHex by remember { mutableStateOf(initial?.colorHex ?: CLIENT_COLORS.first()) }
-    var rateText by remember {
-        mutableStateOf(if ((initial?.hourlyRate ?: 0.0) > 0) initial!!.hourlyRate.let {
-            if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
-        } else "")
-    }
+    val colorHex = initial?.colorHex ?: CLIENT_COLORS.first()
+    var pkgTotalText by remember { mutableStateOf(if ((initial?.packageTotal ?: 0) > 0) initial!!.packageTotal.toString() else "") }
+    var pkgUsedText by remember { mutableStateOf(if ((initial?.packageUsed ?: 0) > 0) initial!!.packageUsed.toString() else "") }
+    var firebaseClientIdText by remember { mutableStateOf(initial?.firebaseClientId ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -44,25 +42,42 @@ fun AddEditClientDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Ім'я *") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                 OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Телефон") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = pkgTotalText,
+                        onValueChange = { pkgTotalText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Пакет (всього)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    OutlinedTextField(
+                        value = pkgUsedText,
+                        onValueChange = { pkgUsedText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Пакет (використано)") },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                }
                 OutlinedTextField(
-                    value = rateText,
-                    onValueChange = { rateText = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Ставка за годину") },
-                    suffix = { Text("₴/год") },
+                    value = firebaseClientIdText,
+                    onValueChange = { firebaseClientIdText = it.trim() },
+                    label = { Text("Firebase ID клієнта") },
+                    placeholder = { Text("Вставте ID від клієнта", color = Color.LightGray) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
-                Text("Колір", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-                ColorPicker(selected = colorHex, colors = CLIENT_COLORS, onSelect = { colorHex = it })
             }
         },
         confirmButton = {
             Button(onClick = {
                 if (name.isNotBlank()) {
-                    val rate = rateText.toDoubleOrNull() ?: 0.0
-                    onConfirm(name.trim(), phone.trim(), email.trim(), colorHex, rate)
+                    val pkgTotal = pkgTotalText.toIntOrNull() ?: 0
+                    val pkgUsed = pkgUsedText.toIntOrNull() ?: 0
+                    val fbId = firebaseClientIdText.ifBlank { null }
+                    onConfirm(name.trim(), phone.trim(), initial?.email ?: "", colorHex,
+                        initial?.hourlyRate ?: 0.0, pkgTotal, pkgUsed, initial?.birthDate, fbId)
                 }
             }) {
                 Text("Зберегти")
@@ -70,6 +85,16 @@ fun AddEditClientDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
     )
+}
+
+private fun parseBirthdayInput(text: String): String? {
+    if (text.isBlank()) return null
+    val parts = text.split(".")
+    if (parts.size != 2) return null
+    val day = parts[0].toIntOrNull() ?: return null
+    val month = parts[1].toIntOrNull() ?: return null
+    if (day !in 1..31 || month !in 1..12) return null
+    return "${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
 }
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

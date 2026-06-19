@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "371489699432",
+    "project_id": "linkease-6b9a9",
+    "storage_bucket": "linkease-6b9a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:371489699432:android:3dfab493e51c4a29112ddd",
+        "android_client_info": {
+          "package_name": "com.linkease"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8gg5BjR8MDUXnRJC3wJ36OSD1KnUwMRI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

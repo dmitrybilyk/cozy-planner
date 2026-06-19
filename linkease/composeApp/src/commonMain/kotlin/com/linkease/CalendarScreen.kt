@@ -211,6 +211,10 @@ fun CalendarScreen(
     onCopyToClipboard: ((String) -> Unit)? = null,
     onShareFreeTimeImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
     onCopyFreeTimeImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
+    onDuplicateWeek: (() -> Unit)? = null,
+    pendingBookingRequests: List<BookingRequest> = emptyList(),
+    onConfirmBookingRequest: ((BookingRequest) -> Unit)? = null,
+    onDeclineBookingRequest: ((BookingRequest) -> Unit)? = null,
 ) {
     val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val clientsById = clients.associateBy { it.id }
@@ -277,6 +281,7 @@ fun CalendarScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var showDuplicateConfirm by remember { mutableStateOf(false) }
 
     val freeTimeDays = if (currentView == CalendarView.MONTH)
         (0 until monthFreeDayCount).map { today.plus(it, DateTimeUnit.DAY) }
@@ -375,6 +380,7 @@ fun CalendarScreen(
                         onPrev = onPrev, onNext = onNext, onGoToToday = onGoToToday,
                         onSettingsClick = onSettingsClick,
                         includesTODAY = includesTODAY,
+                        onDuplicateWeek = if (onDuplicateWeek != null) ({ showDuplicateConfirm = true }) else null,
                     )
                     ViewSelector(
                         currentView = currentView,
@@ -463,6 +469,14 @@ fun CalendarScreen(
                 modifier = Modifier.padding(padding),
             )
         } else Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (pendingBookingRequests.isNotEmpty()) {
+                BookingRequestsPanel(
+                    requests = pendingBookingRequests,
+                    clients = clients,
+                    onConfirm = onConfirmBookingRequest,
+                    onDecline = onDeclineBookingRequest,
+                )
+            }
             when (currentView) {
                 CalendarView.MONTH -> {
                     // Smooth animated month-to-month swipe, same feel as day/3-day below.
@@ -642,6 +656,29 @@ fun CalendarScreen(
         } // Box
     }
 
+    if (showDuplicateConfirm && onDuplicateWeek != null) {
+        val dow = today.dayOfWeek.isoDayNumber
+        val weekMon = today.minus(dow - 1, DateTimeUnit.DAY)
+        val weekSun = weekMon.plus(6, DateTimeUnit.DAY)
+        val weekCount = sessions.count { it.date in weekMon..weekSun }
+        val monLabel = "${weekMon.dayOfMonth}.${weekMon.monthNumber.toString().padStart(2,'0')}"
+        val sunLabel = "${weekSun.dayOfMonth}.${weekSun.monthNumber.toString().padStart(2,'0')}"
+        AlertDialog(
+            onDismissRequest = { showDuplicateConfirm = false },
+            title = { Text("Дублювати тиждень?") },
+            text = { Text("Скопіювати $weekCount занять ($monLabel–$sunLabel) на наступний тиждень?") },
+            confirmButton = {
+                Button(onClick = {
+                    showDuplicateConfirm = false
+                    onDuplicateWeek()
+                }) { Text("Дублювати") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDuplicateConfirm = false }) { Text("Скасувати") }
+            }
+        )
+    }
+
     sessionMenu?.let { session ->
         SessionContextMenu(
             session = session,
@@ -670,6 +707,7 @@ private fun CalendarTopBar(
     onGoToToday: () -> Unit,
     onSettingsClick: () -> Unit,
     includesTODAY: Boolean,
+    onDuplicateWeek: (() -> Unit)? = null,
 ) {
     val isExactToday = currentView == CalendarView.DAY && startDate == today
     val label = when (currentView) {
@@ -703,6 +741,11 @@ private fun CalendarTopBar(
             }
         },
         actions = {
+            if (onDuplicateWeek != null && currentView == CalendarView.MONTH) {
+                IconButton(onClick = onDuplicateWeek) {
+                    Text("⧉", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             if (!includesTODAY) {
                 TextButton(onClick = onGoToToday, contentPadding = PaddingValues(horizontal = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1777,6 +1820,60 @@ private fun buildAvailabilityShareText(
         appendLine()
         append("Для запису — напишіть у особисті 📅")
     }.trim()
+}
+
+@Composable
+private fun BookingRequestsPanel(
+    requests: List<BookingRequest>,
+    clients: List<Client>,
+    onConfirm: ((BookingRequest) -> Unit)?,
+    onDecline: ((BookingRequest) -> Unit)?,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFF3E0))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            "Запити на бронювання (${requests.size})",
+            style = MaterialTheme.typography.labelMedium,
+            color = Color(0xFFE65100)
+        )
+        requests.take(3).forEach { req ->
+            val clientName = clients.find { it.firebaseClientId == req.clientFirebaseId }?.name
+            val dateStr = "${req.date.dayOfMonth}.${req.date.monthNumber.toString().padStart(2,'0')}"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "${clientName ?: req.clientFirebaseId.take(8)} · $dateStr ${req.startTime.toStorageString()}–${req.endTime.toStorageString()}",
+                        fontSize = 12.sp, fontWeight = FontWeight.Medium
+                    )
+                    if (!req.clientNote.isNullOrBlank()) {
+                        Text(req.clientNote, fontSize = 11.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                if (onConfirm != null) {
+                    TextButton(
+                        onClick = { onConfirm(req) },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) { Text("✓", fontSize = 16.sp, color = Color(0xFF2E7D32)) }
+                }
+                if (onDecline != null) {
+                    TextButton(
+                        onClick = { onDecline(req) },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                    ) { Text("✕", fontSize = 16.sp, color = MaterialTheme.colorScheme.error) }
+                }
+            }
+        }
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 }
 
 fun buildFreeTimeText(date: LocalDate, freeSlots: List<FreeSlot>, locationsById: Map<Long, Location>): String {

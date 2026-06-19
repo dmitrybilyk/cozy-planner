@@ -16,9 +16,12 @@ class ApiClientRepository : ClientRepository {
 
     // Optimistic write: the UI sees the new row immediately under a temporary negative id;
     // once the server assigns the real id, the cache entry is patched in place.
-    override fun save(name: String, phone: String, email: String, colorHex: String, hourlyRate: Double): Client {
+    override fun save(
+        name: String, phone: String, email: String, colorHex: String, hourlyRate: Double,
+        packageTotal: Int, packageUsed: Int, birthDate: String?, firebaseClientId: String?,
+    ): Client {
         val tempId = nextTempId--
-        val client = Client(tempId, name, phone, email, colorHex, hourlyRate)
+        val client = Client(tempId, name, phone, email, colorHex, hourlyRate, packageTotal, packageUsed, birthDate, firebaseClientId)
         cache.add(client)
         GlobalScope.launch {
             val saved = apiPost("/api/clients", client.toApiDto(), ClientApiDto.serializer()).toDomain()

@@ -4,7 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease.db", null, 6) {
+class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease.db", null, 8) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""
@@ -14,7 +14,11 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
                 phone TEXT NOT NULL DEFAULT '',
                 email TEXT NOT NULL DEFAULT '',
                 colorHex TEXT NOT NULL DEFAULT '#2196F3',
-                hourlyRate REAL NOT NULL DEFAULT 0
+                hourlyRate REAL NOT NULL DEFAULT 0,
+                packageTotal INTEGER NOT NULL DEFAULT 0,
+                packageUsed INTEGER NOT NULL DEFAULT 0,
+                birthDate TEXT,
+                firebaseClientId TEXT
             )
         """.trimIndent())
 
@@ -97,6 +101,14 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
         }
         if (oldVersion < 6) {
             db.execSQL("ALTER TABLE locations ADD COLUMN mapsLink TEXT")
+        }
+        if (oldVersion < 7) {
+            db.execSQL("ALTER TABLE clients ADD COLUMN packageTotal INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE clients ADD COLUMN packageUsed INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE clients ADD COLUMN birthDate TEXT")
+        }
+        if (oldVersion < 8) {
+            db.execSQL("ALTER TABLE clients ADD COLUMN firebaseClientId TEXT")
         }
     }
 }

@@ -23,7 +23,10 @@ class JdbcClientRepository(private val jdbc: JdbcTemplate) : ClientRepository {
     override fun getAll(): List<Client> =
         jdbc.query("select * from clients order by id", CLIENT_ROW_MAPPER)
 
-    override fun save(name: String, phone: String, email: String, colorHex: String, hourlyRate: Double): Client {
+    override fun save(
+        name: String, phone: String, email: String, colorHex: String, hourlyRate: Double,
+        packageTotal: Int, packageUsed: Int, birthDate: String?, firebaseClientId: String?,
+    ): Client {
         val id = jdbc.queryForObject(
             "insert into clients (name, phone, email, color_hex, hourly_rate) values (?, ?, ?, ?, ?) returning id",
             Long::class.java, name, phone, email, colorHex, hourlyRate,

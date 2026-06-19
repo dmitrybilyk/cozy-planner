@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.WRITE_CALENDAR" />
@@ -23,6 +24,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="linkease" android:host="trainer" />
+            </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
@@ -44,6 +51,12 @@
         </provider>
 
         <receiver android:name=".SessionAlarmReceiver" android:exported="false" />
+
+        <receiver android:name=".SessionActionReceiver" android:exported="false" />
+
+        <receiver android:name=".ChatReplyReceiver" android:exported="false" />
+
+        <receiver android:name=".BirthdayReceiver" android:exported="false" />
 
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
@@ -68,6 +81,15 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/linkease_widget_info" />
+        </receiver>
+
+        <receiver android:name=".NextSessionWidgetReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/next_session_widget_info" />
         </receiver>
 
     </application>

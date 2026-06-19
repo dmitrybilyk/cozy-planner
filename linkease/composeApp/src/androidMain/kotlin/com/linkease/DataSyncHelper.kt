@@ -19,6 +19,50 @@ object DataSyncHelper {
     fun getBackupFile(context: Context): File =
         File(context.getExternalFilesDir(null) ?: context.filesDir, BACKUP_FILENAME)
 
+    fun buildExportJson(
+        sessions: List<Session>,
+        clients: List<Client>,
+        locations: List<Location>,
+        availability: List<AvailabilitySlot>,
+    ): String = JSONObject().apply {
+        put("version", 1)
+        put("clients", JSONArray(clients.map { c ->
+            JSONObject().apply {
+                put("id", c.id); put("name", c.name)
+                put("phone", c.phone); put("email", c.email)
+                put("colorHex", c.colorHex)
+                if (c.hourlyRate > 0) put("hourlyRate", c.hourlyRate)
+                if (c.packageTotal > 0) put("packageTotal", c.packageTotal)
+                if (c.packageUsed > 0) put("packageUsed", c.packageUsed)
+                if (c.birthDate != null) put("birthDate", c.birthDate)
+            }
+        }))
+        put("locations", JSONArray(locations.map { l ->
+            JSONObject().apply {
+                put("id", l.id); put("name", l.name)
+                put("address", l.address); put("colorHex", l.colorHex)
+            }
+        }))
+        put("availability", JSONArray(availability.map { a ->
+            JSONObject().apply {
+                put("id", a.id); put("date", a.date.toString())
+                put("startTime", a.startTime.toStorageString())
+                put("endTime", a.endTime.toStorageString())
+                if (a.locationId != null) put("locationId", a.locationId)
+            }
+        }))
+        put("sessions", JSONArray(sessions.map { s ->
+            JSONObject().apply {
+                put("id", s.id); put("date", s.date.toString())
+                put("startTime", s.startTime.toStorageString())
+                put("endTime", s.endTime.toStorageString())
+                put("clientIds", JSONArray(s.clientIds))
+                if (s.locationId != null) put("locationId", s.locationId)
+                put("notes", s.notes)
+            }
+        }))
+    }.toString(2)
+
     fun exportAll(
         context: Context,
         sessions: List<Session>,
@@ -35,6 +79,9 @@ object DataSyncHelper {
                         put("phone", c.phone); put("email", c.email)
                         put("colorHex", c.colorHex)
                         if (c.hourlyRate > 0) put("hourlyRate", c.hourlyRate)
+                        if (c.packageTotal > 0) put("packageTotal", c.packageTotal)
+                        if (c.packageUsed > 0) put("packageUsed", c.packageUsed)
+                        if (c.birthDate != null) put("birthDate", c.birthDate)
                     }
                 }))
                 put("locations", JSONArray(locations.map { l ->
@@ -107,9 +154,17 @@ object DataSyncHelper {
         val clients = root.getJSONArray("clients").let { arr ->
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
-                Client(o.getLong("id"), o.getString("name"), o.optString("phone"),
-                    o.optString("email"), o.optString("colorHex", "#2196F3"),
-                    o.optDouble("hourlyRate", 0.0))
+                Client(
+                    id = o.getLong("id"),
+                    name = o.getString("name"),
+                    phone = o.optString("phone"),
+                    email = o.optString("email"),
+                    colorHex = o.optString("colorHex", "#2196F3"),
+                    hourlyRate = o.optDouble("hourlyRate", 0.0),
+                    packageTotal = o.optInt("packageTotal", 0),
+                    packageUsed = o.optInt("packageUsed", 0),
+                    birthDate = if (o.has("birthDate")) o.getString("birthDate") else null,
+                )
             }
         }
         val locations = root.getJSONArray("locations").let { arr ->
@@ -158,6 +213,8 @@ object DataSyncHelper {
                     put("id", c.id); put("name", c.name)
                     put("phone", c.phone); put("email", c.email)
                     put("colorHex", c.colorHex); put("hourlyRate", c.hourlyRate)
+                    put("packageTotal", c.packageTotal); put("packageUsed", c.packageUsed)
+                    if (c.birthDate != null) put("birthDate", c.birthDate) else putNull("birthDate")
                 }, SQLiteDatabase.CONFLICT_REPLACE)
             }
             data.locations.forEach { l ->

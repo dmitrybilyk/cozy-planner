@@ -7,6 +7,7 @@ plugins {
     id("org.jetbrains.compose")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.gms.google-services")
 }
 
 kotlin {
@@ -65,6 +66,10 @@ kotlin {
             implementation("androidx.core:core-ktx:1.15.0")
             implementation("androidx.glance:glance-appwidget:1.1.0")
             implementation("androidx.datastore:datastore-preferences:1.1.1")
+            implementation("androidx.work:work-runtime-ktx:2.9.1")
+            implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+            implementation("com.google.firebase:firebase-auth-ktx")
+            implementation("com.google.firebase:firebase-firestore-ktx")
         }
     }
 }

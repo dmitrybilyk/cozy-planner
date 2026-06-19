@@ -1,10 +1,13 @@
 package com.linkease
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,8 +26,11 @@ fun ClientsScreen(
     clients: List<Client>,
     sessions: List<Session> = emptyList(),
     locations: List<Location> = emptyList(),
+    clientAvailabilitySlots: List<ClientAvailabilitySlot> = emptyList(),
+    onAvailabilitySlotClick: ((client: Client, slot: ClientAvailabilitySlot) -> Unit)? = null,
     onSettingsClick: () -> Unit,
-    onSave: (name: String, phone: String, email: String, colorHex: String, hourlyRate: Double) -> Unit,
+    onSave: (name: String, phone: String, email: String, colorHex: String, hourlyRate: Double,
+             packageTotal: Int, packageUsed: Int, birthDate: String?, firebaseClientId: String?) -> Unit,
     onUpdate: (Client) -> Unit,
     onDelete: (Long) -> Unit,
 ) {
@@ -57,12 +63,17 @@ fun ClientsScreen(
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             items(clients, key = { it.id }) { client ->
+                val slots = clientAvailabilitySlots.filter { it.clientFirebaseId == client.firebaseClientId }
                 ClientCard(
                     client = client,
                     sessionCount = sessions.count { client.id in it.clientIds },
+                    availabilitySlots = slots,
                     onTap = { viewingClient = client },
                     onEdit = { editing = client; showDialog = true },
-                    onDelete = { deleteCandidate = client }
+                    onDelete = { deleteCandidate = client },
+                    onSlotClick = if (onAvailabilitySlotClick != null) {
+                        { slot -> onAvailabilitySlotClick(client, slot) }
+                    } else null,
                 )
             }
             if (clients.isEmpty()) {
@@ -79,10 +90,12 @@ fun ClientsScreen(
         AddEditClientDialog(
             initial = editing,
             onDismiss = { showDialog = false; editing = null },
-            onConfirm = { name, phone, email, colorHex, hourlyRate ->
+            onConfirm = { name, phone, email, colorHex, hourlyRate, pkgTotal, pkgUsed, birthDate, fbId ->
                 val e = editing
-                if (e == null) onSave(name, phone, email, colorHex, hourlyRate)
-                else onUpdate(e.copy(name = name, phone = phone, email = email, colorHex = colorHex, hourlyRate = hourlyRate))
+                if (e == null) onSave(name, phone, email, colorHex, hourlyRate, pkgTotal, pkgUsed, birthDate, fbId)
+                else onUpdate(e.copy(name = name, phone = phone, email = email, colorHex = colorHex,
+                    hourlyRate = hourlyRate, packageTotal = pkgTotal, packageUsed = pkgUsed,
+                    birthDate = birthDate, firebaseClientId = fbId))
                 showDialog = false; editing = null
             }
         )
@@ -115,38 +128,81 @@ fun ClientsScreen(
 }
 
 @Composable
-private fun ClientCard(client: Client, sessionCount: Int, onTap: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit) {
+private fun ClientCard(
+    client: Client,
+    sessionCount: Int,
+    availabilitySlots: List<ClientAvailabilitySlot> = emptyList(),
+    onTap: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onSlotClick: ((ClientAvailabilitySlot) -> Unit)? = null,
+) {
     val color = hexToColor(client.colorHex)
+    val hasPkg = client.packageTotal > 0
+    val pkgRemaining = client.packageTotal - client.packageUsed
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
         onClick = onTap
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(44.dp).clip(CircleShape).background(color),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp, bottom = if (availabilitySlots.isNotEmpty()) 8.dp else 12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(client.name.first().uppercaseChar().toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(client.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                if (client.phone.isNotBlank()) Text(client.phone, fontSize = 13.sp, color = Color.Gray)
-                if (client.email.isNotBlank()) Text(client.email, fontSize = 13.sp, color = Color.Gray)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (client.hourlyRate > 0) Text("${formatRate(client.hourlyRate)} ₴/год", fontSize = 12.sp, color = color, fontWeight = FontWeight.Medium)
-                    if (sessionCount > 0) Text("$sessionCount сес.", fontSize = 12.sp, color = Color.Gray)
+                Box(
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(color),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(client.name.first().uppercaseChar().toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(client.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                        if (client.firebaseClientId != null) Text("🔗", fontSize = 12.sp)
+                    }
+                    if (client.phone.isNotBlank()) Text(client.phone, fontSize = 13.sp, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (hasPkg) {
+                            Text(
+                                "$pkgRemaining/${client.packageTotal} ос.",
+                                fontSize = 12.sp,
+                                color = if (pkgRemaining <= 0) MaterialTheme.colorScheme.error else Color(0xFF2E7D32),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        if (sessionCount > 0) Text("$sessionCount сес.", fontSize = 12.sp, color = Color.Gray)
+                    }
+                }
+                TextButton(onClick = onEdit, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)) {
+                    Text("✎")
+                }
+                TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Text("✕")
                 }
             }
-            TextButton(onClick = onEdit, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)) {
-                Text("✎")
-            }
-            TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                Text("✕")
+            if (availabilitySlots.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    availabilitySlots.forEach { slot ->
+                        Surface(
+                            onClick = { onSlotClick?.invoke(slot) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Text(
+                                "${slot.date.dayOfMonth} ${MONTHS_UK_SHORT.getOrNull(slot.date.month.ordinal) ?: ""} ${slot.startTime.toStorageString()}–${slot.endTime.toStorageString()}",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -176,8 +232,14 @@ private fun ClientSessionsDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (client.hourlyRate > 0) {
-                    Text("Ставка: ${formatRate(client.hourlyRate)} ₴/год", fontSize = 13.sp, color = color, fontWeight = FontWeight.Medium)
+                if (client.packageTotal > 0) {
+                    val remaining = client.packageTotal - client.packageUsed
+                    Text(
+                        "Пакет: ${client.packageUsed}/${client.packageTotal} занять (залишилось $remaining)",
+                        fontSize = 13.sp,
+                        color = if (remaining <= 0) MaterialTheme.colorScheme.error else Color(0xFF2E7D32),
+                        fontWeight = FontWeight.Medium
+                    )
                 }
                 if (sessions.isEmpty()) {
                     Text("Сесій не знайдено", fontSize = 14.sp, color = Color.Gray)
