@@ -71,21 +71,32 @@ git push || { echo "❌ Помилка при git push"; exit 1; }
 
 echo "--- ☁️ Віддалені дії (Oracle Cloud) ---"
 
-ssh -t $REMOTE_USER@$REMOTE_HOST "cd $REMOTE_PROJECT_DIR && \
-echo '📥 Отримання оновленого docker-compose.yml (git pull)...' && \
-git config --global pull.rebase true && \
-git pull && \
-echo '🔐 Авторизація в OCIR на сервері...' && \
-echo '$OCIR_TOKEN' | docker login $OCIR_REGISTRY -u '$OCIR_NAMESPACE/$OCIR_USER' --password-stdin && \
-echo '📥 Стягування нового образу на сервері...' && \
-docker compose pull && \
-echo '🐳 Перезапуск контейнерів...' && \
-docker compose up -d && \
-echo '🧹 Очищення старих образів...' && \
-docker image prune -f && \
-echo '📋 Моніторинг логів до успішного старту додатку...' && \
-docker compose logs -f app | awk '/Started PlannerApplication/ {print \$0; exit} {print}' && \
-echo '✅ Деплой на сервері завершено!'"
+ssh -t $REMOTE_USER@$REMOTE_HOST bash << ENDSSH
+set -e
+cd $REMOTE_PROJECT_DIR
+
+echo '📥 Отримання оновленого docker-compose.yml (git pull)...'
+git config --global pull.rebase true
+git pull
+
+echo '🔐 Авторизація в OCIR на сервері (токен з ~/cozy-planner/token)...'
+OCIR_TOKEN=\$(cat ~/cozy-planner/token | tr -d '\r\n ')
+echo "\$OCIR_TOKEN" | docker login $OCIR_REGISTRY -u "$OCIR_NAMESPACE/$OCIR_USER" --password-stdin
+
+echo '📥 Стягування нового образу на сервері...'
+docker compose pull
+
+echo '🐳 Перезапуск контейнерів...'
+docker compose up -d
+
+echo '🧹 Очищення старих образів...'
+docker image prune -f
+
+echo '📋 Моніторинг логів до успішного старту додатку...'
+docker compose logs -f app | awk '/Started PlannerApplication/ {print \$0; exit} {print}'
+
+echo '✅ Деплой на сервері завершено!'
+ENDSSH
 
 # Розрахунок витраченого часу
 DURATION=$(( SECONDS - START_TIME ))
