@@ -20,7 +20,7 @@ services:
       - planner-net
 
   app:
-    image: fra.ocir.io/frdhgyiuxpkq/cozy-planner:latest
+    image: cozy-planner-app:latest
 #    build:
 #      context: ./planner
 #      dockerfile: Dockerfile
