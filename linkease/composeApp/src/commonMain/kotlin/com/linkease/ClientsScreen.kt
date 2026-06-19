@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.LocalDate
+import androidx.compose.ui.text.style.TextAlign
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,9 +34,15 @@ fun ClientsScreen(
              packageTotal: Int, packageUsed: Int, birthDate: String?, firebaseClientId: String?) -> Unit,
     onUpdate: (Client) -> Unit,
     onDelete: (Long) -> Unit,
+    connectedClients: List<Triple<String, String, String?>> = emptyList(),
+    onLinkClientFirebaseId: ((firebaseId: String, localClientId: Long) -> Unit)? = null,
+    onCreateAndLinkClient: ((firebaseId: String, email: String?) -> Unit)? = null,
+    onChatClick: ((firebaseId: String, name: String) -> Unit)? = null,
+    onAskClientAvailability: ((firebaseId: String, message: String) -> Unit)? = null,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Client?>(null) }
+    var linkingFirebaseId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(openDialogVersion) {
         if (openDialogVersion > 0L) { editing = null; showDialog = true }
@@ -62,6 +69,43 @@ fun ClientsScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
+            val linkedFirebaseIds = clients.mapNotNull { it.firebaseClientId }.toSet()
+            val unlinked = connectedClients.filter { (uid, _, _) -> uid !in linkedFirebaseIds }
+            if (unlinked.isNotEmpty() && onLinkClientFirebaseId != null) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("🔔 Нові підключення (${unlinked.size})",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontWeight = FontWeight.SemiBold)
+                            unlinked.forEach { (uid, deviceModel, clientEmail) ->
+                                Row(modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        if (!clientEmail.isNullOrBlank()) {
+                                            Text(clientEmail, fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                            Text("📱 $deviceModel", fontSize = 11.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                                        } else {
+                                            Text("📱 $deviceModel", fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                                                color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                        }
+                                    }
+                                    Button(onClick = { linkingFirebaseId = uid },
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+                                        Text("Хто це?", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             items(clients, key = { it.id }) { client ->
                 val slots = clientAvailabilitySlots.filter { it.clientFirebaseId == client.firebaseClientId }
                 ClientCard(
@@ -102,12 +146,40 @@ fun ClientsScreen(
     }
 
     viewingClient?.let { client ->
+        val slots = clientAvailabilitySlots.filter { it.clientFirebaseId == client.firebaseClientId }
         ClientSessionsDialog(
             client = client,
             sessions = sessions.filter { client.id in it.clientIds }.sortedByDescending { it.date },
             locations = locations,
+            availabilitySlots = slots,
+            onSlotClick = if (onAvailabilitySlotClick != null) {
+                { slot -> onAvailabilitySlotClick(client, slot) }
+            } else null,
             onEdit = { editing = client; showDialog = true; viewingClient = null },
-            onDismiss = { viewingClient = null }
+            onDismiss = { viewingClient = null },
+            onChatClick = if (client.firebaseClientId != null && onChatClick != null) {
+                { onChatClick(client.firebaseClientId, client.name) }
+            } else null,
+            onAskAvailability = if (client.firebaseClientId != null && onAskClientAvailability != null) {
+                { msg -> onAskClientAvailability(client.firebaseClientId, msg) }
+            } else null,
+        )
+    }
+
+    linkingFirebaseId?.let { fbId ->
+        val connection = connectedClients.find { it.first == fbId }
+        LinkClientDialog(
+            firebaseId = fbId,
+            clientEmail = connection?.third,
+            unlinkedClients = clients.filter { it.firebaseClientId == null },
+            onLink = { localClientId ->
+                onLinkClientFirebaseId?.invoke(fbId, localClientId)
+                linkingFirebaseId = null
+            },
+            onCreateNew = if (onCreateAndLinkClient != null) {
+                { email -> onCreateAndLinkClient(fbId, email); linkingFirebaseId = null }
+            } else null,
+            onDismiss = { linkingFirebaseId = null }
         )
     }
 
@@ -216,9 +288,21 @@ private fun ClientSessionsDialog(
     client: Client,
     sessions: List<Session>,
     locations: List<Location>,
+    availabilitySlots: List<ClientAvailabilitySlot> = emptyList(),
+    onSlotClick: ((ClientAvailabilitySlot) -> Unit)? = null,
     onEdit: () -> Unit,
     onDismiss: () -> Unit,
+    onChatClick: (() -> Unit)? = null,
+    onAskAvailability: ((message: String) -> Unit)? = null,
 ) {
+    var showAskDialog by remember { mutableStateOf(false) }
+    if (showAskDialog && onAskAvailability != null) {
+        AskAvailabilityDialog(
+            clientName = client.name,
+            onDismiss = { showAskDialog = false },
+            onSend = { msg -> onAskAvailability(msg); showAskDialog = false }
+        )
+    }
     val color = hexToColor(client.colorHex)
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -232,6 +316,47 @@ private fun ClientSessionsDialog(
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (onChatClick != null || onAskAvailability != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (onChatClick != null) {
+                            OutlinedButton(onClick = onChatClick,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.weight(1f)) {
+                                Text("💬 Чат", fontSize = 13.sp)
+                            }
+                        }
+                        if (onAskAvailability != null) {
+                            OutlinedButton(onClick = { showAskDialog = true },
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                modifier = Modifier.weight(1f)) {
+                                Text("📅 Запит", fontSize = 13.sp)
+                            }
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                }
+                if (availabilitySlots.isNotEmpty()) {
+                    Text("Доступність клієнта", fontSize = 12.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+                    availabilitySlots.sortedWith(compareBy({ it.date }, { it.startTime.toMinutes() })).forEach { slot ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "${slot.date.dayOfMonth} ${MONTHS_UK_SHORT.getOrNull(slot.date.month.ordinal) ?: ""} ${slot.startTime.toStorageString()}–${slot.endTime.toStorageString()}",
+                                fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary
+                            )
+                            if (onSlotClick != null) {
+                                TextButton(
+                                    onClick = { onSlotClick(slot); onDismiss() },
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                ) { Text("+ Сесія", fontSize = 12.sp) }
+                            }
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                }
                 if (client.packageTotal > 0) {
                     val remaining = client.packageTotal - client.packageUsed
                     Text(
@@ -273,3 +398,84 @@ private fun ClientSessionsDialog(
 }
 
 private fun formatRevenue(amount: Double): String = kotlin.math.round(amount).toString()
+
+@Composable
+private fun LinkClientDialog(
+    firebaseId: String,
+    clientEmail: String? = null,
+    unlinkedClients: List<Client>,
+    onLink: (Long) -> Unit,
+    onCreateNew: ((email: String?) -> Unit)? = null,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Хто підключився?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (!clientEmail.isNullOrBlank()) {
+                    Text("📧 $clientEmail", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(4.dp))
+                }
+                if (onCreateNew != null) {
+                    Button(onClick = { onCreateNew(clientEmail) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("➕ Створити нового клієнта")
+                    }
+                    if (unlinkedClients.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                        Text("або прив'язати до існуючого:", fontSize = 13.sp, color = Color.Gray)
+                    }
+                } else if (unlinkedClients.isEmpty()) {
+                    Text("Немає клієнтів без прив'язки. Спочатку додайте клієнта.", fontSize = 13.sp, color = Color.Gray)
+                } else {
+                    Text("Виберіть клієнта зі списку:", fontSize = 13.sp, color = Color.Gray)
+                }
+                unlinkedClients.forEach { client ->
+                    TextButton(onClick = { onLink(client.id) }, modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
+                        Text(client.name, modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Start, fontSize = 15.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AskAvailabilityDialog(
+    clientName: String,
+    onDismiss: () -> Unit,
+    onSend: (String) -> Unit,
+) {
+    var comment by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Запросити доступність") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Надіслати запит $clientName встановити доступність:", fontSize = 13.sp, color = Color.Gray)
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Коментар (необов'язково)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                val msg = if (comment.isBlank())
+                    "Будь ласка, вкажіть свою доступність для занять 📅"
+                else
+                    "Будь ласка, вкажіть доступність: $comment"
+                onSend(msg)
+            }) { Text("Надіслати") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
+    )
+}

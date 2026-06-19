@@ -26,7 +26,8 @@ class AndroidSessionRepository(private val helper: LinkDatabaseHelper) : Session
                         endTime = parseStorageTime(it.getString(it.getColumnIndexOrThrow("endTime"))),
                         clientIds = getClientIdsForSession(id),
                         locationId = it.getLong(it.getColumnIndexOrThrow("locationId")).takeIf { v -> v != 0L },
-                        notes = it.getString(it.getColumnIndexOrThrow("notes"))
+                        notes = it.getString(it.getColumnIndexOrThrow("notes")),
+                        confirmed = it.getInt(it.getColumnIndexOrThrow("confirmed")) != 0,
                     ))
                 }
             }
@@ -46,7 +47,8 @@ class AndroidSessionRepository(private val helper: LinkDatabaseHelper) : Session
                 endTime = parseStorageTime(it.getString(it.getColumnIndexOrThrow("endTime"))),
                 clientIds = getClientIdsForSession(id),
                 locationId = it.getLong(it.getColumnIndexOrThrow("locationId")).takeIf { v -> v != 0L },
-                notes = it.getString(it.getColumnIndexOrThrow("notes"))
+                notes = it.getString(it.getColumnIndexOrThrow("notes")),
+                confirmed = it.getInt(it.getColumnIndexOrThrow("confirmed")) != 0,
             )
         }
     }
@@ -73,6 +75,7 @@ class AndroidSessionRepository(private val helper: LinkDatabaseHelper) : Session
             put("endTime", session.endTime.toStorageString())
             put("locationId", session.locationId)
             put("notes", session.notes)
+            put("confirmed", if (session.confirmed) 1 else 0)
         }
         db.update("sessions", values, "id = ?", arrayOf(session.id.toString()))
         db.delete("session_clients", "sessionId = ?", arrayOf(session.id.toString()))

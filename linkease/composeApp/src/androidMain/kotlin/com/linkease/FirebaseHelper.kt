@@ -257,7 +257,7 @@ object FirebaseHelper {
         return Firebase.firestore.collection("clientAvailability")
             .whereEqualTo("trainerId", trainerId)
             .addSnapshotListener { snapshot, _ ->
-                val all = snapshot?.documents?.flatMap { doc ->
+                val all = (snapshot?.documents?.flatMap { doc ->
                     val cid = doc.getString("clientFirebaseId") ?: return@flatMap emptyList()
                     @Suppress("UNCHECKED_CAST")
                     (doc.get("slots") as? List<Map<String, Any>> ?: emptyList()).mapNotNull { s ->
@@ -271,7 +271,7 @@ object FirebaseHelper {
                             )
                         } catch (_: Exception) { null }
                     }
-                } ?: emptyList()
+                } ?: emptyList()).distinctBy { it.id }
                 onResult(all)
             }
     }

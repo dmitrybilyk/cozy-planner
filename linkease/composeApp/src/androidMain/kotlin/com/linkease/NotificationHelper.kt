@@ -151,6 +151,26 @@ object NotificationHelper {
         nm.notify(notifId, n)
     }
 
+    fun showNewConnectionNotification(context: Context, firebaseId: String, email: String?) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("action", "open_clients_screen")
+        }
+        val pending = PendingIntent.getActivity(context, firebaseId.hashCode() + 8000, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val title = if (!email.isNullOrBlank()) "🔔 Підключився: $email" else "🔔 Новий клієнт підключився"
+        val n = NotificationCompat.Builder(context, BOOKINGS_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle(title)
+            .setContentText("Натисніть, щоб прив'язати в менеджері клієнтів")
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pending)
+            .build()
+        nm.notify(8000 + firebaseId.hashCode(), n)
+    }
+
     fun showClientSeriesNotification(context: Context, sessions: List<ClientSession>, clientFirebaseId: String) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notifId = 6500

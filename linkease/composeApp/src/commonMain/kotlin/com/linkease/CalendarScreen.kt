@@ -59,7 +59,7 @@ val MONTHS_UK_FULL = listOf(
     "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"
 )
 
-val HOUR_HEIGHT = 64.dp
+val HOUR_HEIGHT = 45.dp
 private val TIME_COL_WIDTH  = 48.dp
 
 // Virtual page range for the day/3-day pager: a fixed window of dates around the
@@ -202,6 +202,8 @@ fun CalendarScreen(
     onSettingsClick: () -> Unit,
     onShareFreeTime: (date: LocalDate, text: String) -> Unit,
     onShareAvailability: ((text: String) -> Unit)? = null,
+    onShareAvailabilityImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
+    onCopyAvailabilityImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
     onDayClickInMonth: (LocalDate) -> Unit,
     onDayClickInThreeDay: ((LocalDate) -> Unit)? = null,
     onPinToStatusBar: (() -> Unit)? = null,
@@ -215,6 +217,7 @@ fun CalendarScreen(
     pendingBookingRequests: List<BookingRequest> = emptyList(),
     onConfirmBookingRequest: ((BookingRequest) -> Unit)? = null,
     onDeclineBookingRequest: ((BookingRequest) -> Unit)? = null,
+    onConfirmSession: ((Session) -> Unit)? = null,
 ) {
     val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val clientsById = clients.associateBy { it.id }
@@ -253,6 +256,17 @@ fun CalendarScreen(
     }
     val availabilityShareText = remember(availabilityDays, sessions, availability, locations, hoursStart, hoursEnd) {
         buildAvailabilityShareText(availabilityDays, sessions, availability, locations, hoursStart, hoursEnd)
+    }
+    val availabilityImageLines = remember(availabilityDays, sessions, availability, locations, hoursStart, hoursEnd) {
+        buildAvailabilityCalendarImageLines(availabilityDays, sessions, availability, locations, hoursStart, hoursEnd)
+    }
+    val availabilityShareTitle = remember(availabilityDays) {
+        if (availabilityDays.isEmpty()) ""
+        else {
+            val first = availabilityDays.first(); val last = availabilityDays.last()
+            if (first == last) "${first.dayOfMonth} ${MONTHS_UK_SHORT[first.month.ordinal]} ${first.year}"
+            else "${first.dayOfMonth}–${last.dayOfMonth} ${MONTHS_UK_SHORT[last.month.ordinal]} ${last.year}"
+        }
     }
 
     val numDays = when (currentView) {
@@ -329,9 +343,13 @@ fun CalendarScreen(
                             }
                         },
                         actions = {
-                            if (onShareAvailability != null) {
+                            if (onShareAvailabilityImage != null || onShareAvailability != null) {
                                 TextButton(
-                                    onClick = { onShareAvailability(availabilityShareText) },
+                                    onClick = {
+                                        if (onShareAvailabilityImage != null && availabilityImageLines.isNotEmpty())
+                                            onShareAvailabilityImage(availabilityShareTitle, availabilityImageLines)
+                                        else onShareAvailability?.invoke(availabilityShareText)
+                                    },
                                     contentPadding = PaddingValues(horizontal = 6.dp),
                                 ) { Text("📤", fontSize = 16.sp) }
                             }
@@ -688,6 +706,9 @@ fun CalendarScreen(
             onEdit = { onEditSession(session); sessionMenu = null },
             onDelete = { onDeleteSession(session.id); sessionMenu = null },
             onCopy = { onCopySession(session); sessionMenu = null },
+            onConfirm = if (onConfirmSession != null) {
+                { onConfirmSession(session); sessionMenu = null }
+            } else null,
         )
     }
 }
@@ -935,21 +956,19 @@ fun CompactSessionCard(
 ) {
     val sessionClients = session.clientIds.mapNotNull { clientsById[it] }
     val location = session.locationId?.let { locationsById[it] }
-    val blockColor = location?.let { hexToColor(it.colorHex) }
-        ?: sessionClients.firstOrNull()?.let { hexToColor(it.colorHex) }
-        ?: Color(0xFF1A237E)
+    val blockColor = if (session.confirmed) Color(0xFF2E7D32)
+        else location?.let { hexToColor(it.colorHex) }
+            ?: sessionClients.firstOrNull()?.let { hexToColor(it.colorHex) }
+            ?: Color(0xFF1A237E)
     val durationMin = session.endTime.toMinutes() - session.startTime.toMinutes()
     val clientNames = sessionClients.joinToString(", ") { it.name }
 
-    // The 3-day layout gives each card roughly a third of the screen width, so the
-    // narrow variant drops the side-by-side time column in favor of a single compact
-    // line and tightens padding — otherwise client names truncate almost immediately.
     if (compact) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .background(blockColor.copy(alpha = 0.08f))
+                .background(blockColor.copy(alpha = if (session.confirmed) 0.14f else 0.08f))
                 .border(1.dp, blockColor.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
                 .clickable(onClick = onClick)
                 .padding(horizontal = 6.dp, vertical = 5.dp)
@@ -964,6 +983,8 @@ fun CompactSessionCard(
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (location != null)
                 Text(location.name, fontSize = 10.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (session.confirmed)
+                Text("✅", fontSize = 10.sp)
         }
         return
     }
@@ -972,7 +993,7 @@ fun CompactSessionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
-            .background(blockColor.copy(alpha = 0.08f))
+            .background(blockColor.copy(alpha = if (session.confirmed) 0.14f else 0.08f))
             .border(1.dp, blockColor.copy(alpha = 0.25f), RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
             .padding(10.dp),
@@ -996,6 +1017,7 @@ fun CompactSessionCard(
                 if (location != null) Text(location.name, fontSize = 11.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
+        if (session.confirmed) Text("✅", fontSize = 16.sp)
     }
 }
 
@@ -1513,7 +1535,6 @@ private fun DayHeaderRow(
 @Composable
 private fun HourLabels(hoursStart: Int, hoursEnd: Int) {
     Column(modifier = Modifier.width(TIME_COL_WIDTH)) {
-        Spacer(Modifier.height(HOUR_HEIGHT / 2))
         for (h in hoursStart until hoursEnd) {
             Box(modifier = Modifier.height(HOUR_HEIGHT), contentAlignment = Alignment.TopEnd) {
                 Text(
@@ -1583,7 +1604,7 @@ private fun DayColumn(
                 detectTapGestures { offset ->
                     val hourHeightPx = with(density) { HOUR_HEIGHT.toPx() }
                     val minuteFromStart = ((offset.y / hourHeightPx) * 60).toInt()
-                    val rounded  = (minuteFromStart / 15) * 15
+                    val rounded  = (minuteFromStart / 30) * 30
                     val totalMin = (hoursStart * 60 + rounded).coerceIn(hoursStart * 60, hoursEnd * 60)
                     val clickedTime = minutesToLocalTime(totalMin)
 
@@ -1615,12 +1636,6 @@ private fun DayColumn(
             HorizontalDivider(
                 modifier = Modifier.offset(y = HOUR_HEIGHT * i),
                 color = Color(0xFFDADCE0), thickness = 0.5.dp
-            )
-        }
-        for (i in 0 until totalHours) {
-            HorizontalDivider(
-                modifier = Modifier.offset(y = HOUR_HEIGHT * i + HOUR_HEIGHT / 2).padding(start = 8.dp),
-                color = Color(0xFFE8EAED), thickness = 0.5.dp
             )
         }
 
@@ -1745,14 +1760,15 @@ private fun DayColumn(
 // ─────────────────────────────────────────────
 
 @Composable
-private fun SessionContextMenu(
+fun AvailabilitySessionMenu(
     session: Session,
     clients: List<Client>,
     location: Location?,
     onDismiss: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
     onCopy: () -> Unit,
+    onConfirm: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1760,11 +1776,11 @@ private fun SessionContextMenu(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 location?.let { Box(Modifier.size(12.dp).clip(CircleShape).background(hexToColor(it.colorHex))) }
                 Text("${session.startTime.toStorageString()} – ${session.endTime.toStorageString()}", fontWeight = FontWeight.SemiBold)
+                if (session.confirmed) Text("✅", fontSize = 14.sp)
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                // Show at most 4 clients to keep dialog compact
                 clients.take(4).forEach { c ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Box(Modifier.size(8.dp).clip(CircleShape).background(hexToColor(c.colorHex)))
@@ -1774,6 +1790,77 @@ private fun SessionContextMenu(
                 if (clients.size > 4) Text("...ще ${clients.size - 4}", fontSize = 12.sp, color = Color.Gray)
                 location?.let { Text(it.name, fontSize = 13.sp, color = Color.Gray) }
                 if (session.notes.isNotBlank()) Text(session.notes, fontSize = 13.sp, color = Color.Gray)
+                Spacer(Modifier.height(4.dp))
+                if (session.confirmed) {
+                    OutlinedButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32))) {
+                        Text("✅ Підтверджено · Скасувати")
+                    }
+                } else {
+                    Button(onClick = onConfirm, modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))) {
+                        Text("✅ Підтвердити")
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onEdit) { Text("Редагувати") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onCopy) { Text("Копіювати") }
+                TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Видалити") }
+            }
+        }
+    )
+}
+
+@Composable
+private fun SessionContextMenu(
+    session: Session,
+    clients: List<Client>,
+    location: Location?,
+    onDismiss: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onCopy: () -> Unit,
+    onConfirm: (() -> Unit)? = null,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                location?.let { Box(Modifier.size(12.dp).clip(CircleShape).background(hexToColor(it.colorHex))) }
+                Text("${session.startTime.toStorageString()} – ${session.endTime.toStorageString()}", fontWeight = FontWeight.SemiBold)
+                if (session.confirmed) Text("✅", fontSize = 14.sp)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                clients.take(4).forEach { c ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(hexToColor(c.colorHex)))
+                        Text(c.name, fontSize = 14.sp)
+                    }
+                }
+                if (clients.size > 4) Text("...ще ${clients.size - 4}", fontSize = 12.sp, color = Color.Gray)
+                location?.let { Text(it.name, fontSize = 13.sp, color = Color.Gray) }
+                if (session.notes.isNotBlank()) Text(session.notes, fontSize = 13.sp, color = Color.Gray)
+                if (onConfirm != null) {
+                    Spacer(Modifier.height(4.dp))
+                    if (session.confirmed) {
+                        OutlinedButton(
+                            onClick = onConfirm,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32))
+                        ) { Text("✅ Підтверджено · Скасувати") }
+                    } else {
+                        Button(
+                            onClick = onConfirm,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                        ) { Text("✅ Підтвердити") }
+                    }
+                }
             }
         },
         confirmButton = { TextButton(onClick = onEdit) { Text("Редагувати") } },
@@ -1789,6 +1876,36 @@ private fun SessionContextMenu(
 // ─────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────
+
+private fun buildAvailabilityCalendarImageLines(
+    days: List<LocalDate>,
+    sessions: List<Session>,
+    availability: List<AvailabilitySlot>,
+    locations: List<Location>,
+    hoursStart: Int,
+    hoursEnd: Int,
+): List<ScheduleImageLine> {
+    val locById = locations.associateBy { it.id }
+    val result = mutableListOf<ScheduleImageLine>()
+    days.forEach { day ->
+        val daySessions = sessions.filter { it.date == day }
+        val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
+            .sortedBy { it.startTime.toMinutes() }
+        if (freeSlots.isNotEmpty()) {
+            result.add(ScheduleImageLine("${DAYS_UK[day.dayOfWeek.ordinal]}, ${day.dayOfMonth} ${MONTHS_UK_SHORT[day.month.ordinal]}", isHeader = true))
+            freeSlots.forEach { slot ->
+                val loc = slot.locationId?.let { locById[it] }
+                val locStr = if (loc != null) "  ${loc.name}" else ""
+                result.add(ScheduleImageLine(
+                    text = "${slot.startTime.toStorageString()} – ${slot.endTime.toStorageString()}$locStr",
+                    isHeader = false,
+                    colorHex = loc?.colorHex ?: "#00695C",
+                ))
+            }
+        }
+    }
+    return result
+}
 
 private fun buildAvailabilityShareText(
     days: List<LocalDate>,

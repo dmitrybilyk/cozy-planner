@@ -10,7 +10,8 @@ data class Session(
     val endTime: LocalTime,
     val clientIds: List<Long> = emptyList(),
     val locationId: Long? = null,
-    val notes: String = ""
+    val notes: String = "",
+    val confirmed: Boolean = false,
 )
 
 fun LocalTime.toMinutes() = hour * 60 + minute

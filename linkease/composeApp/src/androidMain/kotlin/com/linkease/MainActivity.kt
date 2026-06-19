@@ -84,10 +84,11 @@ class MainActivity : ComponentActivity() {
     private var myAvailabilityListener: ListenerRegistration? = null
     private var chatListener: ListenerRegistration? = null
     private var connectionsListener: ListenerRegistration? = null
+    private val clientConfirmationListeners = mutableListOf<ListenerRegistration>()
 
     private var connectedClients by mutableStateOf<List<Triple<String, String, String?>>>(emptyList())
     private var trainerEmail by mutableStateOf("")
-    private var clientEmail by mutableStateOf("")
+    private var clientName by mutableStateOf("")
     private var onboardingDone by mutableStateOf(false)
     private var emailHint by mutableStateOf("")
 
@@ -148,7 +149,7 @@ class MainActivity : ComponentActivity() {
         appMode = prefs.getString("app_mode", "user") ?: "user"
         savedTrainerId = prefs.getString("saved_trainer_id", null)
         trainerEmail = prefs.getString("trainer_email", "") ?: ""
-        clientEmail = prefs.getString("client_email", "") ?: ""
+        clientName = prefs.getString("client_name", prefs.getString("client_email", "") ?: "") ?: ""
 
         // Existing users (who had app_mode saved before onboarding was added) skip onboarding
         val savedMode = prefs.getString("app_mode", null)
@@ -167,6 +168,21 @@ class MainActivity : ComponentActivity() {
                 if (onboardingDone) {
                     if (appMode == "user") {
                         startBookingRequestsListener(uid, prefs)
+                        val wStart = prefs.getInt("work_hours_start", 7)
+                        val wEnd = prefs.getInt("work_hours_end", 22)
+                        val db = LinkDatabaseHelper(applicationContext)
+                        FirebaseHelper.publishTrainerData(
+                            uid,
+                            AndroidAvailabilityRepository(db).getAll(),
+                            AndroidSessionRepository(db).getAll(),
+                            AndroidLocationRepository(db).getAll(),
+                            AndroidClientRepository(db).getAll(),
+                            wStart, wEnd
+                        ) { _ -> }
+                        val savedEmail = prefs.getString("trainer_email", null)
+                        if (!savedEmail.isNullOrBlank()) {
+                            FirebaseHelper.publishTrainerEmail(uid, savedEmail) {}
+                        }
                     } else if (appMode == "client") {
                         val trainerId = savedTrainerId
                         if (trainerId != null) startClientListeners(uid, trainerId, prefs)
@@ -529,14 +545,14 @@ class MainActivity : ComponentActivity() {
                     clipboard.setPrimaryClip(ClipData.newPlainText("trainer_email", trainerEmail))
                     Toast.makeText(this, "Email скопійовано", Toast.LENGTH_SHORT).show()
                 },
-                clientEmail = clientEmail,
-                onCopyClientEmail = {
+                clientName = clientName,
+                onCopyClientName = {
                     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("client_email", clientEmail))
-                    Toast.makeText(this, "Email скопійовано", Toast.LENGTH_SHORT).show()
+                    clipboard.setPrimaryClip(ClipData.newPlainText("client_name", clientName))
+                    Toast.makeText(this, "Ім'я скопійовано", Toast.LENGTH_SHORT).show()
                 },
-                onShareClientEmail = {
-                    shareText("Мій email для Linkease: $clientEmail")
+                onShareClientName = {
+                    shareText("Моє ім'я в Linkease: $clientName")
                 },
                 onClearFirebaseData = {
                     val uid = myUserId
@@ -567,9 +583,9 @@ class MainActivity : ComponentActivity() {
                         startBookingRequestsListener(uid, prefs)
                     }
                 },
-                onOnboardingSelectClient = { myEmail, trainerEmailInput ->
-                    clientEmail = myEmail
-                    prefs.edit().putString("client_email", myEmail).apply()
+                onOnboardingSelectClient = { myName, trainerEmailInput ->
+                    clientName = myName
+                    prefs.edit().putString("client_name", myName).apply()
                     isLoadingTrainer = true
                     trainerLoadError = null
                     FirebaseHelper.lookupTrainerByEmail(trainerEmailInput) { resolvedId ->
@@ -628,6 +644,8 @@ class MainActivity : ComponentActivity() {
         myAvailabilityListener?.remove()
         chatListener?.remove()
         connectionsListener?.remove()
+        clientConfirmationListeners.forEach { it.remove() }
+        clientConfirmationListeners.clear()
     }
 
     private fun startBookingRequestsListener(uid: String, prefs: android.content.SharedPreferences) {
@@ -639,13 +657,28 @@ class MainActivity : ComponentActivity() {
         // Trainer listens to client connections (for auto-linking by email)
         connectionsListener?.remove()
         connectionsListener = FirebaseHelper.listenTrainerConnections(uid) { connections ->
+            val prev = connectedClients
             connectedClients = connections
             // Auto-link clients by email: if a connection email matches a known client, link them
             val dbHelper = LinkDatabaseHelper(applicationContext)
             val clientRepo = AndroidClientRepository(dbHelper)
             val localClients = clientRepo.getAll()
+            val linkedIds = localClients.mapNotNull { it.firebaseClientId }.toSet()
+            val wStart = prefs.getInt("work_hours_start", 7)
+            val wEnd = prefs.getInt("work_hours_end", 22)
+            val availRepo = AndroidAvailabilityRepository(dbHelper)
+            val sessionRepo = AndroidSessionRepository(dbHelper)
+            val locationRepo = AndroidLocationRepository(dbHelper)
+            var needsPublish = false
             connections.forEach { (firebaseId, _, email) ->
-                if (email.isNullOrBlank()) return@forEach
+                if (email.isNullOrBlank()) {
+                    // Unknown email — notify if this is a new unlinked connection
+                    if (firebaseId !in prev.map { it.first } && firebaseId !in linkedIds) {
+                        NotificationHelper.showNewConnectionNotification(this, firebaseId, null)
+                        needsPublish = true
+                    }
+                    return@forEach
+                }
                 val matched = localClients.find {
                     it.firebaseClientId.isNullOrBlank() &&
                     it.email.equals(email, ignoreCase = true)
@@ -653,14 +686,16 @@ class MainActivity : ComponentActivity() {
                 if (matched != null) {
                     clientRepo.update(matched.copy(firebaseClientId = firebaseId))
                     refreshVersion++
-                    val wStart = prefs.getInt("work_hours_start", 7)
-                    val wEnd = prefs.getInt("work_hours_end", 22)
-                    val availRepo = AndroidAvailabilityRepository(dbHelper)
-                    val sessionRepo = AndroidSessionRepository(dbHelper)
-                    val locationRepo = AndroidLocationRepository(dbHelper)
-                    FirebaseHelper.publishTrainerData(uid, availRepo.getAll(), sessionRepo.getAll(),
-                        locationRepo.getAll(), clientRepo.getAll(), wStart, wEnd) { _ -> }
+                    needsPublish = true
+                } else if (firebaseId !in prev.map { it.first } && firebaseId !in linkedIds) {
+                    // New unlinked connection with known email — notify and publish so client can see data
+                    NotificationHelper.showNewConnectionNotification(this, firebaseId, email)
+                    needsPublish = true
                 }
+            }
+            if (needsPublish) {
+                FirebaseHelper.publishTrainerData(uid, availRepo.getAll(), sessionRepo.getAll(),
+                    locationRepo.getAll(), clientRepo.getAll(), wStart, wEnd) { _ -> }
             }
         }
         // Trainer also listens to client availability
@@ -680,21 +715,48 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        setupClientConfirmationListeners(uid)
+    }
+
+    private fun setupClientConfirmationListeners(trainerUid: String) {
+        clientConfirmationListeners.forEach { it.remove() }
+        clientConfirmationListeners.clear()
+        val db = LinkDatabaseHelper(applicationContext)
+        val clientRepo = AndroidClientRepository(db)
+        val sessionRepo = AndroidSessionRepository(db)
+        val linkedClients = clientRepo.getAll().filter { !it.firebaseClientId.isNullOrBlank() }
+        linkedClients.forEach { client ->
+            val listener = FirebaseHelper.listenClientSessions(client.firebaseClientId!!) { clientSessions ->
+                val localSessions = sessionRepo.getAll()
+                var changed = false
+                clientSessions.forEach { cs ->
+                    if (cs.clientConfirmed) {
+                        val localId = cs.id.toLongOrNull() ?: return@forEach
+                        val local = localSessions.find { it.id == localId }
+                        if (local != null && !local.confirmed) {
+                            sessionRepo.update(local.copy(confirmed = true))
+                            changed = true
+                        }
+                    }
+                }
+                if (changed) refreshVersion++
+            }
+            clientConfirmationListeners.add(listener)
+        }
     }
 
     private fun startClientListeners(uid: String, trainerId: String, prefs: android.content.SharedPreferences) {
         // Register this client with the trainer so trainer can link/see us
-        FirebaseHelper.registerClientWithTrainer(trainerId, uid, android.os.Build.MODEL, clientEmail.ifBlank { null }) {}
+        FirebaseHelper.registerClientWithTrainer(trainerId, uid, android.os.Build.MODEL, clientName.ifBlank { null }) {}
 
         trainerListener?.remove()
         trainerListener = FirebaseHelper.listenTrainerData(trainerId) { data ->
-            isLoadingTrainer = false
             if (data != null) {
+                isLoadingTrainer = false
                 trainerData = data
                 trainerLoadError = null
-            } else if (trainerData == null) {
-                trainerLoadError = "Тренера не знайдено. Перевірте ID."
             }
+            // If data is null, stay in loading state — trainer hasn't published yet, will arrive shortly
         }
 
         clientSessionsListener?.remove()

@@ -72,7 +72,7 @@ fun SettingsScreen(
 
     LaunchedEffect(highlightClientFirebaseId) {
         if (highlightClientFirebaseId != null) {
-            selectedTab = 1 // Зв'язок tab
+            selectedTab = 1 // Дані tab
             onHighlightConsumed?.invoke()
         }
     }
@@ -128,8 +128,6 @@ fun SettingsScreen(
                 Tab(selected = selectedTab == 0, onClick = { selectedTab = 0 },
                     text = { Text("Загальне", fontSize = 13.sp) })
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
-                    text = { Text("Зв'язок", fontSize = 13.sp) })
-                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
                     text = { Text("Дані", fontSize = 13.sp) })
             }
 
@@ -192,37 +190,53 @@ fun SettingsScreen(
                                 Text("Синхронізувати всі майбутні сесії", fontSize = 13.sp)
                             }
                         }
+
+                        if (pendingBookingRequests.isNotEmpty() && onConfirmBookingRequest != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                            Text("Запити на бронювання (${pendingBookingRequests.size})",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                            pendingBookingRequests.forEach { request ->
+                                val reqClientName = clients.find { it.firebaseClientId == request.clientFirebaseId }?.name
+                                BookingRequestItem(request = request,
+                                    clientName = reqClientName,
+                                    onConfirm = { onConfirmBookingRequest(request) },
+                                    onDecline = { onDeclineBookingRequest?.invoke(request) })
+                            }
+                        }
                     }
 
-                    // ── Tab 1: Зв'язок ────────────────────────────────────────
+                    // ── Tab 1: Дані ───────────────────────────────────────────
                     1 -> {
                         Spacer(Modifier.height(8.dp))
 
                         if (appMode == "user" && myUserId != null) {
-                            // Email field
                             if (onSaveTrainerEmail != null) {
+                                var editingEmail by remember { mutableStateOf(trainerEmail.isBlank()) }
                                 var emailInput by remember { mutableStateOf(trainerEmail) }
                                 Text("Мій email (для підключення клієнтів)",
                                     style = MaterialTheme.typography.labelMedium, color = Color.Gray,
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalAlignment = Alignment.CenterVertically) {
-                                    OutlinedTextField(
-                                        value = emailInput,
-                                        onValueChange = { emailInput = it.trim() },
-                                        label = { Text("Email") },
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    Button(
-                                        onClick = { onSaveTrainerEmail(emailInput) },
-                                        enabled = emailInput.isNotBlank() && emailInput != trainerEmail,
-                                    ) { Text("Зберегти") }
-                                }
-                                if (trainerEmail.isNotBlank()) {
+                                if (editingEmail) {
+                                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        OutlinedTextField(
+                                            value = emailInput,
+                                            onValueChange = { emailInput = it.trim() },
+                                            label = { Text("Email") },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Button(
+                                            onClick = { onSaveTrainerEmail(emailInput); editingEmail = false },
+                                            enabled = emailInput.isNotBlank(),
+                                        ) { Text("Зберегти") }
+                                    }
+                                } else {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
@@ -234,6 +248,10 @@ fun SettingsScreen(
                                                 Text("Копіювати", fontSize = 12.sp)
                                             }
                                         }
+                                        OutlinedButton(onClick = { editingEmail = true },
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
+                                            Text("✏️", fontSize = 12.sp)
+                                        }
                                     }
                                 }
                                 Spacer(Modifier.height(8.dp))
@@ -241,12 +259,6 @@ fun SettingsScreen(
                                 Spacer(Modifier.height(8.dp))
                             }
 
-                            if (onPublishToFirebase != null) {
-                                OutlinedButton(onClick = onPublishToFirebase,
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                                    Text("☁️ Опублікувати розклад вручну")
-                                }
-                            }
                             if (onClearFirebaseData != null) {
                                 OutlinedButton(
                                     onClick = onClearFirebaseData,
@@ -257,106 +269,8 @@ fun SettingsScreen(
                                 }
                             }
 
-                            // Booking requests
-                            if (pendingBookingRequests.isNotEmpty() && onConfirmBookingRequest != null) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp))
-                                Text("Запити на бронювання (${pendingBookingRequests.size})",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                pendingBookingRequests.forEach { request ->
-                                    val reqClientName = clients.find { it.firebaseClientId == request.clientFirebaseId }?.name
-                                    BookingRequestItem(request = request,
-                                        clientName = reqClientName,
-                                        onConfirm = { onConfirmBookingRequest(request) },
-                                        onDecline = { onDeclineBookingRequest?.invoke(request) })
-                                }
-                            }
-
-                            // New client connections
-                            val linkedFirebaseIds = clients.mapNotNull { it.firebaseClientId }.toSet()
-                            val unlinkedConnections = connectedClients.filter { (uid, _, _) -> uid !in linkedFirebaseIds }
-                            if (unlinkedConnections.isNotEmpty() && onLinkClientFirebaseId != null) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp))
-                                Text("🔔 Нові підключення (${unlinkedConnections.size})",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                unlinkedConnections.forEach { (uid, deviceModel, clientEmail) ->
-                                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            if (!clientEmail.isNullOrBlank()) {
-                                                Text(clientEmail, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                                Text("📱 $deviceModel", fontSize = 11.sp, color = Color.Gray)
-                                            } else {
-                                                Text("📱 $deviceModel", fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                                            }
-                                        }
-                                        Button(onClick = { linkingFirebaseId = uid },
-                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
-                                            Text("Хто це?", fontSize = 12.sp)
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Client availability
-                            val linkedClients = clients.filter { it.firebaseClientId != null }
-                            if (linkedClients.isNotEmpty() && clientAvailabilitySlots.isNotEmpty()) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp))
-                                Text("Доступність клієнтів",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                linkedClients.forEach { client ->
-                                    val cSlots = clientAvailabilitySlots.filter { it.clientFirebaseId == client.firebaseClientId }
-                                    ClientAvailabilityRow(
-                                        client = client, slots = cSlots,
-                                        isHighlighted = client.firebaseClientId == highlightClientFirebaseId,
-                                        onSlotClick = { slot -> onClientAvailabilityCreateSession?.invoke(slot) },
-                                        onChatClick = if (onOpenChatWithClient != null) {
-                                            { onOpenChatWithClient(client.firebaseClientId!!, client.name) }
-                                        } else null,
-                                        onAskAvailability = if (onAskClientAvailability != null && client.firebaseClientId != null) {
-                                            { msg -> onAskClientAvailability(client.firebaseClientId!!, msg) }
-                                        } else null,
-                                    )
-                                }
-                            }
-
-                            // Chat for clients without availability slots
-                            if (onOpenChatWithClient != null) {
-                                val linkedClients2 = clients.filter { it.firebaseClientId != null }
-                                val chatOnly = linkedClients2.filter { c ->
-                                    clientAvailabilitySlots.none { it.clientFirebaseId == c.firebaseClientId }
-                                }
-                                chatOnly.forEach { client ->
-                                    ClientAvailabilityRow(
-                                        client = client, slots = emptyList(),
-                                        isHighlighted = client.firebaseClientId == highlightClientFirebaseId,
-                                        onSlotClick = {},
-                                        onChatClick = { onOpenChatWithClient(client.firebaseClientId!!, client.name) },
-                                        onAskAvailability = if (onAskClientAvailability != null && client.firebaseClientId != null) {
-                                            { msg -> onAskClientAvailability(client.firebaseClientId!!, msg) }
-                                        } else null,
-                                    )
-                                }
-                            }
-                        } else {
-                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp),
-                                contentAlignment = Alignment.Center) {
-                                Text("Перейдіть у режим Спеціаліста, щоб побачити налаштування зв'язку",
-                                    fontSize = 13.sp, color = Color.Gray,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
                         }
-                    }
-
-                    // ── Tab 2: Дані ───────────────────────────────────────────
-                    2 -> {
-                        Spacer(Modifier.height(8.dp))
 
                         if (onSendTestNotification != null) {
                             Text("Сповіщення", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
@@ -452,25 +366,7 @@ fun SettingsScreen(
 
                         Spacer(Modifier.height(8.dp))
                     }
-                }
 
-                // ── Mode switch — always at the bottom of all tabs ──────────
-                if (onAppModeChange != null) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-                    Text("Режим роботи", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("user" to "🏋 Спеціаліст", "client" to "🙋 Клієнт").forEach { (mode, label) ->
-                            if (appMode == mode) {
-                                Button(onClick = {}, modifier = Modifier.weight(1f)) { Text(label) }
-                            } else {
-                                OutlinedButton(onClick = { onAppModeChange(mode) },
-                                    modifier = Modifier.weight(1f)) { Text(label) }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
@@ -575,7 +471,7 @@ private fun ClientAvailabilityRow(
             Text("👤 ${client.name}", fontWeight = FontWeight.Medium, fontSize = 13.sp, modifier = Modifier.weight(1f))
             if (onAskAvailability != null) {
                 TextButton(onClick = { showAskDialog = true }, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
-                    Text("📅", fontSize = 14.sp)
+                    Text("📅 Запит", fontSize = 12.sp)
                 }
             }
             if (onChatClick != null) {

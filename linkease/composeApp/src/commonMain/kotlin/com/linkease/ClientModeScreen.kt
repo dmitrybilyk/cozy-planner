@@ -30,7 +30,7 @@ private val BOOKED_COLOR = Color(0xFF9E9E9E)
 fun ClientModeScreen(
     trainerData: TrainerData,
     myFirebaseId: String,
-    clientEmail: String = "",
+    clientName: String = "",
     clientSessions: List<ClientSession> = emptyList(),
     pendingBookingRequests: List<BookingRequest> = emptyList(),
     myAvailability: List<ClientAvailabilitySlot> = emptyList(),
@@ -42,8 +42,8 @@ fun ClientModeScreen(
     onCancelSession: (sessionId: String) -> Unit = {},
     onSaveMyAvailability: (List<ClientAvailabilitySlot>) -> Unit = {},
     onSendChat: (String) -> Unit = {},
-    onCopyClientEmail: (() -> Unit)? = null,
-    onShareClientEmail: (() -> Unit)? = null,
+    onCopyClientName: (() -> Unit)? = null,
+    onShareClientName: (() -> Unit)? = null,
 ) {
     val tz    = TimeZone.currentSystemDefault()
     val today = Clock.System.now().toLocalDateTime(tz).date
@@ -101,15 +101,17 @@ fun ClientModeScreen(
                     onBook = { date, start, end -> bookingSlot = Triple(date, start, end) }
                 )
                 1 -> MySessionsTabContent(
-                    clientEmail = clientEmail,
+                    clientName = clientName,
                     clientSessions = clientSessions,
                     pendingBookingRequests = pendingBookingRequests,
                     today = today,
+                    availability = trainerData.availability,
                     onConfirmSession = onConfirmSession,
                     onRejectSession = onRejectSession,
                     onCancelSession = onCancelSession,
-                    onCopyClientEmail = onCopyClientEmail,
-                    onShareClientEmail = onShareClientEmail,
+                    onBookSlot = onBookSlot,
+                    onCopyClientName = onCopyClientName,
+                    onShareClientName = onShareClientName,
                 )
                 2 -> ClientAvailabilityTabContent(
                     myFirebaseId = myFirebaseId,
@@ -413,22 +415,38 @@ private fun AddClientAvailabilityDialog(
 
 @Composable
 private fun MySessionsTabContent(
-    clientEmail: String,
+    clientName: String,
     clientSessions: List<ClientSession>,
     pendingBookingRequests: List<BookingRequest>,
     today: LocalDate,
+    availability: List<AvailabilitySlot> = emptyList(),
     onConfirmSession: (String) -> Unit,
     onRejectSession: (String) -> Unit,
     onCancelSession: (String) -> Unit = {},
-    onCopyClientEmail: (() -> Unit)?,
-    onShareClientEmail: (() -> Unit)?,
+    onBookSlot: (date: LocalDate, start: LocalTime, end: LocalTime, note: String?) -> Unit = { _, _, _, _ -> },
+    onCopyClientName: (() -> Unit)?,
+    onShareClientName: (() -> Unit)?,
 ) {
+    var reschedulingSession by remember { mutableStateOf<ClientSession?>(null) }
+    if (reschedulingSession != null) {
+        RescheduleDialog(
+            session = reschedulingSession!!,
+            availability = availability,
+            today = today,
+            onDismiss = { reschedulingSession = null },
+            onConfirm = { date, start, end ->
+                val orig = reschedulingSession!!
+                onBookSlot(date, start, end, "Перенесення з ${orig.date.dayOfMonth}.${orig.date.monthNumber.toString().padStart(2,'0')} ${orig.startTime.toStorageString()}")
+                reschedulingSession = null
+            }
+        )
+    }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // My email card
-        if (clientEmail.isNotBlank()) {
+        // My name card
+        if (clientName.isNotBlank()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -439,18 +457,18 @@ private fun MySessionsTabContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Мій email", fontSize = 11.sp, color = Color.Gray)
-                        Text(clientEmail, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Text("Моє ім'я", fontSize = 11.sp, color = Color.Gray)
+                        Text(clientName, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     }
-                    if (onCopyClientEmail != null) {
+                    if (onCopyClientName != null) {
                         OutlinedButton(
-                            onClick = onCopyClientEmail,
+                            onClick = onCopyClientName,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) { Text("Копіювати", fontSize = 11.sp) }
                     }
-                    if (onShareClientEmail != null) {
+                    if (onShareClientName != null) {
                         OutlinedButton(
-                            onClick = onShareClientEmail,
+                            onClick = onShareClientName,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                         ) { Text("📤", fontSize = 13.sp) }
                     }
@@ -481,7 +499,13 @@ private fun MySessionsTabContent(
             }
         } else {
             ordered.forEach { session ->
-                ClientSessionCard(session = session, today = today, onConfirm = onConfirmSession, onReject = onRejectSession, onCancel = onCancelSession)
+                ClientSessionCard(
+                    session = session, today = today,
+                    onConfirm = onConfirmSession, onReject = onRejectSession, onCancel = onCancelSession,
+                    onReschedule = if (session.date >= today && availability.isNotEmpty()) {
+                        { reschedulingSession = session }
+                    } else null
+                )
             }
         }
     }
@@ -494,6 +518,7 @@ private fun ClientSessionCard(
     onConfirm: (String) -> Unit,
     onReject: (String) -> Unit = {},
     onCancel: (String) -> Unit = {},
+    onReschedule: (() -> Unit)? = null,
 ) {
     val isPast   = session.date < today
     val dateStr  = "${session.date.dayOfMonth}.${session.date.monthNumber.toString().padStart(2,'0')}.${session.date.year}"
@@ -525,21 +550,37 @@ private fun ClientSessionCard(
             }
             when {
                 isPast -> Unit
-                session.clientConfirmed -> OutlinedButton(
-                    onClick = { onCancel(session.id) },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Скасувати", fontSize = 12.sp) }
-                else -> Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Button(
-                        onClick = { onConfirm(session.id) },
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                    ) { Text("✓", fontSize = 14.sp) }
+                session.clientConfirmed -> Column(horizontalAlignment = Alignment.End) {
                     OutlinedButton(
-                        onClick = { onReject(session.id) },
+                        onClick = { onCancel(session.id) },
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) { Text("✕", fontSize = 14.sp) }
+                    ) { Text("Скасувати", fontSize = 12.sp) }
+                    if (onReschedule != null) {
+                        TextButton(onClick = onReschedule,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                            Text("✏️ Змінити", fontSize = 11.sp)
+                        }
+                    }
+                }
+                else -> Column(horizontalAlignment = Alignment.End) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Button(
+                            onClick = { onConfirm(session.id) },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                        ) { Text("✓", fontSize = 14.sp) }
+                        OutlinedButton(
+                            onClick = { onReject(session.id) },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                        ) { Text("✕", fontSize = 14.sp) }
+                    }
+                    if (onReschedule != null) {
+                        TextButton(onClick = onReschedule,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)) {
+                            Text("✏️ Змінити", fontSize = 11.sp)
+                        }
+                    }
                 }
             }
         }
@@ -585,13 +626,14 @@ private fun BookSessionDialog(
     onConfirm: (start: LocalTime, end: LocalTime, note: String?) -> Unit,
 ) {
     val slotMinutes = slotEnd.toMinutes() - slotStart.toMinutes()
-    // Start time options: every 30 min within slot, leaving room for at least 30 min session
-    val startOptions = remember(slotStart, slotEnd) {
+    var step by remember { mutableStateOf(30) }
+    val startOptions = remember(slotStart, slotEnd, step) {
         val options = mutableListOf<LocalTime>()
         var m = slotStart.toMinutes()
-        while (m + 30 <= slotEnd.toMinutes()) {
+        val effectiveStep = if (step == 0) 5 else step
+        while (m + effectiveStep <= slotEnd.toMinutes()) {
             options.add(minutesToLocalTime(m))
-            m += 30
+            m += effectiveStep
         }
         options
     }
@@ -613,6 +655,27 @@ private fun BookSessionDialog(
                     fontSize = 13.sp, color = Color.Gray
                 )
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Крок:", fontSize = 11.sp, color = Color.Gray)
+                    listOf(30, 15, 10).forEach { s ->
+                        val active = step == s
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { step = s }
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        ) {
+                            Text("${s}хв", fontSize = 11.sp,
+                                color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal)
+                        }
+                    }
+                }
                 if (startOptions.size > 1) {
                     Text("Початок", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                     Row(
@@ -793,4 +856,46 @@ fun ClientConnectScreen(
             }
         }
     }
+}
+
+@Composable
+private fun RescheduleDialog(
+    session: ClientSession,
+    availability: List<AvailabilitySlot>,
+    today: LocalDate,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalDate, LocalTime, LocalTime) -> Unit,
+) {
+    val futureSlots = availability
+        .filter { it.date >= today }
+        .sortedWith(compareBy({ it.date }, { it.startTime.toMinutes() }))
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Змінити час сесії") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Поточний час: ${session.date.dayOfMonth}.${session.date.monthNumber.toString().padStart(2,'0')} ${session.startTime.toStorageString()}–${session.endTime.toStorageString()}",
+                    fontSize = 12.sp, color = Color.Gray)
+                Text("Оберіть новий час:", fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.height(4.dp))
+                if (futureSlots.isEmpty()) {
+                    Text("Немає доступних слотів від спеціаліста", fontSize = 13.sp, color = Color.Gray)
+                } else {
+                    futureSlots.take(20).forEach { slot ->
+                        val label = "${slot.date.dayOfMonth}.${slot.date.monthNumber.toString().padStart(2,'0')}.${slot.date.year} ${slot.startTime.toStorageString()}–${slot.endTime.toStorageString()}"
+                        TextButton(
+                            onClick = { onConfirm(slot.date, slot.startTime, slot.endTime) },
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(label, modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Start, fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
+    )
 }

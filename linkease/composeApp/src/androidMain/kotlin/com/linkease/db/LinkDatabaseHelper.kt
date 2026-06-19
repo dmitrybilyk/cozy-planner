@@ -4,7 +4,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease.db", null, 8) {
+class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease.db", null, 9) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("""
@@ -39,7 +39,8 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
                 startTime TEXT NOT NULL,
                 endTime TEXT NOT NULL,
                 locationId INTEGER,
-                notes TEXT NOT NULL DEFAULT ''
+                notes TEXT NOT NULL DEFAULT '',
+                confirmed INTEGER NOT NULL DEFAULT 0
             )
         """.trimIndent())
 
@@ -109,6 +110,9 @@ class LinkDatabaseHelper(context: Context) : SQLiteOpenHelper(context, "linkease
         }
         if (oldVersion < 8) {
             db.execSQL("ALTER TABLE clients ADD COLUMN firebaseClientId TEXT")
+        }
+        if (oldVersion < 9) {
+            db.execSQL("ALTER TABLE sessions ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0")
         }
     }
 }

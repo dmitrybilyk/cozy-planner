@@ -688,7 +688,6 @@ private fun AvailDayHeaderRow(
 @Composable
 private fun AvailHourLabels(hoursStart: Int, hoursEnd: Int) {
     Column(modifier = Modifier.width(AVAIL_TIME_COL)) {
-        Spacer(Modifier.height(HOUR_HEIGHT / 2))
         for (h in hoursStart until hoursEnd) {
             Box(modifier = Modifier.height(HOUR_HEIGHT), contentAlignment = Alignment.TopEnd) {
                 Text("${h.toString().padStart(2, '0')}:00", fontSize = 10.sp, color = Color(0xFF70757A),
@@ -757,12 +756,6 @@ private fun AvailabilityDayColumn(
         // Hour grid lines
         for (i in 0..totalHours) {
             HorizontalDivider(modifier = Modifier.offset(y = HOUR_HEIGHT * i), color = Color(0xFFDADCE0), thickness = 0.5.dp)
-        }
-        for (i in 0 until totalHours) {
-            HorizontalDivider(
-                modifier = Modifier.offset(y = HOUR_HEIGHT * i + HOUR_HEIGHT / 2).padding(start = 8.dp),
-                color = Color(0xFFE8EAED), thickness = 0.5.dp
-            )
         }
 
         // Default availability indicator (no slots configured = working hours are free)

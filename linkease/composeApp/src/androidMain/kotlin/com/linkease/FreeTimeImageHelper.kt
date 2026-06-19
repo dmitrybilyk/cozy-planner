@@ -85,14 +85,20 @@ object FreeTimeImageHelper {
         return FileProvider.getUriForFile(context, "${context.packageName}.provider", file)
     }
 
-    private val DARK_BLUE = Color.parseColor("#1A237E")
-    private val ACCENT    = Color.parseColor("#3949AB")
+    private val DARK_BLUE  = Color.parseColor("#1A237E")
+    private val ACCENT     = Color.parseColor("#3949AB")
+    private val DARK_TEAL  = Color.parseColor("#00695C")
+    private val ACCENT_TEAL = Color.parseColor("#00897B")
     private val TEXT_DARK = Color.parseColor("#212121")
     private val TEXT_GRAY = Color.parseColor("#757575")
     private val DIVIDER   = Color.parseColor("#E8EAED")
     private val SLOT_BG   = Color.parseColor("#F1F3F4")
 
     private fun generateBitmapLines(title: String, lines: List<ScheduleImageLine>, heading: String): Bitmap {
+        val isAvailability = heading == "Доступність"
+        val headerBg = if (isAvailability) DARK_TEAL else DARK_BLUE
+        val headerAccent = if (isAvailability) ACCENT_TEAL else ACCENT
+
         val W = 800
         val padH = 52
         val headerH = 140
@@ -108,9 +114,9 @@ object FreeTimeImageHelper {
         cv.drawColor(Color.WHITE)
 
         cv.drawRect(0f, 0f, W.toFloat(), headerH.toFloat(),
-            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = DARK_BLUE })
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = headerBg })
         cv.drawRect(0f, (headerH - 6).toFloat(), W.toFloat(), headerH.toFloat(),
-            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ACCENT })
+            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = headerAccent })
 
         cv.drawText(heading, padH.toFloat(), 66f,
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -123,7 +129,7 @@ object FreeTimeImageHelper {
             })
 
         val headerTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = DARK_BLUE; textSize = 32f
+            color = if (isAvailability) DARK_TEAL else DARK_BLUE; textSize = 32f
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
         val slotTimePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

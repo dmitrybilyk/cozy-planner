@@ -21,6 +21,7 @@ fun OnboardingScreen(
 ) {
     var role by remember { mutableStateOf<String?>(null) }
     var myEmailInput by remember { mutableStateOf(emailHint) }
+    var myNameInput by remember { mutableStateOf("") }
     var trainerEmailInput by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -38,11 +39,11 @@ fun OnboardingScreen(
                     )
                     Spacer(Modifier.height(8.dp))
                     Button(
-                        onClick = { role = "user"; myEmailInput = emailHint },
+                        onClick = { role = "user" },
                         modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) { Text("🏋  Я надаю послуги", fontSize = 15.sp) }
                     OutlinedButton(
-                        onClick = { role = "client"; myEmailInput = emailHint; trainerEmailInput = "" },
+                        onClick = { role = "client"; myNameInput = ""; trainerEmailInput = "" },
                         modifier = Modifier.fillMaxWidth().height(56.dp)
                     ) { Text("🙋  Я отримую послуги", fontSize = 15.sp) }
                 }
@@ -53,6 +54,17 @@ fun OnboardingScreen(
                         "Клієнти зможуть підключитись до вас за цим email",
                         fontSize = 14.sp, color = Color.Gray, textAlign = TextAlign.Center
                     )
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            "💡 Щоб ваші клієнти могли підключитись — вони мають встановити цей самий додаток і обрати «Клієнт». Вони вкажуть своє ім'я та ваш email — і одразу потраплять до вашого розкладу.",
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(12.dp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
                     OutlinedTextField(
                         value = myEmailInput,
                         onValueChange = { myEmailInput = it.trim() },
@@ -71,9 +83,9 @@ fun OnboardingScreen(
                 "client" -> {
                     Text("Підключення до спеціаліста", fontWeight = FontWeight.Bold, fontSize = 22.sp)
                     OutlinedTextField(
-                        value = myEmailInput,
-                        onValueChange = { myEmailInput = it.trim() },
-                        label = { Text("Ваш email") },
+                        value = myNameInput,
+                        onValueChange = { myNameInput = it },
+                        label = { Text("Ваше ім'я") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
@@ -92,11 +104,11 @@ fun OnboardingScreen(
                     }
                     Button(
                         onClick = {
-                            if (myEmailInput.isNotBlank() && trainerEmailInput.isNotBlank())
-                                onSelectClient(myEmailInput, trainerEmailInput)
+                            if (myNameInput.isNotBlank() && trainerEmailInput.isNotBlank())
+                                onSelectClient(myNameInput, trainerEmailInput)
                         },
                         modifier = Modifier.fillMaxWidth().height(52.dp),
-                        enabled = myEmailInput.isNotBlank() && trainerEmailInput.isNotBlank() && !isLoading
+                        enabled = myNameInput.isNotBlank() && trainerEmailInput.isNotBlank() && !isLoading
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(

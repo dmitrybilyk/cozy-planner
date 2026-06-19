@@ -1,9 +1,15 @@
 package com.linkease
 
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import kotlinx.datetime.*
 
 enum class CalendarView(val label: String) {
@@ -127,9 +133,9 @@ fun App(
     onSaveTrainerEmail: ((String) -> Unit)? = null,
     onCopyTrainerEmail: (() -> Unit)? = null,
     onClearFirebaseData: (() -> Unit)? = null,
-    clientEmail: String = "",
-    onCopyClientEmail: (() -> Unit)? = null,
-    onShareClientEmail: (() -> Unit)? = null,
+    clientName: String = "",
+    onCopyClientName: (() -> Unit)? = null,
+    onShareClientName: (() -> Unit)? = null,
     onboardingDone: Boolean = true,
     emailHint: String = "",
     onOnboardingSelectTrainer: ((String) -> Unit)? = null,
@@ -244,6 +250,7 @@ fun App(
     var addSessionDefaultClientIds by remember { mutableStateOf<List<Long>>(emptyList()) }
     var editingSession by remember { mutableStateOf<Session?>(null) }
     var copyingSession by remember { mutableStateOf<Session?>(null) }
+    var availabilitySessionMenu by remember { mutableStateOf<Session?>(null) }
 
     fun openNewSession(date: LocalDate, start: LocalTime, end: LocalTime? = null, clientIds: List<Long> = emptyList()) {
         addSessionDate = date
@@ -342,11 +349,20 @@ fun App(
         }
 
         if (appMode == "client") {
+            if (isLoadingTrainer && trainerData == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        CircularProgressIndicator()
+                        Text("Завантаження даних...", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                return@MaterialTheme
+            }
             if (trainerData != null) {
                 ClientModeScreen(
                     trainerData = trainerData,
                     myFirebaseId = myUserId ?: "",
-                    clientEmail = clientEmail,
+                    clientName = clientName,
                     clientSessions = clientSessions,
                     pendingBookingRequests = clientBookingRequests,
                     myAvailability = myAvailability,
@@ -358,8 +374,8 @@ fun App(
                     onCancelSession = { sid -> onRejectClientSession?.invoke(sid) },
                     onSaveMyAvailability = { slots -> onSaveMyAvailability?.invoke(slots) },
                     onSendChat = { msg -> onSendChat?.invoke(msg) },
-                    onCopyClientEmail = onCopyClientEmail,
-                    onShareClientEmail = onShareClientEmail,
+                    onCopyClientName = onCopyClientName,
+                    onShareClientName = onShareClientName,
                 )
             } else {
                 ClientConnectScreen(
@@ -448,6 +464,8 @@ fun App(
                 onSettingsClick = { onSettingsTabClick() },
                 onShareFreeTime = { _, text -> onShare(text) },
                 onShareAvailability = { text -> onShare(text) },
+                onShareAvailabilityImage = onShareAvailabilityImage,
+                onCopyAvailabilityImage = onCopyAvailabilityImage,
                 onDayClickInMonth = { date ->
                     selectedDay = date
                     startDate = date
@@ -469,6 +487,10 @@ fun App(
                     }
                     refreshSessions()
                 },
+                onConfirmSession = { session ->
+                    sessionRepository.update(session.copy(confirmed = !session.confirmed))
+                    refreshSessions()
+                },
             )
 
             Screen.CLIENTS -> ClientsScreen(
@@ -488,7 +510,22 @@ fun App(
                     syncData()
                 },
                 onUpdate = { clientRepository.update(it); clients = clientRepository.getAll(); syncData() },
-                onDelete = { clientRepository.delete(it); clients = clientRepository.getAll(); syncData() }
+                onDelete = { clientRepository.delete(it); clients = clientRepository.getAll(); syncData() },
+                connectedClients = connectedClients,
+                onLinkClientFirebaseId = { firebaseId, localClientId ->
+                    onLinkClientFirebaseId?.invoke(firebaseId, localClientId)
+                },
+                onCreateAndLinkClient = { firebaseId, email ->
+                    val name = email?.substringBefore("@")?.replaceFirstChar { it.uppercaseChar() } ?: "Клієнт"
+                    val newClient = clientRepository.save(name, "", email ?: "", "#2196F3", 0.0, 0, 0, null, firebaseId)
+                    clients = clientRepository.getAll()
+                    onLinkClientFirebaseId?.invoke(firebaseId, newClient.id)
+                    syncData()
+                },
+                onChatClick = { firebaseId, name ->
+                    onOpenChatWithClient?.invoke(firebaseId, name)
+                },
+                onAskClientAvailability = onAskClientAvailability,
             )
 
             Screen.LOCATIONS -> LocationsScreen(
@@ -530,9 +567,10 @@ fun App(
                 onCopySchedule = onCopyToClipboard,
                 onShareAvailabilityImage = onShareAvailabilityImage,
                 onCopyAvailabilityImage = onCopyAvailabilityImage,
-                onSessionClick = { editingSession = it; addSessionEndTime = null; showAddSession = true },
+                onSessionClick = { availabilitySessionMenu = it },
                 onAddSession = { date -> openNewSession(date, LocalTime(9, 0)) },
             )
+
 
             Screen.SETTINGS -> SettingsScreen(
                 workHoursStart = workHoursStart,
@@ -710,6 +748,30 @@ fun App(
                     refreshSessions()
                     copyingSession = null
                 }
+            )
+        }
+
+        availabilitySessionMenu?.let { session ->
+            val clientsById2 = clients.associateBy { it.id }
+            val locationsById2 = locations.associateBy { it.id }
+            AvailabilitySessionMenu(
+                session = session,
+                clients = session.clientIds.mapNotNull { clientsById2[it] },
+                location = session.locationId?.let { locationsById2[it] },
+                onDismiss = { availabilitySessionMenu = null },
+                onEdit = { editingSession = session; addSessionEndTime = null; showAddSession = true; availabilitySessionMenu = null },
+                onCopy = { copyingSession = session; availabilitySessionMenu = null },
+                onConfirm = {
+                    sessionRepository.update(session.copy(confirmed = !session.confirmed))
+                    refreshSessions()
+                    availabilitySessionMenu = null
+                },
+                onDelete = {
+                    syncSessionDelete(session.id)
+                    sessionRepository.delete(session.id)
+                    refreshSessions()
+                    availabilitySessionMenu = null
+                },
             )
         }
 

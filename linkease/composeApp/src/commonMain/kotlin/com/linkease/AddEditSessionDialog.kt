@@ -677,9 +677,18 @@ fun TimePickerDialog(
     maxHour: Int = 23,
     hiddenMinutes: Set<Int> = emptySet(),
 ) {
+    // step=0 means manual text input
     var step by remember { mutableStateOf(30) }
+    var manualText by remember { mutableStateOf(initial.toStorageString()) }
+    val manualValid = remember(manualText) {
+        runCatching {
+            val (h, m) = manualText.split(":").map { it.toInt() }
+            h in 0..23 && m in 0..59
+        }.getOrDefault(false)
+    }
 
     val slots = remember(minHour, maxHour, hiddenMinutes, step) {
+        if (step == 0) return@remember emptyList()
         val result = mutableListOf<LocalTime>()
         var m = minHour * 60
         while (m <= maxHour * 60) {
@@ -692,7 +701,6 @@ fun TimePickerDialog(
     val initialClosest = slots.minByOrNull { kotlin.math.abs(it.toMinutes() - initial.toMinutes()) } ?: initial
     var selected by remember { mutableStateOf(if (initial in slots) initial else initialClosest) }
 
-    // Snap selected to closest available slot when step changes
     val snappedSelected = slots.minByOrNull { kotlin.math.abs(it.toMinutes() - selected.toMinutes()) } ?: selected
     if (snappedSelected != selected && slots.isNotEmpty()) selected = snappedSelected
 
@@ -711,50 +719,75 @@ fun TimePickerDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text("Крок:", fontSize = 11.sp, color = Color.Gray, modifier = Modifier.padding(end = 6.dp))
-                    listOf(30, 15, 10).forEach { s ->
+                    listOf(30, 15, 10, 0).forEach { s ->
                         val active = step == s
                         Box(
                             modifier = Modifier
                                 .padding(start = 4.dp)
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { step = s }
+                                .clickable { step = s; if (s == 0) manualText = selected.toStorageString() }
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "${s}хв", fontSize = 11.sp,
+                                if (s == 0) "∞" else "${s}хв",
+                                fontSize = 11.sp,
                                 color = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                             )
                         }
                     }
                 }
-                LazyColumn(state = listState, modifier = Modifier.heightIn(max = 260.dp)) {
-                    itemsIndexed(slots) { _, time ->
-                        val isSel = time == selected
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                .clickable { selected = time }
-                                .padding(vertical = 10.dp, horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                time.toStorageString(),
-                                fontSize = 16.sp,
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
-                            )
-                            if (isSel) Text("✓", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                if (step == 0) {
+                    OutlinedTextField(
+                        value = manualText,
+                        onValueChange = { manualText = it },
+                        label = { Text("ГГ:ХХ") },
+                        isError = !manualValid,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("09:30") },
+                    )
+                } else {
+                    LazyColumn(state = listState, modifier = Modifier.heightIn(max = 260.dp)) {
+                        itemsIndexed(slots) { _, time ->
+                            val isSel = time == selected
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                    .clickable { selected = time }
+                                    .padding(vertical = 10.dp, horizontal = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    time.toStorageString(),
+                                    fontSize = 16.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                if (isSel) Text("✓", fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+                            }
                         }
                     }
                 }
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(selected) }) { Text("OK") } },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (step == 0 && manualValid) {
+                        val (h, m) = manualText.split(":").map { it.toInt() }
+                        onConfirm(LocalTime(h, m))
+                    } else if (step != 0) {
+                        onConfirm(selected)
+                    }
+                },
+                enabled = if (step == 0) manualValid else true,
+            ) { Text("OK") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
     )
 }
