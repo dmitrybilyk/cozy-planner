@@ -32,7 +32,9 @@ cd $REMOTE_PROJECT_DIR
 
 echo '📥 git pull...'
 git config --global pull.rebase true
+git stash
 git pull
+git stash pop 2>/dev/null || true
 
 echo '🐳 Збірка образу на сервері...'
 docker build -t cozy-planner-app:latest ./planner
