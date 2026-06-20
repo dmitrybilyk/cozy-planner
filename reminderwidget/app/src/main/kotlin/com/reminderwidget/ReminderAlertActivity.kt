@@ -89,7 +89,11 @@ class ReminderAlertActivity : Activity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-        listOf(1 to "1 хв", 5 to "5 хв", 10 to "10 хв", 15 to "15 хв").forEach { (mins, label) ->
+        val prefs = getSharedPreferences("widget_settings", MODE_PRIVATE)
+        val min1 = prefs.getInt(NotificationHelper.KEY_SNOOZE1_MIN, 1)
+        val min2 = prefs.getInt(NotificationHelper.KEY_SNOOZE2_MIN, 30)
+        listOf(min1, min2).forEach { mins ->
+            val label = if (mins >= 60) "${mins / 60}г${if (mins % 60 != 0) "${mins % 60}'" else ""}" else "$mins хв"
             snoozeRow.addView(snoozeBtn(label) {
                 snooze(eventId, mins.toLong())
                 finish()

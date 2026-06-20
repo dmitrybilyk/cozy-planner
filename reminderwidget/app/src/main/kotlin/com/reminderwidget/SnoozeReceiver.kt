@@ -32,6 +32,12 @@ class SnoozeReceiver : BroadcastReceiver() {
                 EventsWidget.update(context)
             }
             NotificationHelper.ACTION_SNOOZE -> {
+                val mins = intent.getIntExtra(NotificationHelper.EXTRA_SNOOZE_MINUTES, 5).toLong()
+                nm.cancel(nid); scheduleSnooze(context, eventId, mins)
+                context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
+                EventsWidget.update(context)
+            }
+            NotificationHelper.ACTION_SNOOZE10 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 10L)
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
@@ -44,7 +50,7 @@ class SnoozeReceiver : BroadcastReceiver() {
             NotificationHelper.ACTION_REPOST -> {
                 val event = EventStore.load(context).find { it.id == eventId } ?: return
                 val silent     = intent.getBooleanExtra(NotificationHelper.EXTRA_SILENT,     false)
-                val fullscreen = intent.getBooleanExtra(NotificationHelper.EXTRA_FULLSCREEN, true)
+                val fullscreen = intent.getBooleanExtra(NotificationHelper.EXTRA_FULLSCREEN, false)
                 NotificationHelper.post(context, event, silent = silent, fullscreen = fullscreen)
                 EventsWidget.update(context)
             }
@@ -64,6 +70,12 @@ class SnoozeReceiver : BroadcastReceiver() {
                 val existing = nm.activeNotifications.find { it.id == nid }
                 val ongoing  = (existing?.notification?.flags ?: 0) and android.app.Notification.FLAG_ONGOING_EVENT != 0
                 NotificationHelper.post(context, event, ongoing = ongoing, silent = true, fullscreen = false)
+            }
+            NotificationHelper.ACTION_PIN -> {
+                val event = EventStore.load(context).find { it.id == eventId } ?: return
+                NotificationHelper.cancelRepeat(context, eventId)
+                NotificationHelper.setRepeating(context, eventId, false)
+                NotificationHelper.post(context, event, ongoing = true, silent = true, fullscreen = false, pinned = true)
             }
             NotificationHelper.ACTION_REPEAT_FIRE -> {
                 val event = EventStore.load(context).find { it.id == eventId }

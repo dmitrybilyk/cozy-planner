@@ -7,19 +7,25 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
+import android.view.View
+import android.widget.RemoteViews
 import java.text.SimpleDateFormat
 import java.util.*
 
 object NotificationHelper {
     const val CHANNEL_ID        = "reminders"
     const val CHANNEL_ID_SILENT = "reminders_silent"
+    // legacy per-duration actions kept for in-flight alarms
     const val ACTION_SNOOZE1        = "com.reminderwidget.SNOOZE1"
     const val ACTION_SNOOZE5        = "com.reminderwidget.SNOOZE5"
-    const val ACTION_SNOOZE         = "com.reminderwidget.SNOOZE"    // legacy 10 min
+    const val ACTION_SNOOZE         = "com.reminderwidget.SNOOZE"
+    const val ACTION_SNOOZE10       = "com.reminderwidget.SNOOZE10"
     const val ACTION_SNOOZE15       = "com.reminderwidget.SNOOZE15"
     const val ACTION_DONE           = "com.reminderwidget.DONE"
     const val ACTION_REPOST         = "com.reminderwidget.REPOST"
@@ -27,9 +33,13 @@ object NotificationHelper {
     const val ACTION_LIST_CHANGED   = "com.reminderwidget.NOTIF_LIST_CHANGED"
     const val ACTION_REPEAT_TOGGLE  = "com.reminderwidget.REPEAT_TOGGLE"
     const val ACTION_REPEAT_FIRE    = "com.reminderwidget.REPEAT_FIRE"
+    const val ACTION_PIN            = "com.reminderwidget.PIN"
     const val EXTRA_EVENT_ID        = "event_id"
     const val EXTRA_SILENT          = "silent"
     const val EXTRA_FULLSCREEN      = "fullscreen"
+    const val EXTRA_SNOOZE_MINUTES  = "snooze_minutes"
+    const val KEY_SNOOZE1_MIN       = "snooze1_min"
+    const val KEY_SNOOZE2_MIN       = "snooze2_min"
 
     private fun repeatPrefs(context: Context) =
         context.getSharedPreferences("repeat_state", Context.MODE_PRIVATE)
@@ -69,7 +79,7 @@ object NotificationHelper {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    fun scheduleAt(context: Context, eventId: Long, triggerMs: Long, silent: Boolean = false, fullscreen: Boolean = true) {
+    fun scheduleAt(context: Context, eventId: Long, triggerMs: Long, silent: Boolean = false, fullscreen: Boolean = false) {
         val pi = PendingIntent.getBroadcast(
             context, notifId(eventId) + 20,
             Intent(context, SnoozeReceiver::class.java).apply {
@@ -110,7 +120,7 @@ object NotificationHelper {
         event: EventStore.AppEvent,
         ongoing: Boolean = false,
         silent: Boolean = false,
-        fullscreen: Boolean = true,
+        fullscreen: Boolean = false,
         pinned: Boolean = false,
     ) {
         ensureChannel(context)
@@ -118,9 +128,9 @@ object NotificationHelper {
         val nm        = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val nid       = notifId(event.id)
         val channelId = if (silent) CHANNEL_ID_SILENT else CHANNEL_ID
-        val fmt       = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
-        val body      = if (event.rrule != null) "🔁 повторюється · ${fmt.format(Date(event.startMs))}"
-                        else fmt.format(Date(event.startMs))
+        val fmt  = SimpleDateFormat("dd.MM HH:mm", Locale.getDefault())
+        val body = if (event.rrule != null) "🔁 повторюється · ${fmt.format(Date(event.startMs))}"
+                   else fmt.format(Date(event.startMs))
 
         val alertIntent = Intent(context, ReminderAlertActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -133,12 +143,54 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val donePi      = broadcastPi(context, nid,      ACTION_DONE,           event.id)
-        val repeatPi    = broadcastPi(context, nid + 7,  ACTION_REPEAT_TOGGLE,  event.id)
-        val snooze1Pi   = broadcastPi(context, nid + 6,  ACTION_SNOOZE1,        event.id)
-        val snooze5Pi   = broadcastPi(context, nid + 4,  ACTION_SNOOZE5,        event.id)
-        val snooze15Pi  = broadcastPi(context, nid + 5,  ACTION_SNOOZE15,       event.id)
-        val dismissPi   = broadcastPi(context, nid + 1,  ACTION_DISMISSED,      event.id)
+        val snoozePrefs  = context.getSharedPreferences("widget_settings", Context.MODE_PRIVATE)
+        val snooze1Min   = snoozePrefs.getInt(KEY_SNOOZE1_MIN, 1).coerceAtLeast(1)
+        val snooze2Min   = snoozePrefs.getInt(KEY_SNOOZE2_MIN, 30).coerceAtLeast(1)
+        val donePi       = broadcastPi(context, nid,      ACTION_DONE,          event.id)
+        val repeatPi     = broadcastPi(context, nid + 7,  ACTION_REPEAT_TOGGLE, event.id)
+        val pinPi        = broadcastPi(context, nid + 8,  ACTION_PIN,           event.id)
+        val snoozePi1    = snoozeMinPi(context, nid + 4,  event.id, snooze1Min)
+        val snoozePi2    = snoozeMinPi(context, nid + 5,  event.id, snooze2Min)
+        val dismissPi    = broadcastPi(context, nid + 1,  ACTION_DISMISSED,     event.id)
+
+        val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val titleColor = if (isDark) Color.WHITE else Color.BLACK
+        val btnBg = if (isDark) 0x55AAAAAA.toInt() else 0xFF37474F.toInt()
+        val btnText = Color.WHITE
+
+        val repeating = isRepeating(context, event.id)
+        val repeatBg  = if (repeating) 0xFFFF5722.toInt() else btnBg
+
+        fun fmtMin(m: Int) = if (m >= 60) "${m / 60}г${if (m % 60 != 0) "${m % 60}'" else ""}" else "$m'"
+
+        fun makeViews(showBody: Boolean): RemoteViews {
+            val v = RemoteViews(context.packageName, R.layout.notification_alarm)
+            v.setTextViewText(R.id.notif_title, event.title)
+            v.setTextColor(R.id.notif_title, titleColor)
+            v.setTextViewText(R.id.notif_body, body)
+            v.setViewVisibility(R.id.notif_body, if (showBody) View.VISIBLE else View.GONE)
+            v.setOnClickPendingIntent(R.id.btn_done, donePi)
+            v.setOnClickPendingIntent(R.id.btn_repeat, repeatPi)
+            v.setOnClickPendingIntent(R.id.btn_pin, pinPi)
+            listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_done, R.id.btn_pin).forEach { id ->
+                v.setInt(id, "setBackgroundColor", btnBg)
+                v.setTextColor(id, btnText)
+            }
+            v.setInt(R.id.btn_repeat, "setBackgroundColor", repeatBg)
+            v.setTextColor(R.id.btn_repeat, btnText)
+            if (pinned) {
+                listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_repeat, R.id.btn_pin).forEach { id ->
+                    v.setViewVisibility(id, View.GONE)
+                }
+            } else {
+                v.setTextViewText(R.id.btn_snooze_a, fmtMin(snooze1Min))
+                v.setTextViewText(R.id.btn_snooze_b, fmtMin(snooze2Min))
+                v.setOnClickPendingIntent(R.id.btn_snooze_a, snoozePi1)
+                v.setOnClickPendingIntent(R.id.btn_snooze_b, snoozePi2)
+            }
+            return v
+        }
 
         val builder = Notification.Builder(context, channelId)
             .setSmallIcon(Icon.createWithResource(context, R.drawable.ic_launcher_fg))
@@ -146,36 +198,17 @@ object NotificationHelper {
             .setContentText(body)
             .setColor(0xFFFF5722.toInt())
             .setColorized(true)
-            .setStyle(Notification.BigTextStyle().setBigContentTitle(event.title).bigText(body))
+            .setStyle(Notification.DecoratedCustomViewStyle())
+            .setCustomContentView(makeViews(false))
+            .setCustomBigContentView(makeViews(true))
             .setContentIntent(alertPi)
             .setDeleteIntent(dismissPi)
             .setAutoCancel(false)
             .setOngoing(ongoing)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .addAction(Notification.Action.Builder(
-                Icon.createWithResource(context, android.R.drawable.ic_delete),
-                "✅ Виконано", donePi).build())
-            .addAction(Notification.Action.Builder(
-                Icon.createWithResource(context, android.R.drawable.ic_popup_reminder),
-                if (isRepeating(context, event.id)) "✅" else "🔁",
-                repeatPi).build())
-
-        if (!pinned) {
-            builder
-                .addAction(Notification.Action.Builder(
-                    Icon.createWithResource(context, android.R.drawable.ic_popup_reminder),
-                    "⏰ 1 хв", snooze1Pi).build())
-                .addAction(Notification.Action.Builder(
-                    Icon.createWithResource(context, android.R.drawable.ic_popup_reminder),
-                    "⏰ 5 хв", snooze5Pi).build())
-                .addAction(Notification.Action.Builder(
-                    Icon.createWithResource(context, android.R.drawable.ic_popup_reminder),
-                    "⏰ 15 хв", snooze15Pi).build())
-        }
 
         if (!silent) {
             builder.setCategory(Notification.CATEGORY_ALARM)
-            if (fullscreen) builder.setFullScreenIntent(alertPi, true)
         }
 
         nm.notify(nid, builder.build())
@@ -187,6 +220,17 @@ object NotificationHelper {
             context, reqCode,
             Intent(context, SnoozeReceiver::class.java).also {
                 it.action = action; it.putExtra(EXTRA_EVENT_ID, eventId)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+    private fun snoozeMinPi(context: Context, reqCode: Int, eventId: Long, minutes: Int) =
+        PendingIntent.getBroadcast(
+            context, reqCode,
+            Intent(context, SnoozeReceiver::class.java).also {
+                it.action = ACTION_SNOOZE
+                it.putExtra(EXTRA_EVENT_ID, eventId)
+                it.putExtra(EXTRA_SNOOZE_MINUTES, minutes)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

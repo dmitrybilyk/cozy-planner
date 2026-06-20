@@ -170,6 +170,11 @@ id browser_actions_menu_item_icon
 id browser_actions_menu_item_text
 id browser_actions_menu_items
 id browser_actions_menu_view
+id btn_done
+id btn_pin
+id btn_repeat
+id btn_snooze_a
+id btn_snooze_b
 id chronometer
 id dark
 id dialog_button
@@ -191,6 +196,8 @@ id line1
 id line3
 id none
 id normal
+id notif_body
+id notif_title
 id notification_background
 id notification_main_column
 id notification_main_column_container
@@ -233,6 +240,7 @@ layout ime_base_split_test_activity
 layout ime_secondary_split_test_activity
 layout notification_action
 layout notification_action_tombstone
+layout notification_alarm
 layout notification_template_custom_big
 layout notification_template_icon_group
 layout notification_template_part_chronometer

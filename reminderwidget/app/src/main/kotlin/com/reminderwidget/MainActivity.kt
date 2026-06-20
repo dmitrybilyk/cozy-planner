@@ -29,7 +29,6 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.*
-import android.speech.RecognizerIntent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -48,8 +47,9 @@ class MainActivity : Activity() {
         const val KEY_EVENT_COLOR     = "event_color"
         const val KEY_WIDGET_BG       = "widget_bg"
         const val KEY_CALENDAR_EXPORT = "calendar_export"
-        private const val REQ_CAL_PERM   = 102
-        private const val RC_AGENDA_VOICE = 2001
+        const val KEY_SNOOZE1_MIN     = NotificationHelper.KEY_SNOOZE1_MIN
+        const val KEY_SNOOZE2_MIN     = NotificationHelper.KEY_SNOOZE2_MIN
+        private const val REQ_CAL_PERM = 102
 
         val DURATION_OPTIONS = listOf(
             "1 г"   to 60 * 60_000L,
@@ -85,24 +85,15 @@ class MainActivity : Activity() {
 
     private var eventsContainer:    LinearLayout? = null
     private var favoritesContainer: LinearLayout? = null
-    private var agendaContainer:    LinearLayout? = null
-    private var agendaDayLabel:     TextView?     = null
-    private var selectedDay: Calendar = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-    }
     private var soundBtn:           Button?       = null
     private var exportSwitch:       Switch?       = null
     private var pinBtn:             Button?       = null
     private var usageBadge:         TextView?     = null
-    private var calColorLabel:      View?         = null
-    private var calColorRow:        View?         = null
 
     private val listChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, i: Intent?) {
             loadEventsList()
             if (currentTab == 1) loadFavoritesList()
-            if (currentTab == 2) loadAgendaList()
         }
     }
 
@@ -129,35 +120,13 @@ class MainActivity : Activity() {
         try { unregisterReceiver(listChangedReceiver) } catch (_: Exception) {}
     }
 
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == RC_AGENDA_VOICE && resultCode == RESULT_OK) {
-            val text = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()?.trim() ?: return
-            if (text.isBlank()) return
-            val parsed  = NlpParser.parse(text, System.currentTimeMillis())
-            val startMs = if (!parsed.hasTime) {
-                selectedDay.timeInMillis + 23 * 3600_000L + 59 * 60_000L
-            } else parsed.startMs
-            AgendaStore.add(this, AgendaStore.AgendaItem(
-                id = System.currentTimeMillis(),
-                title = parsed.title,
-                startMs = startMs,
-            ))
-            loadAgendaList()
-        }
-    }
-
     private fun refreshDynamicState() {
         loadEventsList()
         if (currentTab == 1) loadFavoritesList()
-        if (currentTab == 2) loadAgendaList()
         updateSoundBtn()
         updateExportSwitch()
         updatePinBtn()
         updateUsageBadge()
-        updateCalColorVisibility()
         refreshMicWidget()
     }
 
@@ -178,9 +147,7 @@ class MainActivity : Activity() {
         tabPages = arrayOf(
             buildEventsPage(),
             buildFavoritesPage(),
-            buildAgendaPage(),
             buildSettingsPage(),
-            buildPremiumPage(),
         )
         tabPages.forEach { frame.addView(it) }
         root.addView(frame)
@@ -212,13 +179,13 @@ class MainActivity : Activity() {
     }
 
     private fun buildBottomNav(): View {
-        val navData = listOf("📋" to "Події", "❤️" to "Обрані", "📅" to "Agenda", "⚙️" to "Налаш.", "⭐" to "Преміум")
+        val navData = listOf("📋" to "Події", "❤️" to "Обрані", "⚙️" to "Налаш.")
         val navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56))
             setBackgroundColor(0xFF111111.toInt())
         }
-        navBtns = Array(5) { i ->
+        navBtns = Array(3) { i ->
             val (icon, label) = navData[i]
             val col = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -251,8 +218,7 @@ class MainActivity : Activity() {
         when (idx) {
             0 -> loadEventsList()
             1 -> loadFavoritesList()
-            2 -> loadAgendaList()
-            3 -> updateSoundBtn()
+            2 -> updateSoundBtn()
         }
     }
 
@@ -313,356 +279,6 @@ class MainActivity : Activity() {
             showDeleteAll = false,
             emptyText = "Натисніть ❤️ на нагадуванні\nщоб додати до обраних"
         )
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // TAB 2 — AGENDA (independent store, separate from app events)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private fun buildAgendaPage(): View {
-        val page = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-        }
-
-        // Day navigation header
-        val navRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(6))
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            setBackgroundColor(0xFF111111.toInt())
-        }
-        navRow.addView(iconBtn("◀", dp(40), 0xFF222222.toInt()) {
-            selectedDay.add(Calendar.DAY_OF_YEAR, -1); updateAgendaDayLabel(); loadAgendaList()
-        })
-        agendaDayLabel = TextView(this).apply {
-            textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-        }
-        navRow.addView(agendaDayLabel!!)
-        navRow.addView(iconBtn("▶", dp(40), 0xFF222222.toInt()) {
-            selectedDay.add(Calendar.DAY_OF_YEAR, 1); updateAgendaDayLabel(); loadAgendaList()
-        })
-        updateAgendaDayLabel()
-        page.addView(navRow)
-
-        // Scrollable content
-        val scroll = ScrollView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
-        }
-        val inner = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(12))
-        }
-
-        // Mic quick-add
-        inner.addView(Button(this).apply {
-            text = "🎙  Додати голосом"; textSize = 14f; setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(24).toFloat(); setColor(0xFFFF5722.toInt())
-            }
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(50))
-                .also { it.bottomMargin = dp(14) }
-            setOnClickListener {
-                @Suppress("DEPRECATION")
-                startActivityForResult(
-                    Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
-                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Що додати до агенди?")
-                        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-                    },
-                    RC_AGENDA_VOICE
-                )
-            }
-        })
-
-        agendaContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        inner.addView(agendaContainer!!)
-        scroll.addView(inner)
-        page.addView(scroll)
-
-        // Bottom action bar
-        val actionBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            setBackgroundColor(0xFF111111.toInt())
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-        }
-        fun agendaBtn(label: String, bg: Int, onClick: () -> Unit) = Button(this).apply {
-            text = label; textSize = 11f; setTextColor(Color.WHITE)
-            background = roundedBg(bg, 8f)
-            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).also { it.marginEnd = dp(5) }
-            setOnClickListener { onClick() }
-        }
-        actionBar.addView(agendaBtn("📸 Картинка", 0xFF2A1A00.toInt()) {
-            if (!VoiceActivity.isUnlocked(this)) {
-                Toast.makeText(this, "Потрібен Преміум", Toast.LENGTH_SHORT).show()
-            } else shareAgendaAsPicture()
-        })
-        actionBar.addView(agendaBtn("📅 Calendar", 0xFF0D2A0D.toInt()) {
-            if (!VoiceActivity.isUnlocked(this)) {
-                Toast.makeText(this, "Потрібен Преміум", Toast.LENGTH_SHORT).show()
-            } else exportAgendaToCalendar()
-        })
-        actionBar.addView(agendaBtn("📝 Keep", 0xFF1A1A2A.toInt()) {
-            if (!VoiceActivity.isUnlocked(this)) {
-                Toast.makeText(this, "Потрібен Преміум", Toast.LENGTH_SHORT).show()
-            } else exportAgendaToKeep()
-        })
-        page.addView(actionBar)
-        return page
-    }
-
-    private fun updateAgendaDayLabel() {
-        val fmt   = SimpleDateFormat("EEEE, dd.MM.yyyy", Locale("uk"))
-        val today = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }
-        agendaDayLabel?.text = when {
-            selectedDay.get(Calendar.YEAR)        == today.get(Calendar.YEAR) &&
-            selectedDay.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> "Сьогодні"
-            else -> fmt.format(selectedDay.time).replaceFirstChar { it.uppercase() }
-        }
-    }
-
-    private fun loadAgendaList() {
-        val c = agendaContainer ?: return
-        c.removeAllViews()
-        val items = agendaItemsForDay()
-
-        if (items.isEmpty()) {
-            c.addView(buildEmptyState("Натисніть 🎙 щоб додати пункти агенди.\nПункти зберігаються окремо від нагадувань."))
-            return
-        }
-        val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-        items.forEach { item ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(10).toFloat()
-                    setColor(if (item.completed) 0xFF161616.toInt() else 0xFF1C1C1E.toInt())
-                }
-                setPadding(dp(12), dp(10), dp(6), dp(10))
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-                    .also { it.bottomMargin = dp(6) }
-                if (!item.completed) setOnClickListener { showEditAgendaItemDialog(item) }
-            }
-            row.addView(TextView(this).apply {
-                text = timeFmt.format(Date(item.startMs))
-                textSize = 12f
-                setTextColor(if (item.completed) 0xFF555555.toInt() else 0xFFFF5722.toInt())
-                setTypeface(typeface, Typeface.BOLD)
-                layoutParams = LinearLayout.LayoutParams(dp(52), WRAP_CONTENT)
-            })
-            row.addView(View(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(1), dp(22)).also {
-                    it.marginStart = dp(8); it.marginEnd = dp(10)
-                }
-                setBackgroundColor(0xFF333333.toInt())
-            })
-            row.addView(TextView(this).apply {
-                text = item.title; textSize = 13f
-                if (item.completed) {
-                    setTextColor(0xFF555555.toInt())
-                    paintFlags = paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
-                } else {
-                    setTextColor(Color.WHITE)
-                }
-                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-            })
-            // Done / undo
-            row.addView(iconBtn(if (item.completed) "↩" else "✅", dp(34), 0xFF1C1C1E.toInt()) {
-                if (item.completed) {
-                    AgendaStore.update(this, item.copy(completed = false))
-                } else {
-                    AgendaStore.markCompleted(this, item.id)
-                }
-                loadAgendaList()
-            })
-            // Delete
-            row.addView(iconBtn("🗑", dp(34), 0xFF1C1C1E.toInt()) {
-                AgendaStore.remove(this, item.id); loadAgendaList()
-            })
-            c.addView(row)
-        }
-    }
-
-    private fun agendaItemsForDay(): List<AgendaStore.AgendaItem> {
-        val dayStart = selectedDay.timeInMillis
-        val dayEnd   = dayStart + 24 * 60 * 60_000L
-        return AgendaStore.load(this)
-            .filter { it.startMs >= dayStart && it.startMs < dayEnd }
-            .sortedWith(compareBy({ it.completed }, { it.startMs }))
-    }
-
-    private fun showEditAgendaItemDialog(item: AgendaStore.AgendaItem) {
-        var pickedMs = item.startMs
-        val dateFmt  = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-        val timeFmt  = SimpleDateFormat("HH:mm",      Locale.getDefault())
-
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(16), dp(20), dp(8))
-        }
-        val titleEdit = EditText(this).apply {
-            setText(item.title); textSize = 15f; setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt())
-                setStroke(dp(1), 0xFF333333.toInt())
-            }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-                .also { it.bottomMargin = dp(12) }
-        }
-        layout.addView(titleEdit)
-
-        val dateLabel = TextView(this).apply {
-            text = "📅  ${dateFmt.format(Date(pickedMs))}"
-            textSize = 13f; setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt())
-                setStroke(dp(1), 0xFF333333.toInt())
-            }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-                .also { it.bottomMargin = dp(8) }
-        }
-        val timeLabel = TextView(this).apply {
-            text = "🕐  ${timeFmt.format(Date(pickedMs))}"
-            textSize = 13f; setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt())
-                setStroke(dp(1), 0xFF333333.toInt())
-            }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-                .also { it.bottomMargin = dp(16) }
-        }
-        dateLabel.setOnClickListener {
-            val c = Calendar.getInstance().apply { timeInMillis = pickedMs }
-            DatePickerDialog(this, { _, y, m, d ->
-                val nc = Calendar.getInstance().apply { timeInMillis = pickedMs }
-                nc.set(y, m, d); pickedMs = nc.timeInMillis
-                dateLabel.text = "📅  ${dateFmt.format(Date(pickedMs))}"
-            }, c.get(Calendar.YEAR), c.get(Calendar.MONTH), c.get(Calendar.DAY_OF_MONTH)).show()
-        }
-        timeLabel.setOnClickListener {
-            val c = Calendar.getInstance().apply { timeInMillis = pickedMs }
-            TimePickerDialog(this, { _, h, min ->
-                val nc = Calendar.getInstance().apply { timeInMillis = pickedMs }
-                nc.set(Calendar.HOUR_OF_DAY, h); nc.set(Calendar.MINUTE, min); nc.set(Calendar.SECOND, 0)
-                pickedMs = nc.timeInMillis
-                timeLabel.text = "🕐  ${timeFmt.format(Date(pickedMs))}"
-            }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
-        }
-        layout.addView(dateLabel); layout.addView(timeLabel)
-
-        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
-            .setTitle("Редагувати пункт")
-            .setView(layout)
-            .setPositiveButton("Зберегти") { _, _ ->
-                val newTitle = titleEdit.text.toString().trim().takeIf { it.isNotEmpty() } ?: item.title
-                AgendaStore.update(this, item.copy(title = newTitle, startMs = pickedMs))
-                loadAgendaList()
-            }
-            .setNegativeButton("Скасувати", null)
-            .show()
-    }
-
-    private fun shareAgendaAsPicture() {
-        val items   = agendaItemsForDay().filter { !it.completed }
-        val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val dateFmt = SimpleDateFormat("EEEE, dd.MM.yyyy", Locale("uk"))
-        val dateStr = dateFmt.format(selectedDay.time).replaceFirstChar { it.uppercase() }
-
-        val W = 1080; val pad = 60; val rowH = 96; val headerH = 220; val footerH = 80
-        val H = headerH + rowH * items.size.coerceAtLeast(1) + pad + footerH
-        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
-        val cv  = Canvas(bmp)
-        cv.drawColor(Color.parseColor("#1C1C2E"))
-        cv.drawRect(0f, 0f, W.toFloat(), 10f, Paint().apply { color = Color.parseColor("#FF5722") })
-        cv.drawText("Нагадування", pad.toFloat(), (pad + 46).toFloat(),
-            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF5722"); textSize = 34f; typeface = Typeface.DEFAULT_BOLD })
-        cv.drawText(dateStr, pad.toFloat(), (pad + 116).toFloat(),
-            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 52f; typeface = Typeface.DEFAULT_BOLD })
-        cv.drawRect(pad.toFloat(), (pad + 134).toFloat(), (W - pad).toFloat(), (pad + 136).toFloat(),
-            Paint().apply { color = Color.parseColor("#333344") })
-
-        val timePaint  = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#FF5722"); textSize = 38f; typeface = Typeface.DEFAULT_BOLD }
-        val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 40f }
-        val rowBg      = Paint().apply { color = Color.parseColor("#25253A") }
-        var y = headerH
-        if (items.isEmpty()) {
-            cv.drawText("Немає пунктів агенди", pad.toFloat(), (y + 52).toFloat(),
-                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#555566"); textSize = 36f })
-        } else {
-            items.forEach { item ->
-                cv.drawRoundRect(pad.toFloat(), y.toFloat(), (W - pad).toFloat(), (y + rowH - 8).toFloat(), 18f, 18f, rowBg)
-                cv.drawText(timeFmt.format(Date(item.startMs)), (pad + 18).toFloat(), (y + 58).toFloat(), timePaint)
-                cv.drawText(item.title, (pad + 150).toFloat(), (y + 58).toFloat(), titlePaint)
-                y += rowH
-            }
-        }
-        cv.drawText("Нагадування · нагадай собі важливе", pad.toFloat(), (H - 24).toFloat(),
-            Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#444455"); textSize = 28f })
-
-        try {
-            val dir  = File(cacheDir, "images").also { it.mkdirs() }
-            val file = File(dir, "agenda_${selectedDay.timeInMillis}.png")
-            FileOutputStream(file).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            val uri = FileProvider.getUriForFile(this, "${packageName}.provider", file)
-            startActivity(Intent.createChooser(
-                Intent(Intent.ACTION_SEND).apply {
-                    type = "image/png"; putExtra(Intent.EXTRA_STREAM, uri)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }, "Поділитись агендою"
-            ))
-        } catch (e: Exception) {
-            Toast.makeText(this, "Помилка: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun exportAgendaToCalendar() {
-        if (!hasCalendarPerms()) { ensureCalendarPerms(); return }
-        val items = agendaItemsForDay().filter { !it.completed }
-        if (items.isEmpty()) {
-            Toast.makeText(this, "Немає пунктів для експорту", Toast.LENGTH_SHORT).show(); return
-        }
-        var count = 0
-        items.forEach { item ->
-            val calId = CalendarHelper.createReminder(
-                this, item.title, item.startMs, 3_600_000L,
-                prefs.getInt(KEY_EVENT_COLOR, 0), null
-            )
-            if (calId != -1L) count++
-        }
-        Toast.makeText(this, "Додано $count подій до Google Календаря", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun exportAgendaToKeep() {
-        val items   = agendaItemsForDay()
-        val dateFmt = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
-        val timeFmt = SimpleDateFormat("HH:mm",      Locale.getDefault())
-        val text = buildString {
-            appendLine("Agenda — ${dateFmt.format(selectedDay.time)}")
-            appendLine()
-            if (items.isEmpty()) appendLine("Немає пунктів")
-            else items.forEach {
-                val check = if (it.completed) "☑" else "☐"
-                appendLine("$check  ${timeFmt.format(Date(it.startMs))}  ${it.title}")
-            }
-        }
-        val keepIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text)
-            `package` = "com.google.android.keep"
-        }
-        try { startActivity(keepIntent) } catch (_: Exception) {
-            startActivity(Intent.createChooser(
-                Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) },
-                "Поділитись агендою"
-            ))
-        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -841,10 +457,11 @@ class MainActivity : Activity() {
 
         val btnSz = dp(38)
 
-        // 🔔/📌 bell — premium only
+        // Pin to status bar button
         if (premium) {
-            row.addView(iconBtn(if (isOngoing) "📌" else "🔔", btnSz,
-                if (isOngoing) 0xFF2A1500.toInt() else 0xFF242424.toInt()) {
+            row.addView(iconBtn("📌", btnSz,
+                if (isOngoing) 0xFF2A1500.toInt() else 0xFF242424.toInt(),
+                tint = if (isOngoing) 0xFFFF5722.toInt() else 0xFF555555.toInt()) {
                 if (isActive || isOngoing) {
                     (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
                         .cancel(NotificationHelper.notifId(event.id))
@@ -1065,6 +682,9 @@ class MainActivity : Activity() {
         page.addView(soundBtn!!)
         page.addView(small("Відкриває системні налаштування каналу", btm = 16))
 
+        page.addView(section("Кнопки «Відкласти»"))
+        page.addView(snoozeInputRow())
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             page.addView(Button(this).apply {
                 text = "⏰  Дозволити точні будильники"; textSize = 12f; setTextColor(Color.WHITE)
@@ -1079,11 +699,27 @@ class MainActivity : Activity() {
             refreshMicWidget(); EventsWidget.update(this)
         })
 
-        // Calendar event color — only shown for premium users
-        calColorLabel = section("Колір події в Календарі")
-        page.addView(calColorLabel!!)
-        calColorRow = colorRow(EVENT_COLORS, KEY_EVENT_COLOR, 0)
-        page.addView(calColorRow!!)
+        page.addView(section("Колір події в Календарі"))
+        page.addView(colorRow(EVENT_COLORS, KEY_EVENT_COLOR, 0))
+
+        page.addView(section("Google Календар"))
+        val exportRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 4); gravity = Gravity.CENTER_VERTICAL
+        }
+        exportRow.addView(TextView(this).apply {
+            text = "Авто-додавати при створенні"; textSize = 13f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        })
+        exportSwitch = Switch(this).apply {
+            isChecked = prefs.getBoolean(KEY_CALENDAR_EXPORT, false)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(KEY_CALENDAR_EXPORT, checked).apply()
+                if (checked) ensureCalendarPerms()
+            }
+        }
+        exportRow.addView(exportSwitch!!)
+        page.addView(exportRow)
+        page.addView(small("Кнопка 📅 в списку — ручний експорт", btm = 20))
 
         page.addView(section("Приклади голосових команд"))
         page.addView(exampleBox(
@@ -1107,102 +743,6 @@ class MainActivity : Activity() {
 
     private fun updateSoundBtn() {
         soundBtn?.text = "🔔  Звук: ${NotificationHelper.getChannelSoundName(this)}"
-    }
-
-    private fun updateCalColorVisibility() {
-        val v = if (VoiceActivity.isUnlocked(this)) View.VISIBLE else View.GONE
-        calColorLabel?.visibility = v
-        calColorRow?.visibility   = v
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // TAB 3 — PREMIUM
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private fun buildPremiumPage(): View {
-        val scroll = ScrollView(this).apply {
-            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-        }
-        val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-
-        val hero = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(40), dp(24), dp(32))
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF1C0E04.toInt(), 0xFF0D0D0D.toInt())
-            )
-        }
-        hero.addView(TextView(this).apply {
-            text = "⭐"; textSize = 52f; gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(10) }
-        })
-        hero.addView(TextView(this).apply {
-            text = "ПРЕМІУМ"; textSize = 22f; setTextColor(0xFFFF5722.toInt())
-            setTypeface(typeface, Typeface.BOLD); gravity = Gravity.CENTER; letterSpacing = 0.12f
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(20) }
-        })
-        listOf(
-            "♾️  Необмежені нагадування (безкоштовно: 3/день)",
-            "📅  Ручний та авто-експорт до Google Календаря",
-            "📌  Постійні закріплені сповіщення в статус-барі",
-            "🔄  Авто-синхронізація між пристроями",
-        ).forEach { f ->
-            hero.addView(TextView(this).apply {
-                text = f; textSize = 13f; setTextColor(0xFFCCCCCC.toInt())
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(7) }
-            })
-        }
-        page.addView(hero)
-
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(20), dp(16), dp(32))
-        }
-
-        val unlockBtn = Button(this).apply { layoutParams = lp(h = 52, btm = 8) }
-        fun applyUnlock() {
-            val on = VoiceActivity.isUnlocked(this)
-            unlockBtn.text = if (on) "✅ Преміум активовано — вимкнути" else "🔓 Активувати безкоштовно"
-            unlockBtn.textSize = 14f
-            unlockBtn.setTextColor(if (on) 0xFFAAAAAA.toInt() else Color.WHITE)
-            unlockBtn.background = roundedBg(if (on) 0xFF1A2A1A.toInt() else 0xFFFF5722.toInt(), 12f)
-        }
-        applyUnlock()
-        unlockBtn.setOnClickListener {
-            prefs.edit().putBoolean("premium_unlocked", !VoiceActivity.isUnlocked(this)).apply()
-            applyUnlock(); updateUsageBadge(); updateExportSwitch()
-            updateCalColorVisibility(); loadEventsList()
-            if (currentTab == 1) loadFavoritesList()
-        }
-        content.addView(unlockBtn)
-        content.addView(small("Без оплати — можна вимкнути в будь-який момент", btm = 28))
-
-        content.addView(section("Автоекспорт до Google Календаря"))
-        val exportRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 4); gravity = Gravity.CENTER_VERTICAL
-        }
-        exportRow.addView(TextView(this).apply {
-            text = "Авто-додавати при створенні"; textSize = 13f; setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-        })
-        exportSwitch = Switch(this).apply {
-            isChecked = prefs.getBoolean(KEY_CALENDAR_EXPORT, false)
-            isEnabled = VoiceActivity.isUnlocked(this@MainActivity)
-            setOnCheckedChangeListener { _, checked ->
-                if (!VoiceActivity.isUnlocked(this@MainActivity)) {
-                    isChecked = false
-                    Toast.makeText(this@MainActivity, "Потрібен Преміум", Toast.LENGTH_SHORT).show()
-                    return@setOnCheckedChangeListener
-                }
-                prefs.edit().putBoolean(KEY_CALENDAR_EXPORT, checked).apply()
-                if (checked) ensureCalendarPerms()
-            }
-        }
-        exportRow.addView(exportSwitch!!); content.addView(exportRow)
-        content.addView(small("Кнопка 📅 в списку — ручний експорт (лише Преміум)", btm = 0))
-        page.addView(content)
-        scroll.addView(page)
-        return scroll
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1230,9 +770,7 @@ class MainActivity : Activity() {
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun updateUsageBadge() {
-        val unlocked = VoiceActivity.isUnlocked(this)
-        val count    = VoiceActivity.todayCount(this)
-        usageBadge?.text = if (unlocked) "★ Преміум" else "$count / ${VoiceActivity.FREE_LIMIT}"
+        usageBadge?.visibility = View.GONE
     }
 
     private fun updatePinBtn() {
@@ -1260,6 +798,49 @@ class MainActivity : Activity() {
         val mgr = AppWidgetManager.getInstance(this)
         mgr.getAppWidgetIds(ComponentName(this, ReminderWidget::class.java))
             .forEach { ReminderWidget.updateWidget(this, mgr, it) }
+    }
+
+    private fun snoozeInputRow(): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = lp(btm = 20)
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        fun labeledInput(key: String, default: Int): android.widget.EditText {
+            val et = android.widget.EditText(this).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                setText(prefs.getInt(key, default).toString())
+                textSize = 14f; setTextColor(Color.WHITE)
+                background = roundedBg(0xFF1E2A30.toInt(), 6f)
+                setPadding(dp(10), dp(6), dp(10), dp(6))
+                layoutParams = LinearLayout.LayoutParams(dp(56), WRAP_CONTENT)
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+                    override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+                    override fun afterTextChanged(s: android.text.Editable?) {
+                        val v = s?.toString()?.toIntOrNull() ?: return
+                        if (v >= 1) prefs.edit().putInt(key, v).apply()
+                    }
+                })
+            }
+            return et
+        }
+        fun minLabel(text: String) = TextView(this).apply {
+            this.text = text; textSize = 13f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).also { it.marginEnd = dp(12) }
+        }
+        row.addView(minLabel("Кнопка 1:"))
+        row.addView(labeledInput(KEY_SNOOZE1_MIN, 1))
+        row.addView(TextView(this).apply {
+            text = " хв"; textSize = 13f; setTextColor(0xFF888888.toInt())
+            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).also { it.marginEnd = dp(24) }
+        })
+        row.addView(minLabel("Кнопка 2:"))
+        row.addView(labeledInput(KEY_SNOOZE2_MIN, 30))
+        row.addView(TextView(this).apply {
+            text = " хв"; textSize = 13f; setTextColor(0xFF888888.toInt())
+        })
+        return row
     }
 
     // ─────────────────────────────────────────────────────────────────────────
