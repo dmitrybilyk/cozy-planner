@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="add_events_widget"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_events_widget_short"
+        android:shortcutLongLabel="@string/shortcut_events_widget_long">
+        <intent
+            android:action="android.intent.action.MAIN"
+            android:targetPackage="com.reminderwidget"
+            android:targetClass="com.reminderwidget.MainActivity" />
+    </shortcut>
+</shortcuts>

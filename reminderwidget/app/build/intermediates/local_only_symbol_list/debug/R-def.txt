@@ -1,0 +1,31 @@
+R_DEF: Internal format may change without notice
+local
+drawable dot_active
+drawable dot_inactive
+drawable ic_launcher_fg
+drawable ic_widget
+id bell_btn
+id empty_text
+id event_dot
+id event_title
+id events_list
+id widget_events_header
+id widget_events_root
+id widget_root
+layout widget_event_row
+layout widget_events
+layout widget_reminder
+mipmap ic_launcher
+string app_name
+string gcm_defaultSenderId
+string google_api_key
+string google_app_id
+string google_crash_reporting_api_key
+string google_storage_bucket
+string project_id
+string shortcut_events_widget_long
+string shortcut_events_widget_short
+xml events_widget_info
+xml file_paths
+xml reminder_widget_info
+xml shortcuts
