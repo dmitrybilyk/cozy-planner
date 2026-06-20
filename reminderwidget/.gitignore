@@ -1,0 +1,11 @@
+# Build output
+build/
+.gradle/
+
+# Local secrets — never commit these
+app/google-services.json
+local.properties
+
+# IDE
+.idea/
+*.iml
