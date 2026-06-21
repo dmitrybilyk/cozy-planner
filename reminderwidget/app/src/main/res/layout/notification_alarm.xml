@@ -29,6 +29,7 @@
         android:visibility="gone" />
 
     <LinearLayout
+        android:id="@+id/row_buttons"
         android:layout_width="match_parent"
         android:layout_height="38dp"
         android:orientation="horizontal">
@@ -88,5 +89,24 @@
             android:padding="2dp" />
 
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btn_done_pinned"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginStart="6dp"
+        android:layout_marginEnd="6dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:text="Зроблено"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        android:letterSpacing="0.04"
+        android:textAllCaps="false"
+        android:background="@drawable/btn_done_pinned_bg"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:visibility="gone" />
 
 </LinearLayout>

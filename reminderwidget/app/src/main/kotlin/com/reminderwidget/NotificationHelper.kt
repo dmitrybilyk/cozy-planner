@@ -170,20 +170,24 @@ object NotificationHelper {
             v.setTextColor(R.id.notif_title, titleColor)
             v.setTextViewText(R.id.notif_body, body)
             v.setViewVisibility(R.id.notif_body, if (showBody) View.VISIBLE else View.GONE)
-            v.setOnClickPendingIntent(R.id.btn_done, donePi)
-            v.setOnClickPendingIntent(R.id.btn_repeat, repeatPi)
-            v.setOnClickPendingIntent(R.id.btn_pin, pinPi)
-            listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_done, R.id.btn_pin).forEach { id ->
-                v.setInt(id, "setBackgroundColor", btnBg)
-                v.setTextColor(id, btnText)
-            }
-            v.setInt(R.id.btn_repeat, "setBackgroundColor", repeatBg)
-            v.setTextColor(R.id.btn_repeat, btnText)
             if (pinned) {
-                listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_repeat, R.id.btn_pin).forEach { id ->
-                    v.setViewVisibility(id, View.GONE)
-                }
+                v.setViewVisibility(R.id.row_buttons, View.GONE)
+                v.setViewVisibility(R.id.btn_done_pinned, View.VISIBLE)
+                v.setInt(R.id.btn_done_pinned, "setBackgroundResource", R.drawable.btn_done_pinned_bg)
+                v.setTextColor(R.id.btn_done_pinned, Color.WHITE)
+                v.setOnClickPendingIntent(R.id.btn_done_pinned, donePi)
             } else {
+                v.setViewVisibility(R.id.row_buttons, View.VISIBLE)
+                v.setViewVisibility(R.id.btn_done_pinned, View.GONE)
+                v.setOnClickPendingIntent(R.id.btn_done, donePi)
+                v.setOnClickPendingIntent(R.id.btn_repeat, repeatPi)
+                v.setOnClickPendingIntent(R.id.btn_pin, pinPi)
+                listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_done, R.id.btn_pin).forEach { id ->
+                    v.setInt(id, "setBackgroundColor", btnBg)
+                    v.setTextColor(id, btnText)
+                }
+                v.setInt(R.id.btn_repeat, "setBackgroundColor", repeatBg)
+                v.setTextColor(R.id.btn_repeat, btnText)
                 v.setTextViewText(R.id.btn_snooze_a, fmtMin(snooze1Min))
                 v.setTextViewText(R.id.btn_snooze_b, fmtMin(snooze2Min))
                 v.setOnClickPendingIntent(R.id.btn_snooze_a, snoozePi1)
@@ -193,7 +197,7 @@ object NotificationHelper {
         }
 
         val builder = Notification.Builder(context, channelId)
-            .setSmallIcon(Icon.createWithResource(context, R.drawable.ic_launcher_fg))
+            .setSmallIcon(Icon.createWithResource(context, R.drawable.ic_notification))
             .setContentTitle(event.title)
             .setContentText(body)
             .setColor(0xFFFF5722.toInt())

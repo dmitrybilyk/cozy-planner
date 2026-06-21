@@ -93,18 +93,55 @@ class VoiceActivity : Activity() {
     }
 
     private fun createEventAsync(text: String, exportToCalendar: Boolean) {
-        val nowMs  = System.currentTimeMillis()
-        val parsed = NlpParser.parse(text, nowMs)
-        applyResult(text, parsed, exportToCalendar)
+        val nowMs = System.currentTimeMillis()
+        val p     = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+        val tp    = NlpParser.TimePrefs(
+            morningHour  = p.getInt(MainActivity.KEY_MORNING_HOUR, 8),
+            morningMin   = p.getInt(MainActivity.KEY_MORNING_MIN,  0),
+            dayHour      = p.getInt(MainActivity.KEY_DAY_HOUR,    13),
+            dayMin       = p.getInt(MainActivity.KEY_DAY_MIN,      0),
+            eveningHour  = p.getInt(MainActivity.KEY_EVENING_HOUR, 19),
+            eveningMin   = p.getInt(MainActivity.KEY_EVENING_MIN,  0),
+        )
+        val multiResults = tryMultiDate(text, nowMs, tp)
+        if (multiResults != null) {
+            multiResults.forEachIndexed { i, parsed -> applyResult(text, parsed, exportToCalendar, idOffset = i.toLong()) }
+        } else {
+            val parsed = NlpParser.parse(text, nowMs, tp)
+            if (parsed.count > 1 && parsed.intervalMs != null) {
+                for (i in 0 until parsed.count) {
+                    val shifted = parsed.copy(startMs = parsed.startMs + i * parsed.intervalMs, count = 1, intervalMs = null)
+                    applyResult(text, shifted, exportToCalendar, idOffset = i.toLong())
+                }
+            } else {
+                applyResult(text, parsed, exportToCalendar)
+            }
+        }
         finish()
     }
 
-    private fun applyResult(originalText: String, parsed: NlpParser.Result, exportToCalendar: Boolean) {
+    /** Returns multiple parsed results if the phrase contains distinct date anchors separated by і/та/and, else null. */
+    private fun tryMultiDate(text: String, nowMs: Long, tp: NlpParser.TimePrefs): List<NlpParser.Result>? {
+        val sepRx = Regex("""\s+(?:і|та|and|або)\s+""", RegexOption.IGNORE_CASE)
+        val parts = text.split(sepRx).map { it.trim() }.filter { it.isNotBlank() }
+        if (parts.size < 2) return null
+        val results = parts.map { NlpParser.parse(it, nowMs, tp) }
+        val distinctStarts = results.map { it.startMs }.distinct()
+        if (distinctStarts.size < 2) return null
+        // all distinct times must differ by at least 6 hours (filter out same-day clock noise)
+        val sorted = distinctStarts.sorted()
+        if (sorted.zipWithNext().any { (a, b) -> b - a < 6 * 3_600_000L }) return null
+        // pick the longest title as the common title for all events
+        val bestTitle = results.maxByOrNull { it.title.split(Regex("\\s+")).size }?.title ?: return null
+        return results.map { it.copy(title = bestTitle) }
+    }
+
+    private fun applyResult(originalText: String, parsed: NlpParser.Result, exportToCalendar: Boolean, idOffset: Long = 0L) {
         val prefs         = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
         val durationMs    = prefs.getLong(MainActivity.KEY_DURATION_MS, 7 * 24 * 60 * 60_000L)
         val color         = prefs.getInt(MainActivity.KEY_EVENT_COLOR, 0)
         val effectiveDur  = parsed.durationOverrideMs ?: durationMs
-        val localId       = System.currentTimeMillis()
+        val localId       = System.currentTimeMillis() + idOffset
 
         val event = EventStore.AppEvent(
             id         = localId,
@@ -116,8 +153,11 @@ class VoiceActivity : Activity() {
         EventStore.add(this, event)
         incrementCount(this)
 
+        val notificationsEnabled = prefs.getBoolean(MainActivity.KEY_NOTIFICATIONS_ENABLED, true)
+
         if (!parsed.hasTime) {
-            NotificationHelper.post(this, event, ongoing = true, silent = true, fullscreen = false, pinned = true)
+            if (notificationsEnabled)
+                NotificationHelper.post(this, event, ongoing = true, silent = true, fullscreen = false, pinned = true)
             if (exportToCalendar) {
                 val calId = CalendarHelper.createReminder(this, parsed.title, parsed.startMs, effectiveDur, color, parsed.rrule)
                 if (calId != -1L) EventStore.updateCalendarId(this, localId, calId)
@@ -129,8 +169,10 @@ class VoiceActivity : Activity() {
 
         val now       = System.currentTimeMillis()
         val immediate = event.startMs <= now + 5_000L
-        if (immediate) NotificationHelper.post(this, event)
-        else           NotificationHelper.scheduleAt(this, event.id, event.startMs)
+        if (notificationsEnabled) {
+            if (immediate) NotificationHelper.post(this, event)
+            else           NotificationHelper.scheduleAt(this, event.id, event.startMs)
+        }
 
         if (exportToCalendar) {
             val calId = CalendarHelper.createReminder(this, parsed.title, parsed.startMs, effectiveDur, color, parsed.rrule)

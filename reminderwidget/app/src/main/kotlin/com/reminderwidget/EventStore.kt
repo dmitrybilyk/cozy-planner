@@ -24,15 +24,38 @@ object EventStore {
         list.removeAll { it.id == event.id }
         list.add(0, event)
         persist(context, list.take(50))
+        FirebaseSync.pushEvent(context, event)
     }
 
     fun remove(context: Context, localId: Long) {
         val list = load(context).toMutableList()
         list.removeAll { it.id == localId }
         persist(context, list)
+        FirebaseSync.deleteEvent(context, localId)
     }
 
-    fun clear(context: Context) = persist(context, emptyList())
+    fun clear(context: Context) {
+        load(context).forEach { FirebaseSync.deleteEvent(context, it.id) }
+        persist(context, emptyList())
+    }
+
+    fun deleteNonFavorites(context: Context) {
+        load(context).filter { !it.favorite }.forEach { FirebaseSync.deleteEvent(context, it.id) }
+        persist(context, load(context).filter { it.favorite })
+    }
+
+    fun addSilent(context: Context, event: AppEvent) {
+        val list = load(context).toMutableList()
+        list.removeAll { it.id == event.id }
+        list.add(0, event)
+        persist(context, list.take(50))
+    }
+
+    fun removeSilent(context: Context, localId: Long) {
+        val list = load(context).toMutableList()
+        list.removeAll { it.id == localId }
+        persist(context, list)
+    }
 
     fun updateCalendarId(context: Context, localId: Long, calendarEventId: Long) {
         patch(context, localId) { copy(calendarEventId = calendarEventId) }
@@ -57,7 +80,11 @@ object EventStore {
     private fun patch(context: Context, localId: Long, transform: AppEvent.() -> AppEvent) {
         val list = load(context).toMutableList()
         val idx = list.indexOfFirst { it.id == localId }
-        if (idx >= 0) { list[idx] = list[idx].transform(); persist(context, list) }
+        if (idx >= 0) {
+            list[idx] = list[idx].transform()
+            persist(context, list)
+            FirebaseSync.pushEvent(context, list[idx])
+        }
     }
 
     fun load(context: Context): List<AppEvent> {

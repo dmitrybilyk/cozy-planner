@@ -1,11 +1,15 @@
 R_DEF: Internal format may change without notice
 local
+drawable btn_done_pinned_bg
 drawable dot_active
 drawable dot_inactive
+drawable ic_launcher_bg
 drawable ic_launcher_fg
+drawable ic_notification
 drawable ic_widget
 id bell_btn
 id btn_done
+id btn_done_pinned
 id btn_pin
 id btn_repeat
 id btn_snooze_a
@@ -16,6 +20,7 @@ id event_title
 id events_list
 id notif_body
 id notif_title
+id row_buttons
 id widget_events_header
 id widget_events_root
 id widget_root

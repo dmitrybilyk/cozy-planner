@@ -49,7 +49,15 @@ class MainActivity : Activity() {
         const val KEY_CALENDAR_EXPORT = "calendar_export"
         const val KEY_SNOOZE1_MIN     = NotificationHelper.KEY_SNOOZE1_MIN
         const val KEY_SNOOZE2_MIN     = NotificationHelper.KEY_SNOOZE2_MIN
-        private const val REQ_CAL_PERM = 102
+        const val KEY_NOTIFICATIONS_ENABLED = "notifications_enabled"
+        const val KEY_MORNING_HOUR    = "morning_hour"
+        const val KEY_MORNING_MIN     = "morning_min"
+        const val KEY_DAY_HOUR        = "day_hour"
+        const val KEY_DAY_MIN         = "day_min"
+        const val KEY_EVENING_HOUR    = "evening_hour"
+        const val KEY_EVENING_MIN     = "evening_min"
+        private const val REQ_CAL_PERM    = 102
+        private const val REQ_ACCOUNTS    = 103
 
         val DURATION_OPTIONS = listOf(
             "1 г"   to 60 * 60_000L,
@@ -90,6 +98,13 @@ class MainActivity : Activity() {
     private var pinBtn:             Button?       = null
     private var usageBadge:         TextView?     = null
 
+    // ── ToDo tab state ────────────────────────────────────────────────────────
+    private var todoContainer:   LinearLayout? = null
+    private var todoTitleView:   TextView?     = null
+    private val RC_TODO_VOICE = 2001
+    private var todoListener:    com.google.firebase.firestore.ListenerRegistration? = null
+    private var eventsListener:  com.google.firebase.firestore.ListenerRegistration? = null
+
     private val listChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, i: Intent?) {
             loadEventsList()
@@ -113,16 +128,69 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 300)
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.GET_ACCOUNTS) == PackageManager.PERMISSION_GRANTED) {
+            startFirebaseSync()
+        } else {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.GET_ACCOUNTS), REQ_ACCOUNTS)
+        }
     }
 
     override fun onPause() {
         super.onPause()
         try { unregisterReceiver(listChangedReceiver) } catch (_: Exception) {}
+        todoListener?.remove();   todoListener   = null
+        eventsListener?.remove(); eventsListener = null
+    }
+
+    private fun startFirebaseSync() {
+        FirebaseSync.init(this)
+        if (!FirebaseSync.isReady()) return
+        todoListener?.remove()
+        todoListener = FirebaseSync.listenTodo(this) { title, items ->
+            TodoStore.mergeFromRemote(this, title, items)
+            todoTitleView?.text = title
+            if (currentTab == 2) loadTodoList()
+        }
+        eventsListener?.remove()
+        eventsListener = FirebaseSync.listenEvents(this) { added, removedIds ->
+            val now = System.currentTimeMillis()
+            added.forEach { event ->
+                val alreadyLocal = EventStore.load(this).any { it.id == event.id }
+                EventStore.addSilent(this, event)
+                if (!alreadyLocal && !event.completed && event.startMs > now) {
+                    val notifOn = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
+                    if (notifOn) NotificationHelper.scheduleAt(this, event.id, event.startMs)
+                }
+            }
+            removedIds.forEach { id ->
+                EventStore.removeSilent(this, id)
+                NotificationHelper.cancelAlarm(this, id)
+            }
+            if (added.isNotEmpty() || removedIds.isNotEmpty()) {
+                if (currentTab == 0) loadEventsList()
+                if (currentTab == 1) loadFavoritesList()
+                EventsWidget.update(this)
+            }
+        }
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == RC_TODO_VOICE && resultCode == RESULT_OK) {
+            val text = data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()?.trim()
+            if (!text.isNullOrBlank()) {
+                TodoStore.add(this, text)
+                loadTodoList()
+            }
+        }
     }
 
     private fun refreshDynamicState() {
         loadEventsList()
         if (currentTab == 1) loadFavoritesList()
+        if (currentTab == 2) loadTodoList()
         updateSoundBtn()
         updateExportSwitch()
         updatePinBtn()
@@ -147,6 +215,7 @@ class MainActivity : Activity() {
         tabPages = arrayOf(
             buildEventsPage(),
             buildFavoritesPage(),
+            buildTodoPage(),
             buildSettingsPage(),
         )
         tabPages.forEach { frame.addView(it) }
@@ -179,13 +248,13 @@ class MainActivity : Activity() {
     }
 
     private fun buildBottomNav(): View {
-        val navData = listOf("📋" to "Події", "❤️" to "Обрані", "⚙️" to "Налаш.")
+        val navData = listOf("📋" to "Події", "❤️" to "Обрані", "✅" to "Список", "⚙️" to "Налаш.")
         val navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56))
             setBackgroundColor(0xFF111111.toInt())
         }
-        navBtns = Array(3) { i ->
+        navBtns = Array(4) { i ->
             val (icon, label) = navData[i]
             val col = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -218,7 +287,8 @@ class MainActivity : Activity() {
         when (idx) {
             0 -> loadEventsList()
             1 -> loadFavoritesList()
-            2 -> updateSoundBtn()
+            2 -> loadTodoList()
+            3 -> updateSoundBtn()
         }
     }
 
@@ -309,17 +379,24 @@ class MainActivity : Activity() {
                 text = "🗑 Видалити всі"; textSize = 11f; setTextColor(0xFF884444.toInt())
                 setPadding(dp(8), dp(4), dp(8), dp(4))
                 setOnClickListener {
-                    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-                    EventStore.load(this@MainActivity).forEach { e ->
-                        nm.cancel(NotificationHelper.notifId(e.id))
-                        NotificationHelper.cancelAlarm(this@MainActivity, e.id)
-                        NotificationHelper.cancelRepeat(this@MainActivity, e.id)
-                        NotificationHelper.setRepeating(this@MainActivity, e.id, false)
-                    }
-                    EventStore.clear(this@MainActivity)
-                    EventsWidget.update(this@MainActivity)
-                    loadEventsList()
-                    if (currentTab == 1) loadFavoritesList()
+                    android.app.AlertDialog.Builder(this@MainActivity)
+                        .setTitle("Видалити всі?")
+                        .setMessage("Обране (❤️) буде збережено.")
+                        .setPositiveButton("Видалити") { _, _ ->
+                            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+                            EventStore.load(this@MainActivity).filter { !it.favorite }.forEach { e ->
+                                nm.cancel(NotificationHelper.notifId(e.id))
+                                NotificationHelper.cancelAlarm(this@MainActivity, e.id)
+                                NotificationHelper.cancelRepeat(this@MainActivity, e.id)
+                                NotificationHelper.setRepeating(this@MainActivity, e.id, false)
+                            }
+                            EventStore.deleteNonFavorites(this@MainActivity)
+                            EventsWidget.update(this@MainActivity)
+                            loadEventsList()
+                            if (currentTab == 1) loadFavoritesList()
+                        }
+                        .setNegativeButton("Скасувати", null)
+                        .show()
                 }
             })
             c.addView(headerRow)
@@ -468,8 +545,12 @@ class MainActivity : Activity() {
                     sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                     EventsWidget.update(this)
                 } else {
-                    NotificationHelper.post(this, event, ongoing = true, silent = true, pinned = true)
-                    Toast.makeText(this, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
+                    if (prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)) {
+                        NotificationHelper.post(this, event, ongoing = true, silent = true, pinned = true)
+                        Toast.makeText(this, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Сповіщення вимкнено в налаштуваннях", Toast.LENGTH_SHORT).show()
+                    }
                     EventsWidget.update(this)
                 }
                 loadEventsList(); if (currentTab == 1) loadFavoritesList()
@@ -604,10 +685,12 @@ class MainActivity : Activity() {
                 NotificationHelper.cancelAlarm(this, event.id)
 
                 val now = System.currentTimeMillis()
-                if (pickedMs <= now + 5_000L) {
-                    NotificationHelper.post(this, updated)
-                } else {
-                    NotificationHelper.scheduleAt(this, updated.id, pickedMs)
+                if (prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)) {
+                    if (pickedMs <= now + 5_000L) {
+                        NotificationHelper.post(this, updated)
+                    } else {
+                        NotificationHelper.scheduleAt(this, updated.id, pickedMs)
+                    }
                 }
 
                 EventsWidget.update(this)
@@ -643,7 +726,241 @@ class MainActivity : Activity() {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TAB 2 — SETTINGS
+    // TAB 2 — TODO
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun buildTodoPage(): View {
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xFF0D0D0D.toInt())
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        }
+
+        // ── Header: date + share + delete-all ────────────────────────────────
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setBackgroundColor(0xFF111111.toInt())
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        }
+        todoTitleView = TextView(this).apply {
+            text = TodoStore.loadTitle(this@MainActivity)
+            textSize = 15f; setTextColor(Color.WHITE)
+            setTypeface(typeface, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            setOnClickListener { pickTodoDate() }
+        }
+        header.addView(todoTitleView!!)
+
+        val shareBtn = TextView(this).apply {
+            text = "📤"; textSize = 22f; setPadding(dp(10), dp(4), dp(2), dp(4))
+            setOnClickListener { shareTodoBitmap() }
+        }
+        val deleteAllBtn = TextView(this).apply {
+            text = "🗑"; textSize = 22f; setPadding(dp(8), dp(4), dp(2), dp(4))
+            setOnClickListener { confirmDeleteAllTodo() }
+        }
+        header.addView(shareBtn)
+        header.addView(deleteAllBtn)
+        page.addView(header)
+
+        // ── Scrollable list ───────────────────────────────────────────────────
+        val scroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
+        }
+        todoContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(12), dp(14), dp(80))
+        }
+        scroll.addView(todoContainer)
+        page.addView(scroll)
+
+        // ── Mic FAB ───────────────────────────────────────────────────────────
+        val fabWrap = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(80))
+            setBackgroundColor(0xFF0D0D0D.toInt())
+        }
+        val fab = TextView(this).apply {
+            text = "🎤"; textSize = 30f; gravity = android.view.Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xFFFF5722.toInt())
+            }
+            val s = dp(58)
+            layoutParams = FrameLayout.LayoutParams(s, s).also {
+                it.gravity = android.view.Gravity.CENTER
+            }
+            setOnClickListener { startTodoVoice() }
+        }
+        fabWrap.addView(fab)
+        page.addView(fabWrap)
+
+        return page
+    }
+
+    private fun loadTodoList() {
+        val container = todoContainer ?: return
+        container.removeAllViews()
+        val items = TodoStore.load(this)
+        if (items.isEmpty()) {
+            container.addView(TextView(this).apply {
+                text = "Натисніть 🎤 щоб додати пункт"
+                textSize = 14f; setTextColor(0xFF555555.toInt())
+                gravity = android.view.Gravity.CENTER
+                setPadding(0, dp(32), 0, 0)
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            })
+            return
+        }
+        items.forEachIndexed { idx, item ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also {
+                    it.bottomMargin = dp(10)
+                }
+                setBackgroundColor(0xFF1A1A1A.toInt())
+                background = GradientDrawable().apply {
+                    setColor(0xFF1A1A1A.toInt()); cornerRadius = dp(10).toFloat()
+                }
+                setPadding(dp(14), dp(12), dp(8), dp(12))
+            }
+            val numView = TextView(this).apply {
+                text = "${idx + 1}."; textSize = 15f
+                setTextColor(0xFFFF5722.toInt()); setTypeface(typeface, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(dp(32), WRAP_CONTENT)
+            }
+            val textView = TextView(this).apply {
+                text = item.text; textSize = 15f; setTextColor(Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            }
+            val delBtn = TextView(this).apply {
+                text = "✕"; textSize = 16f; setTextColor(0xFF666666.toInt())
+                setPadding(dp(12), dp(4), dp(4), dp(4))
+                setOnClickListener {
+                    TodoStore.remove(this@MainActivity, item.id)
+                    loadTodoList()
+                }
+            }
+            row.addView(numView)
+            row.addView(textView)
+            row.addView(delBtn)
+            container.addView(row)
+        }
+    }
+
+    private fun pickTodoDate() {
+        val cal = Calendar.getInstance()
+        DatePickerDialog(this, { _, y, m, d ->
+            cal.set(y, m, d)
+            val label = TodoStore.labelForCalendar(cal)
+            TodoStore.saveTitle(this, label)
+            todoTitleView?.text = label
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
+    }
+
+    private fun confirmDeleteAllTodo() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Видалити всі пункти?")
+            .setPositiveButton("Видалити") { _, _ -> TodoStore.clear(this); loadTodoList() }
+            .setNegativeButton("Скасувати", null)
+            .show()
+    }
+
+    private fun startTodoVoice() {
+        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
+            putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Що додати до списку?")
+            putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        try { startActivityForResult(intent, RC_TODO_VOICE) }
+        catch (_: Exception) { android.widget.Toast.makeText(this, "Голосовий ввід недоступний", android.widget.Toast.LENGTH_SHORT).show() }
+    }
+
+    private fun shareTodoBitmap() {
+        val items = TodoStore.load(this)
+        val title = TodoStore.loadTitle(this)
+        val bmp   = buildTodoBitmap(title, items)
+        try {
+            val dir  = File(cacheDir, "images").also { it.mkdirs() }
+            val file = File(dir, "todo_${System.currentTimeMillis()}.png")
+            FileOutputStream(file).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            val uri  = FileProvider.getUriForFile(this, "${packageName}.provider", file)
+            startActivity(android.content.Intent.createChooser(
+                android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                    type = "image/png"; putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }, "Поділитися списком"
+            ))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "Помилка: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun buildTodoBitmap(title: String, items: List<TodoStore.Item>): android.graphics.Bitmap {
+        val density  = resources.displayMetrics.density
+        val w        = (360 * density).toInt()
+        val padH     = (24 * density).toInt()
+        val padV     = (20 * density).toInt()
+        val lineH    = (32 * density).toInt()
+        val titleH   = (52 * density).toInt()
+        val footerH  = (36 * density).toInt()
+        val h        = titleH + padV + items.size * lineH + padV * 2 + footerH + padV
+
+        val bmp    = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+
+        // Background gradient
+        val bgPaint = android.graphics.Paint()
+        val shader  = android.graphics.LinearGradient(0f, 0f, w.toFloat(), h.toFloat(),
+            intArrayOf(0xFF1A1A2E.toInt(), 0xFF16213E.toInt(), 0xFF0F3460.toInt()),
+            floatArrayOf(0f, 0.5f, 1f), android.graphics.Shader.TileMode.CLAMP)
+        bgPaint.shader = shader
+        canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
+
+        // Accent bar at top
+        val accentPaint = android.graphics.Paint().apply { color = 0xFFFF5722.toInt(); isAntiAlias = true }
+        canvas.drawRect(0f, 0f, w.toFloat(), (4 * density), accentPaint)
+
+        // Title
+        val titlePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; textSize = 20 * density
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText(title, padH.toFloat(), (4 * density) + padV + titlePaint.textSize, titlePaint)
+
+        // Divider
+        val divPaint = android.graphics.Paint().apply { color = 0x33FFFFFF; strokeWidth = density }
+        canvas.drawLine(padH.toFloat(), (titleH - 2 * density), (w - padH).toFloat(), (titleH - 2 * density), divPaint)
+
+        // Items
+        val numPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFFFF5722.toInt(); textSize = 15 * density
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFFE0E0E0.toInt(); textSize = 15 * density
+        }
+        items.forEachIndexed { i, item ->
+            val y = (titleH + padV + (i + 1) * lineH - 4 * density)
+            canvas.drawText("${i + 1}.", padH.toFloat(), y, numPaint)
+            canvas.drawText(item.text, (padH + 32 * density), y, textPaint)
+        }
+
+        // Footer
+        val footPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0xFF555555.toInt(); textSize = 11 * density
+        }
+        val footY = h - padV.toFloat()
+        canvas.drawText("Нагадування", padH.toFloat(), footY, footPaint)
+
+        return bmp
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TAB 3 — SETTINGS
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun buildSettingsPage(): View {
@@ -680,10 +997,29 @@ class MainActivity : Activity() {
             }
         }
         page.addView(soundBtn!!)
-        page.addView(small("Відкриває системні налаштування каналу", btm = 16))
+        page.addView(small("Відкриває системні налаштування каналу", btm = 8))
+
+        val notifRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 16); gravity = Gravity.CENTER_VERTICAL
+        }
+        notifRow.addView(TextView(this).apply {
+            text = "Показувати сповіщення в застосунку"; textSize = 13f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        })
+        val notifSwitch = Switch(this).apply {
+            isChecked = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, checked).apply()
+            }
+        }
+        notifRow.addView(notifSwitch)
+        page.addView(notifRow)
 
         page.addView(section("Кнопки «Відкласти»"))
         page.addView(snoozeInputRow())
+
+        page.addView(section("Час дня (для «зранку/вдень/ввечері»)"))
+        page.addView(timeOfDaySection())
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             page.addView(Button(this).apply {
@@ -694,15 +1030,8 @@ class MainActivity : Activity() {
             page.addView(small("Потрібно для точного спрацьовування «через N хвилин»", btm = 20))
         }
 
-        page.addView(section("Колір фону віджетів"))
-        page.addView(colorRow(WIDGET_BG_COLORS, KEY_WIDGET_BG, 0xDD000000.toInt()) {
-            refreshMicWidget(); EventsWidget.update(this)
-        })
-
-        page.addView(section("Колір події в Календарі"))
-        page.addView(colorRow(EVENT_COLORS, KEY_EVENT_COLOR, 0))
-
         page.addView(section("Google Календар"))
+        page.addView(small("Налаштування експорту подій до Google Calendar", btm = 10))
         val exportRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 4); gravity = Gravity.CENTER_VERTICAL
         }
@@ -719,7 +1048,11 @@ class MainActivity : Activity() {
         }
         exportRow.addView(exportSwitch!!)
         page.addView(exportRow)
-        page.addView(small("Кнопка 📅 в списку — ручний експорт", btm = 20))
+        page.addView(small("Кнопка 📅 в списку — ручний експорт", btm = 10))
+        page.addView(TextView(this).apply {
+            text = "Колір події"; textSize = 13f; setTextColor(0xFFBBBBBB.toInt()); layoutParams = lp(btm = 6)
+        })
+        page.addView(colorRow(EVENT_COLORS, KEY_EVENT_COLOR, 0))
 
         page.addView(section("Приклади голосових команд"))
         page.addView(exampleBox(
@@ -758,6 +1091,9 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_CAL_PERM && grantResults.any { it != PackageManager.PERMISSION_GRANTED }) {
             prefs.edit().putBoolean(KEY_CALENDAR_EXPORT, false).apply(); updateExportSwitch()
+        }
+        if (requestCode == REQ_ACCOUNTS && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            startFirebaseSync()
         }
     }
 
@@ -841,6 +1177,40 @@ class MainActivity : Activity() {
             text = " хв"; textSize = 13f; setTextColor(0xFF888888.toInt())
         })
         return row
+    }
+
+    private fun timeOfDaySection(): LinearLayout {
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; layoutParams = lp(btm = 20)
+        }
+        fun timeRow(label: String, keyH: String, keyM: String, defH: Int, defM: Int) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 6)
+                gravity = android.view.Gravity.CENTER_VERTICAL
+            }
+            val btn = Button(this).apply {
+                text = "%02d:%02d".format(prefs.getInt(keyH, defH), prefs.getInt(keyM, defM))
+                textSize = 14f; setTextColor(Color.WHITE)
+                background = roundedBg(0xFF1E2A30.toInt(), 6f)
+                layoutParams = LinearLayout.LayoutParams(dp(80), dp(38))
+                setOnClickListener {
+                    TimePickerDialog(this@MainActivity, { _, h, m ->
+                        prefs.edit().putInt(keyH, h).putInt(keyM, m).apply()
+                        text = "%02d:%02d".format(h, m)
+                    }, prefs.getInt(keyH, defH), prefs.getInt(keyM, defM), true).show()
+                }
+            }
+            row.addView(TextView(this).apply {
+                text = label; textSize = 13f; setTextColor(Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            })
+            row.addView(btn)
+            col.addView(row)
+        }
+        timeRow("Зранку",  KEY_MORNING_HOUR, KEY_MORNING_MIN, 8,  0)
+        timeRow("Вдень",   KEY_DAY_HOUR,     KEY_DAY_MIN,     13, 0)
+        timeRow("Ввечері", KEY_EVENING_HOUR, KEY_EVENING_MIN, 19, 0)
+        return col
     }
 
     // ─────────────────────────────────────────────────────────────────────────

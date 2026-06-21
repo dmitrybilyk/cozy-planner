@@ -9,6 +9,14 @@ object NlpParser {
         val durationOverrideMs: Long? = null,
         val rrule: String? = null,
         val hasTime: Boolean = true,
+        val count: Int = 1,
+        val intervalMs: Long? = null,
+    )
+
+    data class TimePrefs(
+        val morningHour: Int = 8,  val morningMin: Int = 0,
+        val dayHour: Int    = 13,  val dayMin: Int    = 0,
+        val eveningHour: Int = 19, val eveningMin: Int = 0,
     )
 
     private val WORD_NUMS = mapOf(
@@ -27,6 +35,10 @@ object NlpParser {
         "тринадцять" to 13, "thirteen" to 13,
         "чотирнадцять" to 14, "fourteen" to 14,
         "п'ятнадцять" to 15, "пятнадцять" to 15, "fifteen" to 15,
+        "шістнадцять" to 16, "sixteen" to 16,
+        "сімнадцять" to 17, "seventeen" to 17,
+        "вісімнадцять" to 18, "eighteen" to 18,
+        "дев'ятнадцять" to 19, "девятнадцять" to 19, "nineteen" to 19,
         "двадцять" to 20, "twenty" to 20,
         "тридцять" to 30, "thirty" to 30,
         "сорок" to 40, "forty" to 40,
@@ -55,6 +67,19 @@ object NlpParser {
         "дев'яту" to 9, "девяту" to 9, "десяту" to 10, "одинадцяту" to 11, "дванадцяту" to 12,
     )
 
+    // Ukrainian locative/prepositional ordinal hours for "о сімнадцятій" = 17:00
+    private val ORDINAL_HOUR_LOC = mapOf(
+        "двадцять першій" to 21, "двадцять другій" to 22,
+        "двадцять третій" to 23, "двадцять четвертій" to 0, "двадцять четвертою" to 0,
+        "першій" to 1, "другій" to 2, "третій" to 3, "четвертій" to 4,
+        "п'ятій" to 5, "пятій" to 5, "шостій" to 6, "сьомій" to 7,
+        "восьмій" to 8, "дев'ятій" to 9, "девятій" to 9, "десятій" to 10,
+        "одинадцятій" to 11, "дванадцятій" to 12, "тринадцятій" to 13,
+        "чотирнадцятій" to 14, "п'ятнадцятій" to 15, "пятнадцятій" to 15,
+        "шістнадцятій" to 16, "сімнадцятій" to 17, "вісімнадцятій" to 18,
+        "дев'ятнадцятій" to 19, "девятнадцятій" to 19, "двадцятій" to 20,
+    )
+
     private val WEEKDAY_CAL = mapOf(
         "monday" to Calendar.MONDAY, "mondays" to Calendar.MONDAY,
         "tuesday" to Calendar.TUESDAY, "tuesdays" to Calendar.TUESDAY,
@@ -65,11 +90,17 @@ object NlpParser {
         "sunday" to Calendar.SUNDAY, "sundays" to Calendar.SUNDAY,
         "понеділок" to Calendar.MONDAY,  "понеділка" to Calendar.MONDAY,
         "вівторок"  to Calendar.TUESDAY, "вівторка"  to Calendar.TUESDAY,
-        "середу"    to Calendar.WEDNESDAY, "середа"  to Calendar.WEDNESDAY,
+        "середу"    to Calendar.WEDNESDAY, "середа"  to Calendar.WEDNESDAY, "середи" to Calendar.WEDNESDAY,
         "четвер"    to Calendar.THURSDAY, "четверга" to Calendar.THURSDAY,
-        "п'ятницю"  to Calendar.FRIDAY,  "п'ятниця" to Calendar.FRIDAY, "пятницю" to Calendar.FRIDAY,
-        "суботу"    to Calendar.SATURDAY, "субота"   to Calendar.SATURDAY,
-        "неділю"    to Calendar.SUNDAY,   "неділя"   to Calendar.SUNDAY,
+        "п'ятницю"  to Calendar.FRIDAY,  "п'ятниця" to Calendar.FRIDAY, "п'ятниці" to Calendar.FRIDAY,
+        "пятницю"   to Calendar.FRIDAY,  "пятниці"  to Calendar.FRIDAY,
+        "суботу"    to Calendar.SATURDAY, "субота"   to Calendar.SATURDAY, "суботи" to Calendar.SATURDAY, "суботах" to Calendar.SATURDAY,
+        "неділю"    to Calendar.SUNDAY,   "неділя"   to Calendar.SUNDAY,  "неділі" to Calendar.SUNDAY,  "неділях" to Calendar.SUNDAY,
+        "понеділках" to Calendar.MONDAY,
+        "вівторках"  to Calendar.TUESDAY,
+        "середах"    to Calendar.WEDNESDAY,
+        "четвергах"  to Calendar.THURSDAY,
+        "п'ятницях"  to Calendar.FRIDAY,  "пятницях" to Calendar.FRIDAY,
     )
 
     private val EVERY_WEEKDAY_UK = mapOf(
@@ -97,7 +128,7 @@ object NlpParser {
     private val DAY_UNIT  = """(?:дн(?:ів|я|і)|день|days?)"""
     private val WEEK_UNIT = """(?:тижн(?:ів|я|і)|тиждень|weeks?)"""
 
-    fun parse(input: String, fallbackStartMs: Long): Result {
+    fun parse(input: String, fallbackStartMs: Long, timePrefs: TimePrefs = TimePrefs()): Result {
         val lower = input.lowercase().trim()
         val now   = System.currentTimeMillis()
 
@@ -113,20 +144,33 @@ object NlpParser {
 
         val everyDayRx = Regex("""every\s+day|щодня|кожен\s+день|кожного\s+дня""")
         if (everyDayRx.containsMatchIn(lower)) {
-            val clock = extractClockTime(lower)
-            val cal   = Calendar.getInstance().apply {
+            val clock      = extractClockTime(lower, timePrefs)
+            val razyRx     = Regex("""($NUM_ALT)\s*(?:раз(?:ів|и)?|times?)""")
+            val countRazyM = razyRx.find(lower)
+            val countRazy  = countRazyM?.let { resolveNum(it.groupValues[1])?.toInt() }
+            val evDayVal   = everyDayRx.find(lower)?.value ?: ""
+            var title      = if (evDayVal.isNotEmpty()) cleanMatch(input, evDayVal) else input.trim()
+            clock?.let      { title = cleanMatch(title, it.third) }
+            countRazyM?.let { title = cleanMatch(title, it.value) }
+            if (countRazy != null && countRazy > 1) {
+                val cal = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, clock?.first ?: 9)
+                    set(Calendar.MINUTE,      clock?.second ?: 0); set(Calendar.SECOND, 0)
+                    if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+                }
+                return Result(cal.timeInMillis, title, null, null, count = countRazy, intervalMs = 86_400_000L)
+            }
+            val cal = Calendar.getInstance().apply {
                 add(Calendar.DAY_OF_YEAR, 1)
                 set(Calendar.HOUR_OF_DAY, clock?.first ?: 9)
                 set(Calendar.MINUTE,      clock?.second ?: 0); set(Calendar.SECOND, 0)
             }
-            var stripped = everyDayRx.replace(lower, "")
-            clock?.let { stripped = stripped.replace(it.third, "") }
-            return Result(cal.timeInMillis, cleanTitle(input, stripped), null, "FREQ=DAILY")
+            return Result(cal.timeInMillis, title, null, "FREQ=DAILY")
         }
 
         for ((ukWord, dayConst) in EVERY_WEEKDAY_UK) {
             if (lower.contains(ukWord)) {
-                val clock = extractClockTime(lower)
+                val clock = extractClockTime(lower, timePrefs)
                 val cal = Calendar.getInstance().apply {
                     var diff = dayConst - get(Calendar.DAY_OF_WEEK); if (diff <= 0) diff += 7
                     add(Calendar.DAY_OF_YEAR, diff)
@@ -140,6 +184,48 @@ object NlpParser {
             }
         }
 
+        // ── EVERY WEEKDAY: кожного понеділка / по вівторках 3 тижні / кожного вівторка о 15:00 ─
+        val kozhnRx      = Regex("""кожн\p{L}*""")
+        val poWdRx       = Regex("""по\s+(\p{L}+)""")
+        val hasKozhn     = kozhnRx.containsMatchIn(lower)
+        val poWdM        = if (!hasKozhn) poWdRx.find(lower) else null
+        val hasPoWeekday = poWdM != null && WEEKDAY_CAL.containsKey(poWdM.groupValues[1])
+        if (hasKozhn || hasPoWeekday) {
+            val wdEntry = WEEKDAY_CAL.entries.sortedByDescending { it.key.length }
+                .firstOrNull { lower.contains(it.key) }
+            if (wdEntry != null) {
+                val clock       = extractClockTime(lower, timePrefs)
+                val razyRx      = Regex("""($NUM_ALT)\s*(?:раз(?:ів|и)?|times?)""")
+                val countWeeksM = Regex("""($NUM_ALT)\s*(?:тижн(?:ів|я|і)|тиждень|weeks?)""").find(lower)
+                val countRazyM  = razyRx.find(lower)
+                val countM      = countWeeksM ?: countRazyM
+                val count       = countM?.let { resolveNum(it.groupValues[1])?.toInt() }
+                val cal = Calendar.getInstance().apply {
+                    var diff = wdEntry.value - get(Calendar.DAY_OF_WEEK)
+                    if (diff <= 0) diff += 7
+                    add(Calendar.DAY_OF_YEAR, diff)
+                    set(Calendar.HOUR_OF_DAY, clock?.first ?: 9)
+                    set(Calendar.MINUTE,      clock?.second ?: 0); set(Calendar.SECOND, 0)
+                }
+                val kozhnM   = kozhnRx.find(lower)
+                val stripStr = kozhnM?.value ?: poWdM?.value ?: ""
+                var title    = if (stripStr.isNotBlank()) cleanMatch(input, stripStr) else input.trim()
+                val dayRmv   = Regex("""(?:по\s+|в\s+|у\s+)?${Regex.escape(wdEntry.key)}""", RegexOption.IGNORE_CASE).find(input)?.value ?: wdEntry.key
+                title = cleanMatch(title, dayRmv)
+                clock?.let  { title = cleanMatch(title, it.third) }
+                countM?.let { title = cleanMatch(title, it.value) }
+                if (count != null && count > 1) {
+                    return Result(cal.timeInMillis, title, 3_600_000L, null, count = count, intervalMs = 7L * 86_400_000L)
+                }
+                val byDay = CAL_BYDAY[wdEntry.value]
+                val rrule = buildString {
+                    append("FREQ=WEEKLY")
+                    if (byDay != null) append(";BYDAY=$byDay")
+                }
+                return Result(cal.timeInMillis, title, 3_600_000L, rrule)
+            }
+        }
+
         val everyWeekRx    = Regex("""every\s+week|щотижня|кожного\s+тижня""")
         val wdNames        = WEEKDAY_CAL.keys.sortedByDescending { it.length }
         val everyWeekdayRx = Regex("""every\s+(${wdNames.joinToString("|") { Regex.escape(it) }})""")
@@ -149,7 +235,7 @@ object NlpParser {
             val wdName     = everyWdMatch?.groupValues?.get(1) ?: WEEKDAY_CAL.keys.firstOrNull { lower.contains(it) }
             val wdCalConst = wdName?.let { WEEKDAY_CAL[it] }
             val byDay      = wdCalConst?.let { CAL_BYDAY[it] }
-            val clock  = extractClockTime(lower)
+            val clock  = extractClockTime(lower, timePrefs)
             val atRx   = Regex("""at\s+(\d{1,2})(?::(\d{2}))?(?:\s*(am|pm))?""")
             val atM    = atRx.find(lower)
             val hour   = clock?.first ?: atM?.groupValues?.get(1)?.toIntOrNull()?.let { h ->
@@ -159,7 +245,7 @@ object NlpParser {
             val cal = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, hour); set(Calendar.MINUTE, minute); set(Calendar.SECOND, 0)
                 if (wdCalConst != null) { var diff = wdCalConst - get(Calendar.DAY_OF_WEEK); if (diff <= 0) diff += 7; add(Calendar.DAY_OF_YEAR, diff) }
-                else add(Calendar.WEEK_OF_YEAR, 1)
+                else { var diff = Calendar.MONDAY - get(Calendar.DAY_OF_WEEK); if (diff <= 0) diff += 7; add(Calendar.DAY_OF_YEAR, diff) }
             }
             val rrule = if (byDay != null) "FREQ=WEEKLY;BYDAY=$byDay" else "FREQ=WEEKLY"
             var stripped = lower
@@ -169,6 +255,23 @@ object NlpParser {
             clock?.let { stripped = stripped.replace(it.third, "") }
             wdName?.let { stripped = stripped.replace(Regex("""(?:on\s+)?${Regex.escape(it)}""", RegexOption.IGNORE_CASE), "") }
             return Result(cal.timeInMillis, cleanTitle(input, stripped), 3_600_000L, rrule)
+        }
+
+        // ── MONTHLY ──────────────────────────────────────────────────────────
+
+        val monthlyRx = Regex("""раз\s+на\s+місяць|once\s+a\s+month|щомісяця|кожного\s+місяця""")
+        if (monthlyRx.containsMatchIn(lower)) {
+            val clock = extractClockTime(lower, timePrefs)
+            val cal   = Calendar.getInstance().apply {
+                add(Calendar.MONTH, 1)
+                set(Calendar.DAY_OF_MONTH, 1)
+                set(Calendar.HOUR_OF_DAY, clock?.first ?: timePrefs.morningHour)
+                set(Calendar.MINUTE,      clock?.second ?: timePrefs.morningMin); set(Calendar.SECOND, 0)
+            }
+            val mVal = monthlyRx.find(lower)?.value ?: ""
+            var title = if (mVal.isNotEmpty()) cleanMatch(input, mVal) else input.trim()
+            clock?.let { title = cleanMatch(title, it.third) }
+            return Result(cal.timeInMillis, title, null, "FREQ=MONTHLY")
         }
 
         // ── ONE-TIME OFFSET (через / in) ──────────────────────────────────
@@ -193,12 +296,29 @@ object NlpParser {
             return Result(now + 7 * 86_400_000L, cleanMatch(input, m.value))
         }
 
-        parseOffset(lower, now, input)?.let { return it }
+        parseOffset(lower, now, input, timePrefs)?.let { return it }
+
+        // ── N DAYS (bare, no через prefix) → N consecutive events ────────────
+
+        Regex("""($NUM_ALT)\s*(?:дн(?:ів|я|і)|день|days?)""").find(lower)?.let { m ->
+            val n = resolveNum(m.groupValues[1])?.toInt() ?: return@let
+            if (n < 1 || n > 365) return@let
+            val clock = extractClockTime(lower, timePrefs)
+            val cal   = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, clock?.first ?: 9)
+                set(Calendar.MINUTE,      clock?.second ?: 0); set(Calendar.SECOND, 0)
+                if (timeInMillis <= System.currentTimeMillis()) add(Calendar.DAY_OF_YEAR, 1)
+            }
+            var title = cleanMatch(input, m.value)
+            clock?.let { title = cleanMatch(title, it.third) }
+            return if (n > 1) Result(cal.timeInMillis, title, null, null, count = n, intervalMs = 86_400_000L)
+                   else        Result(cal.timeInMillis, title)
+        }
 
         // ── TODAY ────────────────────────────────────────────────────────────
 
         if (Regex("""\b(?:today|сьогодні)\b""").containsMatchIn(lower)) {
-            val clock = extractClockTime(lower)
+            val clock = extractClockTime(lower, timePrefs)
             val cal   = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, clock?.first ?: 9)
                 set(Calendar.MINUTE,      clock?.second ?: 0); set(Calendar.SECOND, 0)
@@ -213,7 +333,7 @@ object NlpParser {
         // ── SPECIFIC DATE ─────────────────────────────────────────────────────
 
         extractSpecificDate(lower)?.let { (day, month, raw) ->
-            val clock = extractClockTime(lower)
+            val clock = extractClockTime(lower, timePrefs)
             val cal   = Calendar.getInstance().apply {
                 set(Calendar.MONTH,        month - 1)
                 set(Calendar.DAY_OF_MONTH, day)
@@ -230,7 +350,7 @@ object NlpParser {
 
         val nextWeekRx = Regex("""наступного\s+тижня|next\s+week""")
         if (nextWeekRx.containsMatchIn(lower)) {
-            val clock    = extractClockTime(lower)
+            val clock    = extractClockTime(lower, timePrefs)
             var stripped = nextWeekRx.replace(lower, "")
             val wdEntry  = WEEKDAY_CAL.entries.firstOrNull { stripped.contains(it.key) }
             val cal      = Calendar.getInstance().apply { add(Calendar.WEEK_OF_YEAR, 1) }
@@ -247,7 +367,7 @@ object NlpParser {
         // ── TOMORROW ────────────────────────────────────────────────────────
 
         if (Regex("""\b(?:tomorrow|завтра)\b""").containsMatchIn(lower)) {
-            val clock = extractClockTime(lower)
+            val clock = extractClockTime(lower, timePrefs)
             val cal   = Calendar.getInstance().apply {
                 add(Calendar.DAY_OF_YEAR, 1)
                 set(Calendar.HOUR_OF_DAY, clock?.first ?: 9)
@@ -263,7 +383,7 @@ object NlpParser {
 
         for ((name, dayConst) in WEEKDAY_CAL) {
             if (lower.contains(name)) {
-                val clock = extractClockTime(lower)
+                val clock = extractClockTime(lower, timePrefs)
                 val cal   = Calendar.getInstance()
                 var diff  = dayConst - cal.get(Calendar.DAY_OF_WEEK)
                 if (diff <= 0) diff += 7
@@ -279,7 +399,7 @@ object NlpParser {
 
         // ── AT TIME ───────────────────────────────────────────────────────────
 
-        extractClockTime(lower)?.also { (h, min, raw) ->
+        extractClockTime(lower, timePrefs)?.also { (h, min, raw) ->
             val cal = Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, min); set(Calendar.SECOND, 0)
                 if (timeInMillis < now) add(Calendar.DAY_OF_YEAR, 1)
@@ -313,14 +433,22 @@ object NlpParser {
         return null
     }
 
-    /** Extracts time from a lowercase string. Priority: "пів на", "о HH:mm", "at HH:mm", "о HH", time-of-day words. */
-    private fun extractClockTime(lower: String): Triple<Int, Int, String>? {
+    /** Extracts time from a lowercase string. */
+    private fun extractClockTime(lower: String, tp: TimePrefs = TimePrefs()): Triple<Int, Int, String>? {
         // "о пів на третю" = 2:30, "пів на дванадцяту" = 11:30
         val halvAlt = ORDINAL_HOUR_UK.keys.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
         Regex("""(?:о\s+)?пів\s+на\s+(${halvAlt})""").find(lower)?.let { m ->
             val h    = ORDINAL_HOUR_UK[m.groupValues[1]] ?: return@let null
             val prev = if (h == 1) 12 else h - 1
             return Triple(prev, 30, m.value)
+        }
+        // "о сімнадцятій шістнадцять" = 17:16, "о першій" = 1:00
+        val locAlt = ORDINAL_HOUR_LOC.keys.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
+        Regex("""(?:о|об)\s+(${locAlt})(?:\s+(${NUM_ALT}))?""").find(lower)?.let { m ->
+            val h   = ORDINAL_HOUR_LOC[m.groupValues[1]] ?: return@let null
+            val raw = m.groupValues[2]
+            val min = if (raw.isEmpty()) 0 else (resolveNum(raw)?.toInt() ?: return@let null)
+            if (min in 0..59) return Triple(h, min, m.value)
         }
         // HH:mm form
         Regex("""(?:at\s+|о\s+)(\d{1,2}):(\d{2})""").find(lower)?.let { m ->
@@ -333,17 +461,13 @@ object NlpParser {
             val h = m.groupValues[1].toIntOrNull() ?: return@let null
             if (h in 0..23) return Triple(h, 0, m.value)
         }
-        // Time-of-day words
+        // Time-of-day words (configurable); include split-word forms produced by voice recognition
         val timeOfDay = listOf(
-            Regex("""вранці|вранку|зранку""") to (8  to 0),
-            Regex("""вдень|опівдні""")         to (13 to 0),
-            Regex("""ввечері|увечері""")       to (19 to 0),
-            Regex("""вночі""")                 to (23 to 0),
-            Regex("""опівночі""")              to (0  to 0),
-            Regex("""\bmorning\b""")           to (8  to 0),
-            Regex("""\bafternoon\b""")         to (13 to 0),
-            Regex("""\bevening\b""")           to (19 to 0),
-            Regex("""\bnight\b""")             to (22 to 0),
+            Regex("""вранці|вранку|зранку|з\s+ранку|\bmorning\b""") to (tp.morningHour to tp.morningMin),
+            Regex("""вдень|в\s+день|опівдні|\bafternoon\b""")        to (tp.dayHour    to tp.dayMin),
+            Regex("""ввечері|ввечір|увечері|у\s+вечері|в\s+вечері|\bevening\b""") to (tp.eveningHour to tp.eveningMin),
+            Regex("""вночі|у\s+ночі|в\s+ночі|\bnight\b""")           to (23 to 0),
+            Regex("""опівночі""")                                      to (0  to 0),
         )
         for ((rx, hm) in timeOfDay) {
             rx.find(lower)?.let { m -> return Triple(hm.first, hm.second, m.value) }
@@ -351,7 +475,7 @@ object NlpParser {
         return null
     }
 
-    private fun parseOffset(lower: String, now: Long, original: String): Result? {
+    private fun parseOffset(lower: String, now: Long, original: String, tp: TimePrefs = TimePrefs()): Result? {
         val prefix = """(?:через\s+|за\s+|in\s+)"""
         val minRx  = Regex("""$prefix($NUM_ALT)\s*$MIN_UNIT""")
         val hourRx = Regex("""$prefix($NUM_ALT)\s*$HOUR_UNIT""")
@@ -368,11 +492,27 @@ object NlpParser {
         }
         dayRx.find(lower)?.let { m ->
             val n = resolveNum(m.groupValues[1]) ?: return@let
-            return Result(now + n * 86_400_000L, cleanMatch(original, m.value))
+            val clock = extractClockTime(lower, tp)
+            val cal = Calendar.getInstance().apply {
+                add(Calendar.DAY_OF_YEAR, n.toInt())
+                if (clock != null) { set(Calendar.HOUR_OF_DAY, clock.first); set(Calendar.MINUTE, clock.second) }
+                set(Calendar.SECOND, 0)
+            }
+            var title = cleanMatch(original, m.value)
+            clock?.let { title = cleanMatch(title, it.third) }
+            return Result(cal.timeInMillis, title)
         }
         weekRx.find(lower)?.let { m ->
             val n = resolveNum(m.groupValues[1]) ?: return@let
-            return Result(now + n * 7 * 86_400_000L, cleanMatch(original, m.value))
+            val clock = extractClockTime(lower, tp)
+            val cal = Calendar.getInstance().apply {
+                add(Calendar.WEEK_OF_YEAR, n.toInt())
+                if (clock != null) { set(Calendar.HOUR_OF_DAY, clock.first); set(Calendar.MINUTE, clock.second) }
+                set(Calendar.SECOND, 0)
+            }
+            var title = cleanMatch(original, m.value)
+            clock?.let { title = cleanMatch(title, it.third) }
+            return Result(cal.timeInMillis, title)
         }
         return null
     }

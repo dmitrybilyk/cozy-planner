@@ -17,7 +17,16 @@ class SnoozeReceiver : BroadcastReceiver() {
                 nm.cancel(nid)
                 NotificationHelper.cancelRepeat(context, eventId)
                 NotificationHelper.setRepeating(context, eventId, false)
-                EventStore.markCompleted(context, eventId)
+                val event = EventStore.load(context).find { it.id == eventId }
+                val next  = event?.let { advanceRecurring(it) }
+                if (next != null) {
+                    EventStore.update(context, next)
+                    val notifOn = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+                        .getBoolean(MainActivity.KEY_NOTIFICATIONS_ENABLED, true)
+                    if (notifOn) NotificationHelper.scheduleAt(context, eventId, next.startMs)
+                } else {
+                    EventStore.markCompleted(context, eventId)
+                }
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
             }
@@ -48,6 +57,9 @@ class SnoozeReceiver : BroadcastReceiver() {
                 EventsWidget.update(context)
             }
             NotificationHelper.ACTION_REPOST -> {
+                val notifEnabled = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(MainActivity.KEY_NOTIFICATIONS_ENABLED, true)
+                if (!notifEnabled) { EventsWidget.update(context); return }
                 val event = EventStore.load(context).find { it.id == eventId } ?: return
                 val silent     = intent.getBooleanExtra(NotificationHelper.EXTRA_SILENT,     false)
                 val fullscreen = intent.getBooleanExtra(NotificationHelper.EXTRA_FULLSCREEN, false)
@@ -99,8 +111,25 @@ class SnoozeReceiver : BroadcastReceiver() {
             NotificationHelper.setRepeating(context, eventId, false)
             val newTime = System.currentTimeMillis() + delayMinutes * 60_000L
             EventStore.updateStartMs(context, eventId, newTime)
-            // sound=yes, heads-up=yes, full-screen dialog=no
             NotificationHelper.scheduleAt(context, eventId, newTime, silent = false, fullscreen = false)
+        }
+
+        /** Returns the event advanced to its next RRULE occurrence, or null if series is exhausted. */
+        fun advanceRecurring(event: EventStore.AppEvent): EventStore.AppEvent? {
+            val rrule = event.rrule ?: return null
+            val countMatch = Regex("""COUNT=(\d+)""").find(rrule)
+            val count = countMatch?.groupValues?.get(1)?.toIntOrNull()
+            if (count != null && count <= 1) return null  // last occurrence just completed
+            val intervalMs = when {
+                rrule.contains("FREQ=HOURLY")  -> 3_600_000L
+                rrule.contains("FREQ=DAILY")   -> 86_400_000L
+                rrule.contains("FREQ=WEEKLY")  -> 7L * 86_400_000L
+                else -> return null
+            }
+            val nextRrule = if (count != null)
+                rrule.replace("COUNT=$count", "COUNT=${count - 1}")
+            else rrule
+            return event.copy(startMs = event.startMs + intervalMs, rrule = nextRrule, completed = false)
         }
     }
 }
