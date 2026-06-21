@@ -9,6 +9,7 @@ import android.app.NotificationManager
 import android.app.TimePickerDialog
 import android.appwidget.AppWidgetManager
 import android.content.BroadcastReceiver
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -24,6 +25,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.DragEvent
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -99,11 +101,36 @@ class MainActivity : Activity() {
     private var usageBadge:         TextView?     = null
 
     // ── ToDo tab state ────────────────────────────────────────────────────────
-    private var todoContainer:   LinearLayout? = null
-    private var todoTitleView:   TextView?     = null
-    private val RC_TODO_VOICE = 2001
-    private var todoListener:    com.google.firebase.firestore.ListenerRegistration? = null
-    private var eventsListener:  com.google.firebase.firestore.ListenerRegistration? = null
+    private var todoContainer:      LinearLayout? = null
+    private var whatContainer:      LinearLayout? = null
+    private var whereContainer:     LinearLayout? = null
+    private var whatScroll:         ScrollView?   = null
+    private var whereScroll:        ScrollView?   = null
+    private var currentTodoTab      = 0
+    private var todoSubTabBtns:     Array<TextView> = emptyArray()
+    private var todoTitleView:      TextView?     = null
+    private var todoFab:            TextView?     = null
+    private var lastDraggedId:      Long?         = null
+    private var lastDraggedPlace:   String?       = null
+    private val RC_TODO_VOICE       = 2001
+    private val RC_TODO_EDIT_VOICE  = 2002
+    private var pendingEditVoiceResult: String? = null
+    private var pendingEditTitleField: android.widget.EditText? = null
+    private var todoListener:         com.google.firebase.firestore.ListenerRegistration? = null
+    private var eventsListener:       com.google.firebase.firestore.ListenerRegistration? = null
+    private var groupEventsListener:  com.google.firebase.firestore.ListenerRegistration? = null
+    private var groupItemsListener:   com.google.firebase.firestore.ListenerRegistration? = null
+    private var groupPlacesListener:  com.google.firebase.firestore.ListenerRegistration? = null
+    private var groupMembersListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var groupTodoItems:     List<TodoStore.Item> = emptyList()
+    private var groupPlaces:        List<String> = emptyList()
+    private var groupMemberNames:   List<String> = emptyList()
+    private var groupStatusView:    TextView? = null
+    private var currentTodoMode     = 0   // 0=private, 1=group
+    private var modeSwitcherBtns:   Array<TextView> = emptyArray()
+    private val RC_LOCATION_MANAGER = 302
+    private var groupJoinContainer:      LinearLayout? = null
+    private var groupConnectedContainer: LinearLayout? = null
 
     private val listChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, i: Intent?) {
@@ -117,6 +144,8 @@ class MainActivity : Activity() {
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         NotificationHelper.ensureChannel(this)
         NotificationHelper.ensureSilentChannel(this)
+        PersistentNotif.ensureChannel(this)
+        GeofencingReceiver.ensureChannel(this)
         setContentView(buildUi())
     }
 
@@ -138,18 +167,25 @@ class MainActivity : Activity() {
     override fun onPause() {
         super.onPause()
         try { unregisterReceiver(listChangedReceiver) } catch (_: Exception) {}
-        todoListener?.remove();   todoListener   = null
-        eventsListener?.remove(); eventsListener = null
+        todoListener?.remove();         todoListener         = null
+        eventsListener?.remove();       eventsListener       = null
+        groupEventsListener?.remove();  groupEventsListener  = null
+        groupItemsListener?.remove();   groupItemsListener   = null
+        groupPlacesListener?.remove();  groupPlacesListener  = null
+        groupMembersListener?.remove(); groupMembersListener = null
     }
 
     private fun startFirebaseSync() {
         FirebaseSync.init(this)
         if (!FirebaseSync.isReady()) return
         todoListener?.remove()
-        todoListener = FirebaseSync.listenTodo(this) { title, items ->
-            TodoStore.mergeFromRemote(this, title, items)
+        todoListener = FirebaseSync.listenTodo(this) { title, items, places ->
+            TodoStore.mergeFromRemote(this, title, items, places)
             todoTitleView?.text = title
-            if (currentTab == 2) loadTodoList()
+            // only refresh UI when private mode is visible
+            if (currentTab == 2 && currentTodoMode == 0) {
+                if (currentTodoTab == 0) loadWhatList() else loadWhereList()
+            }
         }
         eventsListener?.remove()
         eventsListener = FirebaseSync.listenEvents(this) { added, removedIds ->
@@ -172,18 +208,99 @@ class MainActivity : Activity() {
                 EventsWidget.update(this)
             }
         }
+        startGroupSync()
+    }
+
+    private fun startGroupSync() {
+        val groupId = GroupStore.getGroupId(this) ?: return
+        groupEventsListener?.remove()
+        groupEventsListener = FirebaseSync.listenGroupEvents(groupId) { added, removedIds ->
+            val now = System.currentTimeMillis()
+            added.forEach { event ->
+                val alreadyLocal = EventStore.load(this).any { it.id == event.id }
+                EventStore.addSilent(this, event)
+                if (!alreadyLocal && !event.completed && event.startMs > now) {
+                    val notifOn = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
+                    if (notifOn) NotificationHelper.scheduleAt(this, event.id, event.startMs)
+                }
+            }
+            removedIds.forEach { id ->
+                EventStore.removeSilent(this, id)
+                NotificationHelper.cancelAlarm(this, id)
+                NotificationHelper.cancelRepeat(this, id)
+            }
+            if (added.isNotEmpty() || removedIds.isNotEmpty()) {
+                if (currentTab == 0) loadEventsList()
+                if (currentTab == 1) loadFavoritesList()
+                EventsWidget.update(this)
+                PersistentNotif.update(this)
+            }
+        }
+        groupItemsListener?.remove()
+        groupItemsListener = FirebaseSync.listenGroupItems(groupId) { added, removed ->
+            val current = groupTodoItems.toMutableList()
+            added.forEach { item -> current.removeAll { it.id == item.id }; current.add(item) }
+            removed.forEach { id -> current.removeAll { it.id == id } }
+            groupTodoItems = current.sortedBy { it.sortOrder }
+            if (currentTab == 2 && currentTodoMode == 1) loadTodoList()
+        }
+        groupPlacesListener?.remove()
+        groupPlacesListener = FirebaseSync.listenGroupPlaces(groupId) { places ->
+            groupPlaces = places
+            if (currentTab == 2 && currentTodoMode == 1 && currentTodoTab == 1) loadWhereList()
+        }
+        groupMembersListener?.remove()
+        groupMembersListener = FirebaseSync.listenGroupMembers(groupId) { members ->
+            groupMemberNames = members.map { it.second }
+            updateGroupStatus()
+        }
+    }
+
+    private fun stopGroupSync() {
+        groupEventsListener?.remove();  groupEventsListener  = null
+        groupItemsListener?.remove();   groupItemsListener   = null
+        groupPlacesListener?.remove();  groupPlacesListener  = null
+        groupMembersListener?.remove(); groupMembersListener = null
+        groupTodoItems   = emptyList()
+        groupPlaces      = emptyList()
+        groupMemberNames = emptyList()
+    }
+
+    private fun updateGroupStatus() {
+        val sv = groupStatusView ?: return
+        val inGroup    = GroupStore.isInGroup(this)
+        val groupEmail = GroupStore.getGroupEmail(this)
+        val myName     = GroupStore.getMyName(this)
+        if (inGroup && groupEmail != null) {
+            val members = if (groupMemberNames.isNotEmpty()) "\nУчасники: ${groupMemberNames.joinToString()}" else ""
+            sv.text = "✅ Група: $groupEmail (Ви: $myName)$members"
+        } else {
+            sv.text = ""
+        }
+        groupJoinContainer?.visibility      = if (inGroup) android.view.View.GONE else android.view.View.VISIBLE
+        groupConnectedContainer?.visibility = if (inGroup) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == RC_TODO_VOICE && resultCode == RESULT_OK) {
-            val text = data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
-                ?.firstOrNull()?.trim()
-            if (!text.isNullOrBlank()) {
-                TodoStore.add(this, text)
-                loadTodoList()
-            }
+
+        if (requestCode == RC_LOCATION_MANAGER && resultCode == RESULT_OK) {
+            loadEventsList(); if (currentTab == 1) loadFavoritesList()
+            return
+        }
+
+        if (resultCode != RESULT_OK) return
+        val raw = data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()?.trim()
+        if (raw.isNullOrBlank()) return
+
+        if (requestCode == RC_TODO_VOICE) {
+            val text = raw.replaceFirstChar { it.uppercase() }
+            if (currentTodoTab == 1) addTodoPlace(text) else addTodoItem(text)
+        } else if (requestCode == RC_TODO_EDIT_VOICE) {
+            pendingEditTitleField?.setText(raw.replaceFirstChar { it.uppercase() })
+            pendingEditTitleField = null
         }
     }
 
@@ -196,6 +313,7 @@ class MainActivity : Activity() {
         updatePinBtn()
         updateUsageBadge()
         refreshMicWidget()
+        PersistentNotif.update(this)
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -483,8 +601,15 @@ class MainActivity : Activity() {
                 .also { it.bottomMargin = dp(6) }
             background = GradientDrawable().apply {
                 cornerRadius = dp(12).toFloat()
-                setColor(if (event.completed) 0xFF161616.toInt() else 0xFF1C1C1E.toInt())
-                if (isOngoing) setStroke(dp(1), 0x55FF5722)
+                setColor(when {
+                    event.completed -> 0xFF161616.toInt()
+                    event.isGroup   -> 0xFF0E2214.toInt()
+                    else            -> 0xFF1C1C1E.toInt()
+                })
+                when {
+                    event.isGroup && !event.completed -> setStroke(dp(2), 0xFF2E7D32.toInt())
+                    isOngoing                         -> setStroke(dp(1), 0x55FF5722.toInt())
+                }
             }
             setPadding(dp(12), dp(10), dp(8), dp(10))
         }
@@ -512,12 +637,14 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
         }
         textCol.addView(TextView(this).apply {
-            text = event.title; textSize = 14f
+            text = if (event.isGroup && !event.completed) "👥 ${event.title}" else event.title
+            textSize = 14f
             if (event.completed) {
                 setTextColor(0xFF666666.toInt())
                 paintFlags = paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
             } else {
-                setTextColor(Color.WHITE); setTypeface(typeface, Typeface.BOLD)
+                setTextColor(if (event.isGroup) 0xFF81C784.toInt() else Color.WHITE)
+                setTypeface(typeface, Typeface.BOLD)
             }
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(2) }
         })
@@ -571,6 +698,36 @@ class MainActivity : Activity() {
             EventStore.markFavorite(this, event.id, !event.favorite)
             loadEventsList(); if (currentTab == 1) loadFavoritesList()
         })
+
+        // 👥 group toggle — only when in a group
+        if (GroupStore.isInGroup(this)) {
+            row.addView(iconBtn("👥", btnSz,
+                if (event.isGroup) 0xFF0D2A0D.toInt() else 0xFF242424.toInt(),
+                tint = if (event.isGroup) 0xFF66BB6A.toInt() else 0xFF555555.toInt()) {
+                val newVal = !event.isGroup
+                EventStore.markGroup(this, event.id, newVal)
+                val groupId = GroupStore.getGroupId(this)!!
+                val updated = EventStore.load(this).find { it.id == event.id } ?: return@iconBtn
+                if (newVal) {
+                    FirebaseSync.pushGroupEvent(groupId, updated)
+                    Toast.makeText(this, "👥 Подія додана до групи", Toast.LENGTH_SHORT).show()
+                } else {
+                    FirebaseSync.deleteGroupEvent(groupId, event.id)
+                    Toast.makeText(this, "Видалено з групи", Toast.LENGTH_SHORT).show()
+                }
+                loadEventsList(); if (currentTab == 1) loadFavoritesList()
+            })
+        }
+
+        // 📍 location — only on non-completed events where no specific time was recognized
+        if (!event.completed && !event.hasTime) {
+            val hasLoc = event.locationName != null
+            row.addView(iconBtn("📍", btnSz,
+                if (hasLoc) 0xFF0D2040.toInt() else 0xFF242424.toInt(),
+                tint = if (hasLoc) 0xFF1565C0.toInt() else 0xFF555555.toInt()) {
+                showLocationPickerForEvent(event)
+            })
+        }
 
         // 🗑 delete — always
         row.addView(iconBtn("🗑", btnSz, 0xFF242424.toInt()) {
@@ -725,8 +882,40 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun showLocationPickerForEvent(event: EventStore.AppEvent) {
+        if (event.locationName != null) {
+            android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("📍 ${event.locationName}")
+                .setMessage("Нагадування спрацює при наближенні на ${GeofenceManager.RADIUS_METERS.toInt()}м.")
+                .setPositiveButton("Видалити") { _, _ ->
+                    EventStore.setLocation(this, event.id, null)
+                    loadEventsList(); if (currentTab == 1) loadFavoritesList()
+                }
+                .setNegativeButton("Скасувати", null).show()
+            return
+        }
+        val locations = LocationsStore.load(this)
+        if (locations.isEmpty()) {
+            android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                .setTitle("Немає збережених локацій")
+                .setMessage("Спочатку додайте локацію в менеджері локацій.")
+                .setPositiveButton("Відкрити Менеджер") { _, _ ->
+                    startActivityForResult(Intent(this, LocationManagerActivity::class.java), RC_LOCATION_MANAGER)
+                }
+                .setNegativeButton("Скасувати", null).show()
+            return
+        }
+        val names = locations.map { it.name }.toTypedArray()
+        android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("📍 Локація для «${event.title}»")
+            .setItems(names) { _, which ->
+                EventStore.setLocation(this, event.id, names[which])
+                loadEventsList(); if (currentTab == 1) loadFavoritesList()
+            }.show()
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
-    // TAB 2 — TODO
+    // TAB 2 — TODO  (Що / Де sub-tabs)
     // ─────────────────────────────────────────────────────────────────────────
 
     private fun buildTodoPage(): View {
@@ -736,7 +925,7 @@ class MainActivity : Activity() {
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         }
 
-        // ── Header: date + share + delete-all ────────────────────────────────
+        // ── Header ───────────────────────────────────────────────────────────
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = android.view.Gravity.CENTER_VERTICAL
@@ -765,89 +954,699 @@ class MainActivity : Activity() {
         header.addView(deleteAllBtn)
         page.addView(header)
 
-        // ── Scrollable list ───────────────────────────────────────────────────
-        val scroll = ScrollView(this).apply {
+        // ── Mode switcher: Моє / Групове ──────────────────────────────────────
+        if (GroupStore.isInGroup(this)) {
+            val modeSwitcher = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundColor(0xFF0A0A0A.toInt())
+                setPadding(dp(12), dp(6), dp(12), dp(6))
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            }
+            val privateBtn = TextView(this).apply {
+                text = "🔒 Моє"; textSize = 12f; gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).also { it.marginEnd = dp(4) }
+            }
+            val groupModeBtn = TextView(this).apply {
+                text = "👥 Групове"; textSize = 12f; gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).also { it.marginStart = dp(4) }
+            }
+            modeSwitcherBtns = arrayOf(privateBtn, groupModeBtn)
+            fun applyMode(idx: Int) {
+                currentTodoMode = idx
+                modeSwitcherBtns.forEachIndexed { i, btn ->
+                    btn.background = roundedBg(if (i == idx) 0xFF1565C0.toInt() else 0xFF1C1C1E.toInt(), 6f)
+                    btn.setTextColor(if (i == idx) Color.WHITE else 0xFF666666.toInt())
+                }
+                loadTodoList()
+            }
+            privateBtn.setOnClickListener   { applyMode(0) }
+            groupModeBtn.setOnClickListener { applyMode(1) }
+            modeSwitcher.addView(privateBtn); modeSwitcher.addView(groupModeBtn)
+            page.addView(modeSwitcher)
+            applyMode(currentTodoMode)
+        }
+
+        // ── Sub-tabs: Що / Де ─────────────────────────────────────────────────
+        val subTabBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(0xFF111111.toInt())
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        }
+        val whatBtn = TextView(this).apply {
+            text = "📝 Що"; textSize = 13f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f).also { it.marginEnd = dp(4) }
+        }
+        val whereBtn = TextView(this).apply {
+            text = "📍 Де"; textSize = 13f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f).also { it.marginStart = dp(4) }
+        }
+        todoSubTabBtns = arrayOf(whatBtn, whereBtn)
+        subTabBar.addView(whatBtn); subTabBar.addView(whereBtn)
+        page.addView(subTabBar)
+
+        // ── Content area: two scroll views ────────────────────────────────────
+        val contentFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
         }
-        todoContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(12), dp(14), dp(80))
-        }
-        scroll.addView(todoContainer)
-        page.addView(scroll)
 
-        // ── Mic FAB ───────────────────────────────────────────────────────────
-        val fabWrap = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(80))
+        whatScroll = ScrollView(this).apply { layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT) }
+        whatContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(80))
+        }
+        whatScroll!!.addView(whatContainer)
+
+        whereScroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT); visibility = View.GONE
+        }
+        whereContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(80))
+        }
+        whereScroll!!.addView(whereContainer)
+
+        contentFrame.addView(whatScroll); contentFrame.addView(whereScroll)
+        page.addView(contentFrame)
+
+        // ── Bottom bar (mic FAB for Що, + add-place for Де) ───────────────────
+        val bottomFrame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(72))
             setBackgroundColor(0xFF0D0D0D.toInt())
         }
-        val fab = TextView(this).apply {
-            text = "🎤"; textSize = 30f; gravity = android.view.Gravity.CENTER
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(0xFFFF5722.toInt())
-            }
-            val s = dp(58)
-            layoutParams = FrameLayout.LayoutParams(s, s).also {
-                it.gravity = android.view.Gravity.CENTER
-            }
+        todoFab = TextView(this).apply {
+            text = "🎤"; textSize = 30f; gravity = Gravity.CENTER
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFFFF5722.toInt()) }
+            val s = dp(56)
+            layoutParams = FrameLayout.LayoutParams(s, s).also { it.gravity = Gravity.CENTER }
             setOnClickListener { startTodoVoice() }
         }
-        fabWrap.addView(fab)
-        page.addView(fabWrap)
+        bottomFrame.addView(todoFab)
+        page.addView(bottomFrame)
 
+        fun applySubTab(idx: Int) {
+            currentTodoTab = idx
+            whatScroll?.visibility  = if (idx == 0) View.VISIBLE else View.GONE
+            whereScroll?.visibility = if (idx == 1) View.VISIBLE else View.GONE
+            todoFab?.visibility   = View.VISIBLE
+            todoSubTabBtns.forEachIndexed { i, btn ->
+                btn.background = roundedBg(if (i == idx) 0xFFFF5722.toInt() else 0xFF252525.toInt(), 8f)
+                btn.setTextColor(if (i == idx) Color.WHITE else 0xFF666666.toInt())
+            }
+            if (idx == 0) loadWhatList() else loadWhereList()
+        }
+        whatBtn.setOnClickListener  { applySubTab(0) }
+        whereBtn.setOnClickListener { applySubTab(1) }
+        applySubTab(0)
         return page
     }
 
-    private fun loadTodoList() {
-        val container = todoContainer ?: return
+    private fun loadTodoList() { if (currentTodoTab == 0) loadWhatList() else loadWhereList() }
+
+    // ── Mode-aware data helpers ────────────────────────────────────────────────
+
+    private fun isGroupMode() = currentTodoMode == 1 && GroupStore.isInGroup(this)
+
+    private fun todoItems()  = if (isGroupMode()) groupTodoItems  else TodoStore.load(this)
+    private fun todoPlaces() = if (isGroupMode()) groupPlaces     else TodoStore.loadPlaces(this)
+
+    private fun groupId() = GroupStore.getGroupId(this)
+
+    private fun addTodoItem(text: String) {
+        if (isGroupMode()) {
+            val sortOrder = (groupTodoItems.maxOfOrNull { it.sortOrder } ?: 0L) + 1000L
+            val item = TodoStore.Item(System.currentTimeMillis(), text.trim(), sortOrder = sortOrder)
+            groupTodoItems = groupTodoItems + item
+            FirebaseSync.pushGroupItem(groupId()!!, item)
+        } else {
+            TodoStore.add(this, text)
+        }
+        loadWhatList()
+    }
+
+    private fun removeTodoItem(id: Long) {
+        if (isGroupMode()) {
+            groupTodoItems = groupTodoItems.filter { it.id != id }
+            FirebaseSync.deleteGroupItem(groupId()!!, id)
+        } else {
+            TodoStore.remove(this, id)
+        }
+        loadWhatList()
+    }
+
+    private fun toggleTodoItemDone(id: Long) {
+        if (isGroupMode()) {
+            val updated = groupTodoItems.find { it.id == id }?.let { it.copy(done = !it.done) } ?: return
+            groupTodoItems = groupTodoItems.map { if (it.id == id) updated else it }
+            FirebaseSync.pushGroupItem(groupId()!!, updated)
+        } else {
+            val item = TodoStore.load(this).find { it.id == id } ?: return
+            TodoStore.markDone(this, id, !item.done)
+        }
+        loadWhatList()
+    }
+
+    private fun reorderTodoItems(items: List<TodoStore.Item>) {
+        if (isGroupMode()) {
+            val gid = groupId()!!
+            val reordered = items.mapIndexed { i, item -> item.copy(sortOrder = (i + 1).toLong() * 1000L) }
+            groupTodoItems = reordered
+            reordered.forEach { FirebaseSync.pushGroupItem(gid, it) }
+        } else {
+            TodoStore.reorder(this, items)
+        }
+    }
+
+    private fun assignTodoPlace(itemId: Long, placeName: String?) {
+        if (isGroupMode()) {
+            val updated = groupTodoItems.find { it.id == itemId }?.copy(placeName = placeName) ?: return
+            groupTodoItems = groupTodoItems.map { if (it.id == itemId) updated else it }
+            FirebaseSync.pushGroupItem(groupId()!!, updated)
+        } else {
+            TodoStore.assignPlace(this, itemId, placeName)
+        }
+        loadWhatList()
+    }
+
+    private fun addTodoPlace(name: String) {
+        val p = name.trim().replaceFirstChar { it.uppercase() }
+        if (p.isBlank()) return
+        if (isGroupMode()) {
+            if (!groupPlaces.contains(p)) {
+                groupPlaces = groupPlaces + p
+                FirebaseSync.pushGroupPlaces(groupId()!!, groupPlaces)
+            }
+        } else {
+            TodoStore.addPlace(this, p)
+        }
+        loadWhereList()
+    }
+
+    private fun removeTodoPlace(name: String) {
+        if (isGroupMode()) {
+            val gid = groupId()!!
+            groupPlaces = groupPlaces.filter { it != name }
+            FirebaseSync.pushGroupPlaces(gid, groupPlaces)
+            val affected = groupTodoItems.filter { it.placeName == name }.map { it.copy(placeName = null) }
+            groupTodoItems = groupTodoItems.map { if (it.placeName == name) it.copy(placeName = null) else it }
+            affected.forEach { FirebaseSync.pushGroupItem(gid, it) }
+        } else {
+            TodoStore.removePlace(this, name)
+        }
+        loadTodoList()
+    }
+
+    private fun renameTodoPlace(old: String, new: String) {
+        if (isGroupMode()) {
+            val gid = groupId()!!
+            groupPlaces = groupPlaces.map { if (it == old) new else it }
+            FirebaseSync.pushGroupPlaces(gid, groupPlaces)
+            val affected = groupTodoItems.filter { it.placeName == old }.map { it.copy(placeName = new) }
+            groupTodoItems = groupTodoItems.map { if (it.placeName == old) it.copy(placeName = new) else it }
+            affected.forEach { FirebaseSync.pushGroupItem(gid, it) }
+        } else {
+            TodoStore.renamePlace(this, old, new)
+        }
+        loadTodoList()
+    }
+
+    private fun reorderTodoPlaces(places: List<String>) {
+        if (isGroupMode()) {
+            groupPlaces = places
+            FirebaseSync.pushGroupPlaces(groupId()!!, places)
+        } else {
+            TodoStore.reorderPlaces(this, places)
+        }
+        loadWhereList()
+    }
+
+    // ── Що tab: items grouped by place ────────────────────────────────────────
+
+    private fun loadWhatList() {
+        val container = whatContainer ?: return
         container.removeAllViews()
+        val items  = todoItems()
+        val places = todoPlaces()
+        if (items.isEmpty()) {
+            val hint = if (isGroupMode()) "Натисніть 🎤 щоб додати спільний пункт" else "Натисніть 🎤 щоб додати пункт"
+            container.addView(emptyView(hint)); return
+        }
+
+        val byPlace = items.groupBy { it.placeName }
+        val unassigned = byPlace[null] ?: emptyList()
+        var num = 1
+
+        if (unassigned.isNotEmpty() || places.isEmpty()) {
+            container.addView(buildGroupHeader("Загальне", null))
+            unassigned.forEach { container.addView(buildWhatItemRow(it, num++, items)) }
+        }
+        places.forEach { place ->
+            container.addView(buildGroupHeader(place, place))
+            (byPlace[place] ?: emptyList()).forEach { container.addView(buildWhatItemRow(it, num++, items)) }
+        }
+        // orphaned items (place was deleted)
+        items.filter { it.placeName != null && !places.contains(it.placeName) }
+            .forEach { container.addView(buildWhatItemRow(it, num++, items)) }
+    }
+
+
+    private fun buildGroupHeader(label: String, placeName: String?): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(34)).also { it.topMargin = dp(4); it.bottomMargin = dp(3) }
+            setBackgroundColor(0xFF141414.toInt())
+            setPadding(dp(12), 0, dp(8), 0)
+            setOnDragListener { v, event ->
+                when (event.action) {
+                    DragEvent.ACTION_DRAG_STARTED -> true
+                    DragEvent.ACTION_DRAG_ENTERED -> { v.setBackgroundColor(0xFF252525.toInt()); true }
+                    DragEvent.ACTION_DRAG_EXITED  -> { v.setBackgroundColor(0xFF141414.toInt()); true }
+                    DragEvent.ACTION_DROP -> {
+                        v.setBackgroundColor(0xFF141414.toInt())
+                        lastDraggedId?.let { id -> assignTodoPlace(id, placeName); lastDraggedId = null }
+                        true
+                    }
+                    DragEvent.ACTION_DRAG_ENDED -> { v.setBackgroundColor(0xFF141414.toInt()); true }
+                    else -> false
+                }
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = label; textSize = 11f; setTextColor(0xFFFF5722.toInt())
+                setTypeface(typeface, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            })
+        }
+
+    private fun buildWhatItemRow(item: TodoStore.Item, num: Int, allItems: List<TodoStore.Item>): LinearLayout {
+        val bg = if (item.done) 0xFF111111.toInt() else 0xFF1A1A1A.toInt()
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(4) }
+            background = GradientDrawable().apply { setColor(bg); cornerRadius = dp(10).toFloat() }
+            setPadding(dp(8), dp(10), dp(6), dp(10))
+            setOnClickListener { if (!item.done) showEditTodoItemDialog(item) }
+            setOnDragListener { v, event ->
+                when (event.action) {
+                    DragEvent.ACTION_DRAG_STARTED -> true
+                    DragEvent.ACTION_DRAG_ENTERED -> { (v.background as? GradientDrawable)?.setColor(0xFF2A2A2A.toInt()); v.invalidate(); true }
+                    DragEvent.ACTION_DRAG_EXITED  -> { (v.background as? GradientDrawable)?.setColor(bg); v.invalidate(); true }
+                    DragEvent.ACTION_DROP -> {
+                        (v.background as? GradientDrawable)?.setColor(bg); v.invalidate()
+                        handleWhatDrop(item, allItems); true
+                    }
+                    DragEvent.ACTION_DRAG_ENDED -> {
+                        (v.background as? GradientDrawable)?.setColor(bg); v.invalidate()
+                        v.alpha = 1f; true
+                    }
+                    else -> true
+                }
+            }
+        }
+        // done toggle
+        row.addView(TextView(this).apply {
+            text = if (item.done) "✓" else "□"
+            textSize = 16f; setTextColor(if (item.done) 0xFF66BB6A.toInt() else 0xFF555555.toInt())
+            setPadding(0, 0, dp(6), 0)
+            setOnClickListener { toggleTodoItemDone(item.id) }
+        })
+        row.addView(TextView(this).apply {  // drag handle
+            text = "⠿"; textSize = 18f; setTextColor(0xFF444444.toInt()); setPadding(0, 0, dp(4), 0)
+            isLongClickable = true
+            setOnLongClickListener {
+                lastDraggedId = item.id
+                row.startDragAndDrop(ClipData.newPlainText("item", item.id.toString()), View.DragShadowBuilder(row), null, 0)
+                row.alpha = 0.4f; true
+            }
+        })
+        row.addView(TextView(this).apply {
+            text = "$num."; textSize = 14f; setTextColor(0xFFFF5722.toInt()); setTypeface(typeface, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(dp(24), WRAP_CONTENT)
+        })
+        row.addView(TextView(this).apply {
+            text = item.text; textSize = 14f
+            if (item.done) {
+                setTextColor(0xFF555555.toInt())
+                paintFlags = paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
+            } else {
+                setTextColor(Color.WHITE)
+            }
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        })
+        row.addView(TextView(this).apply {  // assign to place
+            text = "⊕"; textSize = 15f; setTextColor(0xFF444444.toInt()); setPadding(dp(4), dp(2), dp(2), dp(2))
+            setOnClickListener { showAssignPlaceDialog(item) }
+        })
+        row.addView(TextView(this).apply {  // delete
+            text = "✕"; textSize = 14f; setTextColor(0xFF555555.toInt()); setPadding(dp(6), dp(2), dp(4), dp(2))
+            setOnClickListener { removeTodoItem(item.id) }
+        })
+        return row
+    }
+
+    private fun handleWhatDrop(target: TodoStore.Item, allItems: List<TodoStore.Item>) {
+        val id = lastDraggedId ?: return; lastDraggedId = null
+        if (id == target.id) return
+        val mut = allItems.toMutableList()
+        val dragged = mut.find { it.id == id } ?: return
+        val updated = if (dragged.placeName != target.placeName) dragged.copy(placeName = target.placeName) else dragged
+        mut.removeAll { it.id == id }
+        val idx = mut.indexOfFirst { it.id == target.id }.coerceAtLeast(0)
+        mut.add(idx, updated)
+        reorderTodoItems(mut); loadWhatList()
+    }
+
+    private fun showAssignPlaceDialog(item: TodoStore.Item) {
+        val places = todoPlaces()
+        val opts = arrayOf("Загальне (без місця)") + places.toTypedArray()
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Прив'язати до місця")
+            .setItems(opts) { _, which ->
+                assignTodoPlace(item.id, if (which == 0) null else places[which - 1])
+            }.show()
+    }
+
+    // ── Де tab: manage places ─────────────────────────────────────────────────
+
+    private fun loadWhereList() {
+        val container = whereContainer ?: return
+        container.removeAllViews()
+        val places = todoPlaces()
+        if (places.isEmpty()) container.addView(emptyView("Скажіть або натисніть 🎤 щоб додати місце"))
+        places.forEachIndexed { idx, place -> container.addView(buildPlaceRow(place, idx)) }
+    }
+
+    private fun showAddPlaceDialog() {
+        val input = EditText(this).apply {
+            hint = "Назва місця"; textSize = 15f; setTextColor(Color.WHITE)
+            setHintTextColor(0xFF555555.toInt())
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()); setStroke(dp(1), 0xFF333333.toInt()) }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Додати місце")
+            .setView(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(16), dp(20), dp(8)); addView(input) })
+            .setPositiveButton("Додати") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotBlank()) addTodoPlace(name)
+            }
+            .setNegativeButton("Скасувати", null).show()
+    }
+
+    private fun loadPlacesList(container: LinearLayout) {
+        val places = TodoStore.loadPlaces(this)
+        if (places.isEmpty()) { container.addView(emptyView("Натисніть 🎤 щоб додати місце")); return }
+        container.addView(dividerHeader("🏷️ Місця"))
+        places.forEachIndexed { idx, place -> container.addView(buildPlaceRow(place, idx)) }
+    }
+
+    private fun buildPlaceRow(place: String, idx: Int): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also {
+                it.bottomMargin = dp(6)
+            }
+            background = GradientDrawable().apply {
+                setColor(0xFF1A1A1A.toInt()); cornerRadius = dp(10).toFloat()
+            }
+            setPadding(dp(14), dp(12), dp(8), dp(12))
+            isLongClickable = true
+            setOnLongClickListener {
+                val clip = ClipData.newPlainText("PLACE", place)
+                val shadow = View.DragShadowBuilder(it)
+                lastDraggedPlace = place
+                it.startDragAndDrop(clip, shadow, null, 0)
+                true
+            }
+            setOnDragListener { v, event ->
+                when (event.action) {
+                    DragEvent.ACTION_DRAG_STARTED -> true
+                    DragEvent.ACTION_DRAG_ENTERED -> {
+                        (v.background as? GradientDrawable)?.setColor(0xFF2A2A2A.toInt())
+                        v.invalidate(); true
+                    }
+                    DragEvent.ACTION_DRAG_EXITED -> {
+                        (v.background as? GradientDrawable)?.setColor(0xFF1A1A1A.toInt())
+                        v.invalidate(); true
+                    }
+                    DragEvent.ACTION_DROP -> {
+                        (v.background as? GradientDrawable)?.setColor(0xFF1A1A1A.toInt())
+                        v.invalidate()
+                        handlePlaceDrop(place)
+                        true
+                    }
+                    DragEvent.ACTION_DRAG_ENDED -> {
+                        (v.background as? GradientDrawable)?.setColor(0xFF1A1A1A.toInt())
+                        v.invalidate(); true
+                    }
+                    else -> true
+                }
+            }
+            setOnClickListener {
+                showEditPlaceDialog(place)
+            }
+        }
+        row.addView(TextView(this).apply {
+            text = "${idx + 1}."; textSize = 15f
+            setTextColor(0xFFFF5722.toInt()); setTypeface(typeface, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(dp(32), WRAP_CONTENT)
+        })
+        row.addView(TextView(this).apply {
+            text = place; textSize = 15f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        })
+        row.addView(TextView(this).apply {
+            text = "✕"; textSize = 16f; setTextColor(0xFFFF5252.toInt())
+            setPadding(dp(10), dp(4), dp(4), dp(4))
+            setOnClickListener { removeTodoPlace(place) }
+        })
+        return row
+    }
+
+    private fun handlePlaceDrop(targetPlace: String) {
+        val dragged = lastDraggedPlace ?: return
+        lastDraggedPlace = null
+        if (dragged == targetPlace) return
+        val places = todoPlaces().toMutableList()
+        val fromIdx = places.indexOf(dragged)
+        val toIdx = places.indexOf(targetPlace)
+        if (fromIdx < 0 || toIdx < 0) return
+        places.removeAt(fromIdx)
+        places.add(toIdx, dragged)
+        reorderTodoPlaces(places)
+    }
+
+    private fun showEditPlaceDialog(place: String) {
+        val input = EditText(this).apply {
+            setText(place); textSize = 15f; setTextColor(Color.WHITE)
+            setHintTextColor(0xFF555555.toInt()); hint = "Назва"
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt())
+                setStroke(dp(1), 0xFF333333.toInt())
+            }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+        }
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(16), dp(20), dp(8))
+            addView(input)
+        }
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Редагувати місце")
+            .setView(wrap)
+            .setPositiveButton("Зберегти") { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotBlank() && newName != place) renameTodoPlace(place, newName)
+            }
+            .setNegativeButton("Скасувати", null)
+            .show()
+    }
+
+    private fun loadItemsList(container: LinearLayout) {
         val items = TodoStore.load(this)
         if (items.isEmpty()) {
-            container.addView(TextView(this).apply {
-                text = "Натисніть 🎤 щоб додати пункт"
-                textSize = 14f; setTextColor(0xFF555555.toInt())
-                gravity = android.view.Gravity.CENTER
-                setPadding(0, dp(32), 0, 0)
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            })
+            container.addView(emptyView("Натисніть 🎤 щоб додати пункт"))
             return
         }
+        container.addView(dividerHeader("📝 Список"))
         items.forEachIndexed { idx, item ->
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = android.view.Gravity.CENTER_VERTICAL
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also {
-                    it.bottomMargin = dp(10)
-                }
-                setBackgroundColor(0xFF1A1A1A.toInt())
-                background = GradientDrawable().apply {
-                    setColor(0xFF1A1A1A.toInt()); cornerRadius = dp(10).toFloat()
-                }
-                setPadding(dp(14), dp(12), dp(8), dp(12))
-            }
-            val numView = TextView(this).apply {
-                text = "${idx + 1}."; textSize = 15f
-                setTextColor(0xFFFF5722.toInt()); setTypeface(typeface, Typeface.BOLD)
-                layoutParams = LinearLayout.LayoutParams(dp(32), WRAP_CONTENT)
-            }
-            val textView = TextView(this).apply {
-                text = item.text; textSize = 15f; setTextColor(Color.WHITE)
-                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-            }
-            val delBtn = TextView(this).apply {
-                text = "✕"; textSize = 16f; setTextColor(0xFF666666.toInt())
-                setPadding(dp(12), dp(4), dp(4), dp(4))
-                setOnClickListener {
-                    TodoStore.remove(this@MainActivity, item.id)
-                    loadTodoList()
-                }
-            }
-            row.addView(numView)
-            row.addView(textView)
-            row.addView(delBtn)
-            container.addView(row)
+            container.addView(buildTodoRow(item, idx, items))
         }
+    }
+
+    private fun dividerHeader(label: String): LinearLayout {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also {
+                it.bottomMargin = dp(4)
+            }
+        }
+        row.addView(TextView(this).apply {
+            text = label; textSize = 11f; setTextColor(0xFF888888.toInt())
+            setTypeface(typeface, Typeface.BOLD)
+        })
+        row.addView(View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, dp(1), 1f).also { it.marginStart = dp(8) }
+            setBackgroundColor(0xFF222222.toInt())
+        })
+        return row
+    }
+
+    private fun buildTodoRow(
+        item: TodoStore.Item,
+        displayIdx: Int,
+        allItems: List<TodoStore.Item>,
+    ): LinearLayout {
+        val normalBg = 0xFF1A1A1A.toInt()
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also {
+                it.bottomMargin = dp(6)
+            }
+            background = GradientDrawable().apply {
+                setColor(normalBg); cornerRadius = dp(10).toFloat()
+            }
+            setPadding(dp(14), dp(12), dp(8), dp(12))
+            setOnLongClickListener { v ->
+                val clip = ClipData.newPlainText("TODO_ITEM", item.id.toString())
+                val shadow = View.DragShadowBuilder(v)
+                lastDraggedId = item.id
+                v.startDragAndDrop(clip, shadow, null, 0)
+                true
+            }
+            setOnClickListener { showEditTodoItemDialog(item) }
+            setOnDragListener { v, event ->
+                when (event.action) {
+                    DragEvent.ACTION_DRAG_STARTED -> true
+                    DragEvent.ACTION_DRAG_ENTERED -> {
+                        (v.background as? GradientDrawable)?.setColor(0xFF2A2A2A.toInt())
+                        v.invalidate(); true
+                    }
+                    DragEvent.ACTION_DRAG_EXITED -> {
+                        (v.background as? GradientDrawable)?.setColor(normalBg)
+                        v.invalidate(); true
+                    }
+                    DragEvent.ACTION_DROP -> {
+                        (v.background as? GradientDrawable)?.setColor(normalBg)
+                        v.invalidate()
+                        handleDrop(item, allItems)
+                        true
+                    }
+                    DragEvent.ACTION_DRAG_ENDED -> {
+                        val gd = v.background as? GradientDrawable
+                        if (gd != null) { gd.setColor(normalBg); v.invalidate() }
+                        true
+                    }
+                    else -> true
+                }
+            }
+        }
+
+        // Number
+        row.addView(TextView(this).apply {
+            text = "${displayIdx + 1}."; textSize = 15f
+            setTextColor(0xFFFF5722.toInt()); setTypeface(typeface, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(dp(32), WRAP_CONTENT)
+        })
+
+        // Item text
+        row.addView(TextView(this).apply {
+            text = item.text; textSize = 15f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        })
+
+        // Time (only shown when set)
+        if (item.reminderMinutes != null) {
+            row.addView(TextView(this).apply {
+                text = "%02d:%02d".format(item.reminderMinutes / 60, item.reminderMinutes % 60)
+                textSize = 12f; setTextColor(0xFF66BB6A.toInt())
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(6).toFloat(); setColor(0xFF1A2E1A.toInt())
+                }
+                setPadding(dp(8), dp(3), dp(8), dp(3))
+                layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).also {
+                    it.marginEnd = dp(4)
+                }
+                setOnClickListener { showTodoTimePicker(item) }
+                setOnLongClickListener {
+                    TodoStore.setReminderMinutes(this@MainActivity, item.id, null)
+                    loadTodoList()
+                    Toast.makeText(this@MainActivity, "Час видалено", Toast.LENGTH_SHORT).show()
+                    true
+                }
+            })
+        }
+
+        // Number (continuous across all items)
+        row.addView(TextView(this).apply {
+            text = "${displayIdx + 1}."; textSize = 15f
+            setTextColor(0xFFFF5722.toInt()); setTypeface(typeface, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(dp(32), WRAP_CONTENT)
+        })
+
+        // Item text
+        row.addView(TextView(this).apply {
+            text = item.text; textSize = 15f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        })
+
+        // Time
+        if (item.reminderMinutes != null) {
+            row.addView(TextView(this).apply {
+                text = "%02d:%02d".format(item.reminderMinutes / 60, item.reminderMinutes % 60)
+                textSize = 12f; setTextColor(0xFF66BB6A.toInt())
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(6).toFloat(); setColor(0xFF1A2E1A.toInt())
+                }
+                setPadding(dp(8), dp(3), dp(8), dp(3))
+                layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).also {
+                    it.marginEnd = dp(4)
+                }
+                setOnClickListener { showTodoTimePicker(item) }
+                setOnLongClickListener {
+                    TodoStore.setReminderMinutes(this@MainActivity, item.id, null)
+                    loadTodoList()
+                    Toast.makeText(this@MainActivity, "Час видалено", Toast.LENGTH_SHORT).show()
+                    true
+                }
+            })
+        }
+
+        // Delete
+        row.addView(TextView(this).apply {
+            text = "✕"; textSize = 16f; setTextColor(0xFF666666.toInt())
+            setPadding(dp(12), dp(4), dp(4), dp(4))
+            setOnClickListener {
+                TodoStore.remove(this@MainActivity, item.id)
+                loadTodoList()
+            }
+        })
+        return row
+    }
+
+    private fun handleDrop(targetItem: TodoStore.Item, allItems: List<TodoStore.Item>) {
+        val draggedId = lastDraggedId ?: return
+        lastDraggedId = null
+        if (draggedId == targetItem.id) return
+        val draggedItem = allItems.find { it.id == draggedId } ?: return
+        val mutable = allItems.toMutableList()
+        mutable.removeAll { it.id == draggedId }
+        val insertIdx = mutable.indexOfFirst { it.id == targetItem.id }
+        mutable.add(insertIdx, draggedItem)
+        TodoStore.reorder(this, mutable)
+        loadTodoList()
+    }
+
+    private fun showTodoTimePicker(item: TodoStore.Item) {
+        val cal = Calendar.getInstance()
+        item.reminderMinutes?.let { mins ->
+            cal.set(Calendar.HOUR_OF_DAY, mins / 60)
+            cal.set(Calendar.MINUTE, mins % 60)
+        }
+        TimePickerDialog(this, { _, h, m ->
+            val totalMins = h * 60 + m
+            TodoStore.setReminderMinutes(this, item.id, totalMins)
+            loadTodoList()
+        }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), true).show()
     }
 
     private fun pickTodoDate() {
@@ -863,20 +1662,135 @@ class MainActivity : Activity() {
     private fun confirmDeleteAllTodo() {
         android.app.AlertDialog.Builder(this)
             .setTitle("Видалити всі пункти?")
-            .setPositiveButton("Видалити") { _, _ -> TodoStore.clear(this); loadTodoList() }
+            .setPositiveButton("Видалити") { _, _ ->
+                if (isGroupMode()) {
+                    val gid = groupId()!!
+                    groupTodoItems.forEach { FirebaseSync.deleteGroupItem(gid, it.id) }
+                    groupTodoItems = emptyList()
+                    groupPlaces    = emptyList()
+                    FirebaseSync.pushGroupPlaces(gid, emptyList())
+                } else {
+                    TodoStore.clear(this)
+                }
+                loadTodoList()
+            }
+            .setNegativeButton("Скасувати", null)
+            .show()
+    }
+
+    private fun showEditTodoItemDialog(item: TodoStore.Item) {
+        var editedMinutes = item.reminderMinutes
+
+        val dialogLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), dp(8))
+        }
+
+        val titleRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(12) }
+        }
+        val titleEdit = EditText(this).apply {
+            setText(item.text); textSize = 15f; setTextColor(Color.WHITE)
+            setHintTextColor(0xFF555555.toInt())
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt())
+                setStroke(dp(1), 0xFF333333.toInt())
+            }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).also { it.marginEnd = dp(8) }
+        }
+        titleRow.addView(titleEdit)
+        titleRow.addView(TextView(this).apply {
+            text = "🎤"; textSize = 22f
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            setOnClickListener {
+                pendingEditTitleField = titleEdit
+                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
+                    putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Скажіть назву")
+                    putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                }
+                try { startActivityForResult(intent, RC_TODO_EDIT_VOICE) }
+                catch (_: Exception) { Toast.makeText(this@MainActivity, "Голосовий ввід недоступний", Toast.LENGTH_SHORT).show() }
+            }
+        })
+        dialogLayout.addView(titleRow)
+
+        val timeFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val cal = Calendar.getInstance().apply {
+            item.reminderMinutes?.let { set(Calendar.HOUR_OF_DAY, it / 60); set(Calendar.MINUTE, it % 60) }
+        }
+        val timeLabel = TextView(this).apply {
+            text = if (item.reminderMinutes != null) "🕐  ${timeFmt.format(cal.time)}" else "🕐  Додати час"
+            textSize = 13f; setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt())
+                setStroke(dp(1), 0xFF333333.toInt())
+            }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(16) }
+            setOnClickListener {
+                val c = Calendar.getInstance().apply {
+                    editedMinutes?.let { set(Calendar.HOUR_OF_DAY, it / 60); set(Calendar.MINUTE, it % 60) }
+                }
+                TimePickerDialog(this@MainActivity, { _, h, m ->
+                    editedMinutes = h * 60 + m
+                    val nc = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, m) }
+                    text = "🕐  ${timeFmt.format(nc.time)}"
+                }, c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE), true).show()
+            }
+            setOnLongClickListener {
+                editedMinutes = null
+                text = "🕐  Додати час"
+                true
+            }
+        }
+        dialogLayout.addView(timeLabel)
+
+        AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle("Редагувати")
+            .setView(dialogLayout)
+            .setPositiveButton("Зберегти") { _, _ ->
+                val newText = titleEdit.text.toString().trim().takeIf { it.isNotEmpty() } ?: item.text
+                if (newText != item.text || editedMinutes != item.reminderMinutes) {
+                    if (isGroupMode()) {
+                        val updated = groupTodoItems.find { it.id == item.id }
+                            ?.copy(text = newText, reminderMinutes = editedMinutes) ?: return@setPositiveButton
+                        groupTodoItems = groupTodoItems.map { if (it.id == item.id) updated else it }
+                        FirebaseSync.pushGroupItem(groupId()!!, updated)
+                    } else {
+                        val items = TodoStore.load(this).map {
+                            if (it.id == item.id) it.copy(text = newText, reminderMinutes = editedMinutes) else it
+                        }
+                        TodoStore.reorder(this, items)
+                    }
+                    loadTodoList()
+                }
+            }
             .setNegativeButton("Скасувати", null)
             .show()
     }
 
     private fun startTodoVoice() {
+        val prompt = if (currentTodoTab == 1) "Скажіть назву місця" else "Що додати до списку?"
         val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
-            putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Що додати до списку?")
+            putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, prompt)
             putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
         try { startActivityForResult(intent, RC_TODO_VOICE) }
         catch (_: Exception) { android.widget.Toast.makeText(this, "Голосовий ввід недоступний", android.widget.Toast.LENGTH_SHORT).show() }
+    }
+
+    private fun emptyView(text: String) = TextView(this).apply {
+        this.text = text; textSize = 14f; setTextColor(0xFF555555.toInt())
+        gravity = android.view.Gravity.CENTER
+        setPadding(0, dp(32), 0, 0)
+        layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
     }
 
     private fun shareTodoBitmap() {
@@ -904,15 +1818,39 @@ class MainActivity : Activity() {
         val w        = (360 * density).toInt()
         val padH     = (24 * density).toInt()
         val padV     = (20 * density).toInt()
-        val lineH    = (32 * density).toInt()
+        val lineH    = (28 * density).toInt()
+        val headerH  = (26 * density).toInt()
         val titleH   = (52 * density).toInt()
         val footerH  = (36 * density).toInt()
-        val h        = titleH + padV + items.size * lineH + padV * 2 + footerH + padV
+
+        // Build render list: [header label?, items...]
+        val places  = TodoStore.loadPlaces(this)
+        val byPlace = items.groupBy { it.placeName }
+        data class Row(val label: String?, val item: TodoStore.Item?, val isGroupSection: Boolean = false)
+        val rows = mutableListOf<Row>()
+
+        val unassigned = byPlace[null] ?: emptyList()
+        if (unassigned.isNotEmpty() || places.isEmpty()) {
+            rows.add(Row("Загальне", null))
+            unassigned.forEach { rows.add(Row(null, it)) }
+        }
+        places.forEach { place ->
+            rows.add(Row(place, null))
+            (byPlace[place] ?: emptyList()).forEach { rows.add(Row(null, it)) }
+        }
+        items.filter { it.placeName != null && !places.contains(it.placeName) }
+            .forEach { rows.add(Row(null, it)) }
+        if (groupTodoItems.isNotEmpty()) {
+            rows.add(Row("👥 Спільне", null, isGroupSection = true))
+            groupTodoItems.forEach { rows.add(Row(null, it, isGroupSection = true)) }
+        }
+
+        val rowHeights = rows.map { if (it.item == null) headerH else lineH }
+        val h = titleH + padV + rowHeights.sum() + padV * 2 + footerH + padV
 
         val bmp    = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
 
-        // Background gradient
         val bgPaint = android.graphics.Paint()
         val shader  = android.graphics.LinearGradient(0f, 0f, w.toFloat(), h.toFloat(),
             intArrayOf(0xFF1A1A2E.toInt(), 0xFF16213E.toInt(), 0xFF0F3460.toInt()),
@@ -920,41 +1858,48 @@ class MainActivity : Activity() {
         bgPaint.shader = shader
         canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), bgPaint)
 
-        // Accent bar at top
-        val accentPaint = android.graphics.Paint().apply { color = 0xFFFF5722.toInt(); isAntiAlias = true }
-        canvas.drawRect(0f, 0f, w.toFloat(), (4 * density), accentPaint)
+        val accentPaint = android.graphics.Paint().apply { color = 0xFFFF5722.toInt() }
+        canvas.drawRect(0f, 0f, w.toFloat(), 4 * density, accentPaint)
 
-        // Title
         val titlePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE; textSize = 20 * density
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            color = Color.WHITE; textSize = 20 * density; typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
-        canvas.drawText(title, padH.toFloat(), (4 * density) + padV + titlePaint.textSize, titlePaint)
+        canvas.drawText(title, padH.toFloat(), 4 * density + padV + titlePaint.textSize, titlePaint)
 
-        // Divider
         val divPaint = android.graphics.Paint().apply { color = 0x33FFFFFF; strokeWidth = density }
-        canvas.drawLine(padH.toFloat(), (titleH - 2 * density), (w - padH).toFloat(), (titleH - 2 * density), divPaint)
+        canvas.drawLine(padH.toFloat(), titleH - 2 * density, (w - padH).toFloat(), titleH - 2 * density, divPaint)
 
-        // Items
+        val headerPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 11 * density; typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
         val numPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFFFF5722.toInt(); textSize = 15 * density
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            color = 0xFFFF5722.toInt(); textSize = 14 * density; typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFFE0E0E0.toInt(); textSize = 15 * density
-        }
-        items.forEachIndexed { i, item ->
-            val y = (titleH + padV + (i + 1) * lineH - 4 * density)
-            canvas.drawText("${i + 1}.", padH.toFloat(), y, numPaint)
-            canvas.drawText(item.text, (padH + 32 * density), y, textPaint)
+            color = 0xFFE0E0E0.toInt(); textSize = 14 * density
         }
 
-        // Footer
+        var y = titleH + padV.toFloat()
+        var itemNum = 1
+        rows.forEach { row ->
+            val rh = if (row.item == null) headerH else lineH
+            val baseline = y + rh - 6 * density
+            if (row.item == null) {
+                headerPaint.color = if (row.isGroupSection) 0xFF66BB6A.toInt() else 0xFFFF5722.toInt()
+                canvas.drawText(row.label ?: "", padH.toFloat(), baseline, headerPaint)
+            } else {
+                val nc = if (row.isGroupSection) 0xFF66BB6A.toInt() else 0xFFFF5722.toInt()
+                numPaint.color = nc
+                canvas.drawText("${itemNum++}.", padH.toFloat(), baseline, numPaint)
+                canvas.drawText(row.item.text, padH + 32 * density, baseline, textPaint)
+            }
+            y += rh
+        }
+
         val footPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = 0xFF555555.toInt(); textSize = 11 * density
         }
-        val footY = h - padV.toFloat()
-        canvas.drawText("Нагадування", padH.toFloat(), footY, footPaint)
+        canvas.drawText("Нагадування", padH.toFloat(), h - padV.toFloat(), footPaint)
 
         return bmp
     }
@@ -1000,7 +1945,7 @@ class MainActivity : Activity() {
         page.addView(small("Відкриває системні налаштування каналу", btm = 8))
 
         val notifRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 16); gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 8); gravity = Gravity.CENTER_VERTICAL
         }
         notifRow.addView(TextView(this).apply {
             text = "Показувати сповіщення в застосунку"; textSize = 13f; setTextColor(Color.WHITE)
@@ -1014,6 +1959,24 @@ class MainActivity : Activity() {
         }
         notifRow.addView(notifSwitch)
         page.addView(notifRow)
+
+        val persistRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 4); gravity = Gravity.CENTER_VERTICAL
+        }
+        persistRow.addView(TextView(this).apply {
+            text = "Мікрофон у статус-барі"; textSize = 13f; setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        })
+        val persistSwitch = Switch(this).apply {
+            isChecked = prefs.getBoolean(PersistentNotif.KEY_ENABLED, false)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(PersistentNotif.KEY_ENABLED, checked).apply()
+                PersistentNotif.update(this@MainActivity)
+            }
+        }
+        persistRow.addView(persistSwitch)
+        page.addView(persistRow)
+        page.addView(small("Зворотній відлік до наступного нагадування + швидкий мікрофон із заблокованого екрану", btm = 16))
 
         page.addView(section("Кнопки «Відкласти»"))
         page.addView(snoozeInputRow())
@@ -1029,6 +1992,86 @@ class MainActivity : Activity() {
             })
             page.addView(small("Потрібно для точного спрацьовування «через N хвилин»", btm = 20))
         }
+
+        page.addView(section("Моя група"))
+        page.addView(small("Підключіться до групи — вводьте email власника групи. Інші з тим самим email стануть учасниками.", btm = 8))
+
+        groupStatusView = TextView(this).apply {
+            textSize = 12f; setTextColor(0xFF66BB6A.toInt()); layoutParams = lp(btm = 10)
+        }
+        page.addView(groupStatusView!!)
+
+        // ─ Join form (shown when not in group) ─
+        val emailInput = EditText(this).apply {
+            hint = "Email власника групи"; textSize = 13f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()); setStroke(dp(1), 0xFF333333.toInt()) }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS or android.text.InputType.TYPE_CLASS_TEXT
+            layoutParams = lp(btm = 6)
+        }
+        val nameInput = EditText(this).apply {
+            hint = "Ваше ім'я в групі"; textSize = 13f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()); setStroke(dp(1), 0xFF333333.toInt()) }
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            layoutParams = lp(btm = 8)
+        }
+        val connectBtn = Button(this).apply {
+            text = "Підключитися"; textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF1B5E20.toInt(), 8f); layoutParams = lp(h = 44, btm = 20)
+            setOnClickListener {
+                val email = emailInput.text.toString().trim()
+                val name  = nameInput.text.toString().trim()
+                if (email.isBlank() || name.isBlank()) { Toast.makeText(this@MainActivity, "Введіть email і ім'��", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+                val oldGroupId = GroupStore.getGroupId(this@MainActivity)
+                if (oldGroupId != null) { FirebaseSync.leaveGroup(this@MainActivity, oldGroupId); stopGroupSync() }
+                GroupStore.join(this@MainActivity, email, name)
+                val groupId = GroupStore.getGroupId(this@MainActivity)!!
+                FirebaseSync.joinGroup(this@MainActivity, groupId, name)
+                startGroupSync()
+                updateGroupStatus()
+                Toast.makeText(this@MainActivity, "✅ Підключено до групи $email", Toast.LENGTH_SHORT).show()
+            }
+        }
+        groupJoinContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; layoutParams = lp()
+            addView(emailInput); addView(nameInput); addView(connectBtn)
+        }
+        page.addView(groupJoinContainer!!)
+
+        // ─ Connected view (shown when in group) ─
+        val disconnectBtn = Button(this).apply {
+            text = "Відключитися від групи"; textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF4A1010.toInt(), 8f); layoutParams = lp(h = 44, btm = 20)
+            setOnClickListener {
+                val groupId = GroupStore.getGroupId(this@MainActivity)
+                if (groupId != null) {
+                    FirebaseSync.leaveGroup(this@MainActivity, groupId)
+                    stopGroupSync()
+                    GroupStore.leave(this@MainActivity)
+                    groupTodoItems = emptyList()
+                    if (currentTab == 2) loadWhatList()
+                }
+                updateGroupStatus()
+                Toast.makeText(this@MainActivity, "Відключено від групи", Toast.LENGTH_SHORT).show()
+            }
+        }
+        groupConnectedContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; layoutParams = lp()
+            addView(disconnectBtn)
+        }
+        page.addView(groupConnectedContainer!!)
+
+        updateGroupStatus()
+
+        page.addView(section("Локації"))
+        page.addView(small("Збережені місця для локаційних нагадувань подій (без конкретного часу).", btm = 8))
+        page.addView(Button(this).apply {
+            text = "📍  Менеджер локацій"; textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF1A1A2E.toInt(), 8f); layoutParams = lp(h = 46, btm = 20)
+            setOnClickListener {
+                startActivityForResult(Intent(this@MainActivity, LocationManagerActivity::class.java), RC_LOCATION_MANAGER)
+            }
+        })
 
         page.addView(section("Google Календар"))
         page.addView(small("Налаштування експорту подій до Google Calendar", btm = 10))

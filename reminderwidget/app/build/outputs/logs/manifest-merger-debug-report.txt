@@ -1,25 +1,26 @@
 -- Merging decision tree log ---
 provider#androidx.core.content.FileProvider
-INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:77:9-85:20
+INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:107:9-115:20
 	android:grantUriPermissions
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:81:13-47
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:111:13-47
 	android:authorities
 		INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:79:13-60
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:109:13-60
 	android:exported
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:80:13-37
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:110:13-37
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:78:13-62
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:108:13-62
 manifest
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-89:12
-INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-89:12
-INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-89:12
-INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-89:12
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-119:12
+INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-119:12
+INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-119:12
+INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:2:1-119:12
 MERGED from [com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:2:1-17:12
 MERGED from [com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:17:1-75:12
 MERGED from [androidx.credentials:credentials:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/87bd92af55556e0d8f1eb3cdfb3b3cac/transformed/jetified-credentials-1.2.0-rc01/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:17:1-44:12
 MERGED from [com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:17:1-40:12
+MERGED from [com.google.android.gms:play-services-location:21.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/79ab1e781201b91ad3164e48b9b2f082/transformed/jetified-play-services-location-21.3.0/AndroidManifest.xml:2:1-8:12
 MERGED from [com.google.android.gms:play-services-auth-api-phone:18.0.2] /home/dik81/.gradle/caches/8.14.4/transforms/92e56fc814f8dc1c909613d49d477b7c/transformed/jetified-play-services-auth-api-phone-18.0.2/AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.android.gms:play-services-auth-base:18.0.10] /home/dik81/.gradle/caches/8.14.4/transforms/d21bff140305d9f6efd7f379c3b19c89/transformed/jetified-play-services-auth-base-18.0.10/AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:2:1-18:12
@@ -27,7 +28,7 @@ MERGED from [com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/
 MERGED from [com.google.firebase:firebase-appcheck-interop:17.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/f638403d6ce78a2a70ccdfa6520f9308/transformed/jetified-firebase-appcheck-interop-17.0.0/AndroidManifest.xml:15:1-25:12
 MERGED from [com.google.firebase:firebase-database-collection:18.0.1] /home/dik81/.gradle/caches/8.14.4/transforms/bb5e9034ccc06999d5ef3fdc02fd9463/transformed/jetified-firebase-database-collection-18.0.1/AndroidManifest.xml:2:1-9:12
 MERGED from [com.google.android.gms:play-services-fido:20.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/13cf93e8b6d696b96bc67f14e5bf50ae/transformed/jetified-play-services-fido-20.1.0/AndroidManifest.xml:2:1-10:12
-MERGED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:16:1-24:12
+MERGED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:2:1-18:12
 MERGED from [com.google.firebase:firebase-auth-interop:20.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/70506f26139172079d18f9e3f102d796/transformed/jetified-firebase-auth-interop-20.0.0/AndroidManifest.xml:2:1-10:12
 MERGED from [com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:15:1-41:12
@@ -103,9 +104,25 @@ uses-permission#android.permission.SCHEDULE_EXACT_ALARM
 ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:10:5-79
 	android:name
 		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:10:22-76
+uses-permission#android.permission.ACCESS_FINE_LOCATION
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:11:5-79
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:11:22-76
+uses-permission#android.permission.ACCESS_COARSE_LOCATION
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:12:5-81
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:12:22-78
+uses-permission#android.permission.ACCESS_BACKGROUND_LOCATION
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:13:5-85
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:13:22-82
+uses-permission#android.permission.RECEIVE_BOOT_COMPLETED
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:14:5-81
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:14:22-78
 application
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:12:5-87:19
-INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:12:5-87:19
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:16:5-117:19
+INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:16:5-117:19
 MERGED from [com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:7:5-15:19
 MERGED from [com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:7:5-15:19
 MERGED from [com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:28:5-73:19
@@ -114,6 +131,8 @@ MERGED from [androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /ho
 MERGED from [androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:23:5-42:19
 MERGED from [com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:22:5-38:19
 MERGED from [com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:22:5-38:19
+MERGED from [com.google.android.gms:play-services-location:21.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/79ab1e781201b91ad3164e48b9b2f082/transformed/jetified-play-services-location-21.3.0/AndroidManifest.xml:6:5-20
+MERGED from [com.google.android.gms:play-services-location:21.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/79ab1e781201b91ad3164e48b9b2f082/transformed/jetified-play-services-location-21.3.0/AndroidManifest.xml:6:5-20
 MERGED from [com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:13:5-24:19
@@ -122,8 +141,8 @@ MERGED from [com.google.firebase:firebase-appcheck-interop:17.0.0] /home/dik81/.
 MERGED from [com.google.firebase:firebase-appcheck-interop:17.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/f638403d6ce78a2a70ccdfa6520f9308/transformed/jetified-firebase-appcheck-interop-17.0.0/AndroidManifest.xml:23:5-20
 MERGED from [com.google.android.gms:play-services-fido:20.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/13cf93e8b6d696b96bc67f14e5bf50ae/transformed/jetified-play-services-fido-20.1.0/AndroidManifest.xml:7:5-8:19
 MERGED from [com.google.android.gms:play-services-fido:20.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/13cf93e8b6d696b96bc67f14e5bf50ae/transformed/jetified-play-services-fido-20.1.0/AndroidManifest.xml:7:5-8:19
-MERGED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:19:5-23:19
-MERGED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:19:5-23:19
+MERGED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:4:5-6:19
+MERGED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:4:5-6:19
 MERGED from [com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.firebase:firebase-auth-interop:20.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/70506f26139172079d18f9e3f102d796/transformed/jetified-firebase-auth-interop-20.0.0/AndroidManifest.xml:7:5-8:19
@@ -151,95 +170,129 @@ MERGED from [com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/cach
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
 	android:label
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:13:9-41
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:17:9-41
 	android:icon
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:14:9-43
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:18:9-43
 	android:allowBackup
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:15:9-36
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:19:9-36
 	android:theme
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:16:9-66
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:20:9-66
 activity#com.reminderwidget.MainActivity
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:19:9-30:20
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:23:9-34:20
 	android:exported
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:21:13-36
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:25:13-36
 	android:theme
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:22:13-70
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:26:13-70
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:20:13-41
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:24:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:23:13-26:29
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:27:13-30:29
 action#android.intent.action.MAIN
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:24:17-69
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:28:17-69
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:24:25-66
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:28:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:25:17-77
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:29:17-77
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:25:27-74
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:29:27-74
 meta-data#android.app.shortcuts
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:27:13-29:53
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:31:13-33:53
 	android:resource
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:29:17-50
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:33:17-50
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:28:17-53
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:32:17-53
 activity#com.reminderwidget.VoiceActivity
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:33:9-37:47
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:37:9-41:47
 	android:launchMode
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:37:13-44
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:41:13-44
 	android:exported
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:36:13-36
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:40:13-36
 	android:theme
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:35:13-72
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:39:13-72
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:34:13-42
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:38:13-42
 activity#com.reminderwidget.ReminderAlertActivity
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:40:9-45:43
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:44:9-49:43
 	android:turnScreenOn
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:45:13-40
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:49:13-40
 	android:exported
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:43:13-37
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:47:13-37
 	android:showOnLockScreen
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:44:13-44
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:48:13-44
 	android:theme
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:42:13-77
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:46:13-77
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:41:13-50
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:45:13-50
+activity#com.reminderwidget.LocationManagerActivity
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:52:9-55:40
+	android:exported
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:55:13-37
+	android:theme
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:54:13-70
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:53:13-52
+activity#com.reminderwidget.LocationPickerActivity
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:58:9-61:40
+	android:exported
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:61:13-37
+	android:theme
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:60:13-70
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:59:13-51
 receiver#com.reminderwidget.ReminderWidget
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:48:9-57:20
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:64:9-73:20
 	android:exported
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:50:13-36
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:66:13-36
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:49:13-43
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:65:13-43
 intent-filter#action:name:android.appwidget.action.APPWIDGET_UPDATE
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:51:13-53:29
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:67:13-69:29
 action#android.appwidget.action.APPWIDGET_UPDATE
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:52:17-84
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:68:17-84
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:52:25-81
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:68:25-81
 meta-data#android.appwidget.provider
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:54:13-56:64
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:70:13-72:64
 	android:resource
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:56:17-61
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:72:17-61
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:55:17-58
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:71:17-58
 receiver#com.reminderwidget.EventsWidget
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:60:9-69:20
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:76:9-85:20
 	android:exported
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:62:13-36
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:78:13-36
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:61:13-41
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:77:13-41
 receiver#com.reminderwidget.SnoozeReceiver
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:72:9-74:40
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:88:9-90:40
 	android:exported
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:74:13-37
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:90:13-37
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:73:13-43
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:89:13-43
+receiver#com.reminderwidget.GeofencingReceiver
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:93:9-95:40
+	android:exported
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:95:13-37
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:94:13-47
+receiver#com.reminderwidget.BootReceiver
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:98:9-104:20
+	android:exported
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:100:13-36
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:99:13-41
+intent-filter#action:name:android.intent.action.BOOT_COMPLETED
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:101:13-103:29
+action#android.intent.action.BOOT_COMPLETED
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:102:17-79
+	android:name
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:102:25-76
 meta-data#android.support.FILE_PROVIDER_PATHS
-ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:82:13-84:54
+ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:112:13-114:54
 	android:resource
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:84:17-51
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:114:17-51
 	android:name
-		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:83:17-67
+		ADDED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:113:17-67
 uses-sdk
 INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml
@@ -254,6 +307,8 @@ MERGED from [androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /ho
 MERGED from [androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:21:5-44
 MERGED from [com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:20:5-44
 MERGED from [com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:20:5-44
+MERGED from [com.google.android.gms:play-services-location:21.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/79ab1e781201b91ad3164e48b9b2f082/transformed/jetified-play-services-location-21.3.0/AndroidManifest.xml:4:5-44
+MERGED from [com.google.android.gms:play-services-location:21.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/79ab1e781201b91ad3164e48b9b2f082/transformed/jetified-play-services-location-21.3.0/AndroidManifest.xml:4:5-44
 MERGED from [com.google.android.gms:play-services-auth-api-phone:18.0.2] /home/dik81/.gradle/caches/8.14.4/transforms/92e56fc814f8dc1c909613d49d477b7c/transformed/jetified-play-services-auth-api-phone-18.0.2/AndroidManifest.xml:5:5-44
 MERGED from [com.google.android.gms:play-services-auth-api-phone:18.0.2] /home/dik81/.gradle/caches/8.14.4/transforms/92e56fc814f8dc1c909613d49d477b7c/transformed/jetified-play-services-auth-api-phone-18.0.2/AndroidManifest.xml:5:5-44
 MERGED from [com.google.android.gms:play-services-auth-base:18.0.10] /home/dik81/.gradle/caches/8.14.4/transforms/d21bff140305d9f6efd7f379c3b19c89/transformed/jetified-play-services-auth-base-18.0.10/AndroidManifest.xml:5:5-44
@@ -268,8 +323,8 @@ MERGED from [com.google.firebase:firebase-database-collection:18.0.1] /home/dik8
 MERGED from [com.google.firebase:firebase-database-collection:18.0.1] /home/dik81/.gradle/caches/8.14.4/transforms/bb5e9034ccc06999d5ef3fdc02fd9463/transformed/jetified-firebase-database-collection-18.0.1/AndroidManifest.xml:5:5-7:41
 MERGED from [com.google.android.gms:play-services-fido:20.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/13cf93e8b6d696b96bc67f14e5bf50ae/transformed/jetified-play-services-fido-20.1.0/AndroidManifest.xml:5:5-44
 MERGED from [com.google.android.gms:play-services-fido:20.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/13cf93e8b6d696b96bc67f14e5bf50ae/transformed/jetified-play-services-fido-20.1.0/AndroidManifest.xml:5:5-44
-MERGED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:18:5-43
-MERGED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:3:5-44
+MERGED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:3:5-44
 MERGED from [com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:5:5-44
 MERGED from [com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:5:5-44
 MERGED from [com.google.firebase:firebase-auth-interop:20.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/70506f26139172079d18f9e3f102d796/transformed/jetified-firebase-auth-interop-20.0.0/AndroidManifest.xml:5:5-44
@@ -501,13 +556,13 @@ ADDED from [com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/c
 	android:name
 		ADDED from [com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:21:17-111
 activity#com.google.android.gms.common.api.GoogleApiActivity
-ADDED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:20:9-22:45
+ADDED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:9-173
 	android:exported
-		ADDED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:22:19-43
+		ADDED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:146-170
 	android:theme
-		ADDED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:21:19-78
+		ADDED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:86-145
 	android:name
-		ADDED from [com.google.android.gms:play-services-base:18.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b1069bc3c7b40190cb213f8a5680ca95/transformed/jetified-play-services-base-18.3.0/AndroidManifest.xml:20:19-85
+		ADDED from [com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:19-85
 meta-data#com.google.firebase.components:com.google.firebase.ktx.FirebaseCommonLegacyRegistrar
 ADDED from [com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:12:13-14:85
 	android:value

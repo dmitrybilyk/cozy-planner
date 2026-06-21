@@ -15,6 +15,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
 
@@ -64,6 +68,18 @@
             android:theme="@android:style/Theme.Material.Dialog.NoActionBar"
             android:turnScreenOn="true" />
 
+        <!-- Location manager (list/add/delete saved locations) -->
+        <activity
+            android:name="com.reminderwidget.LocationManagerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
+        <!-- Map picker for choosing a location point -->
+        <activity
+            android:name="com.reminderwidget.LocationPickerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
         <!-- Mic widget -->
         <receiver
             android:name="com.reminderwidget.ReminderWidget"
@@ -94,6 +110,20 @@
         <receiver
             android:name="com.reminderwidget.SnoozeReceiver"
             android:exported="false" />
+
+        <!-- Geofence transition handler -->
+        <receiver
+            android:name="com.reminderwidget.GeofencingReceiver"
+            android:exported="false" />
+
+        <!-- Re-register geofences after reboot -->
+        <receiver
+            android:name="com.reminderwidget.BootReceiver"
+            android:exported="true" >
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- FileProvider for sharing agenda image -->
         <provider

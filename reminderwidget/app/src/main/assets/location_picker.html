@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  #map { height: 100vh; }
+  #crosshair {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px; pointer-events: none; z-index: 1000;
+    text-shadow: 0 0 4px #fff;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="crosshair">📍</div>
+<script>
+  var defaultLat = 50.4501, defaultLng = 30.5234;
+  var map = L.map('map', { zoomControl: true }).setView([defaultLat, defaultLng], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // Report center coordinates as user pans/zooms
+  function reportCenter() {
+    var c = map.getCenter();
+    if (window.Android) Android.onLocationSelected(c.lat, c.lng);
+  }
+  map.on('moveend', reportCenter);
+  map.on('zoomend', reportCenter);
+
+  // Try to center on device location
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(p) {
+      map.setView([p.coords.latitude, p.coords.longitude], 17);
+    }, null, { timeout: 5000 });
+  }
+</script>
+</body>
+</html>

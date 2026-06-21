@@ -27,8 +27,14 @@ class SnoozeReceiver : BroadcastReceiver() {
                 } else {
                     EventStore.markCompleted(context, eventId)
                 }
+                // remove from group collection so all members' alarms get cancelled
+                if (event?.isGroup == true) {
+                    val groupId = GroupStore.getGroupId(context)
+                    if (groupId != null) FirebaseSync.deleteGroupEvent(groupId, eventId)
+                }
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
+                PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE1 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 1L)
@@ -45,6 +51,7 @@ class SnoozeReceiver : BroadcastReceiver() {
                 nm.cancel(nid); scheduleSnooze(context, eventId, mins)
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
+                PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE10 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 10L)
@@ -88,6 +95,18 @@ class SnoozeReceiver : BroadcastReceiver() {
                 NotificationHelper.cancelRepeat(context, eventId)
                 NotificationHelper.setRepeating(context, eventId, false)
                 NotificationHelper.post(context, event, ongoing = true, silent = true, fullscreen = false, pinned = true)
+            }
+            NotificationHelper.ACTION_POSTPONE_DAY -> {
+                nm.cancel(nid)
+                val event = EventStore.load(context).find { it.id == eventId } ?: return
+                val newTime = event.startMs + 24 * 60 * 60_000L
+                EventStore.updateStartMs(context, eventId, newTime)
+                val notifOn = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(MainActivity.KEY_NOTIFICATIONS_ENABLED, true)
+                if (notifOn) NotificationHelper.scheduleAt(context, eventId, newTime)
+                context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
+                EventsWidget.update(context)
+                PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_REPEAT_FIRE -> {
                 val event = EventStore.load(context).find { it.id == eventId }

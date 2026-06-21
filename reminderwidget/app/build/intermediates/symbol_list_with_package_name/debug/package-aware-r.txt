@@ -75,6 +75,7 @@ dimen notification_subtext_size
 dimen notification_top_pad
 dimen notification_top_pad_large_text
 drawable btn_done_pinned_bg
+drawable btn_postpone_bg
 drawable common_full_open_on_phone
 drawable common_google_signin_btn_icon_dark
 drawable common_google_signin_btn_icon_dark_focused
@@ -176,9 +177,11 @@ id browser_actions_menu_view
 id btn_done
 id btn_done_pinned
 id btn_pin
+id btn_postpone_day
 id btn_repeat
 id btn_snooze_a
 id btn_snooze_b
+id btn_snooze_pin
 id chronometer
 id dark
 id dialog_button
@@ -205,6 +208,7 @@ id notif_title
 id notification_background
 id notification_main_column
 id notification_main_column_container
+id pinned_row
 id right_icon
 id right_side
 id row_buttons

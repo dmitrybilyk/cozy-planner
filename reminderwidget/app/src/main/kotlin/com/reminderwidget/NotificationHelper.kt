@@ -34,6 +34,7 @@ object NotificationHelper {
     const val ACTION_REPEAT_TOGGLE  = "com.reminderwidget.REPEAT_TOGGLE"
     const val ACTION_REPEAT_FIRE    = "com.reminderwidget.REPEAT_FIRE"
     const val ACTION_PIN            = "com.reminderwidget.PIN"
+    const val ACTION_POSTPONE_DAY  = "com.reminderwidget.POSTPONE_DAY"
     const val EXTRA_EVENT_ID        = "event_id"
     const val EXTRA_SILENT          = "silent"
     const val EXTRA_FULLSCREEN      = "fullscreen"
@@ -149,6 +150,8 @@ object NotificationHelper {
         val donePi       = broadcastPi(context, nid,      ACTION_DONE,          event.id)
         val repeatPi     = broadcastPi(context, nid + 7,  ACTION_REPEAT_TOGGLE, event.id)
         val pinPi        = broadcastPi(context, nid + 8,  ACTION_PIN,           event.id)
+        val postponePi   = broadcastPi(context, nid + 9,  ACTION_POSTPONE_DAY,  event.id)
+        val snoozePinPi  = snoozeMinPi(context, nid + 10, event.id, 1)
         val snoozePi1    = snoozeMinPi(context, nid + 4,  event.id, snooze1Min)
         val snoozePi2    = snoozeMinPi(context, nid + 5,  event.id, snooze2Min)
         val dismissPi    = broadcastPi(context, nid + 1,  ACTION_DISMISSED,     event.id)
@@ -172,13 +175,19 @@ object NotificationHelper {
             v.setViewVisibility(R.id.notif_body, if (showBody) View.VISIBLE else View.GONE)
             if (pinned) {
                 v.setViewVisibility(R.id.row_buttons, View.GONE)
-                v.setViewVisibility(R.id.btn_done_pinned, View.VISIBLE)
+                v.setViewVisibility(R.id.pinned_row, View.VISIBLE)
                 v.setInt(R.id.btn_done_pinned, "setBackgroundResource", R.drawable.btn_done_pinned_bg)
                 v.setTextColor(R.id.btn_done_pinned, Color.WHITE)
                 v.setOnClickPendingIntent(R.id.btn_done_pinned, donePi)
+                v.setInt(R.id.btn_postpone_day, "setBackgroundResource", R.drawable.btn_postpone_bg)
+                v.setTextColor(R.id.btn_postpone_day, Color.WHITE)
+                v.setOnClickPendingIntent(R.id.btn_postpone_day, postponePi)
+                v.setInt(R.id.btn_snooze_pin, "setBackgroundColor", if (repeating) 0xFFFF5722.toInt() else btnBg)
+                v.setTextColor(R.id.btn_snooze_pin, btnText)
+                v.setOnClickPendingIntent(R.id.btn_snooze_pin, repeatPi)
             } else {
                 v.setViewVisibility(R.id.row_buttons, View.VISIBLE)
-                v.setViewVisibility(R.id.btn_done_pinned, View.GONE)
+                v.setViewVisibility(R.id.pinned_row, View.GONE)
                 v.setOnClickPendingIntent(R.id.btn_done, donePi)
                 v.setOnClickPendingIntent(R.id.btn_repeat, repeatPi)
                 v.setOnClickPendingIntent(R.id.btn_pin, pinPi)

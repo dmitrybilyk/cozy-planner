@@ -149,6 +149,7 @@ class VoiceActivity : Activity() {
             startMs    = parsed.startMs,
             durationMs = effectiveDur,
             rrule      = parsed.rrule,
+            hasTime    = parsed.hasTime,
         )
         EventStore.add(this, event)
         incrementCount(this)
@@ -163,6 +164,7 @@ class VoiceActivity : Activity() {
                 if (calId != -1L) EventStore.updateCalendarId(this, localId, calId)
             }
             EventsWidget.update(this)
+            PersistentNotif.update(this)
             Toast.makeText(this, "📌 «${parsed.title}»", Toast.LENGTH_SHORT).show()
             return
         }
@@ -180,6 +182,7 @@ class VoiceActivity : Activity() {
         }
 
         EventsWidget.update(this)
+        PersistentNotif.update(this)
 
         val icon = if (parsed.rrule != null) "🔁" else if (immediate) "✅" else "⏰"
         val suffix = when {

@@ -17,6 +17,9 @@ object EventStore {
         val calendarEventId: Long = -1L,
         val completed: Boolean = false,
         val favorite: Boolean = false,
+        val isGroup: Boolean = false,
+        val locationName: String? = null,
+        val hasTime: Boolean = true,
     )
 
     fun add(context: Context, event: AppEvent) {
@@ -29,18 +32,31 @@ object EventStore {
 
     fun remove(context: Context, localId: Long) {
         val list = load(context).toMutableList()
+        val event = list.find { it.id == localId }
         list.removeAll { it.id == localId }
         persist(context, list)
         FirebaseSync.deleteEvent(context, localId)
+        if (event?.isGroup == true) {
+            GroupStore.getGroupId(context)?.let { gid -> FirebaseSync.deleteGroupEvent(gid, localId) }
+        }
     }
 
     fun clear(context: Context) {
-        load(context).forEach { FirebaseSync.deleteEvent(context, it.id) }
+        val all = load(context)
+        val gid = GroupStore.getGroupId(context)
+        all.forEach { e ->
+            FirebaseSync.deleteEvent(context, e.id)
+            if (e.isGroup && gid != null) FirebaseSync.deleteGroupEvent(gid, e.id)
+        }
         persist(context, emptyList())
     }
 
     fun deleteNonFavorites(context: Context) {
-        load(context).filter { !it.favorite }.forEach { FirebaseSync.deleteEvent(context, it.id) }
+        val gid = GroupStore.getGroupId(context)
+        load(context).filter { !it.favorite }.forEach { e ->
+            FirebaseSync.deleteEvent(context, e.id)
+            if (e.isGroup && gid != null) FirebaseSync.deleteGroupEvent(gid, e.id)
+        }
         persist(context, load(context).filter { it.favorite })
     }
 
@@ -73,6 +89,37 @@ object EventStore {
         patch(context, localId) { copy(favorite = favorite) }
     }
 
+    fun markGroup(context: Context, localId: Long, isGroup: Boolean) {
+        patch(context, localId) { copy(isGroup = isGroup) }
+    }
+
+    fun setLocation(context: Context, localId: Long, locationName: String?) {
+        val list = load(context).toMutableList()
+        val idx = list.indexOfFirst { it.id == localId }
+        if (idx < 0) return
+        list[idx] = list[idx].copy(locationName = locationName)
+        persist(context, list)
+        FirebaseSync.pushEvent(context, list[idx])
+        if (locationName != null) {
+            val loc = LocationsStore.get(context, locationName)
+            if (loc != null) GeofenceManager.registerForEvent(context, list[idx], loc.lat, loc.lng)
+        } else {
+            GeofenceManager.unregisterForEvent(context, localId)
+        }
+    }
+
+    fun clearLocation(context: Context, locationName: String) {
+        val list = load(context).toMutableList()
+        var changed = false
+        list.forEachIndexed { i, e ->
+            if (e.locationName == locationName) {
+                list[i] = e.copy(locationName = null)
+                changed = true
+            }
+        }
+        if (changed) persist(context, list)
+    }
+
     fun update(context: Context, event: AppEvent) {
         patch(context, event.id) { event }
     }
@@ -84,6 +131,9 @@ object EventStore {
             list[idx] = list[idx].transform()
             persist(context, list)
             FirebaseSync.pushEvent(context, list[idx])
+            if (list[idx].isGroup) {
+                GroupStore.getGroupId(context)?.let { gid -> FirebaseSync.pushGroupEvent(gid, list[idx]) }
+            }
         }
     }
 
@@ -102,6 +152,9 @@ object EventStore {
                     calendarEventId = if (o.has("calendarEventId")) o.getLong("calendarEventId") else -1L,
                     completed       = if (o.has("completed")) o.getBoolean("completed") else false,
                     favorite        = if (o.has("favorite"))  o.getBoolean("favorite")  else false,
+                    isGroup         = if (o.has("isGroup"))   o.getBoolean("isGroup")   else false,
+                    locationName    = if (o.has("locationName")) o.getString("locationName").takeIf { it.isNotBlank() } else null,
+                    hasTime         = if (o.has("hasTime")) o.getBoolean("hasTime") else true,
                 )
             }
         } catch (_: Exception) { emptyList() }
@@ -119,6 +172,9 @@ object EventStore {
                 put("calendarEventId", e.calendarEventId)
                 if (e.completed) put("completed", true)
                 if (e.favorite)  put("favorite", true)
+                if (e.isGroup)   put("isGroup", true)
+                e.locationName?.let { put("locationName", it) }
+                if (!e.hasTime) put("hasTime", false)
             })
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, arr.toString()).apply()
