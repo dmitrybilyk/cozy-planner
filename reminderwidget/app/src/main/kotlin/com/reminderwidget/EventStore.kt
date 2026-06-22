@@ -26,45 +26,45 @@ object EventStore {
         val list = load(context).toMutableList()
         list.removeAll { it.id == event.id }
         list.add(0, event)
-        persist(context, list.take(50))
+        persist(context, list)
         FirebaseSync.pushEvent(context, event)
+    }
+
+    fun purgeOld(context: Context) {
+        val cutoff = System.currentTimeMillis() - 60L * 24 * 60 * 60_000L
+        val list = load(context).toMutableList()
+        val toRemove = list.filter { !it.favorite && it.startMs < cutoff }
+        if (toRemove.isEmpty()) return
+        // Only delete from personal Firestore — group copies belong to the group
+        toRemove.forEach { e -> FirebaseSync.deleteEvent(context, e.id) }
+        persist(context, list.filter { it.favorite || it.startMs >= cutoff })
     }
 
     fun remove(context: Context, localId: Long) {
         val list = load(context).toMutableList()
-        val event = list.find { it.id == localId }
         list.removeAll { it.id == localId }
         persist(context, list)
+        // Only delete from personal Firestore — group copy is the group's, not ours to delete
         FirebaseSync.deleteEvent(context, localId)
-        if (event?.isGroup == true) {
-            GroupStore.getGroupId(context)?.let { gid -> FirebaseSync.deleteGroupEvent(gid, localId) }
-        }
     }
 
     fun clear(context: Context) {
-        val all = load(context)
-        val gid = GroupStore.getGroupId(context)
-        all.forEach { e ->
-            FirebaseSync.deleteEvent(context, e.id)
-            if (e.isGroup && gid != null) FirebaseSync.deleteGroupEvent(gid, e.id)
-        }
+        load(context).forEach { e -> FirebaseSync.deleteEvent(context, e.id) }
         persist(context, emptyList())
     }
 
     fun deleteNonFavorites(context: Context) {
-        val gid = GroupStore.getGroupId(context)
-        load(context).filter { !it.favorite }.forEach { e ->
-            FirebaseSync.deleteEvent(context, e.id)
-            if (e.isGroup && gid != null) FirebaseSync.deleteGroupEvent(gid, e.id)
-        }
+        load(context).filter { !it.favorite }.forEach { e -> FirebaseSync.deleteEvent(context, e.id) }
         persist(context, load(context).filter { it.favorite })
     }
 
     fun addSilent(context: Context, event: AppEvent) {
         val list = load(context).toMutableList()
+        val existing = list.find { it.id == event.id }
+        val merged = if (existing != null) event.copy(calendarEventId = existing.calendarEventId) else event
         list.removeAll { it.id == event.id }
-        list.add(0, event)
-        persist(context, list.take(50))
+        list.add(0, merged)
+        persist(context, list)
     }
 
     fun removeSilent(context: Context, localId: Long) {
@@ -130,10 +130,8 @@ object EventStore {
         if (idx >= 0) {
             list[idx] = list[idx].transform()
             persist(context, list)
+            // Only sync to personal Firestore — local edits on group events stay local
             FirebaseSync.pushEvent(context, list[idx])
-            if (list[idx].isGroup) {
-                GroupStore.getGroupId(context)?.let { gid -> FirebaseSync.pushGroupEvent(gid, list[idx]) }
-            }
         }
     }
 

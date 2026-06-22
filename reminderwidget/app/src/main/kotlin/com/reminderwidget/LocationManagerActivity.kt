@@ -15,12 +15,13 @@ class LocationManagerActivity : Activity() {
 
     companion object {
         private const val RC_PICK = 1
+        private const val RC_EDIT = 2
     }
 
     private lateinit var listContainer: LinearLayout
+    private var editingOldName: String? = null
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-    private fun roundedBg(color: Int, r: Float) = GradientDrawable().apply { cornerRadius = dp(r.toInt()).toFloat(); setColor(color) }
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
@@ -30,7 +31,6 @@ class LocationManagerActivity : Activity() {
             setBackgroundColor(0xFF0D0D0D.toInt())
         }
 
-        // Header
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(0xFF111111.toInt())
@@ -48,7 +48,6 @@ class LocationManagerActivity : Activity() {
         })
         root.addView(header)
 
-        // Add button
         root.addView(TextView(this).apply {
             text = "+ Додати нову локацію"; textSize = 14f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF1B5E20.toInt()) }
@@ -56,10 +55,12 @@ class LocationManagerActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also {
                 it.setMargins(dp(16), dp(12), dp(16), dp(4))
             }
-            setOnClickListener { startActivityForResult(Intent(this@LocationManagerActivity, LocationPickerActivity::class.java), RC_PICK) }
+            setOnClickListener {
+                editingOldName = null
+                startActivityForResult(Intent(this@LocationManagerActivity, LocationPickerActivity::class.java), RC_PICK)
+            }
         })
 
-        // List
         val scroll = ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f) }
         listContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -90,6 +91,8 @@ class LocationManagerActivity : Activity() {
                 background = GradientDrawable().apply { setColor(0xFF1A1A1A.toInt()); cornerRadius = dp(10).toFloat() }
                 setPadding(dp(14), dp(12), dp(8), dp(12))
                 layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(6) }
+                isClickable = true
+                setOnClickListener { openEdit(loc) }
             }
             val col = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -100,11 +103,15 @@ class LocationManagerActivity : Activity() {
                 setTypeface(typeface, Typeface.BOLD)
             })
             col.addView(TextView(this).apply {
-                text = "%.4f, %.4f".format(loc.lat, loc.lng); textSize = 11f; setTextColor(0xFF666666.toInt())
+                text = "%.4f, %.4f  ·  150 м".format(loc.lat, loc.lng); textSize = 11f; setTextColor(0xFF666666.toInt())
             })
             row.addView(col)
             row.addView(TextView(this).apply {
-                text = "🗑"; textSize = 18f; setPadding(dp(10), dp(4), dp(4), dp(4))
+                text = "✏️"; textSize = 18f; setPadding(dp(8), dp(4), dp(4), dp(4))
+                setOnClickListener { openEdit(loc) }
+            })
+            row.addView(TextView(this).apply {
+                text = "🗑"; textSize = 18f; setPadding(dp(4), dp(4), dp(4), dp(4))
                 setOnClickListener {
                     android.app.AlertDialog.Builder(this@LocationManagerActivity, android.R.style.Theme_Material_Dialog_Alert)
                         .setTitle("Видалити «${loc.name}»?")
@@ -122,16 +129,39 @@ class LocationManagerActivity : Activity() {
         }
     }
 
+    private fun openEdit(loc: LocationsStore.AppLocation) {
+        editingOldName = loc.name
+        val intent = Intent(this, LocationPickerActivity::class.java).apply {
+            putExtra(LocationPickerActivity.EDIT_NAME,         loc.name)
+            putExtra(LocationPickerActivity.EXTRA_INITIAL_LAT, loc.lat)
+            putExtra(LocationPickerActivity.EXTRA_INITIAL_LNG, loc.lng)
+        }
+        startActivityForResult(intent, RC_EDIT)
+    }
+
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onActivityResult(rc: Int, res: Int, data: Intent?) {
         super.onActivityResult(rc, res, data)
-        if (rc == RC_PICK && res == RESULT_OK && data != null) {
-            val name = data.getStringExtra(LocationPickerActivity.EXTRA_NAME) ?: return
-            val lat  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LAT,  0.0)
-            val lng  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LNG,  0.0)
-            LocationsStore.add(this, LocationsStore.AppLocation(name, lat, lng))
-            rebuildList()
-            setResult(RESULT_OK)
+        if (res != RESULT_OK || data == null) return
+        val name = data.getStringExtra(LocationPickerActivity.EXTRA_NAME) ?: return
+        val lat  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LAT, 0.0)
+        val lng  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LNG, 0.0)
+        when (rc) {
+            RC_PICK -> {
+                LocationsStore.add(this, LocationsStore.AppLocation(name, lat, lng))
+            }
+            RC_EDIT -> {
+                val old = editingOldName
+                if (old != null && old != name) {
+                    // name changed — rename in all stores
+                    LocationsStore.remove(this, old)
+                    EventStore.clearLocation(this, old)
+                }
+                LocationsStore.add(this, LocationsStore.AppLocation(name, lat, lng))
+                editingOldName = null
+            }
         }
+        rebuildList()
+        setResult(RESULT_OK)
     }
 }

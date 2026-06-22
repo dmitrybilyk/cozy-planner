@@ -19,6 +19,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
 
@@ -115,6 +117,17 @@
         <receiver
             android:name="com.reminderwidget.GeofencingReceiver"
             android:exported="false" />
+
+        <!-- Persistent notification action handler (hide) -->
+        <receiver
+            android:name="com.reminderwidget.NotifActionReceiver"
+            android:exported="false" />
+
+        <!-- Background Firestore sync service -->
+        <service
+            android:name="com.reminderwidget.SyncService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- Re-register geofences after reboot -->
         <receiver

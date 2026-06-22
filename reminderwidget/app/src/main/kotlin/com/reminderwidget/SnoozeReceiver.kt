@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.widget.Toast
 
 class SnoozeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -21,52 +22,55 @@ class SnoozeReceiver : BroadcastReceiver() {
                 val next  = event?.let { advanceRecurring(it) }
                 if (next != null) {
                     EventStore.update(context, next)
-                    val notifOn = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
-                        .getBoolean(MainActivity.KEY_NOTIFICATIONS_ENABLED, true)
-                    if (notifOn) NotificationHelper.scheduleAt(context, eventId, next.startMs)
+                    NotificationHelper.scheduleAt(context, eventId, next.startMs)
                 } else {
                     EventStore.markCompleted(context, eventId)
                 }
-                // remove from group collection so all members' alarms get cancelled
-                if (event?.isGroup == true) {
-                    val groupId = GroupStore.getGroupId(context)
-                    if (groupId != null) FirebaseSync.deleteGroupEvent(groupId, eventId)
-                }
+                Toast.makeText(context, "✅ Виконано: «${event?.title ?: ""}»", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
                 PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE1 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 1L)
+                Toast.makeText(context, "⏰ Відкладено на 1'", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
             }
             NotificationHelper.ACTION_SNOOZE5 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 5L)
+                Toast.makeText(context, "⏰ Відкладено на 5'", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
             }
             NotificationHelper.ACTION_SNOOZE -> {
                 val mins = intent.getIntExtra(NotificationHelper.EXTRA_SNOOZE_MINUTES, 5).toLong()
                 nm.cancel(nid); scheduleSnooze(context, eventId, mins)
+                val minStr = if (mins >= 60) "${mins / 60}г${if (mins % 60 != 0L) "${mins % 60}'" else ""}" else "$mins'"
+                Toast.makeText(context, "⏰ Відкладено на $minStr", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
                 PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE10 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 10L)
+                Toast.makeText(context, "⏰ Відкладено на 10'", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
             }
             NotificationHelper.ACTION_SNOOZE15 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 15L)
+                Toast.makeText(context, "⏰ Відкладено на 15'", Toast.LENGTH_SHORT).show()
+                context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
+                EventsWidget.update(context)
+            }
+            NotificationHelper.ACTION_DISMISS_NOTIF -> {
+                nm.cancel(nid)
+                Toast.makeText(context, "🔕 Прибрано зі статус-бару", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
             }
             NotificationHelper.ACTION_REPOST -> {
-                val notifEnabled = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
-                    .getBoolean(MainActivity.KEY_NOTIFICATIONS_ENABLED, true)
-                if (!notifEnabled) { EventsWidget.update(context); return }
                 val event = EventStore.load(context).find { it.id == eventId } ?: return
                 val silent     = intent.getBooleanExtra(NotificationHelper.EXTRA_SILENT,     false)
                 val fullscreen = intent.getBooleanExtra(NotificationHelper.EXTRA_FULLSCREEN, false)
@@ -83,8 +87,10 @@ class SnoozeReceiver : BroadcastReceiver() {
                 NotificationHelper.setRepeating(context, eventId, !wasOn)
                 if (!wasOn) {
                     NotificationHelper.scheduleRepeat(context, eventId)
+                    Toast.makeText(context, "🔁 Повтор увімкнено", Toast.LENGTH_SHORT).show()
                 } else {
                     NotificationHelper.cancelRepeat(context, eventId)
+                    Toast.makeText(context, "🔁 Повтор вимкнено", Toast.LENGTH_SHORT).show()
                 }
                 val existing = nm.activeNotifications.find { it.id == nid }
                 val ongoing  = (existing?.notification?.flags ?: 0) and android.app.Notification.FLAG_ONGOING_EVENT != 0
@@ -95,18 +101,30 @@ class SnoozeReceiver : BroadcastReceiver() {
                 NotificationHelper.cancelRepeat(context, eventId)
                 NotificationHelper.setRepeating(context, eventId, false)
                 NotificationHelper.post(context, event, ongoing = true, silent = true, fullscreen = false, pinned = true)
+                Toast.makeText(context, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
             }
             NotificationHelper.ACTION_POSTPONE_DAY -> {
                 nm.cancel(nid)
                 val event = EventStore.load(context).find { it.id == eventId } ?: return
                 val newTime = event.startMs + 24 * 60 * 60_000L
                 EventStore.updateStartMs(context, eventId, newTime)
-                val notifOn = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
-                    .getBoolean(MainActivity.KEY_NOTIFICATIONS_ENABLED, true)
-                if (notifOn) NotificationHelper.scheduleAt(context, eventId, newTime)
+                NotificationHelper.scheduleAt(context, eventId, newTime)
+                Toast.makeText(context, "📅 Перенесено на завтра", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
                 PersistentNotif.update(context)
+            }
+            NotificationHelper.ACTION_SHARE_GROUP -> {
+                EventStore.markGroup(context, eventId, true)
+                val updatedEvent = EventStore.load(context).find { it.id == eventId } ?: return
+                val groupId = GroupStore.getGroupId(context)
+                if (groupId != null) FirebaseSync.pushGroupEvent(groupId, updatedEvent)
+                val existing = nm.activeNotifications.find { it.id == nid }
+                val ongoing  = (existing?.notification?.flags ?: 0) and android.app.Notification.FLAG_ONGOING_EVENT != 0
+                NotificationHelper.post(context, updatedEvent, ongoing = ongoing, silent = true, fullscreen = false, pinned = true)
+                Toast.makeText(context, "👥 Поширено до групи", Toast.LENGTH_SHORT).show()
+                context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
+                EventsWidget.update(context)
             }
             NotificationHelper.ACTION_REPEAT_FIRE -> {
                 val event = EventStore.load(context).find { it.id == eventId }

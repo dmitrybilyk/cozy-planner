@@ -106,8 +106,13 @@ class MainActivity : Activity() {
     private var whereContainer:     LinearLayout? = null
     private var whatScroll:         ScrollView?   = null
     private var whereScroll:        ScrollView?   = null
+    private var currentEventsSubTab = 0
+    private var eventsSubTabBtns:   Array<TextView> = emptyArray()
+    private var eventsAllScroll:    ScrollView? = null
+    private var eventsFavScroll:    ScrollView? = null
     private var currentTodoTab      = 0
     private var todoSubTabBtns:     Array<TextView> = emptyArray()
+    private var todoGroupPanel:     LinearLayout? = null
     private var todoTitleView:      TextView?     = null
     private var todoFab:            TextView?     = null
     private var lastDraggedId:      Long?         = null
@@ -134,14 +139,21 @@ class MainActivity : Activity() {
 
     private val listChangedReceiver = object : BroadcastReceiver() {
         override fun onReceive(c: Context?, i: Intent?) {
+            if (GroupStore.isInGroup(this@MainActivity)) {
+                groupTodoItems = TodoStore.loadGroupItems(this@MainActivity)
+                groupPlaces    = TodoStore.loadGroupPlaces(this@MainActivity)
+            }
             loadEventsList()
-            if (currentTab == 1) loadFavoritesList()
+            loadFavoritesList()
+            if (currentTab == 1) loadTodoList()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        // Notifications toggle was removed — always on
+        prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, true).apply()
         NotificationHelper.ensureChannel(this)
         NotificationHelper.ensureSilentChannel(this)
         PersistentNotif.ensureChannel(this)
@@ -157,8 +169,13 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 300)
+        // Group sync doesn't need userId — start it unconditionally
+        EventStore.purgeOld(this)
+        startGroupSync()
+        SyncService.start(this)
+        // Personal events/todo need userId — try GET_ACCOUNTS path
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.GET_ACCOUNTS) == PackageManager.PERMISSION_GRANTED) {
-            startFirebaseSync()
+            startPersonalSync()
         } else {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.GET_ACCOUNTS), REQ_ACCOUNTS)
         }
@@ -175,15 +192,14 @@ class MainActivity : Activity() {
         groupMembersListener?.remove(); groupMembersListener = null
     }
 
-    private fun startFirebaseSync() {
+    private fun startPersonalSync() {
         FirebaseSync.init(this)
         if (!FirebaseSync.isReady()) return
         todoListener?.remove()
         todoListener = FirebaseSync.listenTodo(this) { title, items, places ->
             TodoStore.mergeFromRemote(this, title, items, places)
             todoTitleView?.text = title
-            // only refresh UI when private mode is visible
-            if (currentTab == 2 && currentTodoMode == 0) {
+            if (currentTab == 1 && currentTodoMode == 0) {
                 if (currentTodoTab == 0) loadWhatList() else loadWhereList()
             }
         }
@@ -203,12 +219,10 @@ class MainActivity : Activity() {
                 NotificationHelper.cancelAlarm(this, id)
             }
             if (added.isNotEmpty() || removedIds.isNotEmpty()) {
-                if (currentTab == 0) loadEventsList()
-                if (currentTab == 1) loadFavoritesList()
+                if (currentTab == 0) { loadEventsList(); loadFavoritesList() }
                 EventsWidget.update(this)
             }
         }
-        startGroupSync()
     }
 
     private fun startGroupSync() {
@@ -230,8 +244,7 @@ class MainActivity : Activity() {
                 NotificationHelper.cancelRepeat(this, id)
             }
             if (added.isNotEmpty() || removedIds.isNotEmpty()) {
-                if (currentTab == 0) loadEventsList()
-                if (currentTab == 1) loadFavoritesList()
+                if (currentTab == 0) { loadEventsList(); loadFavoritesList() }
                 EventsWidget.update(this)
                 PersistentNotif.update(this)
             }
@@ -242,12 +255,14 @@ class MainActivity : Activity() {
             added.forEach { item -> current.removeAll { it.id == item.id }; current.add(item) }
             removed.forEach { id -> current.removeAll { it.id == id } }
             groupTodoItems = current.sortedBy { it.sortOrder }
-            if (currentTab == 2 && currentTodoMode == 1) loadTodoList()
+            TodoStore.saveGroupItems(this, groupTodoItems)
+            if (currentTab == 1 && currentTodoMode == 1) loadTodoList()
         }
         groupPlacesListener?.remove()
         groupPlacesListener = FirebaseSync.listenGroupPlaces(groupId) { places ->
             groupPlaces = places
-            if (currentTab == 2 && currentTodoMode == 1 && currentTodoTab == 1) loadWhereList()
+            TodoStore.saveGroupPlaces(this, places)
+            if (currentTab == 1 && currentTodoMode == 1 && currentTodoTab == 1) loadWhereList()
         }
         groupMembersListener?.remove()
         groupMembersListener = FirebaseSync.listenGroupMembers(groupId) { members ->
@@ -264,6 +279,8 @@ class MainActivity : Activity() {
         groupTodoItems   = emptyList()
         groupPlaces      = emptyList()
         groupMemberNames = emptyList()
+        TodoStore.saveGroupItems(this, emptyList())
+        TodoStore.saveGroupPlaces(this, emptyList())
     }
 
     private fun updateGroupStatus() {
@@ -286,7 +303,7 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == RC_LOCATION_MANAGER && resultCode == RESULT_OK) {
-            loadEventsList(); if (currentTab == 1) loadFavoritesList()
+            loadEventsList(); loadFavoritesList()
             return
         }
 
@@ -306,8 +323,8 @@ class MainActivity : Activity() {
 
     private fun refreshDynamicState() {
         loadEventsList()
-        if (currentTab == 1) loadFavoritesList()
-        if (currentTab == 2) loadTodoList()
+        loadFavoritesList()
+        if (currentTab == 1) loadTodoList()
         updateSoundBtn()
         updateExportSwitch()
         updatePinBtn()
@@ -332,7 +349,6 @@ class MainActivity : Activity() {
         }
         tabPages = arrayOf(
             buildEventsPage(),
-            buildFavoritesPage(),
             buildTodoPage(),
             buildSettingsPage(),
         )
@@ -366,13 +382,13 @@ class MainActivity : Activity() {
     }
 
     private fun buildBottomNav(): View {
-        val navData = listOf("📋" to "Події", "❤️" to "Обрані", "✅" to "Список", "⚙️" to "Налаш.")
+        val navData = listOf("📋" to "Події", "✅" to "Список", "⚙️" to "Налаш.")
         val navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56))
             setBackgroundColor(0xFF111111.toInt())
         }
-        navBtns = Array(4) { i ->
+        navBtns = Array(3) { i ->
             val (icon, label) = navData[i]
             val col = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -403,10 +419,9 @@ class MainActivity : Activity() {
             (col.getChildAt(1) as? TextView)?.setTextColor(if (active) 0xFFFF5722.toInt() else 0xFF555555.toInt())
         }
         when (idx) {
-            0 -> loadEventsList()
-            1 -> loadFavoritesList()
-            2 -> loadTodoList()
-            3 -> updateSoundBtn()
+            0 -> { loadEventsList(); loadFavoritesList() }
+            1 -> loadTodoList()
+            2 -> updateSoundBtn()
         }
     }
 
@@ -419,17 +434,63 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         }
-        val scroll = ScrollView(this).apply {
+
+        val subTabBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(0xFF111111.toInt())
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        }
+        val allBtn = TextView(this).apply {
+            text = "📋 Всі"; textSize = 13f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f).also { it.marginEnd = dp(4) }
+        }
+        val favBtn = TextView(this).apply {
+            text = "❤️ Обрані"; textSize = 13f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f).also { it.marginStart = dp(4) }
+        }
+        eventsSubTabBtns = arrayOf(allBtn, favBtn)
+        subTabBar.addView(allBtn); subTabBar.addView(favBtn)
+        page.addView(subTabBar)
+
+        val contentFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
         }
-        val inner = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(8), dp(12), dp(24))
+
+        eventsAllScroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        }
+        val allInner = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(8), dp(12), dp(24))
         }
         eventsContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        inner.addView(eventsContainer)
-        scroll.addView(inner)
-        page.addView(scroll)
+        allInner.addView(eventsContainer); eventsAllScroll!!.addView(allInner)
+
+        eventsFavScroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT); visibility = View.GONE
+        }
+        val favInner = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(8), dp(12), dp(24))
+        }
+        favoritesContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        favInner.addView(favoritesContainer); eventsFavScroll!!.addView(favInner)
+
+        contentFrame.addView(eventsAllScroll); contentFrame.addView(eventsFavScroll)
+        page.addView(contentFrame)
+
+        fun applyEventsSubTab(idx: Int) {
+            currentEventsSubTab = idx
+            eventsAllScroll?.visibility  = if (idx == 0) View.VISIBLE else View.GONE
+            eventsFavScroll?.visibility  = if (idx == 1) View.VISIBLE else View.GONE
+            eventsSubTabBtns.forEachIndexed { i, btn ->
+                btn.background = roundedBg(if (i == idx) 0xFFFF5722.toInt() else 0xFF252525.toInt(), 8f)
+                btn.setTextColor(if (i == idx) Color.WHITE else 0xFF666666.toInt())
+            }
+            if (idx == 0) loadEventsList() else loadFavoritesList()
+        }
+        allBtn.setOnClickListener { applyEventsSubTab(0) }
+        favBtn.setOnClickListener { applyEventsSubTab(1) }
+        applyEventsSubTab(0)
         return page
     }
 
@@ -511,7 +572,7 @@ class MainActivity : Activity() {
                             EventStore.deleteNonFavorites(this@MainActivity)
                             EventsWidget.update(this@MainActivity)
                             loadEventsList()
-                            if (currentTab == 1) loadFavoritesList()
+                            loadFavoritesList()
                         }
                         .setNegativeButton("Скасувати", null)
                         .show()
@@ -525,23 +586,35 @@ class MainActivity : Activity() {
         val fullFmt = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
         val premium = VoiceActivity.isUnlocked(this)
 
-        val active    = events.filter { !it.completed }.sortedBy { it.startMs }
+        val now       = System.currentTimeMillis()
+        val upcoming  = events.filter { !it.completed && it.startMs >= now }.sortedBy { it.startMs }
+        val overdue   = events.filter { !it.completed && it.startMs < now  }.sortedByDescending { it.startMs }
         val completed = events.filter {  it.completed }.sortedByDescending { it.startMs }
 
         var lastDay = ""
-        active.forEach { event ->
+        upcoming.forEach { event ->
             val dayLabel = dayLabel(event.startMs)
             if (dayLabel != lastDay) { c.addView(buildDayHeader(dayLabel)); lastDay = dayLabel }
             val activeNotif = nm.activeNotifications.find { it.id == NotificationHelper.notifId(event.id) }
             val isActive    = activeNotif != null
             val isOngoing   = (activeNotif?.notification?.flags ?: 0) and Notification.FLAG_ONGOING_EVENT != 0
-            c.addView(buildEventRow(event, isActive, isOngoing, event.calendarEventId != -1L, premium, timeFmt, false))
+            c.addView(buildEventRow(event, isActive, isOngoing, event.calendarEventId != -1L, premium, timeFmt, false, isPast = false))
+        }
+
+        if (overdue.isNotEmpty()) {
+            c.addView(buildDayHeader("⚠️ Прострочені"))
+            overdue.forEach { event ->
+                val activeNotif = nm.activeNotifications.find { it.id == NotificationHelper.notifId(event.id) }
+                val isActive    = activeNotif != null
+                val isOngoing   = (activeNotif?.notification?.flags ?: 0) and Notification.FLAG_ONGOING_EVENT != 0
+                c.addView(buildEventRow(event, isActive, isOngoing, event.calendarEventId != -1L, premium, fullFmt, true, isPast = true))
+            }
         }
 
         if (completed.isNotEmpty()) {
             c.addView(buildDayHeader("✅ Виконані"))
             completed.forEach { event ->
-                c.addView(buildEventRow(event, false, false, event.calendarEventId != -1L, premium, fullFmt, true))
+                c.addView(buildEventRow(event, false, false, event.calendarEventId != -1L, premium, fullFmt, true, isPast = false))
             }
         }
     }
@@ -594,6 +667,7 @@ class MainActivity : Activity() {
         premium: Boolean,
         timeFmt: java.text.SimpleDateFormat,
         showFullDateInRow: Boolean,
+        isPast: Boolean = false,
     ): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -603,10 +677,12 @@ class MainActivity : Activity() {
                 cornerRadius = dp(12).toFloat()
                 setColor(when {
                     event.completed -> 0xFF161616.toInt()
+                    isPast          -> 0xFF1A1710.toInt()
                     event.isGroup   -> 0xFF0E2214.toInt()
                     else            -> 0xFF1C1C1E.toInt()
                 })
                 when {
+                    isPast                            -> setStroke(dp(1), 0x55FFA000.toInt())
                     event.isGroup && !event.completed -> setStroke(dp(2), 0xFF2E7D32.toInt())
                     isOngoing                         -> setStroke(dp(1), 0x55FF5722.toInt())
                 }
@@ -622,6 +698,7 @@ class MainActivity : Activity() {
         val dotColor = when {
             event.completed -> 0xFF26A69A.toInt()
             isOngoing       -> 0xFFFF5722.toInt()
+            isPast          -> 0xFFFFA000.toInt()
             isActive        -> 0xFF4CAF50.toInt()
             else            -> 0xFF444444.toInt()
         }
@@ -657,6 +734,14 @@ class MainActivity : Activity() {
         textCol.addView(TextView(this).apply {
             text = timeStr; textSize = 11f; setTextColor(0xFF666666.toInt())
         })
+        if (event.locationName != null) {
+            textCol.addView(TextView(this).apply {
+                text = "📍 Прив'язано до ${event.locationName}"
+                textSize = 10f
+                setTextColor(0xFF4FC3F7.toInt())
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            })
+        }
         row.addView(textCol)
 
         val btnSz = dp(38)
@@ -672,15 +757,11 @@ class MainActivity : Activity() {
                     sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                     EventsWidget.update(this)
                 } else {
-                    if (prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)) {
-                        NotificationHelper.post(this, event, ongoing = true, silent = true, pinned = true)
-                        Toast.makeText(this, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(this, "Сповіщення вимкнено в налаштуваннях", Toast.LENGTH_SHORT).show()
-                    }
+                    NotificationHelper.post(this, event, ongoing = true, silent = true, pinned = true)
+                    Toast.makeText(this, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
                     EventsWidget.update(this)
                 }
-                loadEventsList(); if (currentTab == 1) loadFavoritesList()
+                loadEventsList(); loadFavoritesList()
             })
         }
 
@@ -696,26 +777,25 @@ class MainActivity : Activity() {
         row.addView(iconBtn(if (event.favorite) "❤️" else "🤍", btnSz,
             if (event.favorite) 0xFF2A1020.toInt() else 0xFF242424.toInt()) {
             EventStore.markFavorite(this, event.id, !event.favorite)
-            loadEventsList(); if (currentTab == 1) loadFavoritesList()
+            loadEventsList(); loadFavoritesList()
         })
 
         // 👥 group toggle — only when in a group
         if (GroupStore.isInGroup(this)) {
             row.addView(iconBtn("👥", btnSz,
                 if (event.isGroup) 0xFF0D2A0D.toInt() else 0xFF242424.toInt(),
-                tint = if (event.isGroup) 0xFF66BB6A.toInt() else 0xFF555555.toInt()) {
-                val newVal = !event.isGroup
-                EventStore.markGroup(this, event.id, newVal)
-                val groupId = GroupStore.getGroupId(this)!!
-                val updated = EventStore.load(this).find { it.id == event.id } ?: return@iconBtn
-                if (newVal) {
+                tint = if (event.isGroup) 0xFF66BB6A.toInt() else 0xFF333333.toInt()) {
+                val nowGroup = !event.isGroup
+                EventStore.markGroup(this, event.id, nowGroup)
+                if (nowGroup) {
+                    val groupId = GroupStore.getGroupId(this)!!
+                    val updated = EventStore.load(this).find { it.id == event.id } ?: return@iconBtn
                     FirebaseSync.pushGroupEvent(groupId, updated)
-                    Toast.makeText(this, "👥 Подія додана до групи", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "👥 Подія поширена до групи", Toast.LENGTH_SHORT).show()
                 } else {
-                    FirebaseSync.deleteGroupEvent(groupId, event.id)
-                    Toast.makeText(this, "Видалено з групи", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "👥 Групову мітку знято", Toast.LENGTH_SHORT).show()
                 }
-                loadEventsList(); if (currentTab == 1) loadFavoritesList()
+                loadEventsList(); loadFavoritesList()
             })
         }
 
@@ -738,7 +818,7 @@ class MainActivity : Activity() {
             NotificationHelper.setRepeating(this, event.id, false)
             EventStore.remove(this, event.id)
             EventsWidget.update(this)
-            loadEventsList(); if (currentTab == 1) loadFavoritesList()
+            loadEventsList(); loadFavoritesList()
         })
 
         card.addView(row)
@@ -852,7 +932,7 @@ class MainActivity : Activity() {
 
                 EventsWidget.update(this)
                 sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                loadEventsList(); if (currentTab == 1) loadFavoritesList()
+                loadEventsList(); loadFavoritesList()
             }
             .setNegativeButton("Скасувати", null)
             .show()
@@ -876,7 +956,7 @@ class MainActivity : Activity() {
         if (calId != -1L) {
             EventStore.updateCalendarId(this, event.id, calId)
             Toast.makeText(this, "📅 Додано до Google Календаря", Toast.LENGTH_SHORT).show()
-            loadEventsList(); if (currentTab == 1) loadFavoritesList()
+            loadEventsList(); loadFavoritesList()
         } else {
             Toast.makeText(this, "Не вдалося додати до Календаря", Toast.LENGTH_SHORT).show()
         }
@@ -889,7 +969,7 @@ class MainActivity : Activity() {
                 .setMessage("Нагадування спрацює при наближенні на ${GeofenceManager.RADIUS_METERS.toInt()}м.")
                 .setPositiveButton("Видалити") { _, _ ->
                     EventStore.setLocation(this, event.id, null)
-                    loadEventsList(); if (currentTab == 1) loadFavoritesList()
+                    loadEventsList(); loadFavoritesList()
                 }
                 .setNegativeButton("Скасувати", null).show()
             return
@@ -910,7 +990,7 @@ class MainActivity : Activity() {
             .setTitle("📍 Локація для «${event.title}»")
             .setItems(names) { _, which ->
                 EventStore.setLocation(this, event.id, names[which])
-                loadEventsList(); if (currentTab == 1) loadFavoritesList()
+                loadEventsList(); loadFavoritesList()
             }.show()
     }
 
@@ -955,36 +1035,23 @@ class MainActivity : Activity() {
         page.addView(header)
 
         // ── Mode switcher: Моє / Групове ──────────────────────────────────────
-        if (GroupStore.isInGroup(this)) {
-            val modeSwitcher = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setBackgroundColor(0xFF0A0A0A.toInt())
-                setPadding(dp(12), dp(6), dp(12), dp(6))
-                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
-            }
-            val privateBtn = TextView(this).apply {
-                text = "🔒 Моє"; textSize = 12f; gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).also { it.marginEnd = dp(4) }
-            }
-            val groupModeBtn = TextView(this).apply {
-                text = "👥 Групове"; textSize = 12f; gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).also { it.marginStart = dp(4) }
-            }
-            modeSwitcherBtns = arrayOf(privateBtn, groupModeBtn)
-            fun applyMode(idx: Int) {
-                currentTodoMode = idx
-                modeSwitcherBtns.forEachIndexed { i, btn ->
-                    btn.background = roundedBg(if (i == idx) 0xFF1565C0.toInt() else 0xFF1C1C1E.toInt(), 6f)
-                    btn.setTextColor(if (i == idx) Color.WHITE else 0xFF666666.toInt())
-                }
-                loadTodoList()
-            }
-            privateBtn.setOnClickListener   { applyMode(0) }
-            groupModeBtn.setOnClickListener { applyMode(1) }
-            modeSwitcher.addView(privateBtn); modeSwitcher.addView(groupModeBtn)
-            page.addView(modeSwitcher)
-            applyMode(currentTodoMode)
+        val modeSwitcher = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(0xFF0A0A0A.toInt())
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
         }
+        val privateBtn = TextView(this).apply {
+            text = "🔒 Моє"; textSize = 12f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).also { it.marginEnd = dp(4) }
+        }
+        val groupModeBtn = TextView(this).apply {
+            text = "👥 Групове"; textSize = 12f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(28), 1f).also { it.marginStart = dp(4) }
+        }
+        modeSwitcherBtns = arrayOf(privateBtn, groupModeBtn)
+        modeSwitcher.addView(privateBtn); modeSwitcher.addView(groupModeBtn)
+        page.addView(modeSwitcher)
 
         // ── Sub-tabs: Що / Де ─────────────────────────────────────────────────
         val subTabBar = LinearLayout(this).apply {
@@ -1027,7 +1094,84 @@ class MainActivity : Activity() {
         contentFrame.addView(whatScroll); contentFrame.addView(whereScroll)
         page.addView(contentFrame)
 
-        // ── Bottom bar (mic FAB for Що, + add-place for Де) ───────────────────
+        // ── Group management panel (visible only in Групове mode) ─────────────
+        todoGroupPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xFF0A1A0A.toInt())
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            visibility = View.GONE
+        }
+        groupStatusView = TextView(this).apply {
+            textSize = 11f; setTextColor(0xFF66BB6A.toInt())
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        }
+        todoGroupPanel!!.addView(groupStatusView!!)
+
+        val gEmailInput = EditText(this).apply {
+            hint = "Email власника групи"; textSize = 12f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF1A2A1A.toInt()); setStroke(dp(1), 0xFF2A4A2A.toInt()) }
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS or android.text.InputType.TYPE_CLASS_TEXT
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.topMargin = dp(6); it.bottomMargin = dp(4) }
+        }
+        val gNameInput = EditText(this).apply {
+            hint = "Ваше ім'я в групі"; textSize = 12f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF1A2A1A.toInt()); setStroke(dp(1), 0xFF2A4A2A.toInt()) }
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(6) }
+        }
+        val gConnectBtn = Button(this).apply {
+            text = "Підключитися"; textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF1B5E20.toInt(), 8f)
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(40))
+            setOnClickListener {
+                val email = gEmailInput.text.toString().trim()
+                val name  = gNameInput.text.toString().trim()
+                if (email.isBlank() || name.isBlank()) { Toast.makeText(this@MainActivity, "Введіть email і ім'я", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+                val oldGroupId = GroupStore.getGroupId(this@MainActivity)
+                if (oldGroupId != null) { FirebaseSync.leaveGroup(this@MainActivity, oldGroupId); stopGroupSync() }
+                GroupStore.join(this@MainActivity, email, name)
+                val gid = GroupStore.getGroupId(this@MainActivity)!!
+                FirebaseSync.joinGroup(this@MainActivity, gid, name)
+                SyncService.notifyGroupChanged(this@MainActivity)
+                startGroupSync()
+                updateGroupStatus()
+                Toast.makeText(this@MainActivity, "✅ Підключено до групи $email", Toast.LENGTH_SHORT).show()
+            }
+        }
+        groupJoinContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(gEmailInput); addView(gNameInput); addView(gConnectBtn)
+        }
+        todoGroupPanel!!.addView(groupJoinContainer!!)
+
+        val gDisconnectBtn = Button(this).apply {
+            text = "Відключитися від групи"; textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF4A1010.toInt(), 8f)
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(40)).also { it.topMargin = dp(6) }
+            setOnClickListener {
+                val gid = GroupStore.getGroupId(this@MainActivity)
+                if (gid != null) {
+                    FirebaseSync.leaveGroup(this@MainActivity, gid)
+                    stopGroupSync()
+                    GroupStore.leave(this@MainActivity)
+                    groupTodoItems = emptyList()
+                    SyncService.notifyGroupChanged(this@MainActivity)
+                    if (currentTab == 1) loadWhatList()
+                }
+                updateGroupStatus()
+                Toast.makeText(this@MainActivity, "Відключено від групи", Toast.LENGTH_SHORT).show()
+            }
+        }
+        groupConnectedContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; addView(gDisconnectBtn)
+        }
+        todoGroupPanel!!.addView(groupConnectedContainer!!)
+        page.addView(todoGroupPanel!!)
+        updateGroupStatus()
+
+        // ── Bottom bar (mic FAB) ───────────────────────────────────────────────
         val bottomFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(72))
             setBackgroundColor(0xFF0D0D0D.toInt())
@@ -1053,6 +1197,20 @@ class MainActivity : Activity() {
             }
             if (idx == 0) loadWhatList() else loadWhereList()
         }
+
+        fun applyMode(idx: Int) {
+            currentTodoMode = idx
+            modeSwitcherBtns.forEachIndexed { i, btn ->
+                btn.background = roundedBg(if (i == idx) 0xFF1565C0.toInt() else 0xFF1C1C1E.toInt(), 6f)
+                btn.setTextColor(if (i == idx) Color.WHITE else 0xFF666666.toInt())
+            }
+            todoGroupPanel?.visibility = if (idx == 1) View.VISIBLE else View.GONE
+            loadTodoList()
+        }
+        privateBtn.setOnClickListener   { applyMode(0) }
+        groupModeBtn.setOnClickListener { applyMode(1) }
+        applyMode(currentTodoMode)
+
         whatBtn.setOnClickListener  { applySubTab(0) }
         whereBtn.setOnClickListener { applySubTab(1) }
         applySubTab(0)
@@ -1268,7 +1426,7 @@ class MainActivity : Activity() {
             setOnClickListener { toggleTodoItemDone(item.id) }
         })
         row.addView(TextView(this).apply {  // drag handle
-            text = "⠿"; textSize = 18f; setTextColor(0xFF444444.toInt()); setPadding(0, 0, dp(4), 0)
+            text = "⠿"; textSize = 26f; setTextColor(0xFF555555.toInt()); setPadding(dp(4), 0, dp(6), 0)
             isLongClickable = true
             setOnLongClickListener {
                 lastDraggedId = item.id
@@ -1291,7 +1449,7 @@ class MainActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
         })
         row.addView(TextView(this).apply {  // assign to place
-            text = "⊕"; textSize = 15f; setTextColor(0xFF444444.toInt()); setPadding(dp(4), dp(2), dp(2), dp(2))
+            text = "📍"; textSize = 14f; setTextColor(0xFF555555.toInt()); setPadding(dp(4), dp(2), dp(2), dp(2))
             setOnClickListener { showAssignPlaceDialog(item) }
         })
         row.addView(TextView(this).apply {  // delete
@@ -1794,8 +1952,11 @@ class MainActivity : Activity() {
     }
 
     private fun shareTodoBitmap() {
-        val items = TodoStore.load(this)
-        val title = TodoStore.loadTitle(this)
+        val items = todoItems()
+        val title = if (isGroupMode())
+            GroupStore.getGroupEmail(this) ?: TodoStore.loadTitle(this)
+        else
+            TodoStore.loadTitle(this)
         val bmp   = buildTodoBitmap(title, items)
         try {
             val dir  = File(cacheDir, "images").also { it.mkdirs() }
@@ -1824,7 +1985,7 @@ class MainActivity : Activity() {
         val footerH  = (36 * density).toInt()
 
         // Build render list: [header label?, items...]
-        val places  = TodoStore.loadPlaces(this)
+        val places  = todoPlaces()
         val byPlace = items.groupBy { it.placeName }
         data class Row(val label: String?, val item: TodoStore.Item?, val isGroupSection: Boolean = false)
         val rows = mutableListOf<Row>()
@@ -1840,10 +2001,6 @@ class MainActivity : Activity() {
         }
         items.filter { it.placeName != null && !places.contains(it.placeName) }
             .forEach { rows.add(Row(null, it)) }
-        if (groupTodoItems.isNotEmpty()) {
-            rows.add(Row("👥 Спільне", null, isGroupSection = true))
-            groupTodoItems.forEach { rows.add(Row(null, it, isGroupSection = true)) }
-        }
 
         val rowHeights = rows.map { if (it.item == null) headerH else lineH }
         val h = titleH + padV + rowHeights.sum() + padV * 2 + footerH + padV
@@ -1927,9 +2084,6 @@ class MainActivity : Activity() {
         page.addView(pinBtn!!)
         page.addView(small("Або: довге натискання на іконку → «Список нагадувань»", btm = 20))
 
-        page.addView(section("Тривалість нагадування"))
-        page.addView(radioGroup(DURATION_OPTIONS, KEY_DURATION_MS, 7 * 24 * 60 * 60_000L, startId = 200))
-
         page.addView(section("Звук сповіщення"))
         soundBtn = Button(this).apply {
             textSize = 12f; setTextColor(Color.WHITE)
@@ -1944,27 +2098,11 @@ class MainActivity : Activity() {
         page.addView(soundBtn!!)
         page.addView(small("Відкриває системні налаштування каналу", btm = 8))
 
-        val notifRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 8); gravity = Gravity.CENTER_VERTICAL
-        }
-        notifRow.addView(TextView(this).apply {
-            text = "Показувати сповіщення в застосунку"; textSize = 13f; setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-        })
-        val notifSwitch = Switch(this).apply {
-            isChecked = prefs.getBoolean(KEY_NOTIFICATIONS_ENABLED, true)
-            setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean(KEY_NOTIFICATIONS_ENABLED, checked).apply()
-            }
-        }
-        notifRow.addView(notifSwitch)
-        page.addView(notifRow)
-
         val persistRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 4); gravity = Gravity.CENTER_VERTICAL
         }
         persistRow.addView(TextView(this).apply {
-            text = "Мікрофон у статус-барі"; textSize = 13f; setTextColor(Color.WHITE)
+            text = "Показувати в статус-барі"; textSize = 13f; setTextColor(Color.WHITE)
             layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
         })
         val persistSwitch = Switch(this).apply {
@@ -1983,86 +2121,6 @@ class MainActivity : Activity() {
 
         page.addView(section("Час дня (для «зранку/вдень/ввечері»)"))
         page.addView(timeOfDaySection())
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            page.addView(Button(this).apply {
-                text = "⏰  Дозволити точні будильники"; textSize = 12f; setTextColor(Color.WHITE)
-                background = roundedBg(0xFF1E2030.toInt(), 8f); layoutParams = lp(h = 46, btm = 4)
-                setOnClickListener { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) }
-            })
-            page.addView(small("Потрібно для точного спрацьовування «через N хвилин»", btm = 20))
-        }
-
-        page.addView(section("Моя група"))
-        page.addView(small("Підключіться до групи — вводьте email власника групи. Інші з тим самим email стануть учасниками.", btm = 8))
-
-        groupStatusView = TextView(this).apply {
-            textSize = 12f; setTextColor(0xFF66BB6A.toInt()); layoutParams = lp(btm = 10)
-        }
-        page.addView(groupStatusView!!)
-
-        // ─ Join form (shown when not in group) ─
-        val emailInput = EditText(this).apply {
-            hint = "Email власника групи"; textSize = 13f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
-            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()); setStroke(dp(1), 0xFF333333.toInt()) }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS or android.text.InputType.TYPE_CLASS_TEXT
-            layoutParams = lp(btm = 6)
-        }
-        val nameInput = EditText(this).apply {
-            hint = "Ваше ім'я в групі"; textSize = 13f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
-            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()); setStroke(dp(1), 0xFF333333.toInt()) }
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            layoutParams = lp(btm = 8)
-        }
-        val connectBtn = Button(this).apply {
-            text = "Підключитися"; textSize = 12f; setTextColor(Color.WHITE)
-            background = roundedBg(0xFF1B5E20.toInt(), 8f); layoutParams = lp(h = 44, btm = 20)
-            setOnClickListener {
-                val email = emailInput.text.toString().trim()
-                val name  = nameInput.text.toString().trim()
-                if (email.isBlank() || name.isBlank()) { Toast.makeText(this@MainActivity, "Введіть email і ім'��", Toast.LENGTH_SHORT).show(); return@setOnClickListener }
-                val oldGroupId = GroupStore.getGroupId(this@MainActivity)
-                if (oldGroupId != null) { FirebaseSync.leaveGroup(this@MainActivity, oldGroupId); stopGroupSync() }
-                GroupStore.join(this@MainActivity, email, name)
-                val groupId = GroupStore.getGroupId(this@MainActivity)!!
-                FirebaseSync.joinGroup(this@MainActivity, groupId, name)
-                startGroupSync()
-                updateGroupStatus()
-                Toast.makeText(this@MainActivity, "✅ Підключено до групи $email", Toast.LENGTH_SHORT).show()
-            }
-        }
-        groupJoinContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; layoutParams = lp()
-            addView(emailInput); addView(nameInput); addView(connectBtn)
-        }
-        page.addView(groupJoinContainer!!)
-
-        // ─ Connected view (shown when in group) ─
-        val disconnectBtn = Button(this).apply {
-            text = "Відключитися від групи"; textSize = 12f; setTextColor(Color.WHITE)
-            background = roundedBg(0xFF4A1010.toInt(), 8f); layoutParams = lp(h = 44, btm = 20)
-            setOnClickListener {
-                val groupId = GroupStore.getGroupId(this@MainActivity)
-                if (groupId != null) {
-                    FirebaseSync.leaveGroup(this@MainActivity, groupId)
-                    stopGroupSync()
-                    GroupStore.leave(this@MainActivity)
-                    groupTodoItems = emptyList()
-                    if (currentTab == 2) loadWhatList()
-                }
-                updateGroupStatus()
-                Toast.makeText(this@MainActivity, "Відключено від групи", Toast.LENGTH_SHORT).show()
-            }
-        }
-        groupConnectedContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; layoutParams = lp()
-            addView(disconnectBtn)
-        }
-        page.addView(groupConnectedContainer!!)
-
-        updateGroupStatus()
-
         page.addView(section("Локації"))
         page.addView(small("Збережені місця для локаційних нагадувань подій (без конкретного часу).", btm = 8))
         page.addView(Button(this).apply {
@@ -2136,7 +2194,7 @@ class MainActivity : Activity() {
             prefs.edit().putBoolean(KEY_CALENDAR_EXPORT, false).apply(); updateExportSwitch()
         }
         if (requestCode == REQ_ACCOUNTS && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            startFirebaseSync()
+            startPersonalSync()
         }
     }
 

@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -22,10 +24,12 @@ import androidx.core.content.ContextCompat
 class LocationPickerActivity : Activity() {
 
     companion object {
-        const val EXTRA_NAME = "name"
-        const val EXTRA_LAT  = "lat"
-        const val EXTRA_LNG  = "lng"
-        const val EDIT_NAME  = "edit_name"  // pre-fill name when editing
+        const val EXTRA_NAME        = "name"
+        const val EXTRA_LAT         = "lat"
+        const val EXTRA_LNG         = "lng"
+        const val EDIT_NAME         = "edit_name"
+        const val EXTRA_INITIAL_LAT = "initial_lat"
+        const val EXTRA_INITIAL_LNG = "initial_lng"
     }
 
     private var selectedLat = 50.4501
@@ -33,18 +37,23 @@ class LocationPickerActivity : Activity() {
     private lateinit var webView: WebView
     private lateinit var nameEdit: EditText
     private lateinit var coordsLabel: TextView
+    private lateinit var saveBtn: Button
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onCreate(savedState: Bundle?) {
         super.onCreate(savedState)
 
+        val initLat = intent.getDoubleExtra(EXTRA_INITIAL_LAT, Double.NaN)
+        val initLng = intent.getDoubleExtra(EXTRA_INITIAL_LNG, Double.NaN)
+        val hasInitPos = !initLat.isNaN() && !initLng.isNaN()
+        if (hasInitPos) { selectedLat = initLat; selectedLng = initLng }
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(0xFF0D0D0D.toInt())
         }
 
-        // top bar: title + name input
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(0xFF111111.toInt())
@@ -68,7 +77,6 @@ class LocationPickerActivity : Activity() {
         topBar.addView(coordsLabel)
         root.addView(topBar)
 
-        // "Use current location" button
         root.addView(TextView(this).apply {
             text = "🎯  Використати поточне місце"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = GradientDrawable().apply { setColor(0xFF1565C0.toInt()) }
@@ -77,19 +85,26 @@ class LocationPickerActivity : Activity() {
             setOnClickListener { useCurrentLocation() }
         })
 
-        // map
         webView = WebView(this).apply {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    if (hasInitPos) {
+                        view.evaluateJavascript(
+                            "map.setView([$selectedLat, $selectedLng], 17);", null
+                        )
+                        runOnUiThread { coordsLabel.text = "%.5f, %.5f".format(selectedLat, selectedLng) }
+                    }
+                }
+            }
             addJavascriptInterface(JsBridge(), "Android")
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
         }
         root.addView(webView)
         webView.loadUrl("file:///android_asset/location_picker.html")
 
-        // bottom buttons
         val bottomRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(0xFF111111.toInt())
@@ -101,29 +116,51 @@ class LocationPickerActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f).also { it.marginEnd = dp(6) }
             setOnClickListener { finish() }
         })
-        bottomRow.addView(Button(this).apply {
+        saveBtn = Button(this).apply {
             text = "Зберегти"; setTextColor(Color.WHITE)
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF1B5E20.toInt()) }
             layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f).also { it.marginStart = dp(6) }
             setOnClickListener { save() }
-        })
+        }
+        bottomRow.addView(saveBtn)
         root.addView(bottomRow)
         setContentView(root)
+
+        updateSaveBtn()
+        nameEdit.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) = updateSaveBtn()
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+    }
+
+    private fun updateSaveBtn() {
+        val empty = nameEdit.text.toString().isBlank()
+        saveBtn.isEnabled = !empty
+        saveBtn.alpha = if (empty) 0.35f else 1f
     }
 
     inner class JsBridge {
         @JavascriptInterface
         fun onLocationSelected(lat: Double, lng: Double) {
             selectedLat = lat; selectedLng = lng
+            runOnUiThread { coordsLabel.text = "%.5f, %.5f".format(lat, lng) }
+        }
+
+        @JavascriptInterface
+        fun onNameSuggested(name: String) {
             runOnUiThread {
-                coordsLabel.text = "%.5f, %.5f".format(lat, lng)
+                if (nameEdit.text.isBlank()) {
+                    nameEdit.setText(name.take(50))
+                    nameEdit.setSelection(nameEdit.text.length)
+                }
             }
         }
     }
 
     private fun save() {
         val name = nameEdit.text.toString().trim()
-        if (name.isBlank()) { Toast.makeText(this, "Введіть назву місця", Toast.LENGTH_SHORT).show(); return }
+        if (name.isBlank()) return
         setResult(RESULT_OK, Intent().apply {
             putExtra(EXTRA_NAME, name)
             putExtra(EXTRA_LAT,  selectedLat)

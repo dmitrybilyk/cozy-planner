@@ -1,5 +1,6 @@
 com.reminderwidget
 anim fragment_fast_out_extra_slow_in
+animator bell_shake
 animator fragment_close_enter
 animator fragment_close_exit
 animator fragment_fade_enter
@@ -99,6 +100,9 @@ drawable dot_active
 drawable dot_inactive
 drawable googleg_disabled_color_18
 drawable googleg_standard_color_18
+drawable ic_alarm_anim
+drawable ic_alarm_ring
+drawable ic_alarm_vec
 drawable ic_call_answer
 drawable ic_call_answer_low
 drawable ic_call_answer_video
@@ -111,6 +115,8 @@ drawable ic_notification
 drawable ic_other_sign_in
 drawable ic_passkey
 drawable ic_password
+drawable ic_pin
+drawable ic_sync
 drawable ic_widget
 drawable notification_action_background
 drawable notification_bg
@@ -174,6 +180,7 @@ id browser_actions_menu_item_icon
 id browser_actions_menu_item_text
 id browser_actions_menu_items
 id browser_actions_menu_view
+id btn_add_calendar
 id btn_done
 id btn_done_pinned
 id btn_pin
@@ -214,6 +221,12 @@ id right_side
 id row_buttons
 id special_effects_controller_view_tag
 id standard
+id status_btn_close
+id status_btn_list
+id status_btn_mic
+id status_buttons_row
+id status_chrono
+id status_title
 id tag_accessibility_actions
 id tag_accessibility_clickable_spans
 id tag_accessibility_heading
@@ -250,6 +263,7 @@ layout ime_secondary_split_test_activity
 layout notification_action
 layout notification_action_tombstone
 layout notification_alarm
+layout notification_status
 layout notification_template_custom_big
 layout notification_template_icon_group
 layout notification_template_part_chronometer

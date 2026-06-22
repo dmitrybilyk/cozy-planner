@@ -130,6 +130,46 @@ object TodoStore {
         if (places.isNotEmpty()) savePlaces(ctx, places)
     }
 
+    // ── Group items / places (disk cache for background sync) ─────────────────
+
+    private fun groupPrefs(ctx: Context) = ctx.getSharedPreferences("group_todo_store", Context.MODE_PRIVATE)
+
+    fun loadGroupItems(ctx: Context): List<Item> {
+        val raw = groupPrefs(ctx).getString("items", "[]") ?: "[]"
+        return try {
+            val arr = JSONArray(raw)
+            (0 until arr.length()).map {
+                val o = arr.getJSONObject(it)
+                val rm        = if (o.has("rm")) o.optInt("rm", -1).let { v -> if (v >= 0) v else null } else null
+                val place     = if (o.has("place")) o.optString("place", null) else null
+                val done      = if (o.has("done")) o.getBoolean("done") else false
+                val sortOrder = if (o.has("sortOrder")) o.getLong("sortOrder") else o.getLong("id")
+                Item(o.getLong("id"), o.getString("text"), rm, place, isGroup = true, done = done, sortOrder = sortOrder)
+            }
+        } catch (_: Exception) { emptyList() }
+    }
+
+    fun saveGroupItems(ctx: Context, items: List<Item>) {
+        val arr = JSONArray()
+        items.forEach { item ->
+            val obj = JSONObject().put("id", item.id).put("text", item.text).put("sortOrder", item.sortOrder)
+            item.reminderMinutes?.let { obj.put("rm", it) }
+            item.placeName?.let { obj.put("place", it) }
+            if (item.done) obj.put("done", true)
+            arr.put(obj)
+        }
+        groupPrefs(ctx).edit().putString("items", arr.toString()).apply()
+    }
+
+    fun loadGroupPlaces(ctx: Context): List<String> =
+        groupPrefs(ctx).getString("places", null)
+            ?.split("\n")?.filter { it.isNotBlank() }?.distinct()
+            ?: emptyList()
+
+    fun saveGroupPlaces(ctx: Context, places: List<String>) {
+        groupPrefs(ctx).edit().putString("places", places.joinToString("\n")).apply()
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private fun save(ctx: Context, items: List<Item>) {

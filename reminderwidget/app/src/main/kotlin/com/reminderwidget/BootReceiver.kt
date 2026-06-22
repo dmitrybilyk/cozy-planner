@@ -8,5 +8,7 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
         GeofenceManager.reregisterAll(ctx)
+        SyncService.start(ctx)
+        PersistentNotif.update(ctx)
     }
 }

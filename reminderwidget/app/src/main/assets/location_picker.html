@@ -5,7 +5,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; }
+  html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
   #map { height: 100vh; }
   #crosshair {
     position: fixed; top: 50%; left: 50%;
@@ -13,9 +13,40 @@
     font-size: 28px; pointer-events: none; z-index: 1000;
     text-shadow: 0 0 4px #fff;
   }
+  #search-bar {
+    position: fixed; top: 10px; left: 10px; right: 10px;
+    z-index: 1001; display: flex; gap: 6px;
+  }
+  #search-input {
+    flex: 1; padding: 10px 14px; font-size: 15px;
+    border: none; border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3); outline: none;
+  }
+  #search-btn {
+    padding: 10px 14px; background: #FF5722; color: white;
+    border: none; border-radius: 8px; font-size: 16px; cursor: pointer;
+  }
+  #results {
+    position: fixed; top: 58px; left: 10px; right: 10px;
+    z-index: 1001; background: white; border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    display: none; max-height: 220px; overflow-y: auto;
+  }
+  .result-item {
+    padding: 10px 14px; border-bottom: 1px solid #eee;
+    cursor: pointer; font-size: 14px; line-height: 1.4;
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-item:active { background: #f5f5f5; }
 </style>
 </head>
 <body>
+<div id="search-bar">
+  <input id="search-input" type="text" placeholder="Пошук адреси..."
+         onkeydown="if(event.key==='Enter') doSearch()"/>
+  <button id="search-btn" onclick="doSearch()">🔍</button>
+</div>
+<div id="results"></div>
 <div id="map"></div>
 <div id="crosshair">📍</div>
 <script>
@@ -27,7 +58,6 @@
     attribution: '© OpenStreetMap'
   }).addTo(map);
 
-  // Report center coordinates as user pans/zooms
   function reportCenter() {
     var c = map.getCenter();
     if (window.Android) Android.onLocationSelected(c.lat, c.lng);
@@ -35,12 +65,48 @@
   map.on('moveend', reportCenter);
   map.on('zoomend', reportCenter);
 
-  // Try to center on device location
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function(p) {
       map.setView([p.coords.latitude, p.coords.longitude], 17);
     }, null, { timeout: 5000 });
   }
+
+  function doSearch() {
+    var q = document.getElementById('search-input').value.trim();
+    if (!q) return;
+    var resultsEl = document.getElementById('results');
+    resultsEl.innerHTML = '<div class="result-item">Пошук...</div>';
+    resultsEl.style.display = 'block';
+    fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=6&accept-language=uk')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        resultsEl.innerHTML = '';
+        if (!data.length) {
+          resultsEl.innerHTML = '<div class="result-item">Нічого не знайдено</div>';
+          return;
+        }
+        data.forEach(function(item) {
+          var el = document.createElement('div');
+          el.className = 'result-item';
+          el.textContent = item.display_name;
+          el.onclick = function() {
+            map.setView([parseFloat(item.lat), parseFloat(item.lon)], 17);
+            resultsEl.style.display = 'none';
+            document.getElementById('search-input').blur();
+            var shortName = item.display_name.split(',')[0].trim();
+            if (window.Android) Android.onNameSuggested(shortName);
+          };
+          resultsEl.appendChild(el);
+        });
+      })
+      .catch(function() {
+        resultsEl.innerHTML = '<div class="result-item">Помилка пошуку</div>';
+      });
+  }
+
+  document.getElementById('map').addEventListener('click', function() {
+    document.getElementById('results').style.display = 'none';
+  });
 </script>
 </body>
 </html>

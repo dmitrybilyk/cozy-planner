@@ -34,7 +34,9 @@ object NotificationHelper {
     const val ACTION_REPEAT_TOGGLE  = "com.reminderwidget.REPEAT_TOGGLE"
     const val ACTION_REPEAT_FIRE    = "com.reminderwidget.REPEAT_FIRE"
     const val ACTION_PIN            = "com.reminderwidget.PIN"
-    const val ACTION_POSTPONE_DAY  = "com.reminderwidget.POSTPONE_DAY"
+    const val ACTION_POSTPONE_DAY   = "com.reminderwidget.POSTPONE_DAY"
+    const val ACTION_SHARE_GROUP    = "com.reminderwidget.SHARE_GROUP"
+    const val ACTION_DISMISS_NOTIF  = "com.reminderwidget.DISMISS_NOTIF"
     const val EXTRA_EVENT_ID        = "event_id"
     const val EXTRA_SILENT          = "silent"
     const val EXTRA_FULLSCREEN      = "fullscreen"
@@ -109,13 +111,6 @@ object NotificationHelper {
         pi.cancel()
     }
 
-    /**
-     * Post or update the notification for an event.
-     * silent=true  → low-importance silent channel, no sound/vibration, no full-screen
-     * fullscreen   → shows ReminderAlertActivity on top of lock screen (ignored when silent)
-     * ongoing      → sticky (can't be swiped away)
-     * pinned=true  → no snooze actions; only "Done" (used for the 🔔 status-bar pin)
-     */
     fun post(
         context: Context,
         event: EventStore.AppEvent,
@@ -147,14 +142,15 @@ object NotificationHelper {
         val snoozePrefs  = context.getSharedPreferences("widget_settings", Context.MODE_PRIVATE)
         val snooze1Min   = snoozePrefs.getInt(KEY_SNOOZE1_MIN, 1).coerceAtLeast(1)
         val snooze2Min   = snoozePrefs.getInt(KEY_SNOOZE2_MIN, 30).coerceAtLeast(1)
-        val donePi       = broadcastPi(context, nid,      ACTION_DONE,          event.id)
-        val repeatPi     = broadcastPi(context, nid + 7,  ACTION_REPEAT_TOGGLE, event.id)
-        val pinPi        = broadcastPi(context, nid + 8,  ACTION_PIN,           event.id)
-        val postponePi   = broadcastPi(context, nid + 9,  ACTION_POSTPONE_DAY,  event.id)
-        val snoozePinPi  = snoozeMinPi(context, nid + 10, event.id, 1)
-        val snoozePi1    = snoozeMinPi(context, nid + 4,  event.id, snooze1Min)
-        val snoozePi2    = snoozeMinPi(context, nid + 5,  event.id, snooze2Min)
-        val dismissPi    = broadcastPi(context, nid + 1,  ACTION_DISMISSED,     event.id)
+        val donePi         = broadcastPi(context, nid,      ACTION_DONE,          event.id)
+        val repeatPi       = broadcastPi(context, nid + 7,  ACTION_REPEAT_TOGGLE, event.id)
+        val pinPi          = broadcastPi(context, nid + 8,  ACTION_PIN,           event.id)
+        val postponePi     = broadcastPi(context, nid + 9,  ACTION_POSTPONE_DAY,  event.id)
+        val snoozePinPi    = snoozeMinPi(context, nid + 10, event.id, 1)
+        val snoozePi1      = snoozeMinPi(context, nid + 4,  event.id, snooze1Min)
+        val snoozePi2      = snoozeMinPi(context, nid + 5,  event.id, snooze2Min)
+        val dismissPi      = broadcastPi(context, nid + 1,  ACTION_DISMISSED,     event.id)
+        val dismissNotifPi = broadcastPi(context, nid + 13, ACTION_DISMISS_NOTIF, event.id)
 
         val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
@@ -185,6 +181,14 @@ object NotificationHelper {
                 v.setInt(R.id.btn_snooze_pin, "setBackgroundColor", if (repeating) 0xFFFF5722.toInt() else btnBg)
                 v.setTextColor(R.id.btn_snooze_pin, btnText)
                 v.setOnClickPendingIntent(R.id.btn_snooze_pin, repeatPi)
+                if (!event.hasTime) {
+                    v.setViewVisibility(R.id.btn_add_calendar, View.VISIBLE)
+                    v.setTextViewText(R.id.btn_add_calendar, "🔕")
+                    v.setInt(R.id.btn_add_calendar, "setBackgroundColor", btnBg)
+                    v.setOnClickPendingIntent(R.id.btn_add_calendar, dismissNotifPi)
+                } else {
+                    v.setViewVisibility(R.id.btn_add_calendar, View.GONE)
+                }
             } else {
                 v.setViewVisibility(R.id.row_buttons, View.VISIBLE)
                 v.setViewVisibility(R.id.pinned_row, View.GONE)
@@ -252,6 +256,10 @@ object NotificationHelper {
 
     fun ensureChannel(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val existing = nm.getNotificationChannel(CHANNEL_ID)
+        if (existing != null && existing.importance < NotificationManager.IMPORTANCE_DEFAULT) {
+            nm.deleteNotificationChannel(CHANNEL_ID)
+        }
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID, "Нагадування", NotificationManager.IMPORTANCE_HIGH).apply {
@@ -269,6 +277,10 @@ object NotificationHelper {
 
     fun ensureSilentChannel(context: Context) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val existing = nm.getNotificationChannel(CHANNEL_ID_SILENT)
+        if (existing != null && existing.importance == NotificationManager.IMPORTANCE_NONE) {
+            nm.deleteNotificationChannel(CHANNEL_ID_SILENT)
+        }
         if (nm.getNotificationChannel(CHANNEL_ID_SILENT) == null) {
             nm.createNotificationChannel(
                 NotificationChannel(CHANNEL_ID_SILENT, "Нагадування (тихо)", NotificationManager.IMPORTANCE_LOW).apply {

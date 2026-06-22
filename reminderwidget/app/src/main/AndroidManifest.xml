@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:label="@string/app_name"
@@ -93,6 +95,17 @@
         <receiver
             android:name=".GeofencingReceiver"
             android:exported="false" />
+
+        <!-- Persistent notification action handler (hide) -->
+        <receiver
+            android:name=".NotifActionReceiver"
+            android:exported="false" />
+
+        <!-- Background Firestore sync service -->
+        <service
+            android:name=".SyncService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <!-- Re-register geofences after reboot -->
         <receiver

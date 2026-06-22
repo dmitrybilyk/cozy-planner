@@ -1,14 +1,21 @@
 R_DEF: Internal format may change without notice
 local
+animator bell_shake
 drawable btn_done_pinned_bg
 drawable btn_postpone_bg
 drawable dot_active
 drawable dot_inactive
+drawable ic_alarm_anim
+drawable ic_alarm_ring
+drawable ic_alarm_vec
 drawable ic_launcher_bg
 drawable ic_launcher_fg
 drawable ic_notification
+drawable ic_pin
+drawable ic_sync
 drawable ic_widget
 id bell_btn
+id btn_add_calendar
 id btn_done
 id btn_done_pinned
 id btn_pin
@@ -25,10 +32,17 @@ id notif_body
 id notif_title
 id pinned_row
 id row_buttons
+id status_btn_close
+id status_btn_list
+id status_btn_mic
+id status_buttons_row
+id status_chrono
+id status_title
 id widget_events_header
 id widget_events_root
 id widget_root
 layout notification_alarm
+layout notification_status
 layout widget_event_row
 layout widget_events
 layout widget_reminder

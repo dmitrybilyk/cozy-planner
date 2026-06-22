@@ -82,6 +82,7 @@ object FirebaseSync {
                 "rrule"        to (event.rrule ?: ""),
                 "completed"    to event.completed,
                 "favorite"     to event.favorite,
+                "isGroup"      to event.isGroup,
                 "locationName" to (event.locationName ?: ""),
                 "hasTime"      to event.hasTime,
                 "ts"           to System.currentTimeMillis(),
@@ -101,6 +102,7 @@ object FirebaseSync {
         onChange: (added: List<EventStore.AppEvent>, removed: List<Long>) -> Unit
     ): ListenerRegistration? {
         val uid = userId ?: return null
+        Log.d(TAG, "listenEvents: attaching for uid=$uid")
         return db.collection("users").document(uid).collection("events")
             .addSnapshotListener { snap, err ->
                 if (err != null) { Log.w(TAG, "listenEvents: $err"); return@addSnapshotListener }
@@ -120,6 +122,7 @@ object FirebaseSync {
                                     rrule        = doc.getString("rrule")?.takeIf { it.isNotBlank() },
                                     completed    = doc.getBoolean("completed") ?: false,
                                     favorite     = doc.getBoolean("favorite") ?: false,
+                                    isGroup      = doc.getBoolean("isGroup") ?: false,
                                     locationName = doc.getString("locationName")?.takeIf { it.isNotBlank() },
                                     hasTime      = doc.getBoolean("hasTime") ?: true,
                                 ))
@@ -130,7 +133,9 @@ object FirebaseSync {
                         }
                     }
                 }
-                if (added.isNotEmpty() || removed.isNotEmpty()) onChange(added, removed)
+                if (added.isNotEmpty() || removed.isNotEmpty()) {
+                    onChange(added, removed)
+                }
             }
     }
 
@@ -190,8 +195,9 @@ object FirebaseSync {
     fun listenGroupEvents(
         groupId: String,
         onChange: (added: List<EventStore.AppEvent>, removed: List<Long>) -> Unit
-    ): ListenerRegistration? =
-        db.collection("groups").document(groupId).collection("events")
+    ): ListenerRegistration? {
+        Log.d(TAG, "listenGroupEvents: attaching for group=$groupId")
+        return db.collection("groups").document(groupId).collection("events")
             .addSnapshotListener { snap, err ->
                 if (err != null) { Log.w(TAG, "listenGroupEvents: $err"); return@addSnapshotListener }
                 if (snap == null) return@addSnapshotListener
@@ -221,6 +227,7 @@ object FirebaseSync {
                 }
                 if (added.isNotEmpty() || removed.isNotEmpty()) onChange(added, removed)
             }
+    }
 
     // ── Group todo items (per-document, like group events) ────────────────────
 
