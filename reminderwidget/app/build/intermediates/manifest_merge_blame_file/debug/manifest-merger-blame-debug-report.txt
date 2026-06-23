@@ -47,495 +47,508 @@
 23    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 23-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:16:5-87
 23-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:16:22-84
-24    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-24-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:26:5-79
-24-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:26:22-76
-25    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
-25-->[com.google.android.recaptcha:recaptcha:18.5.1] /home/dik81/.gradle/caches/8.14.4/transforms/25c7393a125e1028f86255be6dd29c0b/transformed/jetified-recaptcha-18.5.1/AndroidManifest.xml:9:5-98
-25-->[com.google.android.recaptcha:recaptcha:18.5.1] /home/dik81/.gradle/caches/8.14.4/transforms/25c7393a125e1028f86255be6dd29c0b/transformed/jetified-recaptcha-18.5.1/AndroidManifest.xml:9:22-95
-26
-27    <permission
-27-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:22:5-24:47
-28        android:name="com.reminderwidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
-28-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:23:9-81
-29        android:protectionLevel="signature" />
-29-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:24:9-44
-30
-31    <uses-permission android:name="com.reminderwidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
-31-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:26:5-97
-31-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
-32
-33    <application
-33-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:18:5-130:19
-34        android:allowBackup="false"
-34-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:21:9-36
-35        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
-35-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
-36        android:debuggable="true"
-37        android:extractNativeLibs="false"
-38        android:icon="@mipmap/ic_launcher"
-38-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:20:9-43
-39        android:label="@string/app_name"
-39-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:19:9-41
-40        android:theme="@android:style/Theme.Material.NoActionBar" >
-40-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:22:9-66
-41
-42        <!-- Settings / launcher -->
-43        <activity
-43-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:25:9-36:20
-44            android:name="com.reminderwidget.MainActivity"
-44-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:26:13-41
-45            android:exported="true"
-45-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:27:13-36
-46            android:theme="@android:style/Theme.Material.NoActionBar" >
-46-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:28:13-70
-47            <intent-filter>
-47-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:29:13-32:29
-48                <action android:name="android.intent.action.MAIN" />
-48-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:30:17-69
-48-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:30:25-66
-49
-50                <category android:name="android.intent.category.LAUNCHER" />
-50-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:31:17-77
-50-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:31:27-74
-51            </intent-filter>
-52
-53            <meta-data
-53-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:33:13-35:53
-54                android:name="android.app.shortcuts"
-54-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:34:17-53
-55                android:resource="@xml/shortcuts" />
-55-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:35:17-50
-56        </activity>
-57
-58        <!-- Transparent voice activity (used by mic widget + app icon) -->
-59        <activity
-59-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:39:9-43:47
-60            android:name="com.reminderwidget.VoiceActivity"
-60-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:40:13-42
-61            android:exported="true"
-61-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:42:13-36
-62            android:launchMode="singleTask"
-62-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:43:13-44
-63            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-63-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:41:13-72
+24    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+24-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:17:5-95
+24-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:17:22-92
+25    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+25-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:26:5-79
+25-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:26:22-76
+26    <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
+26-->[com.google.android.recaptcha:recaptcha:18.5.1] /home/dik81/.gradle/caches/8.14.4/transforms/25c7393a125e1028f86255be6dd29c0b/transformed/jetified-recaptcha-18.5.1/AndroidManifest.xml:9:5-98
+26-->[com.google.android.recaptcha:recaptcha:18.5.1] /home/dik81/.gradle/caches/8.14.4/transforms/25c7393a125e1028f86255be6dd29c0b/transformed/jetified-recaptcha-18.5.1/AndroidManifest.xml:9:22-95
+27
+28    <permission
+28-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:22:5-24:47
+29        android:name="com.reminderwidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+29-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:23:9-81
+30        android:protectionLevel="signature" />
+30-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:24:9-44
+31
+32    <uses-permission android:name="com.reminderwidget.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+32-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:26:5-97
+32-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:26:22-94
+33
+34    <application
+34-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:19:5-137:19
+35        android:allowBackup="false"
+35-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:22:9-36
+36        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+36-->[androidx.core:core:1.13.1] /home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/AndroidManifest.xml:28:18-86
+37        android:debuggable="true"
+38        android:extractNativeLibs="false"
+39        android:icon="@mipmap/ic_launcher"
+39-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:21:9-43
+40        android:label="@string/app_name"
+40-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:20:9-41
+41        android:theme="@android:style/Theme.Material.NoActionBar" >
+41-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:23:9-66
+42
+43        <!-- Settings / launcher -->
+44        <activity
+44-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:26:9-37:20
+45            android:name="com.reminderwidget.MainActivity"
+45-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:27:13-41
+46            android:exported="true"
+46-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:28:13-36
+47            android:theme="@android:style/Theme.Material.NoActionBar" >
+47-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:29:13-70
+48            <intent-filter>
+48-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:30:13-33:29
+49                <action android:name="android.intent.action.MAIN" />
+49-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:31:17-69
+49-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:31:25-66
+50
+51                <category android:name="android.intent.category.LAUNCHER" />
+51-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:32:17-77
+51-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:32:27-74
+52            </intent-filter>
+53
+54            <meta-data
+54-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:34:13-36:53
+55                android:name="android.app.shortcuts"
+55-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:35:17-53
+56                android:resource="@xml/shortcuts" />
+56-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:36:17-50
+57        </activity>
+58
+59        <!-- First-run permission setup wizard -->
+60        <activity
+60-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:40:9-43:40
+61            android:name="com.reminderwidget.SetupActivity"
+61-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:41:13-42
+62            android:exported="false"
+62-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:43:13-37
+63            android:theme="@android:style/Theme.Material.NoActionBar" />
+63-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:42:13-70
 64
-65        <!-- Full-screen reminder alert dialog -->
+65        <!-- Transparent voice activity (used by mic widget + app icon) -->
 66        <activity
-66-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:46:9-51:43
-67            android:name="com.reminderwidget.ReminderAlertActivity"
-67-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:47:13-50
-68            android:exported="false"
-68-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:49:13-37
-69            android:showOnLockScreen="true"
+66-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:46:9-50:47
+67            android:name="com.reminderwidget.VoiceActivity"
+67-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:47:13-42
+68            android:exported="true"
+68-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:49:13-36
+69            android:launchMode="singleTask"
 69-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:50:13-44
-70            android:theme="@android:style/Theme.Material.Dialog.NoActionBar"
-70-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:48:13-77
-71            android:turnScreenOn="true" />
-71-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:51:13-40
-72
-73        <!-- Location manager (list/add/delete saved locations) -->
-74        <activity
-74-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:54:9-57:40
-75            android:name="com.reminderwidget.LocationManagerActivity"
-75-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:55:13-52
-76            android:exported="false"
-76-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:57:13-37
-77            android:theme="@android:style/Theme.Material.NoActionBar" />
-77-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:56:13-70
-78
-79        <!-- Map picker for choosing a location point -->
-80        <activity
-80-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:60:9-63:40
-81            android:name="com.reminderwidget.LocationPickerActivity"
-81-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:61:13-51
-82            android:exported="false"
-82-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:63:13-37
-83            android:theme="@android:style/Theme.Material.NoActionBar" />
-83-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:62:13-70
-84
-85        <!-- Mic widget -->
-86        <receiver
-86-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:66:9-75:20
-87            android:name="com.reminderwidget.ReminderWidget"
-87-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:67:13-43
-88            android:exported="true" >
-88-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:68:13-36
-89            <intent-filter>
-89-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:69:13-71:29
-90                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-90-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:70:17-84
-90-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:70:25-81
-91            </intent-filter>
-92
-93            <meta-data
-93-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:72:13-74:64
-94                android:name="android.appwidget.provider"
-94-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:73:17-58
-95                android:resource="@xml/reminder_widget_info" />
-95-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:74:17-61
-96        </receiver>
-97
-98        <!-- Events list widget -->
-99        <receiver
-99-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:78:9-87:20
-100            android:name="com.reminderwidget.EventsWidget"
-100-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:79:13-41
-101            android:exported="true" >
-101-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:80:13-36
-102            <intent-filter>
-102-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:69:13-71:29
-103                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-103-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:70:17-84
-103-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:70:25-81
-104            </intent-filter>
-105
-106            <meta-data
-106-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:72:13-74:64
-107                android:name="android.appwidget.provider"
-107-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:73:17-58
-108                android:resource="@xml/events_widget_info" />
-108-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:74:17-61
-109        </receiver>
-110
-111        <!-- Snooze / re-post / dismiss handler -->
-112        <receiver
-112-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:90:9-92:40
-113            android:name="com.reminderwidget.SnoozeReceiver"
-113-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:91:13-43
-114            android:exported="false" />
-114-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:92:13-37
-115
-116        <!-- Geofence transition handler -->
-117        <receiver
-117-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:95:9-97:40
-118            android:name="com.reminderwidget.GeofencingReceiver"
-118-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:96:13-47
-119            android:exported="false" />
-119-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:97:13-37
-120
-121        <!-- Persistent notification action handler (hide) -->
-122        <receiver
-122-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:100:9-102:40
-123            android:name="com.reminderwidget.NotifActionReceiver"
-123-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:101:13-48
-124            android:exported="false" />
-124-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:102:13-37
-125
-126        <!-- Background Firestore sync service -->
-127        <service
-127-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:105:9-108:56
-128            android:name="com.reminderwidget.SyncService"
-128-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:106:13-40
-129            android:exported="false"
-129-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:107:13-37
-130            android:foregroundServiceType="dataSync" />
-130-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:108:13-53
-131
-132        <!-- Re-register geofences after reboot -->
-133        <receiver
-133-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:111:9-117:20
-134            android:name="com.reminderwidget.BootReceiver"
-134-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:112:13-41
-135            android:exported="true" >
-135-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:113:13-36
-136            <intent-filter>
-136-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:114:13-116:29
-137                <action android:name="android.intent.action.BOOT_COMPLETED" />
-137-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:115:17-79
-137-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:115:25-76
-138            </intent-filter>
-139        </receiver>
-140
-141        <!-- FileProvider for sharing agenda image -->
-142        <provider
-143            android:name="androidx.core.content.FileProvider"
-143-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:121:13-62
-144            android:authorities="com.reminderwidget.provider"
-144-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:122:13-60
-145            android:exported="false"
-145-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:123:13-37
-146            android:grantUriPermissions="true" >
-146-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:124:13-47
-147            <meta-data
-147-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:125:13-127:54
-148                android:name="android.support.FILE_PROVIDER_PATHS"
-148-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:126:17-67
-149                android:resource="@xml/file_paths" />
-149-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:127:17-51
-150        </provider>
-151
-152        <service
-152-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:8:9-14:19
-153            android:name="com.google.firebase.components.ComponentDiscoveryService"
-153-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:9:13-84
-154            android:directBootAware="true"
-154-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:32:13-43
-155            android:exported="false" >
-155-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:10:13-37
-156            <meta-data
-156-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:11:13-13:85
-157                android:name="com.google.firebase.components:com.google.firebase.auth.ktx.FirebaseAuthLegacyRegistrar"
-157-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:12:17-119
-158                android:value="com.google.firebase.components.ComponentRegistrar" />
-158-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:13:17-82
-159            <meta-data
-159-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:69:13-71:85
-160                android:name="com.google.firebase.components:com.google.firebase.auth.FirebaseAuthRegistrar"
-160-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:70:17-109
-161                android:value="com.google.firebase.components.ComponentRegistrar" />
-161-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:71:17-82
-162            <meta-data
-162-->[com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:12:13-14:85
-163                android:name="com.google.firebase.components:com.google.firebase.firestore.ktx.FirebaseFirestoreLegacyRegistrar"
-163-->[com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:13:17-129
-164                android:value="com.google.firebase.components.ComponentRegistrar" />
-164-->[com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:14:17-82
-165            <meta-data
-165-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:17:13-19:85
-166                android:name="com.google.firebase.components:com.google.firebase.firestore.FirebaseFirestoreKtxRegistrar"
-166-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:18:17-122
-167                android:value="com.google.firebase.components.ComponentRegistrar" />
-167-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:19:17-82
-168            <meta-data
-168-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:20:13-22:85
-169                android:name="com.google.firebase.components:com.google.firebase.firestore.FirestoreRegistrar"
-169-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:21:17-111
-170                android:value="com.google.firebase.components.ComponentRegistrar" />
-170-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:22:17-82
-171            <meta-data
-171-->[com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:12:13-14:85
-172                android:name="com.google.firebase.components:com.google.firebase.ktx.FirebaseCommonLegacyRegistrar"
-172-->[com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:13:17-116
-173                android:value="com.google.firebase.components.ComponentRegistrar" />
-173-->[com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:14:17-82
-174            <meta-data
-174-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:35:13-37:85
-175                android:name="com.google.firebase.components:com.google.firebase.FirebaseCommonKtxRegistrar"
-175-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:36:17-109
-176                android:value="com.google.firebase.components.ComponentRegistrar" />
-176-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:37:17-82
-177        </service>
-178
-179        <activity
-179-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:29:9-46:20
-180            android:name="com.google.firebase.auth.internal.GenericIdpActivity"
-180-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:30:13-80
-181            android:excludeFromRecents="true"
-181-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:31:13-46
-182            android:exported="true"
-182-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:32:13-36
-183            android:launchMode="singleTask"
-183-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:33:13-44
-184            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
-184-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:34:13-72
-185            <intent-filter>
-185-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:35:13-45:29
-186                <action android:name="android.intent.action.VIEW" />
-186-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:17-69
-186-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:25-66
-187
-188                <category android:name="android.intent.category.DEFAULT" />
-188-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:17-76
-188-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:27-73
-189                <category android:name="android.intent.category.BROWSABLE" />
-189-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:17-78
-189-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:27-75
-190
-191                <data
-191-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:41:17-44:51
-192                    android:host="firebase.auth"
-192-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:42:21-49
-193                    android:path="/"
-193-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:43:21-37
-194                    android:scheme="genericidp" />
-194-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:44:21-48
-195            </intent-filter>
-196        </activity>
-197        <activity
-197-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:47:9-64:20
-198            android:name="com.google.firebase.auth.internal.RecaptchaActivity"
-198-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:48:13-79
-199            android:excludeFromRecents="true"
-199-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:49:13-46
-200            android:exported="true"
-200-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:50:13-36
-201            android:launchMode="singleTask"
-201-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:51:13-44
-202            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
-202-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:52:13-72
-203            <intent-filter>
-203-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:53:13-63:29
-204                <action android:name="android.intent.action.VIEW" />
-204-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:17-69
-204-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:25-66
-205
-206                <category android:name="android.intent.category.DEFAULT" />
-206-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:17-76
-206-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:27-73
-207                <category android:name="android.intent.category.BROWSABLE" />
-207-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:17-78
-207-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:27-75
-208
-209                <data
-209-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:41:17-44:51
-210                    android:host="firebase.auth"
-210-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:42:21-49
-211                    android:path="/"
-211-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:43:21-37
-212                    android:scheme="recaptcha" />
-212-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:44:21-48
-213            </intent-filter>
-214        </activity>
+70            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+70-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:48:13-72
+71
+72        <!-- Full-screen reminder alert dialog -->
+73        <activity
+73-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:53:9-58:43
+74            android:name="com.reminderwidget.ReminderAlertActivity"
+74-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:54:13-50
+75            android:exported="false"
+75-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:56:13-37
+76            android:showOnLockScreen="true"
+76-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:57:13-44
+77            android:theme="@android:style/Theme.Material.Dialog.NoActionBar"
+77-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:55:13-77
+78            android:turnScreenOn="true" />
+78-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:58:13-40
+79
+80        <!-- Location manager (list/add/delete saved locations) -->
+81        <activity
+81-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:61:9-64:40
+82            android:name="com.reminderwidget.LocationManagerActivity"
+82-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:62:13-52
+83            android:exported="false"
+83-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:64:13-37
+84            android:theme="@android:style/Theme.Material.NoActionBar" />
+84-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:63:13-70
+85
+86        <!-- Map picker for choosing a location point -->
+87        <activity
+87-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:67:9-70:40
+88            android:name="com.reminderwidget.LocationPickerActivity"
+88-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:68:13-51
+89            android:exported="false"
+89-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:70:13-37
+90            android:theme="@android:style/Theme.Material.NoActionBar" />
+90-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:69:13-70
+91
+92        <!-- Mic widget -->
+93        <receiver
+93-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:73:9-82:20
+94            android:name="com.reminderwidget.ReminderWidget"
+94-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:74:13-43
+95            android:exported="true" >
+95-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:75:13-36
+96            <intent-filter>
+96-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:76:13-78:29
+97                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+97-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:77:17-84
+97-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:77:25-81
+98            </intent-filter>
+99
+100            <meta-data
+100-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:79:13-81:64
+101                android:name="android.appwidget.provider"
+101-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:80:17-58
+102                android:resource="@xml/reminder_widget_info" />
+102-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:81:17-61
+103        </receiver>
+104
+105        <!-- Events list widget -->
+106        <receiver
+106-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:85:9-94:20
+107            android:name="com.reminderwidget.EventsWidget"
+107-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:86:13-41
+108            android:exported="true" >
+108-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:87:13-36
+109            <intent-filter>
+109-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:76:13-78:29
+110                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+110-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:77:17-84
+110-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:77:25-81
+111            </intent-filter>
+112
+113            <meta-data
+113-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:79:13-81:64
+114                android:name="android.appwidget.provider"
+114-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:80:17-58
+115                android:resource="@xml/events_widget_info" />
+115-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:81:17-61
+116        </receiver>
+117
+118        <!-- Snooze / re-post / dismiss handler -->
+119        <receiver
+119-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:97:9-99:40
+120            android:name="com.reminderwidget.SnoozeReceiver"
+120-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:98:13-43
+121            android:exported="false" />
+121-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:99:13-37
+122
+123        <!-- Geofence transition handler -->
+124        <receiver
+124-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:102:9-104:40
+125            android:name="com.reminderwidget.GeofencingReceiver"
+125-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:103:13-47
+126            android:exported="false" />
+126-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:104:13-37
+127
+128        <!-- Persistent notification action handler (hide) -->
+129        <receiver
+129-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:107:9-109:40
+130            android:name="com.reminderwidget.NotifActionReceiver"
+130-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:108:13-48
+131            android:exported="false" />
+131-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:109:13-37
+132
+133        <!-- Background Firestore sync service -->
+134        <service
+134-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:112:9-115:56
+135            android:name="com.reminderwidget.SyncService"
+135-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:113:13-40
+136            android:exported="false"
+136-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:114:13-37
+137            android:foregroundServiceType="dataSync" />
+137-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:115:13-53
+138
+139        <!-- Re-register geofences after reboot -->
+140        <receiver
+140-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:118:9-124:20
+141            android:name="com.reminderwidget.BootReceiver"
+141-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:119:13-41
+142            android:exported="true" >
+142-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:120:13-36
+143            <intent-filter>
+143-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:121:13-123:29
+144                <action android:name="android.intent.action.BOOT_COMPLETED" />
+144-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:122:17-79
+144-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:122:25-76
+145            </intent-filter>
+146        </receiver>
+147
+148        <!-- FileProvider for sharing agenda image -->
+149        <provider
+150            android:name="androidx.core.content.FileProvider"
+150-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:128:13-62
+151            android:authorities="com.reminderwidget.provider"
+151-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:129:13-60
+152            android:exported="false"
+152-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:130:13-37
+153            android:grantUriPermissions="true" >
+153-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:131:13-47
+154            <meta-data
+154-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:132:13-134:54
+155                android:name="android.support.FILE_PROVIDER_PATHS"
+155-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:133:17-67
+156                android:resource="@xml/file_paths" />
+156-->/home/dik81/IdeaProjects/cozy-planner/reminderwidget/app/src/main/AndroidManifest.xml:134:17-51
+157        </provider>
+158
+159        <service
+159-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:8:9-14:19
+160            android:name="com.google.firebase.components.ComponentDiscoveryService"
+160-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:9:13-84
+161            android:directBootAware="true"
+161-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:32:13-43
+162            android:exported="false" >
+162-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:10:13-37
+163            <meta-data
+163-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:11:13-13:85
+164                android:name="com.google.firebase.components:com.google.firebase.auth.ktx.FirebaseAuthLegacyRegistrar"
+164-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:12:17-119
+165                android:value="com.google.firebase.components.ComponentRegistrar" />
+165-->[com.google.firebase:firebase-auth-ktx:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/0827eebc842dbf88fff17258ada04b15/transformed/jetified-firebase-auth-ktx-23.1.0/AndroidManifest.xml:13:17-82
+166            <meta-data
+166-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:69:13-71:85
+167                android:name="com.google.firebase.components:com.google.firebase.auth.FirebaseAuthRegistrar"
+167-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:70:17-109
+168                android:value="com.google.firebase.components.ComponentRegistrar" />
+168-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:71:17-82
+169            <meta-data
+169-->[com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:12:13-14:85
+170                android:name="com.google.firebase.components:com.google.firebase.firestore.ktx.FirebaseFirestoreLegacyRegistrar"
+170-->[com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:13:17-129
+171                android:value="com.google.firebase.components.ComponentRegistrar" />
+171-->[com.google.firebase:firebase-firestore-ktx:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/a3ccb5f1d6b74161c59dfe170edcf777/transformed/jetified-firebase-firestore-ktx-25.1.1/AndroidManifest.xml:14:17-82
+172            <meta-data
+172-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:17:13-19:85
+173                android:name="com.google.firebase.components:com.google.firebase.firestore.FirebaseFirestoreKtxRegistrar"
+173-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:18:17-122
+174                android:value="com.google.firebase.components.ComponentRegistrar" />
+174-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:19:17-82
+175            <meta-data
+175-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:20:13-22:85
+176                android:name="com.google.firebase.components:com.google.firebase.firestore.FirestoreRegistrar"
+176-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:21:17-111
+177                android:value="com.google.firebase.components.ComponentRegistrar" />
+177-->[com.google.firebase:firebase-firestore:25.1.1] /home/dik81/.gradle/caches/8.14.4/transforms/657732de37a80c064ec665334f86bcf6/transformed/jetified-firebase-firestore-25.1.1/AndroidManifest.xml:22:17-82
+178            <meta-data
+178-->[com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:12:13-14:85
+179                android:name="com.google.firebase.components:com.google.firebase.ktx.FirebaseCommonLegacyRegistrar"
+179-->[com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:13:17-116
+180                android:value="com.google.firebase.components.ComponentRegistrar" />
+180-->[com.google.firebase:firebase-common-ktx:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/42bac4df21b56eebb8102379bfde3595/transformed/jetified-firebase-common-ktx-21.0.0/AndroidManifest.xml:14:17-82
+181            <meta-data
+181-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:35:13-37:85
+182                android:name="com.google.firebase.components:com.google.firebase.FirebaseCommonKtxRegistrar"
+182-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:36:17-109
+183                android:value="com.google.firebase.components.ComponentRegistrar" />
+183-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:37:17-82
+184        </service>
+185
+186        <activity
+186-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:29:9-46:20
+187            android:name="com.google.firebase.auth.internal.GenericIdpActivity"
+187-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:30:13-80
+188            android:excludeFromRecents="true"
+188-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:31:13-46
+189            android:exported="true"
+189-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:32:13-36
+190            android:launchMode="singleTask"
+190-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:33:13-44
+191            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+191-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:34:13-72
+192            <intent-filter>
+192-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:35:13-45:29
+193                <action android:name="android.intent.action.VIEW" />
+193-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:17-69
+193-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:25-66
+194
+195                <category android:name="android.intent.category.DEFAULT" />
+195-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:17-76
+195-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:27-73
+196                <category android:name="android.intent.category.BROWSABLE" />
+196-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:17-78
+196-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:27-75
+197
+198                <data
+198-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:41:17-44:51
+199                    android:host="firebase.auth"
+199-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:42:21-49
+200                    android:path="/"
+200-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:43:21-37
+201                    android:scheme="genericidp" />
+201-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:44:21-48
+202            </intent-filter>
+203        </activity>
+204        <activity
+204-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:47:9-64:20
+205            android:name="com.google.firebase.auth.internal.RecaptchaActivity"
+205-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:48:13-79
+206            android:excludeFromRecents="true"
+206-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:49:13-46
+207            android:exported="true"
+207-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:50:13-36
+208            android:launchMode="singleTask"
+208-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:51:13-44
+209            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+209-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:52:13-72
+210            <intent-filter>
+210-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:53:13-63:29
+211                <action android:name="android.intent.action.VIEW" />
+211-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:17-69
+211-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:36:25-66
+212
+213                <category android:name="android.intent.category.DEFAULT" />
+213-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:17-76
+213-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:38:27-73
+214                <category android:name="android.intent.category.BROWSABLE" />
+214-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:17-78
+214-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:39:27-75
 215
-216        <service
-216-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:24:9-32:19
-217            android:name="androidx.credentials.playservices.CredentialProviderMetadataHolder"
-217-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:25:13-94
-218            android:enabled="true"
-218-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:26:13-35
-219            android:exported="false" >
-219-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:27:13-37
-220            <meta-data
-220-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:29:13-31:104
-221                android:name="androidx.credentials.CREDENTIAL_PROVIDER_KEY"
-221-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:30:17-76
-222                android:value="androidx.credentials.playservices.CredentialProviderPlayServicesImpl" />
-222-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:31:17-101
-223        </service>
-224
-225        <activity
-225-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:34:9-41:20
-226            android:name="androidx.credentials.playservices.HiddenActivity"
-226-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:35:13-76
-227            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
-227-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:36:13-87
-228            android:enabled="true"
-228-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:37:13-35
-229            android:exported="false"
-229-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:38:13-37
-230            android:fitsSystemWindows="true"
-230-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:39:13-45
-231            android:theme="@style/Theme.Hidden" >
-231-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:40:13-48
-232        </activity>
-233        <activity
-233-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:23:9-27:75
-234            android:name="com.google.android.gms.auth.api.signin.internal.SignInHubActivity"
-234-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:24:13-93
-235            android:excludeFromRecents="true"
-235-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:25:13-46
+216                <data
+216-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:41:17-44:51
+217                    android:host="firebase.auth"
+217-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:42:21-49
+218                    android:path="/"
+218-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:43:21-37
+219                    android:scheme="recaptcha" />
+219-->[com.google.firebase:firebase-auth:23.1.0] /home/dik81/.gradle/caches/8.14.4/transforms/e28a2674da2a13a4f279b07a24819991/transformed/jetified-firebase-auth-23.1.0/AndroidManifest.xml:44:21-48
+220            </intent-filter>
+221        </activity>
+222
+223        <service
+223-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:24:9-32:19
+224            android:name="androidx.credentials.playservices.CredentialProviderMetadataHolder"
+224-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:25:13-94
+225            android:enabled="true"
+225-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:26:13-35
+226            android:exported="false" >
+226-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:27:13-37
+227            <meta-data
+227-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:29:13-31:104
+228                android:name="androidx.credentials.CREDENTIAL_PROVIDER_KEY"
+228-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:30:17-76
+229                android:value="androidx.credentials.playservices.CredentialProviderPlayServicesImpl" />
+229-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:31:17-101
+230        </service>
+231
+232        <activity
+232-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:34:9-41:20
+233            android:name="androidx.credentials.playservices.HiddenActivity"
+233-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:35:13-76
+234            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+234-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:36:13-87
+235            android:enabled="true"
+235-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:37:13-35
 236            android:exported="false"
-236-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:26:13-37
-237            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-237-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:27:13-72
-238        <!--
-239            Service handling Google Sign-In user revocation. For apps that do not integrate with
-240            Google Sign-In, this service will never be started.
-241        -->
-242        <service
-242-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:33:9-37:51
-243            android:name="com.google.android.gms.auth.api.signin.RevocationBoundService"
-243-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:34:13-89
-244            android:exported="true"
-244-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:35:13-36
-245            android:permission="com.google.android.gms.auth.api.signin.permission.REVOCATION_NOTIFICATION"
-245-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:36:13-107
-246            android:visibleToInstantApps="true" />
-246-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:37:13-48
-247
-248        <activity
-248-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:9-173
-249            android:name="com.google.android.gms.common.api.GoogleApiActivity"
-249-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:19-85
-250            android:exported="false"
-250-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:146-170
-251            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-251-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:86-145
-252
-253        <provider
-253-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:23:9-28:39
-254            android:name="com.google.firebase.provider.FirebaseInitProvider"
-254-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:24:13-77
-255            android:authorities="com.reminderwidget.firebaseinitprovider"
-255-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:25:13-72
-256            android:directBootAware="true"
-256-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:26:13-43
+236-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:38:13-37
+237            android:fitsSystemWindows="true"
+237-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:39:13-45
+238            android:theme="@style/Theme.Hidden" >
+238-->[androidx.credentials:credentials-play-services-auth:1.2.0-rc01] /home/dik81/.gradle/caches/8.14.4/transforms/2f3b8e8af18c0855fb72c91f3e95aa51/transformed/jetified-credentials-play-services-auth-1.2.0-rc01/AndroidManifest.xml:40:13-48
+239        </activity>
+240        <activity
+240-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:23:9-27:75
+241            android:name="com.google.android.gms.auth.api.signin.internal.SignInHubActivity"
+241-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:24:13-93
+242            android:excludeFromRecents="true"
+242-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:25:13-46
+243            android:exported="false"
+243-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:26:13-37
+244            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+244-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:27:13-72
+245        <!--
+246            Service handling Google Sign-In user revocation. For apps that do not integrate with
+247            Google Sign-In, this service will never be started.
+248        -->
+249        <service
+249-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:33:9-37:51
+250            android:name="com.google.android.gms.auth.api.signin.RevocationBoundService"
+250-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:34:13-89
+251            android:exported="true"
+251-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:35:13-36
+252            android:permission="com.google.android.gms.auth.api.signin.permission.REVOCATION_NOTIFICATION"
+252-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:36:13-107
+253            android:visibleToInstantApps="true" />
+253-->[com.google.android.gms:play-services-auth:21.2.0] /home/dik81/.gradle/caches/8.14.4/transforms/779b2ea2446cc7c645a5c624d70faf59/transformed/jetified-play-services-auth-21.2.0/AndroidManifest.xml:37:13-48
+254
+255        <activity
+255-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:9-173
+256            android:name="com.google.android.gms.common.api.GoogleApiActivity"
+256-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:19-85
 257            android:exported="false"
-257-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:27:13-37
-258            android:initOrder="100" />
-258-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:28:13-36
+257-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:146-170
+258            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+258-->[com.google.android.gms:play-services-base:18.5.0] /home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/AndroidManifest.xml:5:86-145
 259
-260        <meta-data
-260-->[com.google.android.gms:play-services-basement:18.4.0] /home/dik81/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/AndroidManifest.xml:6:9-122
-261            android:name="com.google.android.gms.version"
-261-->[com.google.android.gms:play-services-basement:18.4.0] /home/dik81/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/AndroidManifest.xml:6:20-65
-262            android:value="@integer/google_play_services_version" />
-262-->[com.google.android.gms:play-services-basement:18.4.0] /home/dik81/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/AndroidManifest.xml:6:66-119
-263
-264        <provider
-264-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:24:9-32:20
-265            android:name="androidx.startup.InitializationProvider"
-265-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:25:13-67
-266            android:authorities="com.reminderwidget.androidx-startup"
-266-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:26:13-68
-267            android:exported="false" >
-267-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:27:13-37
-268            <meta-data
-268-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
-269                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-269-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
-270                android:value="androidx.startup" />
-270-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
-271        </provider>
-272
-273        <receiver
-273-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
-274            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-274-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
-275            android:directBootAware="false"
-275-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
-276            android:enabled="true"
-276-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
-277            android:exported="true"
-277-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
-278            android:permission="android.permission.DUMP" >
-278-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
-279            <intent-filter>
-279-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
-280                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-280-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
-280-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
-281            </intent-filter>
-282            <intent-filter>
-282-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
-283                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-283-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
-283-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
-284            </intent-filter>
-285            <intent-filter>
-285-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
-286                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-286-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
-286-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
-287            </intent-filter>
-288            <intent-filter>
-288-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
-289                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-289-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
-289-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
-290            </intent-filter>
-291        </receiver> <!-- The activities will be merged into the manifest of the hosting app. -->
-292        <activity
-292-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:14:9-18:65
-293            android:name="com.google.android.play.core.common.PlayCoreDialogWrapperActivity"
-293-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:15:13-93
-294            android:exported="false"
-294-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:16:13-37
-295            android:stateNotNeeded="true"
-295-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:17:13-42
-296            android:theme="@style/Theme.PlayCore.Transparent" />
-296-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:18:13-62
-297    </application>
-298
-299</manifest>
+260        <provider
+260-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:23:9-28:39
+261            android:name="com.google.firebase.provider.FirebaseInitProvider"
+261-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:24:13-77
+262            android:authorities="com.reminderwidget.firebaseinitprovider"
+262-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:25:13-72
+263            android:directBootAware="true"
+263-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:26:13-43
+264            android:exported="false"
+264-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:27:13-37
+265            android:initOrder="100" />
+265-->[com.google.firebase:firebase-common:21.0.0] /home/dik81/.gradle/caches/8.14.4/transforms/44c4651d967cab7cfd491ab36edf2861/transformed/jetified-firebase-common-21.0.0/AndroidManifest.xml:28:13-36
+266
+267        <meta-data
+267-->[com.google.android.gms:play-services-basement:18.4.0] /home/dik81/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/AndroidManifest.xml:6:9-122
+268            android:name="com.google.android.gms.version"
+268-->[com.google.android.gms:play-services-basement:18.4.0] /home/dik81/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/AndroidManifest.xml:6:20-65
+269            android:value="@integer/google_play_services_version" />
+269-->[com.google.android.gms:play-services-basement:18.4.0] /home/dik81/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/AndroidManifest.xml:6:66-119
+270
+271        <provider
+271-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:24:9-32:20
+272            android:name="androidx.startup.InitializationProvider"
+272-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:25:13-67
+273            android:authorities="com.reminderwidget.androidx-startup"
+273-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:26:13-68
+274            android:exported="false" >
+274-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:27:13-37
+275            <meta-data
+275-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
+276                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+276-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
+277                android:value="androidx.startup" />
+277-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
+278        </provider>
+279
+280        <receiver
+280-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
+281            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+281-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
+282            android:directBootAware="false"
+282-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
+283            android:enabled="true"
+283-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
+284            android:exported="true"
+284-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
+285            android:permission="android.permission.DUMP" >
+285-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
+286            <intent-filter>
+286-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
+287                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+287-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
+287-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
+288            </intent-filter>
+289            <intent-filter>
+289-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
+290                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+290-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
+290-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
+291            </intent-filter>
+292            <intent-filter>
+292-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
+293                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+293-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
+293-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
+294            </intent-filter>
+295            <intent-filter>
+295-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
+296                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+296-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
+296-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/dik81/.gradle/caches/8.14.4/transforms/b427e6a23c078ffff26b5fc9560c76b8/transformed/jetified-profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
+297            </intent-filter>
+298        </receiver> <!-- The activities will be merged into the manifest of the hosting app. -->
+299        <activity
+299-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:14:9-18:65
+300            android:name="com.google.android.play.core.common.PlayCoreDialogWrapperActivity"
+300-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:15:13-93
+301            android:exported="false"
+301-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:16:13-37
+302            android:stateNotNeeded="true"
+302-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:17:13-42
+303            android:theme="@style/Theme.PlayCore.Transparent" />
+303-->[com.google.android.play:core-common:2.0.3] /home/dik81/.gradle/caches/8.14.4/transforms/90358d85a08b14e3e46f7757505149bb/transformed/jetified-core-common-2.0.3/AndroidManifest.xml:18:13-62
+304    </application>
+305
+306</manifest>

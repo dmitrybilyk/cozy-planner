@@ -98,10 +98,19 @@ class SnoozeReceiver : BroadcastReceiver() {
             }
             NotificationHelper.ACTION_PIN -> {
                 val event = EventStore.load(context).find { it.id == eventId } ?: return
-                NotificationHelper.cancelRepeat(context, eventId)
-                NotificationHelper.setRepeating(context, eventId, false)
-                NotificationHelper.post(context, event, ongoing = true, silent = true, fullscreen = false, pinned = true)
-                Toast.makeText(context, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
+                if (NotificationHelper.isPinned(context, eventId)) {
+                    NotificationHelper.setPinned(context, eventId, false)
+                    nm.cancel(nid)
+                    Toast.makeText(context, "🔕 Відкріплено зі статус-бару", Toast.LENGTH_SHORT).show()
+                    context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
+                    EventsWidget.update(context)
+                } else {
+                    NotificationHelper.cancelRepeat(context, eventId)
+                    NotificationHelper.setRepeating(context, eventId, false)
+                    NotificationHelper.setPinned(context, eventId, true)
+                    NotificationHelper.post(context, event, ongoing = true, silent = true, pinned = true)
+                    Toast.makeText(context, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
+                }
             }
             NotificationHelper.ACTION_POSTPONE_DAY -> {
                 nm.cancel(nid)
@@ -125,6 +134,40 @@ class SnoozeReceiver : BroadcastReceiver() {
                 Toast.makeText(context, "👥 Поширено до групи", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
                 EventsWidget.update(context)
+            }
+            NotificationHelper.ACTION_ADD_CALENDAR_NOTIF -> {
+                val event = EventStore.load(context).find { it.id == eventId } ?: return
+                if (event.calendarEventId != -1L) {
+                    Toast.makeText(context, "📅 Вже додано в Google Calendar", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                val hasPerms = android.content.pm.PackageManager.PERMISSION_GRANTED ==
+                    androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.WRITE_CALENDAR)
+                if (!hasPerms) {
+                    Toast.makeText(context, "📅 Потрібен доступ до календаря — дозвольте в додатку", Toast.LENGTH_LONG).show()
+                    context.startActivity(Intent(context, MainActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        putExtra("request_calendar_perms", true)
+                    })
+                    return
+                }
+                val calId = try {
+                    CalendarHelper.createReminder(
+                        context, event.title,
+                        if (event.startMs > 0) event.startMs else System.currentTimeMillis(),
+                        event.durationMs, 0xFF4CAF50.toInt()
+                    )
+                } catch (_: Exception) { -1L }
+                if (calId == -1L) {
+                    Toast.makeText(context, "⚠️ Не вдалося додати до календаря", Toast.LENGTH_SHORT).show()
+                    return
+                }
+                EventStore.updateCalendarId(context, eventId, calId)
+                val updated = EventStore.load(context).find { it.id == eventId } ?: return
+                val existing = nm.activeNotifications.find { it.id == nid }
+                val ongoing = (existing?.notification?.flags ?: 0) and android.app.Notification.FLAG_ONGOING_EVENT != 0
+                NotificationHelper.post(context, updated, ongoing = ongoing, silent = true, pinned = true)
+                Toast.makeText(context, "📅 Додано в Google Calendar", Toast.LENGTH_SHORT).show()
             }
             NotificationHelper.ACTION_REPEAT_FIRE -> {
                 val event = EventStore.load(context).find { it.id == eventId }

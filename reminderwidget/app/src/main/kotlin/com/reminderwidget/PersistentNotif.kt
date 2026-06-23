@@ -113,7 +113,7 @@ object PersistentNotif {
         }
 
         val builder = Notification.Builder(ctx, CHANNEL_ID)
-            .setSmallIcon(Icon.createWithResource(ctx, R.drawable.ic_notification))
+            .setSmallIcon(Icon.createWithResource(ctx, R.drawable.ic_status))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setVisibility(Notification.VISIBILITY_PUBLIC)

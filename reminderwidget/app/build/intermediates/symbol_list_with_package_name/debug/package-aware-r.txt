@@ -109,6 +109,7 @@ drawable ic_call_answer_video
 drawable ic_call_answer_video_low
 drawable ic_call_decline
 drawable ic_call_decline_low
+drawable ic_export_gc
 drawable ic_launcher_bg
 drawable ic_launcher_fg
 drawable ic_notification
@@ -116,6 +117,7 @@ drawable ic_other_sign_in
 drawable ic_passkey
 drawable ic_password
 drawable ic_pin
+drawable ic_status
 drawable ic_sync
 drawable ic_widget
 drawable notification_action_background
@@ -173,7 +175,6 @@ id adjust_height
 id adjust_width
 id async
 id auto
-id bell_btn
 id blocking
 id browser_actions_header_text
 id browser_actions_menu_item_icon
@@ -186,6 +187,7 @@ id btn_done_pinned
 id btn_pin
 id btn_postpone_day
 id btn_repeat
+id btn_snooze
 id btn_snooze_a
 id btn_snooze_b
 id btn_snooze_pin
@@ -194,7 +196,7 @@ id dark
 id dialog_button
 id edit_text_id
 id empty_text
-id event_dot
+id event_time
 id event_title
 id events_list
 id forever
@@ -250,8 +252,10 @@ id view_tree_saved_state_registry_owner
 id view_tree_view_model_store_owner
 id visible_removing_fragment_view_tag
 id wide
-id widget_events_header
+id widget_count_label
 id widget_events_root
+id widget_header
+id widget_mic_btn
 id widget_root
 integer google_play_services_version
 integer status_bar_notification_info_maxnum

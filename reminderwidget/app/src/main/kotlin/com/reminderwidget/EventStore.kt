@@ -7,6 +7,7 @@ import org.json.JSONObject
 object EventStore {
     private const val PREFS = "event_store"
     private const val KEY   = "events"
+    const val MAX_EVENTS    = 50
 
     data class AppEvent(
         val id: Long,

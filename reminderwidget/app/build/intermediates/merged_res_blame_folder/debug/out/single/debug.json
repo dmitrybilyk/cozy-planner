@@ -28,6 +28,10 @@
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/dot_inactive.xml"
     },
     {
+        "merged": "com.reminderwidget.app-merged_res-26:/layout_widget_event_row.xml.flat",
+        "source": "com.reminderwidget.app-main-28:/layout/widget_event_row.xml"
+    },
+    {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_ic_alarm_anim.xml.flat",
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/ic_alarm_anim.xml"
     },
@@ -40,6 +44,10 @@
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/xml/events_widget_info.xml"
     },
     {
+        "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_ic_status.xml.flat",
+        "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/ic_status.xml"
+    },
+    {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/xml_reminder_widget_info.xml.flat",
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/xml/reminder_widget_info.xml"
     },
@@ -48,20 +56,20 @@
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/ic_notification.xml"
     },
     {
-        "merged": "com.reminderwidget.app-merged_res-26:/layout_notification_alarm.xml.flat",
-        "source": "com.reminderwidget.app-main-28:/layout/notification_alarm.xml"
-    },
-    {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/animator_bell_shake.xml.flat",
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/animator/bell_shake.xml"
     },
     {
-        "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/layout_widget_reminder.xml.flat",
-        "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/layout/widget_reminder.xml"
+        "merged": "com.reminderwidget.app-merged_res-26:/layout_widget_events.xml.flat",
+        "source": "com.reminderwidget.app-main-28:/layout/widget_events.xml"
     },
     {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/layout_notification_status.xml.flat",
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/layout/notification_status.xml"
+    },
+    {
+        "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/layout_widget_reminder.xml.flat",
+        "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/layout/widget_reminder.xml"
     },
     {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_ic_launcher_bg.xml.flat",
@@ -76,12 +84,12 @@
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/ic_alarm_ring.xml"
     },
     {
-        "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_dot_active.xml.flat",
-        "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/dot_active.xml"
-    },
-    {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/layout_widget_events.xml.flat",
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/layout/widget_events.xml"
+    },
+    {
+        "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_dot_active.xml.flat",
+        "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/dot_active.xml"
     },
     {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/xml_file_paths.xml.flat",
@@ -92,8 +100,16 @@
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/ic_launcher_fg.xml"
     },
     {
+        "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_ic_export_gc.xml.flat",
+        "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/ic_export_gc.xml"
+    },
+    {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_ic_alarm_vec.xml.flat",
         "source": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-main-28:/drawable/ic_alarm_vec.xml"
+    },
+    {
+        "merged": "com.reminderwidget.app-merged_res-26:/xml_file_paths.xml.flat",
+        "source": "com.reminderwidget.app-main-28:/xml/file_paths.xml"
     },
     {
         "merged": "/home/dik81/.gradle/daemon/8.14.4/com.reminderwidget.app-merged_res-26:/drawable_ic_pin.xml.flat",

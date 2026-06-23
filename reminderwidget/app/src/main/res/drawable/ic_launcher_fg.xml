@@ -2,14 +2,42 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Left sound arc -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38.61,27.36L32.18,20.93C22.58,28.14,16.76,39.4,16.14,52.5h9C25.68,42.33,30.79,33.38,38.61,27.36z"/>
+
+    <!-- Right sound arc -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82.86,52.5h9C91.24,39.4,85.42,28.14,75.82,20.93L69.39,27.36C77.19,33.38,82.32,42.33,82.86,52.5z"/>
+
     <!-- Bell body -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M12,22c1.1,0 2,-0.9 2,-2h-4c0,1.1 0.9,2 2,2zM18,16v-5c0,-3.07 -1.64,-5.64 -4.5,-6.32L13.5,4c0,-0.83 -0.67,-1.5 -1.5,-1.5s-1.5,0.67 -1.5,1.5v0.68C7.63,5.36 6,7.92 6,11v5l-2,2v1h16v-1l-2,-2z"/>
-    <!-- Notification badge dot (top-right corner) -->
+        android:pathData="M54,103.5c4.95,0 9,-4.05 9,-9H45c0,4.95 4.05,9 9,9z
+                          M81,76.5V54c0,-13.82 -7.38,-25.38 -20.25,-28.44V22.5c0,-3.74 -3.02,-6.75 -6.75,-6.75s-6.75,3.02 -6.75,6.75v3.06C34.38,28.62 27,40.16 27,54v22.5l-9,9v4.5H90v-4.5L81,76.5z"/>
+
+    <!-- Small sparkle top-left -->
     <path
-        android:fillColor="#FF7043"
-        android:pathData="M17.5,2.2a2.8,2.8 0 1 1 0,5.6a2.8,2.8 0 1 1 0,-5.6z"/>
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,21l1.5,-4.5L27,21l4.5,1.5L27,24l-1.5,4.5L24,24l-4.5,-1.5z"/>
+
+    <!-- Small sparkle top-right -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M84,21l1.5,-4.5L87,21l4.5,1.5L87,24l-1.5,4.5L84,24l-4.5,-1.5z"/>
+
+    <!-- Green checkmark in the center of the bell -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M42,60 L51,72 L69,48"
+        android:strokeColor="#4CAF50"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"/>
+
 </vector>

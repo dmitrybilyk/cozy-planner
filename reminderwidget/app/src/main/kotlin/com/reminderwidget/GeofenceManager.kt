@@ -28,7 +28,7 @@ object GeofenceManager {
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
             .build()
         val request = GeofencingRequest.Builder()
-            .setInitialTrigger(0)
+            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
             .addGeofence(geofence)
             .build()
         LocationServices.getGeofencingClient(ctx)

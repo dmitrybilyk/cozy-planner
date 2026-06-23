@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Нагадування</string>
+    <string name="app_name">Remindly</string>
     <string name="gcm_defaultSenderId" translatable="false">240251275718</string>
     <string name="google_api_key" translatable="false">AIzaSyCLoESofKJy4igSfKCqegD0rbOhhTosuPc</string>
     <string name="google_app_id" translatable="false">1:240251275718:android:5123b6090f75207b270ac7</string>

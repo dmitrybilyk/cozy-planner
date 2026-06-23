@@ -3,11 +3,9 @@ package com.reminderwidget
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.graphics.drawable.Icon
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingEvent
 
@@ -43,26 +41,8 @@ class GeofencingReceiver : BroadcastReceiver() {
             val eventId = geofenceId.removePrefix("e").toLongOrNull() ?: return@forEach
             val appEvent = allEvents.find { it.id == eventId } ?: return@forEach
             if (appEvent.completed) return@forEach
-
-            val openPi = PendingIntent.getActivity(
-                ctx, eventId.toInt(),
-                Intent(ctx, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val locationLabel = appEvent.locationName?.let { "📍 $it" } ?: "📍"
-            val notif = Notification.Builder(ctx, CHANNEL_ID)
-                .setSmallIcon(Icon.createWithResource(ctx, R.drawable.ic_notification))
-                .setContentTitle(appEvent.title)
-                .setContentText(locationLabel)
-                .setContentIntent(openPi)
-                .setAutoCancel(true)
-                .setColor(0xFF1565C0.toInt())
-                .build()
-
-            nm.notify(eventId.toInt(), notif)
+            NotificationHelper.post(ctx, appEvent, ongoing = false, silent = false, locationTriggered = true)
+            GeofenceManager.unregisterForEvent(ctx, eventId)
         }
     }
 }

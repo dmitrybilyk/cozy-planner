@@ -1,35 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="30dp"
+    android:layout_height="28dp"
     android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:paddingStart="4dp"
-    android:paddingEnd="2dp">
+    android:gravity="center_vertical">
 
-    <FrameLayout
-        android:id="@+id/event_dot"
-        android:layout_width="7dp"
-        android:layout_height="7dp"
-        android:layout_marginEnd="7dp"
-        android:background="@drawable/dot_inactive" />
+    <!-- Time or type badge -->
+    <TextView
+        android:id="@+id/event_time"
+        android:layout_width="44dp"
+        android:layout_height="wrap_content"
+        android:textSize="9sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="none" />
 
+    <!-- Title -->
     <TextView
         android:id="@+id/event_title"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textColor="#FFFFFF"
+        android:textColor="#DDDDDD"
         android:textSize="11sp"
         android:maxLines="1"
-        android:ellipsize="end" />
+        android:ellipsize="end"
+        android:paddingStart="4dp"
+        android:paddingEnd="2dp" />
 
+    <!-- Done -->
     <TextView
-        android:id="@+id/bell_btn"
+        android:id="@+id/btn_done"
         android:layout_width="28dp"
         android:layout_height="28dp"
-        android:text="🔔"
-        android:textSize="13sp"
+        android:text="✅"
+        android:textSize="12sp"
+        android:gravity="center" />
+
+    <!-- Snooze (5 min) -->
+    <TextView
+        android:id="@+id/btn_snooze"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:text="⏰"
+        android:textSize="11sp"
         android:gravity="center" />
 
 </LinearLayout>

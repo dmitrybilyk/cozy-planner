@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:label="@string/app_name"
@@ -34,6 +35,12 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- First-run permission setup wizard -->
+        <activity
+            android:name=".SetupActivity"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:exported="false" />
 
         <!-- Transparent voice activity (used by mic widget + app icon) -->
         <activity

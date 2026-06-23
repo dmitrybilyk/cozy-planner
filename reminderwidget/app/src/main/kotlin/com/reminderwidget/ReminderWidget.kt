@@ -16,17 +16,17 @@ class ReminderWidget : AppWidgetProvider() {
     companion object {
         fun updateWidget(context: Context, appWidgetManager: AppWidgetManager, widgetId: Int) {
             val bgColor = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
-                .getInt(MainActivity.KEY_WIDGET_BG, 0xDD000000.toInt())
+                .getInt(MainActivity.KEY_WIDGET_BG, 0x00000000)
 
-            val intent = Intent(context, VoiceActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            }
-            val pi = PendingIntent.getActivity(
-                context, widgetId, intent,
+            val tapPi = PendingIntent.getActivity(
+                context, widgetId,
+                Intent(context, VoiceActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             val views = RemoteViews(context.packageName, R.layout.widget_reminder)
-            views.setOnClickPendingIntent(R.id.widget_root, pi)
+            views.setOnClickPendingIntent(R.id.widget_root, tapPi)
             views.setInt(R.id.widget_root, "setBackgroundColor", bgColor)
             appWidgetManager.updateAppWidget(widgetId, views)
         }

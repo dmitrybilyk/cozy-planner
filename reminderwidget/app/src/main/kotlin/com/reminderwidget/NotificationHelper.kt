@@ -37,6 +37,7 @@ object NotificationHelper {
     const val ACTION_POSTPONE_DAY   = "com.reminderwidget.POSTPONE_DAY"
     const val ACTION_SHARE_GROUP    = "com.reminderwidget.SHARE_GROUP"
     const val ACTION_DISMISS_NOTIF  = "com.reminderwidget.DISMISS_NOTIF"
+    const val ACTION_ADD_CALENDAR_NOTIF = "com.reminderwidget.ADD_CALENDAR_NOTIF"
     const val EXTRA_EVENT_ID        = "event_id"
     const val EXTRA_SILENT          = "silent"
     const val EXTRA_FULLSCREEN      = "fullscreen"
@@ -52,6 +53,15 @@ object NotificationHelper {
 
     fun setRepeating(context: Context, eventId: Long, value: Boolean) =
         repeatPrefs(context).edit().putBoolean("r_$eventId", value).apply()
+
+    private fun pinnedPrefs(context: Context) =
+        context.getSharedPreferences("pinned_state", Context.MODE_PRIVATE)
+
+    fun isPinned(context: Context, eventId: Long) =
+        pinnedPrefs(context).getBoolean("p_$eventId", false)
+
+    fun setPinned(context: Context, eventId: Long, value: Boolean) =
+        pinnedPrefs(context).edit().putBoolean("p_$eventId", value).apply()
 
     fun scheduleRepeat(context: Context, eventId: Long) {
         val pi = repeatFirePi(context, eventId)
@@ -97,7 +107,15 @@ object NotificationHelper {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !am.canScheduleExactAlarms()) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
         } else {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pi)
+            // setAlarmClock has highest OEM priority — shown in status bar, not killed by battery optimizers
+            val showIntent = PendingIntent.getActivity(
+                context, notifId(eventId) + 21,
+                Intent(context, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            am.setAlarmClock(AlarmManager.AlarmClockInfo(triggerMs, showIntent), pi)
         }
     }
 
@@ -118,6 +136,7 @@ object NotificationHelper {
         silent: Boolean = false,
         fullscreen: Boolean = false,
         pinned: Boolean = false,
+        locationTriggered: Boolean = false,
     ) {
         ensureChannel(context)
         ensureSilentChannel(context)
@@ -149,17 +168,35 @@ object NotificationHelper {
         val snoozePinPi    = snoozeMinPi(context, nid + 10, event.id, 1)
         val snoozePi1      = snoozeMinPi(context, nid + 4,  event.id, snooze1Min)
         val snoozePi2      = snoozeMinPi(context, nid + 5,  event.id, snooze2Min)
-        val dismissPi      = broadcastPi(context, nid + 1,  ACTION_DISMISSED,     event.id)
-        val dismissNotifPi = broadcastPi(context, nid + 13, ACTION_DISMISS_NOTIF, event.id)
+        val dismissPi      = broadcastPi(context, nid + 1,  ACTION_DISMISSED,       event.id)
+        val dismissNotifPi = broadcastPi(context, nid + 13, ACTION_DISMISS_NOTIF,   event.id)
+        val gcalNotifPi    = broadcastPi(context, nid + 15, ACTION_ADD_CALENDAR_NOTIF, event.id)
 
         val isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
         val titleColor = if (isDark) Color.WHITE else Color.BLACK
-        val btnBg = if (isDark) 0x55AAAAAA.toInt() else 0xFF37474F.toInt()
         val btnText = Color.WHITE
 
         val repeating = isRepeating(context, event.id)
-        val repeatBg  = if (repeating) 0xFFFF5722.toInt() else btnBg
+        if (pinned) setPinned(context, event.id, true)
+        val effectivePinned = pinned || isPinned(context, event.id)
+
+        val openAppPi = PendingIntent.getActivity(
+            context, nid + 14,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val locationPi = PendingIntent.getActivity(
+            context, nid + 16,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(EXTRA_EVENT_ID, event.id)
+                putExtra("show_location_picker", true)
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         fun fmtMin(m: Int) = if (m >= 60) "${m / 60}г${if (m % 60 != 0) "${m % 60}'" else ""}" else "$m'"
 
@@ -169,42 +206,54 @@ object NotificationHelper {
             v.setTextColor(R.id.notif_title, titleColor)
             v.setTextViewText(R.id.notif_body, body)
             v.setViewVisibility(R.id.notif_body, if (showBody) View.VISIBLE else View.GONE)
-            if (pinned) {
+
+            if (!event.hasTime && !locationTriggered) {
+                // Pinned no-time / location events: [📍 location, 📌 pin, 📅 gcal, ✅ done]
+                val exported = event.calendarEventId != -1L
+                val hasLoc   = event.locationName != null
                 v.setViewVisibility(R.id.row_buttons, View.GONE)
                 v.setViewVisibility(R.id.pinned_row, View.VISIBLE)
-                v.setInt(R.id.btn_done_pinned, "setBackgroundResource", R.drawable.btn_done_pinned_bg)
-                v.setTextColor(R.id.btn_done_pinned, Color.WHITE)
+                v.setViewVisibility(R.id.btn_snooze_pin, View.VISIBLE)
+                v.setTextViewText(R.id.btn_snooze_pin, "📍")
+                v.setInt(R.id.btn_snooze_pin, "setBackgroundColor", if (hasLoc) 0xFF0D2040.toInt() else Color.TRANSPARENT)
+                v.setOnClickPendingIntent(R.id.btn_snooze_pin, locationPi)
+                v.setViewVisibility(R.id.btn_postpone_day, View.VISIBLE)
+                v.setTextViewText(R.id.btn_postpone_day, "📌")
+                v.setInt(R.id.btn_postpone_day, "setBackgroundColor", if (effectivePinned) 0xFFFFAB40.toInt() else Color.TRANSPARENT)
+                v.setOnClickPendingIntent(R.id.btn_postpone_day, pinPi)
+                v.setViewVisibility(R.id.btn_add_calendar, View.VISIBLE)
+                v.setImageViewResource(R.id.btn_add_calendar, R.drawable.ic_export_gc)
+                v.setInt(R.id.btn_add_calendar, "setColorFilter", if (exported) 0xFF66BB6A.toInt() else 0xFFFFFFFF.toInt())
+                v.setInt(R.id.btn_add_calendar, "setBackgroundColor", if (exported) 0xFF1B2B0E.toInt() else Color.TRANSPARENT)
+                v.setOnClickPendingIntent(R.id.btn_add_calendar, gcalNotifPi)
                 v.setOnClickPendingIntent(R.id.btn_done_pinned, donePi)
-                v.setInt(R.id.btn_postpone_day, "setBackgroundResource", R.drawable.btn_postpone_bg)
-                v.setTextColor(R.id.btn_postpone_day, Color.WHITE)
-                v.setOnClickPendingIntent(R.id.btn_postpone_day, postponePi)
-                v.setInt(R.id.btn_snooze_pin, "setBackgroundColor", if (repeating) 0xFFFF5722.toInt() else btnBg)
-                v.setTextColor(R.id.btn_snooze_pin, btnText)
-                v.setOnClickPendingIntent(R.id.btn_snooze_pin, repeatPi)
-                if (!event.hasTime) {
-                    v.setViewVisibility(R.id.btn_add_calendar, View.VISIBLE)
-                    v.setTextViewText(R.id.btn_add_calendar, "🔕")
-                    v.setInt(R.id.btn_add_calendar, "setBackgroundColor", btnBg)
-                    v.setOnClickPendingIntent(R.id.btn_add_calendar, dismissNotifPi)
-                } else {
-                    v.setViewVisibility(R.id.btn_add_calendar, View.GONE)
-                }
             } else {
-                v.setViewVisibility(R.id.row_buttons, View.VISIBLE)
+                // Has-time events: always show row_buttons
                 v.setViewVisibility(R.id.pinned_row, View.GONE)
+                v.setViewVisibility(R.id.row_buttons, View.VISIBLE)
                 v.setOnClickPendingIntent(R.id.btn_done, donePi)
                 v.setOnClickPendingIntent(R.id.btn_repeat, repeatPi)
-                v.setOnClickPendingIntent(R.id.btn_pin, pinPi)
-                listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_done, R.id.btn_pin).forEach { id ->
-                    v.setInt(id, "setBackgroundColor", btnBg)
+                listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_done).forEach { id ->
+                    v.setInt(id, "setBackgroundColor", Color.TRANSPARENT)
                     v.setTextColor(id, btnText)
                 }
-                v.setInt(R.id.btn_repeat, "setBackgroundColor", repeatBg)
+                // Repeat button: orange when active, transparent otherwise; shows "🔁1'"
+                v.setInt(R.id.btn_repeat, "setBackgroundColor", if (repeating) 0xFFFF5722.toInt() else Color.TRANSPARENT)
                 v.setTextColor(R.id.btn_repeat, btnText)
+                v.setTextViewText(R.id.btn_repeat, "🔁1'")
                 v.setTextViewText(R.id.btn_snooze_a, fmtMin(snooze1Min))
                 v.setTextViewText(R.id.btn_snooze_b, fmtMin(snooze2Min))
                 v.setOnClickPendingIntent(R.id.btn_snooze_a, snoozePi1)
                 v.setOnClickPendingIntent(R.id.btn_snooze_b, snoozePi2)
+                // Pin button: hidden when repeating (repeat = pinned); orange when already pinned
+                if (repeating) {
+                    v.setViewVisibility(R.id.btn_pin, View.GONE)
+                } else {
+                    v.setViewVisibility(R.id.btn_pin, View.VISIBLE)
+                    v.setInt(R.id.btn_pin, "setBackgroundColor", if (effectivePinned) 0xFFFFAB40.toInt() else Color.TRANSPARENT)
+                    v.setTextColor(R.id.btn_pin, btnText)
+                    v.setOnClickPendingIntent(R.id.btn_pin, pinPi)
+                }
             }
             return v
         }

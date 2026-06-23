@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Нагадування</string>
+    <string name="app_name">Remindly</string>
     <string name="shortcut_events_widget_short">Список подій</string>
     <string name="shortcut_events_widget_long">Список нагадувань</string>
 </resources>
