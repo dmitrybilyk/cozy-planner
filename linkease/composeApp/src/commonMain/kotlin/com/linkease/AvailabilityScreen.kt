@@ -84,6 +84,7 @@ fun AvailabilityScreen(
     onCopyAvailabilityImage: ((title: String, lines: List<ScheduleImageLine>) -> Unit)? = null,
     onSessionClick: ((Session) -> Unit)? = null,
     onAddSession: ((LocalDate) -> Unit)? = null,
+    onMicClick: (() -> Unit)? = null,
 ) {
     val today = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date }
     // Default to a Google-Calendar-style continuous agenda of the real schedule; the
@@ -291,6 +292,7 @@ fun AvailabilityScreen(
                         onHomeClick = onFreeTimeClick,
                         onAvailabilityClick = onAvailabilityNavClick,
                         onCreateClick = onCreateClick,
+                        onMicClick = onMicClick,
                     )
                 }
             }
@@ -1019,6 +1021,8 @@ private fun buildAvailabilityImageLines(
     val locById = locations.associateBy { it.id }
     val result = mutableListOf<ScheduleImageLine>()
     days.forEach { day ->
+        // Only include days where availability has been explicitly set
+        if (availability.none { it.date == day }) return@forEach
         val daySessions = sessions.filter { it.date == day }
         val freeSlots = calculateFreeSlots(daySessions, availability, day, hoursStart, hoursEnd)
             .sortedBy { it.startTime.toMinutes() }
@@ -1052,6 +1056,8 @@ private fun buildPeriodText(
         appendLine("📅 Моя доступність:")
         appendLine()
         days.forEach { day ->
+            // Only include days where availability has been explicitly set
+            if (availability.none { it.date == day }) return@forEach
             val dow = day.dayOfWeek.isoDayNumber
             val label = "${DAYS_AVAIL_SHORT[dow - 1]}, ${day.dayOfMonth} ${MONTHS_AVAIL_SHORT[day.month.ordinal]}"
             val daySessions = sessions.filter { it.date == day }
@@ -1210,6 +1216,8 @@ private fun ScheduleFilterSection(
 ) {
     var showClientMenu by remember { mutableStateOf(false) }
     var showLocationMenu by remember { mutableStateOf(false) }
+    var clientSearch by remember { mutableStateOf("") }
+    var locationSearch by remember { mutableStateOf("") }
     val selectedClients = clients.filter { it.id in filterClientIds }
     val selectedLocations = locations.filter { it.id in filterLocationIds }
 
@@ -1220,10 +1228,30 @@ private fun ScheduleFilterSection(
                     label = "Клієнти",
                     icon = "👤",
                     selectedNames = selectedClients.map { it.name },
-                    onClick = { showClientMenu = !showClientMenu },
+                    onClick = { showClientMenu = !showClientMenu; clientSearch = "" },
                 )
-                DropdownMenu(expanded = showClientMenu, onDismissRequest = { showClientMenu = false }) {
-                    clients.forEach { client ->
+                DropdownMenu(
+                    expanded = showClientMenu,
+                    onDismissRequest = { showClientMenu = false; clientSearch = "" },
+                ) {
+                    // Search field inside dropdown
+                    DropdownMenuItem(
+                        text = {
+                            OutlinedTextField(
+                                value = clientSearch,
+                                onValueChange = { clientSearch = it },
+                                placeholder = { Text("Пошук…", fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
+                            )
+                        },
+                        onClick = {},
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                    val filteredClients = if (clientSearch.isBlank()) clients
+                        else clients.filter { it.name.contains(clientSearch.trim(), ignoreCase = true) }
+                    filteredClients.forEach { client ->
                         val checked = client.id in filterClientIds
                         DropdownMenuItem(
                             text = {
@@ -1246,10 +1274,29 @@ private fun ScheduleFilterSection(
                         label = "Локації",
                         icon = "📍",
                         selectedNames = selectedLocations.map { it.name },
-                        onClick = { showLocationMenu = !showLocationMenu },
+                        onClick = { showLocationMenu = !showLocationMenu; locationSearch = "" },
                     )
-                    DropdownMenu(expanded = showLocationMenu, onDismissRequest = { showLocationMenu = false }) {
-                        locations.forEach { loc ->
+                    DropdownMenu(
+                        expanded = showLocationMenu,
+                        onDismissRequest = { showLocationMenu = false; locationSearch = "" },
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                OutlinedTextField(
+                                    value = locationSearch,
+                                    onValueChange = { locationSearch = it },
+                                    placeholder = { Text("Пошук…", fontSize = 12.sp) },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
+                                )
+                            },
+                            onClick = {},
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                        val filteredLocations = if (locationSearch.isBlank()) locations
+                            else locations.filter { it.name.contains(locationSearch.trim(), ignoreCase = true) }
+                        filteredLocations.forEach { loc ->
                             val checked = loc.id in filterLocationIds
                             DropdownMenuItem(
                                 text = {

@@ -16,13 +16,19 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
             intent.action != "android.intent.action.QUICKBOOT_POWERON") return
 
+        val prefs = context.getSharedPreferences("linkease_prefs", Context.MODE_PRIVATE)
+        val notifEnabled = prefs.getBoolean("notifications_enabled", true)
+        val minutesBefore = prefs.getInt("notify_minutes_before", 10).toLong()
         val db = LinkDatabaseHelper(context)
-        NotificationHelper.rescheduleAll(
-            context,
-            AndroidSessionRepository(db).getAll(),
-            AndroidClientRepository(db).getAll(),
-            AndroidLocationRepository(db).getAll(),
-        )
+        if (notifEnabled) {
+            NotificationHelper.rescheduleAll(
+                context,
+                AndroidSessionRepository(db).getAll(),
+                AndroidClientRepository(db).getAll(),
+                AndroidLocationRepository(db).getAll(),
+                minutesBefore,
+            )
+        }
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val birthdayPending = PendingIntent.getBroadcast(
@@ -36,7 +42,6 @@ class BootReceiver : BroadcastReceiver() {
         val nextFire9am = LocalDateTime(nextFireDate, LocalTime(9, 0)).toInstant(tz).toEpochMilliseconds()
         alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, nextFire9am, AlarmManager.INTERVAL_DAY, birthdayPending)
 
-        val prefs = context.getSharedPreferences("linkease_prefs", Context.MODE_PRIVATE)
         if (prefs.getBoolean("auto_backup_enabled", false) &&
             prefs.getString("backup_folder_uri", null) != null) {
             DriveBackupWorker.schedule(context)

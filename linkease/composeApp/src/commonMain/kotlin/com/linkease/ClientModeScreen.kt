@@ -44,6 +44,10 @@ fun ClientModeScreen(
     onSendChat: (String) -> Unit = {},
     onCopyClientName: (() -> Unit)? = null,
     onShareClientName: (() -> Unit)? = null,
+    notificationsEnabled: Boolean = true,
+    onNotificationsEnabledChange: ((Boolean) -> Unit)? = null,
+    notifyMinutesBefore: Int = 10,
+    onNotifyMinutesBeforeChange: ((Int) -> Unit)? = null,
 ) {
     val tz    = TimeZone.currentSystemDefault()
     val today = Clock.System.now().toLocalDateTime(tz).date
@@ -84,7 +88,9 @@ fun ClientModeScreen(
                     }
                 )
                 Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
-                    text = { Text("📆 Моя доступність") })
+                    text = { Text("📆 Доступність") })
+                Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 },
+                    text = { Text("🔔") })
             }
 
             when (selectedTab) {
@@ -119,6 +125,69 @@ fun ClientModeScreen(
                     today = today,
                     onSave = onSaveMyAvailability,
                 )
+                3 -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                    ) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Нагадування про заняття",
+                            style = MaterialTheme.typography.labelMedium, color = Color(0xFF9E9E9E),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text("🔔", fontSize = 22.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Увімкнути нагадування", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                Text("Сповіщення перед початком заняття", fontSize = 12.sp, color = Color(0xFF9E9E9E))
+                            }
+                            Switch(
+                                checked = notificationsEnabled,
+                                onCheckedChange = { onNotificationsEnabledChange?.invoke(it) },
+                                colors = SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                                )
+                            )
+                        }
+                        if (notificationsEnabled) {
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                            Text("За скільки хвилин нагадати",
+                                style = MaterialTheme.typography.labelMedium, color = Color(0xFF9E9E9E),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                            val minuteOptions = listOf(5, 10, 15, 20, 30, 45, 60)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                minuteOptions.forEach { mins ->
+                                    val selected = notifyMinutesBefore == mins
+                                    Surface(
+                                        onClick = { onNotifyMinutesBeforeChange?.invoke(mins) },
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f),
+                                        tonalElevation = 0.dp,
+                                        shadowElevation = 0.dp,
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center,
+                                            modifier = Modifier.padding(vertical = 8.dp)) {
+                                            Text("$mins", fontSize = 12.sp,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    }
+                                }
+                            }
+                            Text("хвилин", fontSize = 11.sp, color = Color(0xFF9E9E9E),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
             }
         }
     }

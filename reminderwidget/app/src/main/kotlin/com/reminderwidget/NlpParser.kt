@@ -292,8 +292,19 @@ object NlpParser {
         }
 
         if (Regex("""через\s+тиждень\b""").containsMatchIn(lower)) {
-            val m = Regex("""через\s+тиждень""").find(lower)!!
-            return Result(now + 7 * 86_400_000L, cleanMatch(input, m.value))
+            val m     = Regex("""через\s+тиждень""").find(lower)!!
+            val clock = extractClockTime(lower, timePrefs)
+            val baseMs = now + 7 * 86_400_000L
+            var title = cleanMatch(input, m.value)
+            val ms = if (clock != null) {
+                title = cleanMatch(title, clock.third)
+                val cal = Calendar.getInstance().apply {
+                    timeInMillis = baseMs
+                    set(Calendar.HOUR_OF_DAY, clock.first); set(Calendar.MINUTE, clock.second); set(Calendar.SECOND, 0)
+                }
+                cal.timeInMillis
+            } else baseMs
+            return Result(ms, title)
         }
 
         parseOffset(lower, now, input, timePrefs)?.let { return it }
@@ -532,6 +543,17 @@ object NlpParser {
             return Result(cal.timeInMillis, cleanMatch(input, raw))
         }
 
+        // Safety net: if extractClockTime found a time-of-day word but we somehow
+        // fell through above (e.g. a word-number day pattern consumed the flow),
+        // still honour the time rather than marking hasTime=false.
+        extractClockTime(lower, timePrefs)?.let { (h, min, raw) ->
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = fallbackStartMs
+                set(Calendar.HOUR_OF_DAY, h); set(Calendar.MINUTE, min); set(Calendar.SECOND, 0)
+            }
+            return Result(cal.timeInMillis, cleanMatch(input, raw), hasTime = true)
+        }
+
         return Result(fallbackStartMs, input.trim(), hasTime = false)
     }
 
@@ -575,26 +597,26 @@ object NlpParser {
             val min = if (raw.isEmpty()) 0 else (resolveNum(raw)?.toInt() ?: return@let null)
             if (min in 0..59) return Triple(h, min, m.value)
         }
-        // HH:mm with optional PM suffix: "о 10:30 вечора" = 22:30
-        Regex("""(?:at\s+|о\s+)(\d{1,2}):(\d{2})(?:\s+(вечора|ввечері|ранку|вранці|дня))?\b""").find(lower)?.let { m ->
+        // HH:mm with optional PM suffix: "о 10:30 вечора" = 22:30, "об 11:00 ранку" = 11:00
+        Regex("""(?:at\s+|о[б]?\s+)(\d{1,2}):(\d{2})(?:\s+(вечора|ввечері|вечором|ранку|вранці|дня))?\b""").find(lower)?.let { m ->
             val h0  = m.groupValues[1].toIntOrNull() ?: return@let null
             val min = m.groupValues[2].toIntOrNull() ?: return@let null
             val h   = pmAdjust(h0, m.groupValues[3])
             if (h in 0..23 && min in 0..59) return Triple(h, min, m.value)
         }
-        // HH only with optional PM suffix: "о 10 вечора" = 22:00
-        Regex("""(?:at\s+|о\s+)(\d{1,2})(?:\s+(вечора|ввечері|ранку|вранці|дня))?\b""").find(lower)?.let { m ->
+        // HH only with optional PM suffix: "о 10 вечора" = 22:00, "об 11 ранку" = 11:00
+        Regex("""(?:at\s+|о[б]?\s+)(\d{1,2})(?:\s+(вечора|ввечері|вечором|ранку|вранці|дня))?\b""").find(lower)?.let { m ->
             val h0 = m.groupValues[1].toIntOrNull() ?: return@let null
             val h  = pmAdjust(h0, m.groupValues[2])
             if (h in 0..23) return Triple(h, 0, m.value)
         }
         // Time-of-day words (configurable); include split-word forms produced by voice recognition
         val timeOfDay = listOf(
-            Regex("""вранці|вранку|зранку|з\s+ранку|\bmorning\b""") to (tp.morningHour to tp.morningMin),
-            Regex("""вдень|в\s+день|опівдні|\bafternoon\b""")        to (tp.dayHour    to tp.dayMin),
-            Regex("""ввечері|ввечір|увечері|у\s+вечері|в\s+вечері|\bevening\b""") to (tp.eveningHour to tp.eveningMin),
-            Regex("""вночі|у\s+ночі|в\s+ночі|\bnight\b""")           to (23 to 0),
-            Regex("""опівночі""")                                      to (0  to 0),
+            Regex("""вранці|вранку|зранку|з\s+ранку|уранці|уранку|\bmorning\b""") to (tp.morningHour to tp.morningMin),
+            Regex("""вдень|в\s+день|опівдні|в\s+обід|вобід|\bafternoon\b""")      to (tp.dayHour    to tp.dayMin),
+            Regex("""ввечері|вечором|ввечером|увечером|увечері|ввечір|увечір|у\s+вечері|в\s+вечері|вечорі|\bevening\b""") to (tp.eveningHour to tp.eveningMin),
+            Regex("""вночі|уночі|у\s+ночі|в\s+ночі|уночі|\bnight\b""")            to (23 to 0),
+            Regex("""опівночі""")                                                   to (0  to 0),
         )
         for ((rx, hm) in timeOfDay) {
             rx.find(lower)?.let { m -> return Triple(hm.first, hm.second, m.value) }
@@ -645,7 +667,7 @@ object NlpParser {
     }
 
     private fun pmAdjust(h: Int, suffix: String): Int = when {
-        suffix in listOf("вечора", "ввечері") && h in 1..11 -> h + 12
+        suffix in listOf("вечора", "ввечері", "вечором") && h in 1..11 -> h + 12
         else -> h
     }
 

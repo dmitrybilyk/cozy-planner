@@ -32,7 +32,7 @@ object EventStore {
     }
 
     fun purgeOld(context: Context) {
-        val cutoff = System.currentTimeMillis() - 60L * 24 * 60 * 60_000L
+        val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60_000L
         val list = load(context).toMutableList()
         val toRemove = list.filter { !it.favorite && it.startMs < cutoff }
         if (toRemove.isEmpty()) return

@@ -102,6 +102,7 @@ fun AddEditSessionDialog(
     workHoursStart: Int = 7,
     workHoursEnd: Int = 22,
     onCreateClient: ((name: String) -> Client)? = null,
+    onMicClick: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     onConfirm: (date: LocalDate, start: LocalTime, end: LocalTime, clientIds: List<Long>, locationId: Long?, notes: String) -> Unit,
     onConfirmSeries: ((dates: List<LocalDate>, start: LocalTime, end: LocalTime, clientIds: List<Long>, locationId: Long?, notes: String) -> Unit)? = null,
@@ -285,7 +286,17 @@ fun AddEditSessionDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.widthIn(max = 340.dp),
-        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                if (onMicClick != null) {
+                    TextButton(
+                        onClick = onMicClick,
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                    ) { Text("🎙", fontSize = 20.sp) }
+                }
+            }
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 // ── Tab selector ──────────────────────────────────────────

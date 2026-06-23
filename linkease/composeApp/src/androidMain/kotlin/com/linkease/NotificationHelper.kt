@@ -23,7 +23,6 @@ object NotificationHelper {
     const val CLIENT_AVAILABILITY_CHANNEL_ID = "linkease_client_avail"
     const val CHAT_CHANNEL_ID = "linkease_chat"
     const val CHAT_REPLY_KEY = "chat_reply_text"
-    private const val REMIND_MINUTES_BEFORE = 10L
 
     fun createChannel(context: Context, soundUri: Uri? = null) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -335,10 +334,10 @@ object NotificationHelper {
             .notify(-1, notification)
     }
 
-    fun scheduleSession(context: Context, session: Session, clients: List<Client>, location: Location?) {
+    fun scheduleSession(context: Context, session: Session, clients: List<Client>, location: Location?, minutesBefore: Long = 10L) {
         val tz = TimeZone.currentSystemDefault()
         val startMs = session.date.atTime(session.startTime).toInstant(tz).toEpochMilliseconds()
-        val triggerMs = startMs - REMIND_MINUTES_BEFORE * 60_000L
+        val triggerMs = startMs - minutesBefore * 60_000L
         val nowMs = Clock.System.now().toEpochMilliseconds()
         if (triggerMs <= nowMs) return
 
@@ -352,6 +351,7 @@ object NotificationHelper {
             putExtra("session_id", session.id)
             putExtra("title", clientNames)
             putExtra("body", body)
+            putExtra("minutes_before", minutesBefore)
         }
         val pending = PendingIntent.getBroadcast(
             context, session.id.toInt(), intent,
@@ -378,14 +378,15 @@ object NotificationHelper {
         }
     }
 
-    fun rescheduleAll(context: Context, sessions: List<Session>, clients: List<Client>, locations: List<Location>) {
+    fun rescheduleAll(context: Context, sessions: List<Session>, clients: List<Client>, locations: List<Location>, minutesBefore: Long = 10L) {
         val clientsById = clients.associateBy { it.id }
         val locationsById = locations.associateBy { it.id }
         sessions.forEach { session ->
             scheduleSession(
                 context, session,
                 session.clientIds.mapNotNull { clientsById[it] },
-                session.locationId?.let { locationsById[it] }
+                session.locationId?.let { locationsById[it] },
+                minutesBefore,
             )
         }
     }

@@ -97,7 +97,14 @@ fun App(
     onEraseAllData: ((sessionIds: List<Long>) -> Unit)? = null,
     notificationSoundName: String = "Стандартний",
     onPickNotificationSound: (() -> Unit)? = null,
+    finOblik: Boolean = false,
+    onFinOblikChange: ((Boolean) -> Unit)? = null,
+    notificationsEnabled: Boolean = true,
+    onNotificationsEnabledChange: ((Boolean) -> Unit)? = null,
+    notifyMinutesBefore: Int = 10,
+    onNotifyMinutesBeforeChange: ((Int) -> Unit)? = null,
     onSendTestNotification: (() -> Unit)? = null,
+    onOpenNotificationSettings: (() -> Unit)? = null,
     telegramLinked: Boolean = false,
     onLinkTelegram: ((code: String) -> Unit)? = null,
     appMode: String = "user",
@@ -146,6 +153,9 @@ fun App(
     onPendingClientAvailabilityConsumed: (() -> Unit)? = null,
     openClientsScreenVersion: Long = 0L,
     onAskClientAvailability: ((clientFirebaseId: String, message: String) -> Unit)? = null,
+    onMicClick: (() -> Unit)? = null,
+    voiceSessionResult: ParsedVoiceSession? = null,
+    onVoiceSessionConsumed: (() -> Unit)? = null,
 ) {
     val tz = TimeZone.currentSystemDefault()
     val todayDate = Clock.System.now().toLocalDateTime(tz).date
@@ -248,6 +258,7 @@ fun App(
     var addSessionStartTime by remember { mutableStateOf(LocalTime(9, 0)) }
     var addSessionEndTime by remember { mutableStateOf<LocalTime?>(null) }
     var addSessionDefaultClientIds by remember { mutableStateOf<List<Long>>(emptyList()) }
+    var addVoiceLocationId by remember { mutableStateOf<Long?>(null) }
     var editingSession by remember { mutableStateOf<Session?>(null) }
     var copyingSession by remember { mutableStateOf<Session?>(null) }
     var availabilitySessionMenu by remember { mutableStateOf<Session?>(null) }
@@ -325,6 +336,31 @@ fun App(
         }
     }
 
+    // Open AddEditSessionDialog pre-filled from voice recognition result.
+    LaunchedEffect(voiceSessionResult) {
+        if (voiceSessionResult != null) {
+            if (voiceSessionResult.isAvailability) {
+                availabilityRepository.save(
+                    voiceSessionResult.date,
+                    voiceSessionResult.startTime,
+                    voiceSessionResult.endTime,
+                    voiceSessionResult.locationId
+                )
+                availability = availabilityRepository.getAll()
+                syncData()
+            } else {
+                addSessionDate = voiceSessionResult.date
+                addSessionStartTime = voiceSessionResult.startTime
+                addSessionEndTime = voiceSessionResult.endTime
+                addSessionDefaultClientIds = listOfNotNull(voiceSessionResult.clientId)
+                addVoiceLocationId = voiceSessionResult.locationId
+                editingSession = null
+                showAddSession = true
+            }
+            onVoiceSessionConsumed?.invoke()
+        }
+    }
+
     // Reload all data after external import.
     LaunchedEffect(refreshVersion) {
         if (refreshVersion > 0L) {
@@ -376,6 +412,10 @@ fun App(
                     onSendChat = { msg -> onSendChat?.invoke(msg) },
                     onCopyClientName = onCopyClientName,
                     onShareClientName = onShareClientName,
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationsEnabledChange = onNotificationsEnabledChange,
+                    notifyMinutesBefore = notifyMinutesBefore,
+                    onNotifyMinutesBeforeChange = onNotifyMinutesBeforeChange,
                 )
             } else {
                 ClientConnectScreen(
@@ -491,6 +531,15 @@ fun App(
                     sessionRepository.update(session.copy(confirmed = !session.confirmed))
                     refreshSessions()
                 },
+                finOblik = finOblik,
+                onTogglePaid = { session ->
+                    sessionRepository.update(session.copy(paid = !session.paid))
+                    refreshSessions()
+                },
+                onClientsClick = { navigateTo(Screen.CLIENTS) },
+                onLocationsClick = { navigateTo(Screen.LOCATIONS) },
+                onMicClick = onMicClick,
+                onReportClick = if (finOblik) { { navigateTo(Screen.REPORT) } } else null,
             )
 
             Screen.CLIENTS -> ClientsScreen(
@@ -526,10 +575,17 @@ fun App(
                     onOpenChatWithClient?.invoke(firebaseId, name)
                 },
                 onAskClientAvailability = onAskClientAvailability,
+                onEditSession = { session ->
+                    editingSession = session; addSessionEndTime = null; showAddSession = true
+                },
+                myEmail = trainerEmail.ifBlank { null },
+                finOblik = finOblik,
             )
 
             Screen.LOCATIONS -> LocationsScreen(
                 locations = locations,
+                sessions = sessions,
+                clients = clients,
                 onSettingsClick = { goBack() },
                 onSave = { n, a, c, m ->
                     locationRepository.save(n, a, c, m)
@@ -569,6 +625,7 @@ fun App(
                 onCopyAvailabilityImage = onCopyAvailabilityImage,
                 onSessionClick = { availabilitySessionMenu = it },
                 onAddSession = { date -> openNewSession(date, LocalTime(9, 0)) },
+                onMicClick = onMicClick,
             )
 
 
@@ -600,7 +657,14 @@ fun App(
                 onExportBackup = onExportBackup,
                 onImportBackup = onImportBackup,
                 onEraseAllData = { eraseAllData() },
+                finOblik = finOblik,
+                onFinOblikChange = onFinOblikChange,
+                notificationsEnabled = notificationsEnabled,
+                onNotificationsEnabledChange = onNotificationsEnabledChange,
+                notifyMinutesBefore = notifyMinutesBefore,
+                onNotifyMinutesBeforeChange = onNotifyMinutesBeforeChange,
                 onSendTestNotification = onSendTestNotification,
+                onOpenNotificationSettings = onOpenNotificationSettings,
                 telegramLinked = telegramLinked,
                 onLinkTelegram = onLinkTelegram,
                 autoBackupEnabled = autoBackupEnabled,
@@ -661,6 +725,7 @@ fun App(
                 highlightClientFirebaseId = highlightClientFirebaseId,
                 onHighlightConsumed = { highlightClientFirebaseId = null },
                 onAskClientAvailability = onAskClientAvailability,
+                onMicClick = onMicClick,
             )
 
             Screen.REPORT -> ReportScreen(
@@ -684,6 +749,7 @@ fun App(
                 defaultStartTime = addSessionStartTime,
                 defaultEndTime = addSessionEndTime,
                 defaultClientIds = addSessionDefaultClientIds,
+                defaultLocationId = addVoiceLocationId,
                 clients = clients,
                 locations = locations,
                 existingSessions = sessions,
@@ -691,7 +757,8 @@ fun App(
                 workHoursStart = workHoursStart,
                 workHoursEnd = workHoursEnd,
                 onCreateClient = { name -> createNewClient(name) },
-                onDismiss = { showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList() },
+                onMicClick = onMicClick,
+                onDismiss = { showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList(); addVoiceLocationId = null },
                 onConfirm = { date, start, end, clientIds, locationId, notes ->
                     val existing = editingSession
                     if (existing == null) {
@@ -704,7 +771,7 @@ fun App(
                         syncSessionUpdate(updated)
                     }
                     refreshSessions()
-                    showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList()
+                    showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList(); addVoiceLocationId = null
                 },
                 onConfirmSeries = { dates, start, end, clientIds, locationId, notes ->
                     dates.forEach { date ->
@@ -712,7 +779,7 @@ fun App(
                         syncSessionCreate(newSession, clientIds, locationId)
                     }
                     refreshSessions()
-                    showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList()
+                    showAddSession = false; editingSession = null; addSessionEndTime = null; addSessionDefaultClientIds = emptyList(); addVoiceLocationId = null
                 }
             )
         }
@@ -722,7 +789,7 @@ fun App(
                 initial = null,
                 defaultDate = original.date,
                 defaultStartTime = original.startTime,
-                defaultEndTime = original.endTime,
+                defaultEndTime = minutesToLocalTime((original.startTime.toMinutes() + 60).coerceAtMost(workHoursEnd * 60)),
                 defaultClientIds = original.clientIds,
                 defaultLocationId = original.locationId,
                 defaultNotes = original.notes,
@@ -769,6 +836,12 @@ fun App(
                 onDelete = {
                     syncSessionDelete(session.id)
                     sessionRepository.delete(session.id)
+                    refreshSessions()
+                    availabilitySessionMenu = null
+                },
+                finOblik = finOblik,
+                onTogglePaid = {
+                    sessionRepository.update(session.copy(paid = !session.paid))
                     refreshSessions()
                     availabilitySessionMenu = null
                 },

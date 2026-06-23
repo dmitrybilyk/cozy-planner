@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,11 +31,18 @@ fun SettingsScreen(
     onFreeTimeClick: () -> Unit,
     onClientsClick: () -> Unit,
     onLocationsClick: () -> Unit,
+    finOblik: Boolean = false,
+    onFinOblikChange: ((Boolean) -> Unit)? = null,
     onReportClick: (() -> Unit)? = null,
     onExportBackup: (() -> Unit)? = null,
     onImportBackup: (() -> Unit)? = null,
     onEraseAllData: (() -> Unit)? = null,
+    notificationsEnabled: Boolean = true,
+    onNotificationsEnabledChange: ((Boolean) -> Unit)? = null,
+    notifyMinutesBefore: Int = 10,
+    onNotifyMinutesBeforeChange: ((Int) -> Unit)? = null,
     onSendTestNotification: (() -> Unit)? = null,
+    onOpenNotificationSettings: (() -> Unit)? = null,
     telegramLinked: Boolean = false,
     onLinkTelegram: ((code: String) -> Unit)? = null,
     autoBackupEnabled: Boolean = false,
@@ -62,6 +70,7 @@ fun SettingsScreen(
     highlightClientFirebaseId: String? = null,
     onHighlightConsumed: (() -> Unit)? = null,
     onAskClientAvailability: ((clientFirebaseId: String, message: String) -> Unit)? = null,
+    onMicClick: (() -> Unit)? = null,
 ) {
     var localStart by remember { mutableStateOf(workHoursStart) }
     var localEnd   by remember { mutableStateOf(workHoursEnd) }
@@ -118,6 +127,7 @@ fun SettingsScreen(
                 onHomeClick = onFreeTimeClick,
                 onAvailabilityClick = onAvailabilityClick,
                 onCreateClick = onCreateClick,
+                onMicClick = onMicClick,
             )
         }
     ) { padding ->
@@ -129,6 +139,10 @@ fun SettingsScreen(
                     text = { Text("Загальне", fontSize = 13.sp) })
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
                     text = { Text("Дані", fontSize = 13.sp) })
+                Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
+                    text = { Text("🔔", fontSize = 15.sp) })
+                Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 },
+                    text = { Text("Довідка", fontSize = 13.sp) })
             }
 
             Column(
@@ -140,15 +154,48 @@ fun SettingsScreen(
                     0 -> {
                         Spacer(Modifier.height(8.dp))
 
-                        SettingsItem(icon = "👥", title = "Клієнти", subtitle = "Додати або редагувати клієнтів", onClick = onClientsClick)
-                        HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                        SettingsItem(icon = "🏢", title = "Локації", subtitle = "Додати або редагувати локації", onClick = onLocationsClick)
-                        if (onReportClick != null) {
-                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                            SettingsItem(icon = "📊", title = "Звіт", subtitle = "Статистика по клієнтах та доходах", onClick = onReportClick)
+                        // Email at top of common settings
+                        if (appMode == "user" && myUserId != null && onSaveTrainerEmail != null) {
+                            var editingEmail by remember { mutableStateOf(trainerEmail.isBlank()) }
+                            var emailInput by remember { mutableStateOf(trainerEmail) }
+                            Text("Мій email (для підключення клієнтів)",
+                                style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                            if (editingEmail) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically) {
+                                    OutlinedTextField(
+                                        value = emailInput,
+                                        onValueChange = { emailInput = it.trim() },
+                                        label = { Text("Email") },
+                                        singleLine = true,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Button(
+                                        onClick = { onSaveTrainerEmail(emailInput); editingEmail = false },
+                                        enabled = emailInput.isNotBlank(),
+                                    ) { Text("OK") }
+                                }
+                            } else {
+                                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("✅ $trainerEmail", fontSize = 13.sp, color = Color(0xFF2E7D32), modifier = Modifier.weight(1f))
+                                    if (onCopyTrainerEmail != null) {
+                                        TextButton(onClick = onCopyTrainerEmail,
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
+                                            Text("📋", fontSize = 15.sp)
+                                        }
+                                    }
+                                    TextButton(onClick = { editingEmail = true },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)) {
+                                        Text("✏️", fontSize = 15.sp)
+                                    }
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp))
                         }
-
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
 
                         Text("Робочий час", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
@@ -205,81 +252,30 @@ fun SettingsScreen(
                                     onDecline = { onDeclineBookingRequest?.invoke(request) })
                             }
                         }
+
+                        if (onFinOblikChange != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("💰", fontSize = 24.sp)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Фін.облік", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                    Text("Ставка клієнта, кнопка «Оплачено», звіт", fontSize = 12.sp, color = Color.Gray)
+                                }
+                                Switch(checked = finOblik, onCheckedChange = { onFinOblikChange(it) },
+                                    colors = SwitchDefaults.colors(
+                                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                                    ))
+                            }
+                        }
                     }
 
                     // ── Tab 1: Дані ───────────────────────────────────────────
                     1 -> {
                         Spacer(Modifier.height(8.dp))
-
-                        if (appMode == "user" && myUserId != null) {
-                            if (onSaveTrainerEmail != null) {
-                                var editingEmail by remember { mutableStateOf(trainerEmail.isBlank()) }
-                                var emailInput by remember { mutableStateOf(trainerEmail) }
-                                Text("Мій email (для підключення клієнтів)",
-                                    style = MaterialTheme.typography.labelMedium, color = Color.Gray,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                                if (editingEmail) {
-                                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically) {
-                                        OutlinedTextField(
-                                            value = emailInput,
-                                            onValueChange = { emailInput = it.trim() },
-                                            label = { Text("Email") },
-                                            singleLine = true,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Button(
-                                            onClick = { onSaveTrainerEmail(emailInput); editingEmail = false },
-                                            enabled = emailInput.isNotBlank(),
-                                        ) { Text("Зберегти") }
-                                    }
-                                } else {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text("✅ $trainerEmail", fontSize = 13.sp, color = Color(0xFF2E7D32),
-                                            modifier = Modifier.weight(1f))
-                                        if (onCopyTrainerEmail != null) {
-                                            OutlinedButton(onClick = onCopyTrainerEmail,
-                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                                                Text("Копіювати", fontSize = 12.sp)
-                                            }
-                                        }
-                                        OutlinedButton(onClick = { editingEmail = true },
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                                            Text("✏️", fontSize = 12.sp)
-                                        }
-                                    }
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                                Spacer(Modifier.height(8.dp))
-                            }
-
-                            if (onClearFirebaseData != null) {
-                                OutlinedButton(
-                                    onClick = onClearFirebaseData,
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                                ) {
-                                    Text("🗑️ Видалити дані з Firebase")
-                                }
-                            }
-
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-                        }
-
-                        if (onSendTestNotification != null) {
-                            Text("Сповіщення", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
-                            SettingsItem(icon = "🔊", title = "Надіслати тестове сповіщення",
-                                subtitle = "Перевірити, як воно виглядає і звучить",
-                                onClick = onSendTestNotification)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
-                        }
 
                         if (onLinkTelegram != null) {
                             if (telegramLinked) {
@@ -364,7 +360,147 @@ fun SettingsScreen(
                                 onClick = { showEraseConfirm = true })
                         }
 
+                        if (appMode == "user" && myUserId != null && onClearFirebaseData != null) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+                            OutlinedButton(
+                                onClick = onClearFirebaseData,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            ) { Text("🗑️ Видалити дані з Firebase") }
+                        }
+
                         Spacer(Modifier.height(8.dp))
+                    }
+
+                    // ── Tab 2: Сповіщення ─────────────────────────────────────
+                    2 -> {
+                        Spacer(Modifier.height(8.dp))
+
+                        Text("Нагадування про заняття",
+                            style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("🔔", fontSize = 22.sp)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Увімкнути нагадування", fontWeight = FontWeight.Medium, fontSize = 15.sp)
+                                Text("Сповіщення перед початком заняття", fontSize = 12.sp, color = Color.Gray)
+                            }
+                            Switch(
+                                checked = notificationsEnabled,
+                                onCheckedChange = { onNotificationsEnabledChange?.invoke(it) },
+                                colors = SwitchDefaults.colors(
+                                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    uncheckedBorderColor = MaterialTheme.colorScheme.outline,
+                                )
+                            )
+                        }
+
+                        if (notificationsEnabled) {
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                            Text("За скільки хвилин нагадати",
+                                style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                            val minuteOptions = listOf(5, 10, 15, 20, 30, 45, 60)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                minuteOptions.forEach { mins ->
+                                    val selected = notifyMinutesBefore == mins
+                                    Surface(
+                                        onClick = { onNotifyMinutesBeforeChange?.invoke(mins) },
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = if (selected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                        modifier = Modifier.weight(1f),
+                                        tonalElevation = 0.dp,
+                                        shadowElevation = 0.dp,
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 8.dp)) {
+                                            Text("$mins", fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    }
+                                }
+                            }
+                            Text("хвилин", fontSize = 11.sp, color = Color.Gray,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
+
+                        if (onSendTestNotification != null) {
+                            SettingsItem(icon = "🔔", title = "Надіслати тестове сповіщення",
+                                subtitle = "Перевірити, чи надходять сповіщення",
+                                onClick = onSendTestNotification)
+                        }
+                        if (onOpenNotificationSettings != null) {
+                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
+                            SettingsItem(icon = "⚙️", title = "Системні налаштування",
+                                subtitle = "Відкрити системні параметри сповіщень додатку",
+                                onClick = onOpenNotificationSettings)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    // ── Tab 3: Довідка ────────────────────────────────────────
+                    3 -> {
+                        Spacer(Modifier.height(8.dp))
+
+                        HelpSection(title = "🎙 Голосові команди") {
+                            HelpItem(
+                                label = "Сесія",
+                                example = "Іванов 24 червня 13:00 2 години",
+                                note = "Клієнт, дата, час початку, тривалість. Можна додати локацію."
+                            )
+                            HelpItem(
+                                label = "Доступність",
+                                example = "Доступність 24 червня 13:00 4 години Левандівка",
+                                note = "Починається зі слова «Доступність». Зберігається одразу без підтвердження. Локація необов'язкова."
+                            )
+                            HelpItem(
+                                label = "Дата",
+                                example = "Завтра / Субота / 24 червня / 15-го",
+                                note = null
+                            )
+                            HelpItem(
+                                label = "Час",
+                                example = "13:00 / о 14:30 / пів на третю",
+                                note = null
+                            )
+                            HelpItem(
+                                label = "Тривалість",
+                                example = "2 години / 90 хвилин / пів години",
+                                note = null
+                            )
+                        }
+
+                        HelpSection(title = "📅 Розклад і доступність") {
+                            HelpParagraph("Доступність — це вікна часу, які ви встановлюєте вручну: наприклад, вівторок 10:00–14:00 у Левандівці.")
+                            HelpParagraph("Вільний час — проміжки всередині доступності, де немає занять. Якщо доступність на день не задана — вільного часу немає. Приклад: доступність 10:00–14:00, заняття 11:00–12:00 → вільно 10:00–11:00 і 12:00–14:00.")
+                        }
+
+                        HelpSection(title = "📋 Основні функції") {
+                            HelpItem(label = "Клієнти", example = null,
+                                note = "Ведіть базу клієнтів з телефоном та пакетами занять. Кнопка 👥 на головному екрані.")
+                            HelpItem(label = "Локації", example = null,
+                                note = "Зберігайте адреси місць тренувань. Кнопка 📍 на головному екрані.")
+                            HelpItem(label = "Поширення розкладу", example = null,
+                                note = "Кнопки «Вільний час» і «Доступність» формують зображення для відправки клієнтам.")
+                            HelpItem(label = "Підключення клієнтів", example = null,
+                                note = "Клієнт встановлює застосунок і вводить ваш email. Ви бачите його доступність і можете надсилати запити.")
+                            HelpItem(label = "Резервне копіювання", example = null,
+                                note = "Автоматичне копіювання на Google Drive кожну годину. Налаштовується у вкладці «Дані».")
+                            if (finOblik) {
+                                HelpItem(label = "Фінансовий облік", example = null,
+                                    note = "Задайте ставку клієнта — застосунок рахує дохід. Кнопка «Оплачено» фіксує платіж. Звіт відкривається кнопкою 📊 на головному екрані.")
+                            }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
                     }
 
                 }
@@ -548,4 +684,46 @@ private fun SettingsItem(icon: String, title: String, subtitle: String, onClick:
         }
         Text("›", fontSize = 20.sp, color = Color.LightGray)
     }
+}
+
+@Composable
+private fun HelpSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Text(title, style = MaterialTheme.typography.labelMedium, color = Color.Gray,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp))
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            content()
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+}
+
+@Composable
+private fun HelpItem(label: String, example: String?, note: String?) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary)
+            if (example != null) {
+                Text("·", fontSize = 12.sp, color = Color.Gray)
+                Text(example, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface,
+                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    modifier = Modifier.weight(1f, fill = false),
+                    overflow = TextOverflow.Ellipsis, maxLines = 2)
+            }
+        }
+        if (note != null) {
+            Text(note, fontSize = 12.sp, color = Color.Gray,
+                modifier = Modifier.padding(start = 4.dp))
+        }
+    }
+}
+
+@Composable
+private fun HelpParagraph(text: String) {
+    Text(text, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.padding(horizontal = 2.dp))
 }

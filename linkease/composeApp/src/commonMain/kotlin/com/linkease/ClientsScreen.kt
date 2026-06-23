@@ -17,7 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.datetime.LocalDate
+import androidx.compose.foundation.clickable
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import androidx.compose.ui.text.style.TextAlign
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +42,9 @@ fun ClientsScreen(
     onCreateAndLinkClient: ((firebaseId: String, email: String?) -> Unit)? = null,
     onChatClick: ((firebaseId: String, name: String) -> Unit)? = null,
     onAskClientAvailability: ((firebaseId: String, message: String) -> Unit)? = null,
+    onEditSession: ((Session) -> Unit)? = null,
+    myEmail: String? = null,
+    finOblik: Boolean = false,
 ) {
     var showDialog by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<Client?>(null) }
@@ -49,6 +55,7 @@ fun ClientsScreen(
     }
     var deleteCandidate by remember { mutableStateOf<Client?>(null) }
     var viewingClient by remember { mutableStateOf<Client?>(null) }
+    var askingAvailabilityFor by remember { mutableStateOf<Client?>(null) }
 
     Scaffold(
         topBar = {
@@ -64,11 +71,32 @@ fun ClientsScreen(
             }
         }
     ) { padding ->
+        var searchQuery by remember { mutableStateOf("") }
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Пошук клієнта…", fontSize = 14.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            )
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(vertical = 12.dp)
+            contentPadding = PaddingValues(bottom = 80.dp)
         ) {
+            if (!myEmail.isNullOrBlank()) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("📧", fontSize = 16.sp)
+                        Text(myEmail, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
             val linkedFirebaseIds = clients.mapNotNull { it.firebaseClientId }.toSet()
             val unlinked = connectedClients.filter { (uid, _, _) -> uid !in linkedFirebaseIds }
             if (unlinked.isNotEmpty() && onLinkClientFirebaseId != null) {
@@ -106,7 +134,9 @@ fun ClientsScreen(
                     }
                 }
             }
-            items(clients, key = { it.id }) { client ->
+            val filteredClients = if (searchQuery.isBlank()) clients
+                else clients.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
+            items(filteredClients, key = { it.id }) { client ->
                 val slots = clientAvailabilitySlots.filter { it.clientFirebaseId == client.firebaseClientId }
                 ClientCard(
                     client = client,
@@ -118,6 +148,12 @@ fun ClientsScreen(
                     onSlotClick = if (onAvailabilitySlotClick != null) {
                         { slot -> onAvailabilitySlotClick(client, slot) }
                     } else null,
+                    onChatClick = if (client.firebaseClientId != null && onChatClick != null) {
+                        { onChatClick(client.firebaseClientId, client.name) }
+                    } else null,
+                    onAskAvailability = if (client.firebaseClientId != null && onAskClientAvailability != null) {
+                        { askingAvailabilityFor = client }
+                    } else null,
                 )
             }
             if (clients.isEmpty()) {
@@ -128,11 +164,13 @@ fun ClientsScreen(
                 }
             }
         }
+        } // Column
     }
 
     if (showDialog) {
         AddEditClientDialog(
             initial = editing,
+            finOblik = finOblik,
             onDismiss = { showDialog = false; editing = null },
             onConfirm = { name, phone, email, colorHex, hourlyRate, pkgTotal, pkgUsed, birthDate, fbId ->
                 val e = editing
@@ -146,10 +184,17 @@ fun ClientsScreen(
     }
 
     viewingClient?.let { client ->
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
         val slots = clientAvailabilitySlots.filter { it.clientFirebaseId == client.firebaseClientId }
+        val clientSessions = sessions.filter { client.id in it.clientIds }
+        val futureSessions = clientSessions.filter { it.date >= today }
+            .sortedWith(compareBy({ it.date }, { it.startTime.toMinutes() }))
+        val pastSessions = clientSessions.filter { it.date < today }
+            .sortedByDescending { it.date }
         ClientSessionsDialog(
             client = client,
-            sessions = sessions.filter { client.id in it.clientIds }.sortedByDescending { it.date },
+            futureSessions = futureSessions,
+            pastSessions = pastSessions,
             locations = locations,
             availabilitySlots = slots,
             onSlotClick = if (onAvailabilitySlotClick != null) {
@@ -162,6 +207,9 @@ fun ClientsScreen(
             } else null,
             onAskAvailability = if (client.firebaseClientId != null && onAskClientAvailability != null) {
                 { msg -> onAskClientAvailability(client.firebaseClientId, msg) }
+            } else null,
+            onSessionClick = if (onEditSession != null) {
+                { session -> onEditSession(session); viewingClient = null }
             } else null,
         )
     }
@@ -197,6 +245,17 @@ fun ClientsScreen(
             dismissButton = { TextButton(onClick = { deleteCandidate = null }) { Text("Скасувати") } }
         )
     }
+
+    askingAvailabilityFor?.let { client ->
+        AskAvailabilityDialog(
+            clientName = client.name,
+            onDismiss = { askingAvailabilityFor = null },
+            onSend = { msg ->
+                client.firebaseClientId?.let { fbId -> onAskClientAvailability?.invoke(fbId, msg) }
+                askingAvailabilityFor = null
+            }
+        )
+    }
 }
 
 @Composable
@@ -208,6 +267,8 @@ private fun ClientCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onSlotClick: ((ClientAvailabilitySlot) -> Unit)? = null,
+    onChatClick: (() -> Unit)? = null,
+    onAskAvailability: (() -> Unit)? = null,
 ) {
     val color = hexToColor(client.colorHex)
     val hasPkg = client.packageTotal > 0
@@ -215,43 +276,70 @@ private fun ClientCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.08f)),
-        onClick = onTap
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp).padding(top = 12.dp, bottom = if (availabilitySlots.isNotEmpty()) 8.dp else 12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp).padding(top = 10.dp, bottom = if (availabilitySlots.isNotEmpty()) 4.dp else 6.dp)) {
+            // Name + info row (full width, no buttons)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(color),
+                    modifier = Modifier.size(38.dp).clip(CircleShape).background(color),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(client.name.first().uppercaseChar().toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(client.name.first().uppercaseChar().toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(client.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                        if (client.firebaseClientId != null) Text("🔗", fontSize = 12.sp)
+                        Text(client.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        if (client.firebaseClientId != null) Text("🔗", fontSize = 11.sp)
                     }
-                    if (client.phone.isNotBlank()) Text(client.phone, fontSize = 13.sp, color = Color.Gray)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (hasPkg) {
-                            Text(
-                                "$pkgRemaining/${client.packageTotal} ос.",
-                                fontSize = 12.sp,
-                                color = if (pkgRemaining <= 0) MaterialTheme.colorScheme.error else Color(0xFF2E7D32),
-                                fontWeight = FontWeight.Medium
-                            )
+                    if (client.phone.isNotBlank()) Text(client.phone, fontSize = 12.sp, color = Color.Gray)
+                    if (hasPkg || sessionCount > 0) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (hasPkg) {
+                                val pkgColor = when {
+                                    pkgRemaining <= 0 -> MaterialTheme.colorScheme.error
+                                    pkgRemaining <= 2 -> Color(0xFFF57C00)
+                                    else -> MaterialTheme.colorScheme.secondary
+                                }
+                                Surface(shape = RoundedCornerShape(6.dp), color = pkgColor.copy(alpha = 0.12f)) {
+                                    Text("📦 $pkgRemaining/${client.packageTotal}", fontSize = 11.sp, color = pkgColor,
+                                        fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+                                }
+                            }
+                            if (sessionCount > 0) Text("$sessionCount сес.", fontSize = 11.sp, color = Color.Gray)
                         }
-                        if (sessionCount > 0) Text("$sessionCount сес.", fontSize = 12.sp, color = Color.Gray)
                     }
                 }
-                TextButton(onClick = onEdit, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)) {
-                    Text("✎")
+            }
+            // Action buttons row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (onChatClick != null) {
+                    TextButton(onClick = onChatClick,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
+                    ) { Text("💬", fontSize = 15.sp) }
                 }
-                TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                    Text("✕")
+                if (onAskAvailability != null) {
+                    TextButton(onClick = { onAskAvailability.invoke() },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
+                    ) { Text("📅", fontSize = 15.sp) }
                 }
+                TextButton(onClick = onTap, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
+                ) { Text("→", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                ) { Text("✎", fontSize = 18.sp) }
+                TextButton(onClick = onDelete, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("✕", fontSize = 14.sp) }
             }
             if (availabilitySlots.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
@@ -286,7 +374,8 @@ private fun formatRate(rate: Double): String =
 @Composable
 private fun ClientSessionsDialog(
     client: Client,
-    sessions: List<Session>,
+    futureSessions: List<Session>,
+    pastSessions: List<Session>,
     locations: List<Location>,
     availabilitySlots: List<ClientAvailabilitySlot> = emptyList(),
     onSlotClick: ((ClientAvailabilitySlot) -> Unit)? = null,
@@ -294,6 +383,7 @@ private fun ClientSessionsDialog(
     onDismiss: () -> Unit,
     onChatClick: (() -> Unit)? = null,
     onAskAvailability: ((message: String) -> Unit)? = null,
+    onSessionClick: ((Session) -> Unit)? = null,
 ) {
     var showAskDialog by remember { mutableStateOf(false) }
     if (showAskDialog && onAskAvailability != null) {
@@ -366,19 +456,49 @@ private fun ClientSessionsDialog(
                         fontWeight = FontWeight.Medium
                     )
                 }
-                if (sessions.isEmpty()) {
+                val allSessions = futureSessions + pastSessions
+                if (allSessions.isEmpty()) {
                     Text("Сесій не знайдено", fontSize = 14.sp, color = Color.Gray)
                 } else {
-                    val totalMins = sessions.sumOf { it.endTime.toMinutes() - it.startTime.toMinutes() }
-                    Text("${sessions.size} сесій · ${formatDuration(totalMins)}", fontSize = 13.sp, color = Color.Gray)
+                    val totalMins = allSessions.sumOf { it.endTime.toMinutes() - it.startTime.toMinutes() }
+                    Text("${allSessions.size} сесій · ${formatDuration(totalMins)}", fontSize = 13.sp, color = Color.Gray)
                     if (client.hourlyRate > 0) {
                         val revenue = totalMins / 60.0 * client.hourlyRate
                         Text("Дохід: ${formatRevenue(revenue)} ₴", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                     }
                     HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-                    sessions.take(20).forEach { s ->
+                    if (futureSessions.isNotEmpty()) {
+                        Text("Майбутні", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+                    }
+                    futureSessions.forEach { s ->
                         val loc = locations.find { it.id == s.locationId }
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                                .then(if (onSessionClick != null) Modifier.clickable { onSessionClick(s) } else Modifier),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("${s.date.dayOfMonth} ${MONTHS_UK_SHORT.getOrNull(s.date.month.ordinal) ?: ""} ${s.date.year}",
+                                    fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                if (loc != null) Text(loc.name, fontSize = 11.sp, color = hexToColor(loc.colorHex))
+                            }
+                            Text("${s.startTime.toStorageString()}–${s.endTime.toStorageString()}",
+                                fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                    if (pastSessions.isNotEmpty()) {
+                        if (futureSessions.isNotEmpty()) HorizontalDivider(modifier = Modifier.padding(vertical = 2.dp))
+                        Text("Минулі", fontSize = 11.sp, color = Color.Gray, fontWeight = FontWeight.Medium)
+                    }
+                    pastSessions.take(if (futureSessions.isEmpty()) 20 else 10).forEach { s ->
+                        val loc = locations.find { it.id == s.locationId }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)
+                                .then(if (onSessionClick != null) Modifier.clickable { onSessionClick(s) } else Modifier),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("${s.date.dayOfMonth} ${MONTHS_UK_SHORT.getOrNull(s.date.month.ordinal) ?: ""} ${s.date.year}",
                                     fontSize = 13.sp, fontWeight = FontWeight.Medium)
@@ -388,7 +508,8 @@ private fun ClientSessionsDialog(
                                 fontSize = 13.sp, color = Color.Gray)
                         }
                     }
-                    if (sessions.size > 20) Text("… ще ${sessions.size - 20}", fontSize = 12.sp, color = Color.Gray)
+                    val hiddenPast = pastSessions.size - (if (futureSessions.isEmpty()) 20 else 10)
+                    if (hiddenPast > 0) Text("… ще $hiddenPast", fontSize = 12.sp, color = Color.Gray)
                 }
             }
         },
@@ -454,27 +575,44 @@ private fun AskAvailabilityDialog(
     var comment by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Запросити доступність") },
+        title = { Text("Запит доступності") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Надіслати запит $clientName встановити доступність:", fontSize = 13.sp, color = Color.Gray)
+                Text("Швидко надіслати $clientName:", fontSize = 12.sp, color = Color.Gray)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = { onSend("Будь ласка, вкажіть доступність на завтра 📅") },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Завтра", fontSize = 12.sp) }
+                    OutlinedButton(
+                        onClick = { onSend("Будь ласка, вкажіть доступність на вихідних 📅") },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Вихідні", fontSize = 12.sp) }
+                }
+                HorizontalDivider()
+                Text("Або напишіть свій запит:", fontSize = 12.sp, color = Color.Gray)
                 OutlinedTextField(
                     value = comment,
                     onValueChange = { comment = it },
-                    label = { Text("Коментар (необов'язково)") },
+                    placeholder = { Text("Наприклад: з понеділка…") },
                     modifier = Modifier.fillMaxWidth(),
                     maxLines = 3,
                 )
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val msg = if (comment.isBlank())
-                    "Будь ласка, вкажіть свою доступність для занять 📅"
-                else
-                    "Будь ласка, вкажіть доступність: $comment"
-                onSend(msg)
-            }) { Text("Надіслати") }
+            Button(
+                onClick = {
+                    val msg = if (comment.isBlank())
+                        "Будь ласка, вкажіть свою доступність для занять 📅"
+                    else
+                        "Будь ласка, вкажіть доступність: $comment"
+                    onSend(msg)
+                },
+                enabled = comment.isNotBlank(),
+            ) { Text("Надіслати") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Скасувати") } }
     )

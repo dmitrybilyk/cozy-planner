@@ -218,6 +218,12 @@ fun CalendarScreen(
     onConfirmBookingRequest: ((BookingRequest) -> Unit)? = null,
     onDeclineBookingRequest: ((BookingRequest) -> Unit)? = null,
     onConfirmSession: ((Session) -> Unit)? = null,
+    finOblik: Boolean = false,
+    onTogglePaid: ((Session) -> Unit)? = null,
+    onClientsClick: (() -> Unit)? = null,
+    onLocationsClick: (() -> Unit)? = null,
+    onMicClick: (() -> Unit)? = null,
+    onReportClick: (() -> Unit)? = null,
 ) {
     val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
     val clientsById = clients.associateBy { it.id }
@@ -399,6 +405,30 @@ fun CalendarScreen(
                         onSettingsClick = onSettingsClick,
                         includesTODAY = includesTODAY,
                         onDuplicateWeek = if (onDuplicateWeek != null) ({ showDuplicateConfirm = true }) else null,
+                        onCopyMonthSchedule = onCopyToClipboard?.let { copyFn ->
+                            {
+                                val dow = startDate.dayOfWeek.isoDayNumber
+                                val weekMon = startDate.minus(dow - 1, DateTimeUnit.DAY)
+                                val weekSun = weekMon.plus(6, DateTimeUnit.DAY)
+                                val weekSessions = sessions.filter { it.date in weekMon..weekSun }
+                                    .sortedWith(compareBy({ it.date }, { it.startTime.toMinutes() }))
+                                val locById = locations.associateBy { it.id }
+                                val cliById = clients.associateBy { it.id }
+                                val text = buildString {
+                                    appendLine("📅 ${MONTHS_UK_FULL[weekMon.month.ordinal]} ${weekMon.dayOfMonth}–${weekSun.dayOfMonth}:")
+                                    weekSessions.forEach { s ->
+                                        val dow2 = DAYS_UK[s.date.dayOfWeek.ordinal]
+                                        val cNames = s.clientIds.mapNotNull { cliById[it]?.name }.joinToString(", ")
+                                        val loc = s.locationId?.let { locById[it]?.name } ?: ""
+                                        append("  $dow2 ${s.startTime.toStorageString()}–${s.endTime.toStorageString()}")
+                                        if (cNames.isNotEmpty()) append(" · $cNames")
+                                        if (loc.isNotEmpty()) append(" @ $loc")
+                                        appendLine()
+                                    }
+                                }
+                                copyFn(text)
+                            }
+                        },
                     )
                     ViewSelector(
                         currentView = currentView,
@@ -448,6 +478,7 @@ fun CalendarScreen(
                         currentScreen = Screen.CALENDAR,
                         onHomeClick = { showFreeChips = false },
                         onAvailabilityClick = onAvailabilityClick,
+                        onMicClick = onMicClick,
                         onCreateClick = {
                             val targetDay = when {
                                 currentView != CalendarView.MONTH -> startDate
@@ -635,40 +666,122 @@ fun CalendarScreen(
         ) {
             // Left: free time button (hidden when availability panel is open)
             if (!showAvailabilityPanel) {
-                if (showFreeChips) {
-                    ExtendedFloatingActionButton(
-                        onClick = { showFreeChips = false },
-                        containerColor = Color(0xFF43A047),
-                        contentColor = Color.White,
-                        icon = { Icon(Icons.Default.KeyboardArrowDown, null, modifier = Modifier.size(20.dp)) },
-                        text = { Text("Вільний час", fontSize = 12.sp) },
-                    )
-                } else {
-                    ExtendedFloatingActionButton(
-                        onClick = { showFreeChips = true },
-                        containerColor = Color(0xFF00ACC1),
-                        contentColor = Color.White,
-                        icon = { Icon(Icons.Default.KeyboardArrowUp, null, modifier = Modifier.size(20.dp)) },
-                        text = { Text("Вільний час", fontSize = 12.sp) },
-                    )
+                Surface(
+                    onClick = { showFreeChips = !showFreeChips },
+                    shape = RoundedCornerShape(28.dp),
+                    color = Color(0xFF2E7D32).copy(alpha = 0.50f),
+                    contentColor = Color.White,
+                    shadowElevation = 0.dp,
+                    tonalElevation = 0.dp,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Icon(
+                            if (showFreeChips) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                            null, modifier = Modifier.size(18.dp)
+                        )
+                        Text("Вільний час", fontSize = 12.sp)
+                    }
                 }
             } else {
                 Spacer(Modifier.width(1.dp))
             }
-            // Right: Availability button — hidden when free time chips are expanded
+            // Right: mic + Availability buttons — hidden when free time chips are expanded
             if (!showFreeChips) {
-                ExtendedFloatingActionButton(
-                    onClick = onAvailabilityPanelToggle,
-                    containerColor = if (showAvailabilityPanel) Color(0xFF7C3AED) else Color(0xFF8E24AA),
-                    contentColor = Color.White,
-                    icon = {
-                        Icon(
-                            if (showAvailabilityPanel) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                            null, modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    text = { Text("Доступність", fontSize = 12.sp) },
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    if (onMicClick != null && showAvailabilityPanel) {
+                        Surface(
+                            onClick = onMicClick,
+                            shape = RoundedCornerShape(28.dp),
+                            color = Color(0xFF6D28D9).copy(alpha = 0.70f),
+                            contentColor = Color.White,
+                            shadowElevation = 0.dp,
+                            tonalElevation = 0.dp,
+                        ) {
+                            Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
+                                Text("🎙", fontSize = 16.sp)
+                            }
+                        }
+                    }
+                    Surface(
+                        onClick = onAvailabilityPanelToggle,
+                        shape = RoundedCornerShape(28.dp),
+                        color = Color(0xFF4527A0).copy(alpha = 0.50f),
+                        contentColor = Color.White,
+                        shadowElevation = 0.dp,
+                        tonalElevation = 0.dp,
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                if (showAvailabilityPanel) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                null, modifier = Modifier.size(18.dp)
+                            )
+                            Text("Доступність", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+        // Right-side stick tabs for quick access to report / clients / locations
+        if (onClientsClick != null || onLocationsClick != null || onReportClick != null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(bottom = padding.calculateBottomPadding() + 138.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (onReportClick != null) {
+                    Surface(
+                        onClick = onReportClick,
+                        shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
+                        color = Color(0xFF1B5E20).copy(alpha = 0.85f),
+                        contentColor = Color.White,
+                        modifier = Modifier.width(40.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("📊", fontSize = 16.sp) }
+                    }
+                }
+                if (onClientsClick != null) {
+                    Surface(
+                        onClick = onClientsClick,
+                        shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
+                        color = Color(0xFF3949AB).copy(alpha = 0.85f),
+                        contentColor = Color.White,
+                        modifier = Modifier.width(40.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("👥", fontSize = 16.sp) }
+                    }
+                }
+                if (onLocationsClick != null) {
+                    Surface(
+                        onClick = onLocationsClick,
+                        shape = RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp),
+                        color = Color(0xFF00838F).copy(alpha = 0.85f),
+                        contentColor = Color.White,
+                        modifier = Modifier.width(40.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) { Text("📍", fontSize = 16.sp) }
+                    }
+                }
             }
         }
         } // Box
@@ -709,6 +822,10 @@ fun CalendarScreen(
             onConfirm = if (onConfirmSession != null) {
                 { onConfirmSession(session); sessionMenu = null }
             } else null,
+            finOblik = finOblik,
+            onTogglePaid = if (onTogglePaid != null) {
+                { onTogglePaid(session); sessionMenu = null }
+            } else null,
         )
     }
 }
@@ -729,6 +846,7 @@ private fun CalendarTopBar(
     onSettingsClick: () -> Unit,
     includesTODAY: Boolean,
     onDuplicateWeek: (() -> Unit)? = null,
+    onCopyMonthSchedule: (() -> Unit)? = null,
 ) {
     val isExactToday = currentView == CalendarView.DAY && startDate == today
     val label = when (currentView) {
@@ -762,9 +880,26 @@ private fun CalendarTopBar(
             }
         },
         actions = {
-            if (onDuplicateWeek != null && currentView == CalendarView.MONTH) {
-                IconButton(onClick = onDuplicateWeek) {
-                    Text("⧉", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if ((onDuplicateWeek != null || onCopyMonthSchedule != null) && currentView == CalendarView.MONTH) {
+                var showCopyMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { showCopyMenu = true }) {
+                        Text("⧉", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = showCopyMenu, onDismissRequest = { showCopyMenu = false }) {
+                        if (onDuplicateWeek != null) {
+                            DropdownMenuItem(
+                                text = { Text("⧉ Дублювати тиждень") },
+                                onClick = { showCopyMenu = false; onDuplicateWeek() }
+                            )
+                        }
+                        if (onCopyMonthSchedule != null) {
+                            DropdownMenuItem(
+                                text = { Text("📋 Копіювати розклад") },
+                                onClick = { showCopyMenu = false; onCopyMonthSchedule() }
+                            )
+                        }
+                    }
                 }
             }
             if (!includesTODAY) {
@@ -973,11 +1108,14 @@ fun CompactSessionCard(
                 .clickable(onClick = onClick)
                 .padding(horizontal = 6.dp, vertical = 5.dp)
         ) {
-            Text(
-                "${session.startTime.toStorageString()}–${session.endTime.toStorageString()}",
-                fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = blockColor,
-                maxLines = 1, overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "${session.startTime.toStorageString()}–${session.endTime.toStorageString()}",
+                    fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = blockColor,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
+                )
+                if (session.paid) Text("✓", fontSize = 9.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.ExtraBold)
+            }
             if (clientNames.isNotEmpty())
                 Text(clientNames, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF1C1C1E),
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1017,7 +1155,10 @@ fun CompactSessionCard(
                 if (location != null) Text(location.name, fontSize = 11.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        if (session.confirmed) Text("✅", fontSize = 16.sp)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (session.confirmed) Text("✅", fontSize = 16.sp)
+            if (session.paid) Text("✓", fontSize = 11.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.ExtraBold)
+        }
     }
 }
 
@@ -1032,6 +1173,7 @@ fun MainBottomNav(
     onHomeClick: () -> Unit,
     onAvailabilityClick: () -> Unit,
     onCreateClick: () -> Unit,
+    onMicClick: (() -> Unit)? = null,
 ) {
     Surface(
         color = Color(0xFF12111F),
@@ -1067,6 +1209,20 @@ fun MainBottomNav(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Створити", tint = Color.White, modifier = Modifier.size(24.dp))
+                }
+            }
+            // Mic — same weight as other items, only shown when available
+            if (onMicClick != null) {
+                BottomNavItem(modifier = Modifier.weight(1f), onClick = onMicClick, label = "Голос") {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF6D28D9)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🎙", fontSize = 20.sp)
+                    }
                 }
             }
             // Availability
@@ -1338,13 +1494,6 @@ private fun FreeTimeChipsPanel(
                 if (chips.isNotEmpty()) {
                     val imgTitle = buildPeriodTitle(days)
                     val imgLines = buildImageLines(days, chips, locationsById)
-                    TextButton(
-                        onClick = {
-                            if (onCopyImage != null) onCopyImage(imgTitle, imgLines)
-                            else onCopy?.invoke(periodText)
-                        },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                    ) { Text("📋 Копіювати", fontSize = 12.sp) }
                     TextButton(
                         onClick = {
                             if (onShareImage != null) onShareImage(imgTitle, imgLines)
@@ -1769,6 +1918,8 @@ fun AvailabilitySessionMenu(
     onCopy: () -> Unit,
     onConfirm: () -> Unit,
     onDelete: () -> Unit,
+    finOblik: Boolean = false,
+    onTogglePaid: (() -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1791,9 +1942,22 @@ fun AvailabilitySessionMenu(
                 location?.let { Text(it.name, fontSize = 13.sp, color = Color.Gray) }
                 if (session.notes.isNotBlank()) Text(session.notes, fontSize = 13.sp, color = Color.Gray)
                 Spacer(Modifier.height(4.dp))
+                if (finOblik && onTogglePaid != null) {
+                    if (session.paid) {
+                        OutlinedButton(onClick = onTogglePaid, modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32))) {
+                            Text("💰 Оплачено · Скасувати")
+                        }
+                    } else {
+                        Button(onClick = onTogglePaid, modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0))) {
+                            Text("💰 Оплачено")
+                        }
+                    }
+                }
                 if (session.confirmed) {
                     OutlinedButton(onClick = onConfirm, modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32))) {
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
                         Text("✅ Підтверджено · Скасувати")
                     }
                 } else {
@@ -1824,6 +1988,8 @@ private fun SessionContextMenu(
     onDelete: () -> Unit,
     onCopy: () -> Unit,
     onConfirm: (() -> Unit)? = null,
+    finOblik: Boolean = false,
+    onTogglePaid: (() -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1851,7 +2017,7 @@ private fun SessionContextMenu(
                         OutlinedButton(
                             onClick = onConfirm,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32))
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                         ) { Text("✅ Підтверджено · Скасувати") }
                     } else {
                         Button(
@@ -1859,6 +2025,22 @@ private fun SessionContextMenu(
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
                         ) { Text("✅ Підтвердити") }
+                    }
+                }
+                if (finOblik && onTogglePaid != null) {
+                    Spacer(Modifier.height(4.dp))
+                    if (session.paid) {
+                        OutlinedButton(
+                            onClick = onTogglePaid,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2E7D32))
+                        ) { Text("💰 Оплачено · Скасувати") }
+                    } else {
+                        Button(
+                            onClick = onTogglePaid,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1565C0))
+                        ) { Text("💰 Оплачено") }
                     }
                 }
             }

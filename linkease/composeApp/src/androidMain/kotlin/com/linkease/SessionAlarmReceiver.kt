@@ -14,6 +14,7 @@ class SessionAlarmReceiver : BroadcastReceiver() {
 
         val title = intent.getStringExtra("title") ?: "Заняття"
         val body  = intent.getStringExtra("body")  ?: ""
+        val minutesBefore = intent.getLongExtra("minutes_before", 10L)
 
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -26,8 +27,8 @@ class SessionAlarmReceiver : BroadcastReceiver() {
         val notification = NotificationCompat.Builder(context, NotificationHelper.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
             .setContentTitle("⏰ $title")
-            .setContentText("Через 10 хв: $body")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("Через 10 хвилин:\n$body"))
+            .setContentText("Через $minutesBefore хв: $body")
+            .setStyle(NotificationCompat.BigTextStyle().bigText("Через $minutesBefore хвилин:\n$body"))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

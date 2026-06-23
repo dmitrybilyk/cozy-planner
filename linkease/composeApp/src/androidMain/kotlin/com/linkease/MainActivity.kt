@@ -57,6 +57,8 @@ class MainActivity : ComponentActivity() {
     private var pendingClientAvailabilityId by mutableStateOf<String?>(null)
     private var pendingOpenClientsScreen by mutableStateOf(0L)
     private var notificationSoundUriState by mutableStateOf<String?>(null)
+    private var notificationsEnabled by mutableStateOf(true)
+    private var notifyMinutesBefore by mutableStateOf(10)
     private var autoBackupEnabled by mutableStateOf(false)
     private var backupFolderName by mutableStateOf<String?>(null)
     private var appMode by mutableStateOf("user")
@@ -88,9 +90,35 @@ class MainActivity : ComponentActivity() {
 
     private var connectedClients by mutableStateOf<List<Triple<String, String, String?>>>(emptyList())
     private var trainerEmail by mutableStateOf("")
+    private var finOblik by mutableStateOf(false)
     private var clientName by mutableStateOf("")
     private var onboardingDone by mutableStateOf(false)
     private var emailHint by mutableStateOf("")
+
+    private var voiceSessionResult by mutableStateOf<ParsedVoiceSession?>(null)
+
+    private lateinit var clientRepo: AndroidClientRepository
+    private lateinit var locationRepo: AndroidLocationRepository
+
+    private val voiceLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            val text = result.data
+                ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+                ?.firstOrNull()?.trim()
+            if (!text.isNullOrBlank()) {
+                val tz = kotlinx.datetime.TimeZone.currentSystemDefault()
+                val today = kotlinx.datetime.Clock.System.now().toLocalDateTime(tz).date
+                voiceSessionResult = parseVoiceSession(
+                    text = text,
+                    clients = clientRepo.getAll(),
+                    locations = locationRepo.getAll(),
+                    today = today,
+                )
+            }
+        }
+    }
 
     private val pickBackupFile = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -142,11 +170,14 @@ class MainActivity : ComponentActivity() {
         QuickNotification.createChannel(this)
         scheduleBirthdayAlarm()
 
+        notificationsEnabled = prefs.getBoolean("notifications_enabled", true)
+        notifyMinutesBefore = prefs.getInt("notify_minutes_before", 10)
         autoBackupEnabled = prefs.getBoolean("auto_backup_enabled", false)
         val folderUriStr = prefs.getString("backup_folder_uri", null)
         if (folderUriStr != null) backupFolderName = resolveFolderName(Uri.parse(folderUriStr))
 
         appMode = prefs.getString("app_mode", "user") ?: "user"
+        finOblik = prefs.getBoolean("fin_oblik", false)
         savedTrainerId = prefs.getString("saved_trainer_id", null)
         trainerEmail = prefs.getString("trainer_email", "") ?: ""
         clientName = prefs.getString("client_name", prefs.getString("client_email", "") ?: "") ?: ""
@@ -214,8 +245,8 @@ class MainActivity : ComponentActivity() {
 
         val dbHelper    = LinkDatabaseHelper(applicationContext)
         val sessionRepo = AndroidSessionRepository(dbHelper)
-        val clientRepo  = AndroidClientRepository(dbHelper)
-        val locationRepo = AndroidLocationRepository(dbHelper)
+        clientRepo  = AndroidClientRepository(dbHelper)
+        locationRepo = AndroidLocationRepository(dbHelper)
         val availRepo   = AndroidAvailabilityRepository(dbHelper)
 
         val workHoursStart  = prefs.getInt("work_hours_start", 7)
@@ -245,7 +276,9 @@ class MainActivity : ComponentActivity() {
                     exportSessionViaIntent(session, clients, location)
                 },
                 onScheduleNotifications = { sessions, clients, locations ->
-                    NotificationHelper.rescheduleAll(this, sessions, clients, locations)
+                    if (notificationsEnabled) {
+                        NotificationHelper.rescheduleAll(this, sessions, clients, locations, notifyMinutesBefore.toLong())
+                    }
                     lifecycleScope.launch { LinkEaseWidget().updateAll(this@MainActivity) }
                 },
                 onPinToStatusBar   = { QuickNotification.toggle(this) },
@@ -327,7 +360,44 @@ class MainActivity : ComponentActivity() {
                 },
                 notificationSoundName = notificationSoundDisplayName(notificationSoundUriState),
                 onPickNotificationSound = { launchSoundPicker() },
+                notificationsEnabled = notificationsEnabled,
+                onNotificationsEnabledChange = { enabled ->
+                    notificationsEnabled = enabled
+                    prefs.edit().putBoolean("notifications_enabled", enabled).apply()
+                    val db = LinkDatabaseHelper(applicationContext)
+                    if (enabled) {
+                        NotificationHelper.rescheduleAll(this,
+                            AndroidSessionRepository(db).getAll(),
+                            AndroidClientRepository(db).getAll(),
+                            AndroidLocationRepository(db).getAll(),
+                            notifyMinutesBefore.toLong())
+                    }
+                },
+                notifyMinutesBefore = notifyMinutesBefore,
+                onNotifyMinutesBeforeChange = { mins ->
+                    notifyMinutesBefore = mins
+                    prefs.edit().putInt("notify_minutes_before", mins).apply()
+                    if (notificationsEnabled) {
+                        val db = LinkDatabaseHelper(applicationContext)
+                        NotificationHelper.rescheduleAll(this,
+                            AndroidSessionRepository(db).getAll(),
+                            AndroidClientRepository(db).getAll(),
+                            AndroidLocationRepository(db).getAll(),
+                            mins.toLong())
+                    }
+                },
+                finOblik = finOblik,
+                onFinOblikChange = { enabled ->
+                    finOblik = enabled
+                    prefs.edit().putBoolean("fin_oblik", enabled).apply()
+                },
                 onSendTestNotification = { NotificationHelper.sendTestNotification(this) },
+                onOpenNotificationSettings = {
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                    }
+                    startActivity(intent)
+                },
                 appMode = appMode,
                 onAppModeChange = { mode ->
                     appMode = mode
@@ -616,6 +686,19 @@ class MainActivity : ComponentActivity() {
                     val trainerId2 = uid
                     FirebaseHelper.sendChatMessage(trainerId2, clientFirebaseId, uid, message) { _, _ -> }
                 },
+                onMicClick = {
+                    val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
+                        putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Скажіть: клієнт, час, тривалість")
+                        putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                    }
+                    try { voiceLauncher.launch(intent) } catch (_: Exception) {
+                        Toast.makeText(this, "Голосовий ввід не підтримується", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                voiceSessionResult = voiceSessionResult,
+                onVoiceSessionConsumed = { voiceSessionResult = null },
             )
         }
     }

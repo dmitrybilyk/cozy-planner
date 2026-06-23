@@ -64,7 +64,7 @@ class DriveBackupWorker(context: Context, params: WorkerParameters) : Worker(con
         private const val WORK_NAME = "linkease_daily_backup"
 
         fun schedule(context: Context) {
-            val request = PeriodicWorkRequestBuilder<DriveBackupWorker>(1, TimeUnit.DAYS)
+            val request = PeriodicWorkRequestBuilder<DriveBackupWorker>(1, TimeUnit.HOURS)
                 .setConstraints(Constraints.Builder().build())
                 .build()
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(

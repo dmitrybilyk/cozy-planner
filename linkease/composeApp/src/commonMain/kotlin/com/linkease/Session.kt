@@ -12,6 +12,7 @@ data class Session(
     val locationId: Long? = null,
     val notes: String = "",
     val confirmed: Boolean = false,
+    val paid: Boolean = false,
 )
 
 fun LocalTime.toMinutes() = hour * 60 + minute

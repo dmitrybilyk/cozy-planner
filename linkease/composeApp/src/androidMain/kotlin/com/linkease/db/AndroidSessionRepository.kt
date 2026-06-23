@@ -28,6 +28,7 @@ class AndroidSessionRepository(private val helper: LinkDatabaseHelper) : Session
                         locationId = it.getLong(it.getColumnIndexOrThrow("locationId")).takeIf { v -> v != 0L },
                         notes = it.getString(it.getColumnIndexOrThrow("notes")),
                         confirmed = it.getInt(it.getColumnIndexOrThrow("confirmed")) != 0,
+                        paid = it.getColumnIndex("paid").let { c -> if (c >= 0) it.getInt(c) != 0 else false },
                     ))
                 }
             }
@@ -49,6 +50,7 @@ class AndroidSessionRepository(private val helper: LinkDatabaseHelper) : Session
                 locationId = it.getLong(it.getColumnIndexOrThrow("locationId")).takeIf { v -> v != 0L },
                 notes = it.getString(it.getColumnIndexOrThrow("notes")),
                 confirmed = it.getInt(it.getColumnIndexOrThrow("confirmed")) != 0,
+                paid = it.getColumnIndex("paid").let { c -> if (c >= 0) it.getInt(c) != 0 else false },
             )
         }
     }
@@ -76,6 +78,7 @@ class AndroidSessionRepository(private val helper: LinkDatabaseHelper) : Session
             put("locationId", session.locationId)
             put("notes", session.notes)
             put("confirmed", if (session.confirmed) 1 else 0)
+            put("paid", if (session.paid) 1 else 0)
         }
         db.update("sessions", values, "id = ?", arrayOf(session.id.toString()))
         db.delete("session_clients", "sessionId = ?", arrayOf(session.id.toString()))

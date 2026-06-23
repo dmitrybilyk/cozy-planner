@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.sp
 
 private val LOCATION_COLORS = listOf(
     "#6A1B9A", "#4527A0", "#283593", "#1565C0",
-    "#01579B", "#006064", "#00695C", "#D32F2F",
+    "#01579B", "#006064", "#BF360C", "#D32F2F",
     "#C2185B", "#827717", "#E65100", "#455A64"
 )
 
