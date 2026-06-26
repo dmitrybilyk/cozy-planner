@@ -59,6 +59,11 @@ management:
       exposure:
         include: health,info
 
+logging:
+  level:
+    org.springframework.kafka.core.KafkaAdmin: WARN
+    org.apache.kafka.clients.NetworkClient: WARN
+
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
   # Only this Google account is allowed to log in — single-tenant app, no multi-user model.
