@@ -8,6 +8,7 @@ import androidx.compose.ui.window.ComposeViewport
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalComposeUiApi::class)
@@ -28,6 +29,23 @@ fun main() {
         availabilityRepository.load()
 
         var telegramLinked by mutableStateOf(fetchTelegramLinked())
+        var refreshVersion by mutableStateOf(0L)
+
+        openSse("/api/events")
+        GlobalScope.launch {
+            while (true) {
+                delay(300)
+                val raw = drainSseQueue().toString()
+                if (raw.isNotEmpty()) {
+                    val entities = raw.split(",").toSet()
+                    if ("sessions" in entities)     sessionRepository.load()
+                    if ("clients" in entities)      clientRepository.load()
+                    if ("locations" in entities)    locationRepository.load()
+                    if ("availability" in entities) availabilityRepository.load()
+                    refreshVersion++
+                }
+            }
+        }
 
         ComposeViewport(document.body!!) {
             App(
@@ -48,6 +66,7 @@ fun main() {
                         if (linkTelegram(code)) telegramLinked = true
                     }
                 },
+                refreshVersion = refreshVersion,
             )
         }
     }

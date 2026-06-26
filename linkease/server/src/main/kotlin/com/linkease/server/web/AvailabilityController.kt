@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/availability")
-class AvailabilityController(private val repo: AvailabilityRepository) {
+class AvailabilityController(private val repo: AvailabilityRepository, private val sse: SseService) {
 
     @GetMapping
     fun getAll(): List<AvailabilitySlotDto> = repo.getAll().map { it.toDto() }
@@ -15,15 +15,23 @@ class AvailabilityController(private val repo: AvailabilityRepository) {
     @PostMapping
     fun create(@RequestBody body: AvailabilitySlotDto): AvailabilitySlotDto =
         repo.save(LocalDate.parse(body.date), parseStorageTime(body.startTime), parseStorageTime(body.endTime), body.locationId).toDto()
+            .also { sse.broadcast("availability") }
 
     @PutMapping("/{id}")
     fun update(@PathVariable id: Long, @RequestBody body: AvailabilitySlotDto) {
         repo.update(body.copy(id = id).toDomain())
+        sse.broadcast("availability")
     }
 
     @DeleteMapping("/{id}")
-    fun delete(@PathVariable id: Long) = repo.delete(id)
+    fun delete(@PathVariable id: Long) {
+        repo.delete(id)
+        sse.broadcast("availability")
+    }
 
     @DeleteMapping
-    fun deleteAll() = repo.deleteAll()
+    fun deleteAll() {
+        repo.deleteAll()
+        sse.broadcast("availability")
+    }
 }

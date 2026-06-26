@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/sessions")
-class SessionController(private val repo: SessionRepository) {
+class SessionController(private val repo: SessionRepository, private val sse: SseService) {
 
     @GetMapping
     fun getAll(): List<SessionDto> = repo.getAll().map { it.toDto() }
@@ -26,16 +26,23 @@ class SessionController(private val repo: SessionRepository) {
             clientIds = body.clientIds,
             locationId = body.locationId,
             notes = body.notes,
-        ).toDto()
+        ).toDto().also { sse.broadcast("sessions") }
 
     @PutMapping("/{id}")
     fun update(@PathVariable id: Long, @RequestBody body: SessionDto) {
         repo.update(body.copy(id = id).toDomain())
+        sse.broadcast("sessions")
     }
 
     @DeleteMapping("/{id}")
-    fun delete(@PathVariable id: Long) = repo.delete(id)
+    fun delete(@PathVariable id: Long) {
+        repo.delete(id)
+        sse.broadcast("sessions")
+    }
 
     @DeleteMapping
-    fun deleteAll() = repo.deleteAll()
+    fun deleteAll() {
+        repo.deleteAll()
+        sse.broadcast("sessions")
+    }
 }

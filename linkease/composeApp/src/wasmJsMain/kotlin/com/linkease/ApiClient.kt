@@ -58,3 +58,23 @@ suspend fun <T> apiPut(path: String, body: T, serializer: KSerializer<T>) {
 suspend fun apiDelete(path: String) {
     fetchText(path, "DELETE")
 }
+
+// Opens an SSE connection and buffers incoming event data in a JS-side queue.
+// Use drainSseQueue() to collect and clear buffered events from Kotlin.
+@JsFun("""(url) => {
+    window.__leQueue = [];
+    const connect = () => {
+        const es = new EventSource(url, { withCredentials: true });
+        es.onmessage = e => window.__leQueue.push(e.data);
+        es.onerror   = () => { es.close(); setTimeout(connect, 5000); };
+    };
+    connect();
+}""")
+external fun openSse(url: String)
+
+@JsFun("""() => {
+    const q = window.__leQueue || [];
+    window.__leQueue = [];
+    return q.join(',');
+}""")
+external fun drainSseQueue(): JsString

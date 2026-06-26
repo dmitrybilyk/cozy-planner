@@ -36,6 +36,7 @@ class SecurityConfig(private val appProperties: AppProperties) {
                 auth
                     .requestMatchers(
                         "/", "/index.html", "/*.js", "/*.wasm", "/*.css", "/*.ico",
+                        "/*.json", "/sw.js", "/icon-*.png",
                         "/oauth2/**", "/login/**", "/error", "/actuator/health",
                         "/api/me", "/api/telegram/webhook/**",
                     ).permitAll()
