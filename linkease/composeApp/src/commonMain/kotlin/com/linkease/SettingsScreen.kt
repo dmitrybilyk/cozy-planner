@@ -6,11 +6,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +57,8 @@ fun SettingsScreen(
     onOpenNotificationSettings: (() -> Unit)? = null,
     telegramLinked: Boolean = false,
     onLinkTelegram: ((code: String) -> Unit)? = null,
+    telegramBotName: String = "",
+    onOpenUrl: ((String) -> Unit)? = null,
     autoBackupEnabled: Boolean = false,
     onAutoBackupToggle: ((Boolean) -> Unit)? = null,
     backupFolderName: String? = null,
@@ -140,7 +154,7 @@ fun SettingsScreen(
                 Tab(selected = selectedTab == 1, onClick = { selectedTab = 1 },
                     text = { Text("Дані", fontSize = 13.sp) })
                 Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
-                    text = { Text("🔔", fontSize = 15.sp) })
+                    icon = { Icon(Icons.Default.Notifications, null, modifier = Modifier.size(20.dp)) })
                 Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 },
                     text = { Text("Довідка", fontSize = 13.sp) })
             }
@@ -219,7 +233,7 @@ fun SettingsScreen(
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("📅", fontSize = 22.sp)
+                            Icon(Icons.Default.DateRange, null, modifier = Modifier.size(24.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Синхронізація з Google Calendar", fontWeight = FontWeight.Medium, fontSize = 15.sp)
                                 Text("Нові та відредаговані сесії синхронізуються автоматично", fontSize = 12.sp, color = Color.Gray)
@@ -258,7 +272,7 @@ fun SettingsScreen(
                             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("💰", fontSize = 24.sp)
+                                Icon(Icons.Default.AttachMoney, null, modifier = Modifier.size(24.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Фін.облік", fontWeight = FontWeight.Medium, fontSize = 15.sp)
                                     Text("Ставка клієнта, кнопка «Оплачено», звіт", fontSize = 12.sp, color = Color.Gray)
@@ -282,28 +296,36 @@ fun SettingsScreen(
                                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    Text("✈️", fontSize = 22.sp)
+                                    Icon(Icons.Default.Send, null, modifier = Modifier.size(22.dp), tint = Color(0xFF2196F3))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text("Telegram", fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                                        Text("✅ Підключено", fontSize = 12.sp, color = Color.Gray)
+                                        Text("Підключено", fontSize = 12.sp, color = Color(0xFF2E7D32))
                                     }
                                 }
                             } else {
                                 var telegramCode by remember { mutableStateOf("") }
-                                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        Text("✈️", fontSize = 22.sp)
+                                        Icon(Icons.Default.Send, null, modifier = Modifier.size(22.dp), tint = Color(0xFF2196F3))
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text("Підключити Telegram", fontWeight = FontWeight.Medium, fontSize = 15.sp)
-                                            Text("Напишіть боту, отримайте код і введіть його тут", fontSize = 12.sp, color = Color.Gray)
+                                            Text("Напишіть боту і отримайте код", fontSize = 12.sp, color = Color.Gray)
                                         }
                                     }
-                                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                    if (telegramBotName.isNotBlank() && onOpenUrl != null) {
+                                        OutlinedButton(
+                                            onClick = { onOpenUrl("https://t.me/$telegramBotName") },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                                        ) { Text("Відкрити @$telegramBotName", fontSize = 13.sp) }
+                                    }
+                                    Row(modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically) {
                                         OutlinedTextField(value = telegramCode, onValueChange = { telegramCode = it },
-                                            label = { Text("Код") }, singleLine = true, modifier = Modifier.weight(1f))
+                                            label = { Text("Код від бота") }, singleLine = true, modifier = Modifier.weight(1f))
                                         Button(onClick = { onLinkTelegram(telegramCode); telegramCode = "" },
                                             enabled = telegramCode.isNotBlank()) { Text("OK") }
                                     }
@@ -319,7 +341,7 @@ fun SettingsScreen(
                             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("☁️", fontSize = 22.sp)
+                                Icon(Icons.Default.Cloud, null, modifier = Modifier.size(24.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("Щоденне резервне копіювання", fontWeight = FontWeight.Medium, fontSize = 15.sp)
                                     Text(if (backupFolderName != null) "Папка: $backupFolderName" else "Папку не вибрано",
@@ -333,7 +355,7 @@ fun SettingsScreen(
                                         uncheckedBorderColor = MaterialTheme.colorScheme.outline,
                                     ))
                             }
-                            SettingsItem(icon = "📁", title = "Вибрати папку для копій",
+                            SettingsItem(icon = Icons.Default.Folder, title = "Вибрати папку для копій",
                                 subtitle = "Google Drive або локальна папка", onClick = onPickBackupFolder)
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
                         }
@@ -342,12 +364,12 @@ fun SettingsScreen(
                             Text("Резервна копія", style = MaterialTheme.typography.labelMedium, color = Color.Gray,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                             if (onExportBackup != null) {
-                                SettingsItem(icon = "📤", title = "Поділитися резервною копією",
+                                SettingsItem(icon = Icons.Default.Share, title = "Поділитися резервною копією",
                                     subtitle = "Надіслати JSON-файл на інший пристрій", onClick = onExportBackup)
                             }
                             if (onImportBackup != null) {
                                 HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                                SettingsItem(icon = "📥", title = "Відновити з файлу",
+                                SettingsItem(icon = Icons.Default.Download, title = "Відновити з файлу",
                                     subtitle = "Завантажити JSON-файл резервної копії",
                                     onClick = { showImportConfirm = true })
                             }
@@ -355,7 +377,7 @@ fun SettingsScreen(
                         }
 
                         if (onEraseAllData != null) {
-                            SettingsItem(icon = "🗑️", title = "Видалити всі дані",
+                            SettingsItem(icon = Icons.Default.Delete, title = "Видалити всі дані",
                                 subtitle = "Стерти клієнтів, локації, сесії та доступність",
                                 onClick = { showEraseConfirm = true })
                         }
@@ -383,7 +405,7 @@ fun SettingsScreen(
                         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("🔔", fontSize = 22.sp)
+                            Icon(Icons.Default.Notifications, null, modifier = Modifier.size(24.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Увімкнути нагадування", fontWeight = FontWeight.Medium, fontSize = 15.sp)
                                 Text("Сповіщення перед початком заняття", fontSize = 12.sp, color = Color.Gray)
@@ -433,13 +455,13 @@ fun SettingsScreen(
                         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp))
 
                         if (onSendTestNotification != null) {
-                            SettingsItem(icon = "🔔", title = "Надіслати тестове сповіщення",
+                            SettingsItem(icon = Icons.Default.Notifications, title = "Надіслати тестове сповіщення",
                                 subtitle = "Перевірити, чи надходять сповіщення",
                                 onClick = onSendTestNotification)
                         }
                         if (onOpenNotificationSettings != null) {
                             HorizontalDivider(modifier = Modifier.padding(start = 56.dp))
-                            SettingsItem(icon = "⚙️", title = "Системні налаштування",
+                            SettingsItem(icon = Icons.Default.Settings, title = "Системні налаштування",
                                 subtitle = "Відкрити системні параметри сповіщень додатку",
                                 onClick = onOpenNotificationSettings)
                         }
@@ -674,10 +696,10 @@ private fun AskAvailabilityDialog(
 }
 
 @Composable
-private fun SettingsItem(icon: String, title: String, subtitle: String, onClick: () -> Unit) {
+private fun SettingsItem(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(icon, fontSize = 24.sp)
+        Icon(icon, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.Medium, fontSize = 15.sp)
             Text(subtitle, fontSize = 12.sp, color = Color.Gray)

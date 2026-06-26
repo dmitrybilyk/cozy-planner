@@ -9,6 +9,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -90,7 +92,7 @@ fun ClientModeScreen(
                 Tab(selected = selectedTab == 2, onClick = { selectedTab = 2 },
                     text = { Text("📆 Доступність") })
                 Tab(selected = selectedTab == 3, onClick = { selectedTab = 3 },
-                    text = { Text("🔔") })
+                    icon = { Icon(Icons.Default.Notifications, null, modifier = Modifier.size(20.dp)) })
             }
 
             when (selectedTab) {
@@ -138,7 +140,7 @@ fun ClientModeScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text("🔔", fontSize = 22.sp)
+                            Icon(Icons.Default.Notifications, null, modifier = Modifier.size(24.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Увімкнути нагадування", fontWeight = FontWeight.Medium, fontSize = 15.sp)
                                 Text("Сповіщення перед початком заняття", fontSize = 12.sp, color = Color(0xFF9E9E9E))

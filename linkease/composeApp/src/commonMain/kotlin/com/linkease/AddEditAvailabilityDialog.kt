@@ -40,6 +40,11 @@ fun AddEditAvailabilityDialog(
     var selectedLocationId by remember { mutableStateOf(initial?.locationId) }
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
+    val allDayStart = LocalTime(hoursStart, 0)
+    val allDayEnd = LocalTime(hoursEnd, 0)
+    var allDay by remember { mutableStateOf(
+        initial != null && initial.startTime == allDayStart && initial.endTime == allDayEnd
+    ) }
 
     val startHiddenMinutes = remember(otherSlots) {
         otherSlots.flatMap { slot ->
@@ -63,12 +68,28 @@ fun AddEditAvailabilityDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Весь день", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Switch(
+                        checked = allDay,
+                        onCheckedChange = { checked ->
+                            allDay = checked
+                            if (checked) { startTime = allDayStart; endTime = allDayEnd }
+                        }
+                    )
+                }
+                if (!allDay) {
+                Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TimeChipAvail(label = "Початок", time = startTime, onClick = { showStartPicker = true })
                     Text("–", fontSize = 16.sp)
                     TimeChipAvail(label = "Кінець", time = endTime, onClick = { showEndPicker = true })
+                }
                 }
 
                 if (locations.isNotEmpty()) {

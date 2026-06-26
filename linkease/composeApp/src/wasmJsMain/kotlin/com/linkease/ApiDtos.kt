@@ -66,7 +66,7 @@ fun AvailabilitySlot.toApiDto() = AvailabilitySlotApiDto(id, date.toString(), st
 fun AvailabilitySlotApiDto.toDomain() = AvailabilitySlot(id, LocalDate.parse(date), parseStorageTime(startTime), parseStorageTime(endTime), locationId)
 
 @Serializable
-data class TelegramStatusDto(val linked: Boolean)
+data class TelegramStatusDto(val linked: Boolean, val botUsername: String = "")
 
 @Serializable
 data class TelegramLinkRequestDto(val code: String)

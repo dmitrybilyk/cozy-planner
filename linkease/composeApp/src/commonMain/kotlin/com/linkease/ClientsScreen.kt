@@ -8,6 +8,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -92,7 +100,7 @@ fun ClientsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("📧", fontSize = 16.sp)
+                        Icon(Icons.Default.Email, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                         Text(myEmail, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                     }
                 }
@@ -106,22 +114,32 @@ fun ClientsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("🔔 Нові підключення (${unlinked.size})",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                fontWeight = FontWeight.SemiBold)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Icon(Icons.Default.Notifications, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                                Text("Нові підключення (${unlinked.size})",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                    fontWeight = FontWeight.SemiBold)
+                            }
                             unlinked.forEach { (uid, deviceModel, clientEmail) ->
                                 Row(modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Column(modifier = Modifier.weight(1f)) {
                                         if (!clientEmail.isNullOrBlank()) {
-                                            Text(clientEmail, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.onTertiaryContainer)
-                                            Text("📱 $deviceModel", fontSize = 11.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Email, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                                                Text(clientEmail, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                            }
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.PhoneAndroid, null, modifier = Modifier.size(11.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                                                Text(deviceModel, fontSize = 11.sp, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f))
+                                            }
                                         } else {
-                                            Text("📱 $deviceModel", fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                                                color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.PhoneAndroid, null, modifier = Modifier.size(13.dp), tint = MaterialTheme.colorScheme.onTertiaryContainer)
+                                                Text(deviceModel, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                                            }
                                         }
                                     }
                                     Button(onClick = { linkingFirebaseId = uid },
@@ -292,7 +310,7 @@ private fun ClientCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(client.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                        if (client.firebaseClientId != null) Text("🔗", fontSize = 11.sp)
+                        if (client.firebaseClientId != null) Icon(Icons.Default.Link, null, modifier = Modifier.size(11.dp), tint = Color.Gray)
                     }
                     if (client.phone.isNotBlank()) Text(client.phone, fontSize = 12.sp, color = Color.Gray)
                     if (hasPkg || sessionCount > 0) {
@@ -304,8 +322,12 @@ private fun ClientCard(
                                     else -> MaterialTheme.colorScheme.secondary
                                 }
                                 Surface(shape = RoundedCornerShape(6.dp), color = pkgColor.copy(alpha = 0.12f)) {
-                                    Text("📦 $pkgRemaining/${client.packageTotal}", fontSize = 11.sp, color = pkgColor,
-                                        fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
+                                    Row(modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Inventory2, null, modifier = Modifier.size(11.dp), tint = pkgColor)
+                                        Text("$pkgRemaining/${client.packageTotal}", fontSize = 11.sp, color = pkgColor, fontWeight = FontWeight.Medium)
+                                    }
                                 }
                             }
                             if (sessionCount > 0) Text("$sessionCount сес.", fontSize = 11.sp, color = Color.Gray)
@@ -323,13 +345,13 @@ private fun ClientCard(
                     TextButton(onClick = onChatClick,
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
-                    ) { Text("💬", fontSize = 15.sp) }
+                    ) { Icon(Icons.Default.Chat, null, modifier = Modifier.size(18.dp)) }
                 }
                 if (onAskAvailability != null) {
                     TextButton(onClick = { onAskAvailability.invoke() },
                         contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                         colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.secondary)
-                    ) { Text("📅", fontSize = 15.sp) }
+                    ) { Icon(Icons.Default.DateRange, null, modifier = Modifier.size(18.dp)) }
                 }
                 TextButton(onClick = onTap, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.secondary)

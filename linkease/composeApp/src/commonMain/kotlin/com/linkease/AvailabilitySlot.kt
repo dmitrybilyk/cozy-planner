@@ -45,14 +45,8 @@ fun calculateFreeSlots(
 ): List<FreeSlot> {
     val dayAvail = availSlots.filter { it.date == date }
 
-    val effectiveSlots = if (dayAvail.isEmpty()) {
-        listOf(AvailabilitySlot(
-            date = date,
-            startTime = LocalTime(workHoursStart, 0),
-            endTime   = LocalTime(workHoursEnd, 0),
-            locationId = null
-        ))
-    } else dayAvail
+    if (dayAvail.isEmpty()) return emptyList()
+    val effectiveSlots = dayAvail
 
     val workStartMin = workHoursStart * 60
     val workEndMin   = workHoursEnd * 60
