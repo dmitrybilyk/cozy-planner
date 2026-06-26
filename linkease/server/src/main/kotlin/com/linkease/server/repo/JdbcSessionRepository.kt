@@ -74,7 +74,7 @@ class JdbcSessionRepository(private val jdbc: JdbcTemplate) : SessionRepository 
     }
 
     private fun linkClients(sessionId: Long, clientIds: List<Long>) {
-        clientIds.forEach { clientId ->
+        clientIds.filter { it > 0 }.forEach { clientId ->
             jdbc.update("insert into session_clients (session_id, client_id) values (?, ?)", sessionId, clientId)
         }
     }
