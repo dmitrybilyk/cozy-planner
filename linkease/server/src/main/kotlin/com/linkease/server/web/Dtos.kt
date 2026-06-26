@@ -15,10 +15,13 @@ data class ClientDto(
     val email: String = "",
     val colorHex: String = "#2196F3",
     val hourlyRate: Double = 0.0,
+    val packageTotal: Int = 0,
+    val packageUsed: Int = 0,
+    val birthDate: String? = null,
 )
 
-fun Client.toDto() = ClientDto(id, name, phone, email, colorHex, hourlyRate)
-fun ClientDto.toDomain() = Client(id, name, phone, email, colorHex, hourlyRate)
+fun Client.toDto() = ClientDto(id, name, phone, email, colorHex, hourlyRate, packageTotal, packageUsed, birthDate)
+fun ClientDto.toDomain() = Client(id, name, phone, email, colorHex, hourlyRate, packageTotal, packageUsed, birthDate)
 
 data class LocationDto(
     val id: Long = 0,
@@ -39,14 +42,16 @@ data class SessionDto(
     val clientIds: List<Long> = emptyList(),
     val locationId: Long? = null,
     val notes: String = "",
+    val confirmed: Boolean = false,
+    val paid: Boolean = false,
 )
 
 fun Session.toDto() = SessionDto(
-    id, date.toString(), startTime.toStorageString(), endTime.toStorageString(), clientIds, locationId, notes,
+    id, date.toString(), startTime.toStorageString(), endTime.toStorageString(), clientIds, locationId, notes, confirmed, paid,
 )
 
 fun SessionDto.toDomain() = Session(
-    id, LocalDate.parse(date), parseStorageTime(startTime), parseStorageTime(endTime), clientIds, locationId, notes,
+    id, LocalDate.parse(date), parseStorageTime(startTime), parseStorageTime(endTime), clientIds, locationId, notes, confirmed, paid,
 )
 
 data class AvailabilitySlotDto(

@@ -52,9 +52,14 @@ kotlin {
 val wasmDistMode = (findProperty("linkease.wasmDist") as String?) ?: "development"
 val wasmDistTaskName = if (wasmDistMode == "production") "wasmJsBrowserDistribution" else "wasmJsBrowserDevelopmentExecutableDistribution"
 val wasmDistDirName = if (wasmDistMode == "production") "dist/wasmJs/productionExecutable" else "dist/wasmJs/developmentExecutable"
+// Pass -Plinkease.skipWasm=true to reuse the WASM/JS files from the last build without
+// recompiling the frontend. Only safe when no wasmJsMain or commonMain Kotlin was changed.
+val skipWasm = findProperty("linkease.skipWasm") == "true"
 
 tasks.named<Copy>("processResources") {
-    dependsOn(":composeApp:$wasmDistTaskName", ":composeApp:processSkikoRuntimeForKWasm")
+    if (!skipWasm) {
+        dependsOn(":composeApp:$wasmDistTaskName", ":composeApp:processSkikoRuntimeForKWasm")
+    }
     from(project(":composeApp").layout.buildDirectory.dir(wasmDistDirName)) {
         into("static")
     }

@@ -17,6 +17,8 @@ private val SESSION_ROW_MAPPER = RowMapper { rs, _ ->
         endTime = LocalTime.parse(rs.getString("end_time")),
         locationId = rs.getObject("location_id") as Long?,
         notes = rs.getString("notes"),
+        confirmed = rs.getBoolean("confirmed"),
+        paid = rs.getBoolean("paid"),
     )
 }
 
@@ -65,9 +67,9 @@ class JdbcSessionRepository(private val jdbc: JdbcTemplate) : SessionRepository 
     @Transactional
     override fun update(session: Session) {
         jdbc.update(
-            "update sessions set date = ?, start_time = ?, end_time = ?, location_id = ?, notes = ? where id = ?",
+            "update sessions set date = ?, start_time = ?, end_time = ?, location_id = ?, notes = ?, confirmed = ?, paid = ? where id = ?",
             session.date.toString(), session.startTime.toString(), session.endTime.toString(),
-            session.locationId, session.notes, session.id,
+            session.locationId, session.notes, session.confirmed, session.paid, session.id,
         )
         jdbc.update("delete from session_clients where session_id = ?", session.id)
         linkClients(session.id, session.clientIds)

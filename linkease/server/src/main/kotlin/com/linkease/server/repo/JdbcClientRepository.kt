@@ -14,6 +14,9 @@ private val CLIENT_ROW_MAPPER = RowMapper { rs, _ ->
         email = rs.getString("email"),
         colorHex = rs.getString("color_hex"),
         hourlyRate = rs.getDouble("hourly_rate"),
+        packageTotal = rs.getInt("package_total"),
+        packageUsed = rs.getInt("package_used"),
+        birthDate = rs.getString("birth_date"),
     )
 }
 
@@ -28,16 +31,17 @@ class JdbcClientRepository(private val jdbc: JdbcTemplate) : ClientRepository {
         packageTotal: Int, packageUsed: Int, birthDate: String?, firebaseClientId: String?,
     ): Client {
         val id = jdbc.queryForObject(
-            "insert into clients (name, phone, email, color_hex, hourly_rate) values (?, ?, ?, ?, ?) returning id",
-            Long::class.java, name, phone, email, colorHex, hourlyRate,
+            "insert into clients (name, phone, email, color_hex, hourly_rate, package_total, package_used, birth_date) values (?, ?, ?, ?, ?, ?, ?, ?) returning id",
+            Long::class.java, name, phone, email, colorHex, hourlyRate, packageTotal, packageUsed, birthDate,
         )!!
-        return Client(id, name, phone, email, colorHex, hourlyRate)
+        return Client(id, name, phone, email, colorHex, hourlyRate, packageTotal, packageUsed, birthDate)
     }
 
     override fun update(client: Client) {
         jdbc.update(
-            "update clients set name = ?, phone = ?, email = ?, color_hex = ?, hourly_rate = ? where id = ?",
-            client.name, client.phone, client.email, client.colorHex, client.hourlyRate, client.id,
+            "update clients set name = ?, phone = ?, email = ?, color_hex = ?, hourly_rate = ?, package_total = ?, package_used = ?, birth_date = ? where id = ?",
+            client.name, client.phone, client.email, client.colorHex, client.hourlyRate,
+            client.packageTotal, client.packageUsed, client.birthDate, client.id,
         )
     }
 

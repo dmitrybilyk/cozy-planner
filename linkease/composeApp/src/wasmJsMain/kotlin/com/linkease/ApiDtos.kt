@@ -41,14 +41,16 @@ data class SessionApiDto(
     val clientIds: List<Long> = emptyList(),
     val locationId: Long? = null,
     val notes: String = "",
+    val confirmed: Boolean = false,
+    val paid: Boolean = false,
 )
 
 fun Session.toApiDto() = SessionApiDto(
-    id, date.toString(), startTime.toStorageString(), endTime.toStorageString(), clientIds, locationId, notes,
+    id, date.toString(), startTime.toStorageString(), endTime.toStorageString(), clientIds, locationId, notes, confirmed, paid,
 )
 
 fun SessionApiDto.toDomain() = Session(
-    id, LocalDate.parse(date), parseStorageTime(startTime), parseStorageTime(endTime), clientIds, locationId, notes,
+    id, LocalDate.parse(date), parseStorageTime(startTime), parseStorageTime(endTime), clientIds, locationId, notes, confirmed, paid,
 )
 
 @Serializable
