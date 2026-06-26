@@ -23,8 +23,11 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -567,7 +570,7 @@ internal fun AgendaFilterRow(
                                 else filterLocationIds + loc.id
                             )
                         },
-                        leadingIcon = { Text("📍", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(11.dp)) },
                         label = { Text(loc.name, fontSize = 12.sp, maxLines = 1) },
                     )
                 }
@@ -1226,7 +1229,7 @@ private fun ScheduleFilterSection(
             Box(modifier = Modifier.weight(1f)) {
                 FilterSelectorButton(
                     label = "Клієнти",
-                    icon = "👤",
+                    icon = Icons.Default.Person,
                     selectedNames = selectedClients.map { it.name },
                     onClick = { showClientMenu = !showClientMenu; clientSearch = "" },
                 )
@@ -1272,7 +1275,7 @@ private fun ScheduleFilterSection(
                 Box(modifier = Modifier.weight(1f)) {
                     FilterSelectorButton(
                         label = "Локації",
-                        icon = "📍",
+                        icon = Icons.Default.LocationOn,
                         selectedNames = selectedLocations.map { it.name },
                         onClick = { showLocationMenu = !showLocationMenu; locationSearch = "" },
                     )
@@ -1347,7 +1350,7 @@ private fun ScheduleFilterSection(
 @Composable
 private fun FilterSelectorButton(
     label: String,
-    icon: String,
+    icon: ImageVector,
     selectedNames: List<String>,
     onClick: () -> Unit,
 ) {
@@ -1365,7 +1368,7 @@ private fun FilterSelectorButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(icon, fontSize = 15.sp)
+            Icon(icon, null, tint = contentColor, modifier = Modifier.size(15.dp))
             Text(
                 if (!hasSelection) label
                 else selectedNames.first() + if (selectedNames.size > 1) " +${selectedNames.size - 1}" else "",

@@ -13,7 +13,7 @@ private const val CHAT_ID_SETTING_KEY = "telegram_chat_id"
 class TelegramBotService(
     private val properties: TelegramProperties,
     private val jdbc: JdbcTemplate,
-) {
+) : NotificationService {
     private val log = LoggerFactory.getLogger(TelegramBotService::class.java)
     private val restClient = RestClient.create()
 
@@ -51,6 +51,21 @@ class TelegramBotService(
                 .toBodilessEntity()
         } catch (e: Exception) {
             log.warn("Failed to send Telegram message to {}: {}", chatId, e.message)
+        }
+    }
+
+    override fun sendReminder(chatId: Long, text: String) = sendMessage(chatId, text)
+
+    fun sendToDeveloper(text: String) {
+        if (!properties.isDeveloperBotEnabled()) return
+        try {
+            restClient.post()
+                .uri("https://api.telegram.org/bot${properties.developerBotToken}/sendMessage")
+                .body(mapOf("chat_id" to properties.developerChatId, "text" to text))
+                .retrieve()
+                .toBodilessEntity()
+        } catch (e: Exception) {
+            log.warn("Failed to send developer Telegram message: {}", e.message)
         }
     }
 }

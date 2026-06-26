@@ -29,7 +29,13 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewList
+import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -705,7 +711,7 @@ fun CalendarScreen(
                             tonalElevation = 0.dp,
                         ) {
                             Box(modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)) {
-                                Text("🎙", fontSize = 16.sp)
+                                Icon(Icons.Default.Mic, null, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
@@ -751,7 +757,7 @@ fun CalendarScreen(
                         Box(
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
                             contentAlignment = Alignment.Center,
-                        ) { Text("📊", fontSize = 16.sp) }
+                        ) { Icon(Icons.Default.Assessment, null, modifier = Modifier.size(18.dp)) }
                     }
                 }
                 if (onClientsClick != null) {
@@ -765,7 +771,7 @@ fun CalendarScreen(
                         Box(
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
                             contentAlignment = Alignment.Center,
-                        ) { Text("👥", fontSize = 16.sp) }
+                        ) { Icon(Icons.Default.Group, null, modifier = Modifier.size(18.dp)) }
                     }
                 }
                 if (onLocationsClick != null) {
@@ -779,7 +785,7 @@ fun CalendarScreen(
                         Box(
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
                             contentAlignment = Alignment.Center,
-                        ) { Text("📍", fontSize = 16.sp) }
+                        ) { Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(18.dp)) }
                     }
                 }
             }
@@ -958,8 +964,7 @@ private fun ViewSelector(
                     checkedContentColor = MaterialTheme.colorScheme.primary,
                 )
             ) {
-                Text(if (compactMode) "≡" else "☰", fontSize = 18.sp,
-                    color = if (compactMode) MaterialTheme.colorScheme.primary else Color.Gray)
+                Icon(if (compactMode) Icons.Default.ViewList else Icons.Default.ViewWeek, null)
             }
         }
     }
@@ -1221,7 +1226,7 @@ fun MainBottomNav(
                             .background(Color(0xFF6D28D9)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("🎙", fontSize = 20.sp)
+                        Icon(Icons.Default.Mic, null, modifier = Modifier.size(24.dp), tint = Color.White)
                     }
                 }
             }

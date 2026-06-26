@@ -2,6 +2,19 @@ spring:
   application:
     name: linkease-server
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: linkease-reminder-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
   datasource:
     url: jdbc:postgresql://localhost:5432/linkease_db?stringtype=unspecified
     username: ${DB_USER:user}
@@ -50,6 +63,8 @@ app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
   # Only this Google account is allowed to log in — single-tenant app, no multi-user model.
   owner-email: ${APP_OWNER_EMAIL:}
+  notification-service: ${APP_NOTIFICATION_SERVICE:direct}
+  notification-topic: ${APP_NOTIFICATION_TOPIC:linkease-notifications}
 
 telegram:
   enabled: ${TELEGRAM_ENABLED:true}
@@ -58,3 +73,5 @@ telegram:
   webhook-url: ${LINKEASE_TELEGRAM_WEBHOOK_URL:}
   webhook-secret: ${LINKEASE_TELEGRAM_WEBHOOK_SECRET:}
   reminder-minutes-before: ${TELEGRAM_REMINDER_MINUTES_BEFORE:60}
+  developer-bot-token: ${DEVELOPER_BOT_TOKEN:}
+  developer-chat-id: ${DEVELOPER_CHAT_ID:0}

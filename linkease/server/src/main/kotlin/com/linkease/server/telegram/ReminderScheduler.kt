@@ -14,6 +14,7 @@ class ReminderScheduler(
     private val sessionRepository: SessionRepository,
     private val reminderRepository: ReminderRepository,
     private val botService: TelegramBotService,
+    private val notificationService: NotificationService,
     private val properties: TelegramProperties,
 ) {
     @Scheduled(cron = "0 */5 * * * *")
@@ -32,7 +33,7 @@ class ReminderScheduler(
                 minutesUntil in 0..properties.reminderMinutesBefore
             }
             .forEach { session ->
-                botService.sendMessage(chatId, "Нагадування: заняття о ${session.startTime} ${session.notes}".trim())
+                notificationService.sendReminder(chatId, "Нагадування: заняття о ${session.startTime} ${session.notes}".trim())
                 reminderRepository.markReminded(session.id)
             }
     }
