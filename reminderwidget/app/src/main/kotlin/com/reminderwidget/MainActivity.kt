@@ -97,6 +97,7 @@ class MainActivity : Activity() {
     private var favoritesContainer: LinearLayout? = null
     private var soundBtn:           Button?       = null
     private var exportSwitch:       Switch?       = null
+    private var gcalPaywallBanner:  TextView?     = null
     private var pinBtn:             Button?       = null
     private var widgetStatusNote:   TextView?     = null
     private var usageBadge:         TextView?     = null
@@ -767,10 +768,16 @@ class MainActivity : Activity() {
             headerRow.addView(TextView(this).apply {
                 val nowMs = System.currentTimeMillis()
                 val activeCount = events.count { !it.completed && (it.startMs >= nowMs || !it.hasTime) }
-                val remaining = EventStore.MAX_EVENTS - activeCount
-                text = "Активних: $activeCount / ${EventStore.MAX_EVENTS}  (ще $remaining)"
+                if (!ProState.isUnlocked(this@MainActivity)) {
+                    val timedFuture = events.count { !it.completed && it.hasTime && it.startMs > nowMs }
+                    text = AppLang.paywallLimitMsg + " ($timedFuture/2)"
+                    setTextColor(0xFFFF5722.toInt())
+                } else {
+                    val remaining = EventStore.MAX_EVENTS - activeCount
+                    text = "Активних: $activeCount / ${EventStore.MAX_EVENTS}  (ще $remaining)"
+                    setTextColor(if (remaining <= 5) 0xFFFF5722.toInt() else 0xFF555555.toInt())
+                }
                 textSize = 11f
-                setTextColor(if (remaining <= 5) 0xFFFF5722.toInt() else 0xFF555555.toInt())
                 layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
             })
             headerRow.addView(TextView(this).apply {
@@ -2390,7 +2397,7 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFF111111.toInt())
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(44))
         }
-        val tabLabels = listOf(AppLang.settingsTabGeneral, AppLang.settingsTabGCal)
+        val tabLabels = listOf(AppLang.settingsTabGeneral, AppLang.settingsTabGCal, AppLang.settingsTabPro)
         val tabBtns = tabLabels.map { label ->
             TextView(this).apply {
                 text = label; textSize = 12f; gravity = Gravity.CENTER
@@ -2404,7 +2411,8 @@ class MainActivity : Activity() {
         // ── Tab content pages ──────────────────────────────────────────────────
         val tabPages = listOf(
             buildGeneralSettingsScroll(),
-            buildGCalSettingsScroll()
+            buildGCalSettingsScroll(),
+            buildProSettingsScroll()
         )
         val contentFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
@@ -2434,110 +2442,6 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(32))
         }
-
-        // ── Subscription card ────────────────────────────────────────────────
-        val isPro = ProState.isUnlocked(this) && (BillingManager.isSubscribed || ProState.getMockState(this) == ProState.MOCK_PRO)
-        val inTrial = ProState.isInTrial(this) && ProState.getMockState(this) == ProState.MOCK_AUTO
-
-        // Card shown when not subscribed (trial or free)
-        val upgradeCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(0xFF0E1F14.toInt())
-                setStroke(dp(1), 0xFF2E7D32.toInt())
-            }
-            layoutParams = lp(btm = 20)
-            visibility = if (isPro) View.GONE else View.VISIBLE
-        }
-        // Trial days or card title
-        if (inTrial) {
-            val days = ProState.trialDaysLeft(this)
-            upgradeCard.addView(TextView(this).apply {
-                text = AppLang.proTrialTitle; textSize = 16f; setTextColor(0xFFFFAB40.toInt())
-                setTypeface(typeface, Typeface.BOLD); layoutParams = lp(btm = 4)
-            })
-            upgradeCard.addView(TextView(this).apply {
-                text = AppLang.trialDaysText(days)
-                textSize = 13f; setTextColor(0xFFFFAB40.toInt()); layoutParams = lp(btm = 10)
-            })
-            upgradeCard.addView(View(this).apply { setBackgroundColor(0xFF1A3A1A.toInt()); layoutParams = lp(h = 1, btm = 10) })
-        } else {
-            upgradeCard.addView(TextView(this).apply {
-                text = "✨  ${AppLang.proCardTitle}"; textSize = 17f; setTextColor(0xFF4CAF50.toInt())
-                setTypeface(typeface, Typeface.BOLD); layoutParams = lp(btm = 2)
-            })
-            upgradeCard.addView(TextView(this).apply {
-                text = AppLang.proCardSubtitle; textSize = 12f; setTextColor(0xFF777777.toInt()); layoutParams = lp(btm = 12)
-            })
-        }
-        for (feat in listOf(AppLang.proFeature1, AppLang.proFeature2, AppLang.proFeature3)) {
-            upgradeCard.addView(TextView(this).apply {
-                text = feat; textSize = 13f; setTextColor(0xFFCCCCCC.toInt())
-                layoutParams = lp(btm = 5)
-            })
-        }
-        upgradeCard.addView(View(this).apply { setBackgroundColor(0xFF1A3A1A.toInt()); layoutParams = lp(h = 1, btm = 10).also { (it as LinearLayout.LayoutParams).topMargin = dp(6) } })
-        upgradeCard.addView(TextView(this).apply {
-            text = AppLang.proFreeLimit; textSize = 11f; setTextColor(0xFF555555.toInt()); layoutParams = lp(btm = 14)
-        })
-        val subscribeBtn = Button(this).apply {
-            text = if (inTrial) AppLang.proSubscribeBtn else AppLang.proSubscribeBtn
-            textSize = 14f; setTextColor(Color.WHITE); isAllCaps = false
-            background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0xFF2E7D32.toInt()) }
-            layoutParams = lp(h = 50, btm = 8)
-        }
-        upgradeCard.addView(subscribeBtn)
-        upgradeCard.addView(TextView(this).apply {
-            text = AppLang.proPriceHint; textSize = 10f; setTextColor(0xFF444444.toInt())
-            gravity = Gravity.CENTER; layoutParams = lp()
-        })
-        page.addView(upgradeCard)
-
-        // Card shown when Pro is active
-        val proCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(14).toFloat()
-                setColor(0xFF0E1F14.toInt())
-                setStroke(dp(2), 0xFF4CAF50.toInt())
-            }
-            layoutParams = lp(btm = 20)
-            visibility = if (isPro) View.VISIBLE else View.GONE
-        }
-        proCard.addView(TextView(this).apply {
-            text = AppLang.proActiveTitle; textSize = 17f; setTextColor(0xFF4CAF50.toInt())
-            setTypeface(typeface, Typeface.BOLD); layoutParams = lp(btm = 4)
-        })
-        proCard.addView(TextView(this).apply {
-            text = AppLang.proActiveDesc; textSize = 13f; setTextColor(0xFF888888.toInt()); layoutParams = lp(btm = 12)
-        })
-        for (feat in listOf(AppLang.proFeature1, AppLang.proFeature2, AppLang.proFeature3)) {
-            proCard.addView(TextView(this).apply {
-                text = feat; textSize = 13f; setTextColor(0xFF66BB6A.toInt()); layoutParams = lp(btm = 5)
-            })
-        }
-        val cancelBtn = Button(this).apply {
-            text = AppLang.proCancelBtn; textSize = 12f; setTextColor(0xFF666666.toInt()); isAllCaps = false
-            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF1A1A1A.toInt()); setStroke(dp(1), 0xFF333333.toInt()) }
-            layoutParams = lp(h = 40).also { (it as LinearLayout.LayoutParams).topMargin = dp(10) }
-        }
-        proCard.addView(cancelBtn)
-        page.addView(proCard)
-
-        // Wire subscribe / cancel
-        fun applyProState(pro: Boolean) {
-            ProState.setMockState(this, if (pro) ProState.MOCK_PRO else ProState.MOCK_AUTO)
-            upgradeCard.visibility = if (pro) View.GONE else View.VISIBLE
-            proCard.visibility     = if (pro) View.VISIBLE else View.GONE
-            updateUsageBadge()
-            updateExportSwitch()
-            Toast.makeText(this, if (pro) AppLang.proWelcomeToast else AppLang.proCancelledToast, Toast.LENGTH_SHORT).show()
-        }
-        subscribeBtn.setOnClickListener { applyProState(true) }
-        cancelBtn.setOnClickListener   { applyProState(false) }
 
         // ── Mic widget ──────────────────────────────────────────────────────
         page.addView(section(AppLang.secMicWidget))
@@ -2761,6 +2665,157 @@ class MainActivity : Activity() {
         return scroll
     }
 
+    private fun buildProSettingsScroll(): ScrollView {
+        val scroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            visibility = View.GONE
+        }
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(20), dp(16), dp(32))
+        }
+
+        fun divider() = View(this).apply {
+            setBackgroundColor(0xFF1A3A1A.toInt())
+            layoutParams = lp(h = 1, btm = 12).also { (it as LinearLayout.LayoutParams).topMargin = dp(8) }
+        }
+        fun features(color: Int, container: LinearLayout) {
+            for (feat in listOf(AppLang.proFeature1, AppLang.proFeature2, AppLang.proFeature3))
+                container.addView(TextView(this).apply {
+                    text = feat; textSize = 13f; setTextColor(color); layoutParams = lp(btm = 6)
+                })
+        }
+
+        // ── Card 1: Trial active ──────────────────────────────────────────────
+        val trialCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(18), dp(16), dp(16))
+            background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(0xFF1A1400.toInt()); setStroke(dp(1), 0xFFFFAB40.toInt()) }
+            layoutParams = lp(btm = 16)
+        }
+        val trialDays = ProState.trialDaysLeft(this)
+        trialCard.addView(TextView(this).apply {
+            text = AppLang.proTrialTitle; textSize = 18f; setTextColor(0xFFFFAB40.toInt())
+            setTypeface(typeface, Typeface.BOLD); layoutParams = lp(btm = 4)
+        })
+        trialCard.addView(TextView(this).apply {
+            text = AppLang.trialDaysText(trialDays); textSize = 13f; setTextColor(0xFFFFAB40.toInt()); layoutParams = lp(btm = 12)
+        })
+        trialCard.addView(divider())
+        features(0xFFCCCCCC.toInt(), trialCard)
+        trialCard.addView(divider())
+        trialCard.addView(TextView(this).apply {
+            text = AppLang.proTrialKeep; textSize = 11f; setTextColor(0xFF888888.toInt()); layoutParams = lp(btm = 14)
+        })
+        val trialSubscribeBtn = Button(this).apply {
+            text = AppLang.proSubscribeBtn; textSize = 15f; setTextColor(Color.WHITE); isAllCaps = false
+            background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0xFF2E7D32.toInt()) }
+            layoutParams = lp(h = 52, btm = 8)
+        }
+        trialCard.addView(trialSubscribeBtn)
+        trialCard.addView(TextView(this).apply {
+            text = AppLang.proPriceHint; textSize = 10f; setTextColor(0xFF444444.toInt()); gravity = Gravity.CENTER; layoutParams = lp()
+        })
+        page.addView(trialCard)
+
+        // ── Card 2: Free (expired) ────────────────────────────────────────────
+        val freeCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(18), dp(16), dp(16))
+            background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(0xFF0E1F14.toInt()); setStroke(dp(1), 0xFF2E7D32.toInt()) }
+            layoutParams = lp(btm = 16)
+        }
+        freeCard.addView(TextView(this).apply {
+            text = "✨  ${AppLang.proCardTitle}"; textSize = 18f; setTextColor(0xFF4CAF50.toInt())
+            setTypeface(typeface, Typeface.BOLD); layoutParams = lp(btm = 4)
+        })
+        freeCard.addView(TextView(this).apply {
+            text = AppLang.proCardSubtitle; textSize = 12f; setTextColor(0xFF666666.toInt()); layoutParams = lp(btm = 12)
+        })
+        freeCard.addView(divider())
+        features(0xFFCCCCCC.toInt(), freeCard)
+        freeCard.addView(divider())
+        freeCard.addView(TextView(this).apply {
+            text = AppLang.proFreeLimit; textSize = 11f; setTextColor(0xFF444444.toInt()); layoutParams = lp(btm = 14)
+        })
+        val freeSubscribeBtn = Button(this).apply {
+            text = AppLang.proSubscribeBtn; textSize = 15f; setTextColor(Color.WHITE); isAllCaps = false
+            background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0xFF2E7D32.toInt()) }
+            layoutParams = lp(h = 52, btm = 8)
+        }
+        freeCard.addView(freeSubscribeBtn)
+        freeCard.addView(TextView(this).apply {
+            text = AppLang.proPriceHint; textSize = 10f; setTextColor(0xFF444444.toInt()); gravity = Gravity.CENTER; layoutParams = lp()
+        })
+        page.addView(freeCard)
+
+        // ── Card 3: Pro active ────────────────────────────────────────────────
+        val proCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(18), dp(16), dp(16))
+            background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(0xFF0E1F14.toInt()); setStroke(dp(2), 0xFF4CAF50.toInt()) }
+            layoutParams = lp(btm = 16)
+        }
+        proCard.addView(TextView(this).apply {
+            text = AppLang.proActiveTitle; textSize = 18f; setTextColor(0xFF4CAF50.toInt())
+            setTypeface(typeface, Typeface.BOLD); layoutParams = lp(btm = 6)
+        })
+        proCard.addView(TextView(this).apply {
+            text = AppLang.proActiveDesc; textSize = 13f; setTextColor(0xFF666666.toInt()); layoutParams = lp(btm = 12)
+        })
+        features(0xFF66BB6A.toInt(), proCard)
+        val cancelBtn = Button(this).apply {
+            text = AppLang.proCancelBtn; textSize = 12f; setTextColor(0xFF555555.toInt()); isAllCaps = false
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF141414.toInt()); setStroke(dp(1), 0xFF2A2A2A.toInt()) }
+            layoutParams = lp(h = 40).also { (it as LinearLayout.LayoutParams).topMargin = dp(14) }
+        }
+        proCard.addView(cancelBtn)
+        page.addView(proCard)
+
+        // ── Dev simulate button (toggles trial-expired ↔ trial) ──────────────
+        val simBtn = TextView(this).apply {
+            textSize = 11f; gravity = Gravity.CENTER; isClickable = true; isFocusable = true
+            setPadding(dp(16), dp(10), dp(16), dp(10)); layoutParams = lp(btm = 0)
+        }
+        page.addView(simBtn)
+
+        // ── State machine ────────────────────────────────────────────────────
+        fun refresh() {
+            val mock = ProState.getMockState(this)
+            val pro  = mock == ProState.MOCK_PRO || BillingManager.isSubscribed
+            val free = mock == ProState.MOCK_FREE
+            val trial = !pro && !free && ProState.isInTrial(this)
+
+            trialCard.visibility = if (trial) View.VISIBLE else View.GONE
+            freeCard.visibility  = if (free)  View.VISIBLE else View.GONE
+            proCard.visibility   = if (pro)   View.VISIBLE else View.GONE
+
+            simBtn.text = if (free) "↩  Back to trial mode" else "⏭  Simulate trial expired"
+            simBtn.setTextColor(if (free) 0xFF4CAF50.toInt() else 0xFF555555.toInt())
+
+            updateUsageBadge(); updateExportSwitch()
+            loadEventsList(); loadFavoritesList(); loadNoTimeList()
+        }
+        refresh()
+
+        trialSubscribeBtn.setOnClickListener {
+            ProState.setMockState(this, ProState.MOCK_PRO); refresh()
+            Toast.makeText(this, AppLang.proWelcomeToast, Toast.LENGTH_SHORT).show()
+        }
+        freeSubscribeBtn.setOnClickListener {
+            ProState.setMockState(this, ProState.MOCK_PRO); refresh()
+            Toast.makeText(this, AppLang.proWelcomeToast, Toast.LENGTH_SHORT).show()
+        }
+        cancelBtn.setOnClickListener {
+            ProState.setMockState(this, ProState.MOCK_AUTO); refresh()
+            Toast.makeText(this, AppLang.proCancelledToast, Toast.LENGTH_SHORT).show()
+        }
+        simBtn.setOnClickListener {
+            val next = if (ProState.getMockState(this) == ProState.MOCK_FREE) ProState.MOCK_AUTO else ProState.MOCK_FREE
+            ProState.setMockState(this, next); refresh()
+        }
+
+        scroll.addView(page)
+        return scroll
+    }
+
     private fun buildGCalSettingsScroll(): ScrollView {
         val scroll = ScrollView(this).apply {
             layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
@@ -2770,6 +2825,15 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(32))
         }
+
+        gcalPaywallBanner = TextView(this).apply {
+            textSize = 12f; setTextColor(0xFFFFAB40.toInt())
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(0xFF1A1400.toInt()); setStroke(dp(1), 0xFFFFAB40.toInt()) }
+            layoutParams = lp(btm = 14)
+            setOnClickListener { showPaywallDialog(AppLang.paywallGCalMsg) }
+        }
+        page.addView(gcalPaywallBanner!!)
 
         page.addView(exampleBox(AppLang.gCalTipBox()))
         page.addView(section(AppLang.secAutoExport))
@@ -2783,6 +2847,11 @@ class MainActivity : Activity() {
         exportSwitch = Switch(this).apply {
             isChecked = prefs.getBoolean(KEY_CALENDAR_EXPORT, false)
             setOnCheckedChangeListener { _, checked ->
+                if (checked && !ProState.isUnlocked(this@MainActivity)) {
+                    isChecked = false
+                    showPaywallDialog(AppLang.paywallGCalMsg)
+                    return@setOnCheckedChangeListener
+                }
                 prefs.edit().putBoolean(KEY_CALENDAR_EXPORT, checked).apply()
                 if (checked) ensureCalendarPerms()
             }
@@ -3029,6 +3098,11 @@ class MainActivity : Activity() {
                 badge.setTextColor(0xFF4CAF50.toInt())
                 badge.background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(0x224CAF50) }
             }
+            ProState.getMockState(this) == ProState.MOCK_FREE -> {
+                badge.text = AppLang.freeLabel
+                badge.setTextColor(0xFF888888.toInt())
+                badge.background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(0x22888888) }
+            }
             ProState.isInTrial(this) -> {
                 badge.text = AppLang.trialBadge(ProState.trialDaysLeft(this))
                 badge.setTextColor(0xFFFFAB40.toInt())
@@ -3051,8 +3125,13 @@ class MainActivity : Activity() {
     }
 
     private fun updateExportSwitch() {
-        exportSwitch?.isEnabled = ProState.isUnlocked(this)
+        val unlocked = ProState.isUnlocked(this)
+        exportSwitch?.isEnabled = unlocked
         exportSwitch?.isChecked = prefs.getBoolean(KEY_CALENDAR_EXPORT, false)
+        gcalPaywallBanner?.let {
+            it.visibility = if (unlocked) View.GONE else View.VISIBLE
+            it.text = "🔒  ${AppLang.paywallGCalMsg}  →  ${AppLang.proSubscribeBtn}"
+        }
     }
 
     private fun pinMicWidget() {

@@ -221,12 +221,12 @@ object NotificationHelper {
                 v.setViewVisibility(R.id.row_buttons, View.GONE)
                 v.setViewVisibility(R.id.pinned_row, View.VISIBLE)
                 v.setViewVisibility(R.id.btn_snooze_pin, View.VISIBLE)
-                v.setTextViewText(R.id.btn_snooze_pin, if (hasLoc) "📍 ${event.locationName}" else "📍 Місце")
+                v.setTextViewText(R.id.btn_snooze_pin, "📍")
                 v.setInt(R.id.btn_snooze_pin, "setBackgroundResource",
                     if (hasLoc) R.drawable.bg_notif_btn_amber else R.drawable.bg_notif_btn)
                 v.setOnClickPendingIntent(R.id.btn_snooze_pin, locationPi)
                 v.setViewVisibility(R.id.btn_postpone_day, View.VISIBLE)
-                v.setTextViewText(R.id.btn_postpone_day, if (effectivePinned) "📌 Закріп." else "📌 Закріпити")
+                v.setTextViewText(R.id.btn_postpone_day, "📌")
                 v.setInt(R.id.btn_postpone_day, "setBackgroundResource",
                     if (effectivePinned) R.drawable.bg_notif_btn_amber else R.drawable.bg_notif_btn)
                 v.setOnClickPendingIntent(R.id.btn_postpone_day, pinPi)

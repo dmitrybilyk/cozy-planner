@@ -367,6 +367,7 @@ class VoiceActivity : Activity() {
     }
 
     private fun calendarExportEnabled(): Boolean {
+        if (!ProState.isUnlocked(this)) return false
         val prefs = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
         return prefs.getBoolean(MainActivity.KEY_CALENDAR_EXPORT, false)
     }
