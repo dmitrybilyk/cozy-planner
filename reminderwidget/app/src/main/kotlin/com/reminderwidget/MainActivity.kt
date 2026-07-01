@@ -120,6 +120,8 @@ class MainActivity : Activity() {
     private var lastDraggedPlace:   String?       = null
     private val RC_TODO_VOICE       = 2001
     private val RC_TODO_EDIT_VOICE  = 2002
+    private val RC_EXPORT_BACKUP    = 2010
+    private val RC_IMPORT_BACKUP    = 2011
     private var pendingEditVoiceResult: String? = null
     private var pendingEditTitleField: android.widget.EditText? = null
     private var todoListener:         com.google.firebase.firestore.ListenerRegistration? = null
@@ -312,6 +314,34 @@ class MainActivity : Activity() {
 
         if (requestCode == RC_LOCATION_MANAGER && resultCode == RESULT_OK) {
             loadEventsList(); loadFavoritesList()
+            return
+        }
+
+        if (requestCode == RC_EXPORT_BACKUP && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            try {
+                val json = BackupManager.exportJson(this)
+                contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                Toast.makeText(this, "✅ Резервну копію збережено", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Помилка: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+
+        if (requestCode == RC_IMPORT_BACKUP && resultCode == RESULT_OK) {
+            val uri = data?.data ?: return
+            try {
+                val json = contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                    ?: throw Exception("Не вдалось прочитати файл")
+                val result = BackupManager.importJson(this, json)
+                refreshDynamicState()
+                Toast.makeText(this,
+                    "✅ Відновлено: ${result.events} подій, ${result.todos} задач",
+                    Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Помилка: ${e.message}", Toast.LENGTH_LONG).show()
+            }
             return
         }
 
@@ -2305,6 +2335,36 @@ class MainActivity : Activity() {
 
         page.addView(section("Колір події"))
         page.addView(colorRow(EVENT_COLORS, KEY_EVENT_COLOR, 0))
+
+        page.addView(section("Резервна копія"))
+        page.addView(Button(this).apply {
+            text = "📥  Зберегти резервну копію"
+            textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF1A2A3A.toInt(), 8f); layoutParams = lp(h = 46, btm = 4)
+            setOnClickListener {
+                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                val name = "remindly-backup-${sdf.format(java.util.Date())}.json"
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "application/json"
+                    putExtra(Intent.EXTRA_TITLE, name)
+                }
+                startActivityForResult(intent, RC_EXPORT_BACKUP)
+            }
+        })
+        page.addView(Button(this).apply {
+            text = "📤  Відновити з резервної копії"
+            textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF2A1A1A.toInt(), 8f); layoutParams = lp(h = 46, btm = 4)
+            setOnClickListener {
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "application/json"
+                }
+                startActivityForResult(intent, RC_IMPORT_BACKUP)
+            }
+        })
+        page.addView(small("Зберігає та відновлює всі події, задачі і локації.", btm = 16))
 
         page.addView(section("Поділитись"))
         page.addView(Button(this).apply {
