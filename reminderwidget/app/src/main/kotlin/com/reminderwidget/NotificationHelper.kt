@@ -44,6 +44,8 @@ object NotificationHelper {
     const val EXTRA_SNOOZE_MINUTES  = "snooze_minutes"
     const val KEY_SNOOZE1_MIN       = "snooze1_min"
     const val KEY_SNOOZE2_MIN       = "snooze2_min"
+    const val KEY_SNOOZE1_IS_DAYS   = "snooze1_is_days"
+    const val KEY_SNOOZE2_IS_DAYS   = "snooze2_is_days"
 
     private fun repeatPrefs(context: Context) =
         context.getSharedPreferences("repeat_state", Context.MODE_PRIVATE)
@@ -158,9 +160,13 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val snoozePrefs  = context.getSharedPreferences("widget_settings", Context.MODE_PRIVATE)
-        val snooze1Min   = snoozePrefs.getInt(KEY_SNOOZE1_MIN, 1).coerceAtLeast(1)
-        val snooze2Min   = snoozePrefs.getInt(KEY_SNOOZE2_MIN, 30).coerceAtLeast(1)
+        val snoozePrefs   = context.getSharedPreferences("widget_settings", Context.MODE_PRIVATE)
+        val snooze1Value  = snoozePrefs.getInt(KEY_SNOOZE1_MIN, 1).coerceAtLeast(1)
+        val snooze2Value  = snoozePrefs.getInt(KEY_SNOOZE2_MIN, 30).coerceAtLeast(1)
+        val snooze1IsDays = snoozePrefs.getBoolean(KEY_SNOOZE1_IS_DAYS, false)
+        val snooze2IsDays = snoozePrefs.getBoolean(KEY_SNOOZE2_IS_DAYS, false)
+        val snooze1Min    = if (snooze1IsDays) snooze1Value * 24 * 60 else snooze1Value
+        val snooze2Min    = if (snooze2IsDays) snooze2Value * 24 * 60 else snooze2Value
         val donePi         = broadcastPi(context, nid,      ACTION_DONE,          event.id)
         val repeatPi       = broadcastPi(context, nid + 7,  ACTION_REPEAT_TOGGLE, event.id)
         val pinPi          = broadcastPi(context, nid + 8,  ACTION_PIN,           event.id)
@@ -199,6 +205,7 @@ object NotificationHelper {
         )
 
         fun fmtMin(m: Int) = if (m >= 60) "${m / 60}г${if (m % 60 != 0) "${m % 60}'" else ""}" else "$m'"
+        fun fmtSnooze(value: Int, isDays: Boolean) = if (isDays) "${value}д" else fmtMin(value)
 
         fun makeViews(showBody: Boolean): RemoteViews {
             val v = RemoteViews(context.packageName, R.layout.notification_alarm)
@@ -241,8 +248,8 @@ object NotificationHelper {
                 v.setInt(R.id.btn_repeat, "setBackgroundColor", if (repeating) 0xFFFF5722.toInt() else Color.TRANSPARENT)
                 v.setTextColor(R.id.btn_repeat, btnText)
                 v.setTextViewText(R.id.btn_repeat, "🔁1'")
-                v.setTextViewText(R.id.btn_snooze_a, fmtMin(snooze1Min))
-                v.setTextViewText(R.id.btn_snooze_b, fmtMin(snooze2Min))
+                v.setTextViewText(R.id.btn_snooze_a, fmtSnooze(snooze1Value, snooze1IsDays))
+                v.setTextViewText(R.id.btn_snooze_b, fmtSnooze(snooze2Value, snooze2IsDays))
                 v.setOnClickPendingIntent(R.id.btn_snooze_a, snoozePi1)
                 v.setOnClickPendingIntent(R.id.btn_snooze_b, snoozePi2)
                 // Pin button: hidden when repeating (repeat = pinned); orange when already pinned

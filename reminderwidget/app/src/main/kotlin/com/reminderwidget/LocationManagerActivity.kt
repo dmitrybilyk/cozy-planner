@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
@@ -20,6 +22,7 @@ class LocationManagerActivity : Activity() {
 
     private lateinit var listContainer: LinearLayout
     private var editingOldName: String? = null
+    private var searchQuery: String = ""
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -48,18 +51,34 @@ class LocationManagerActivity : Activity() {
         })
         root.addView(header)
 
-        root.addView(TextView(this).apply {
-            text = "+ Додати нову локацію"; textSize = 14f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+        val toolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(0xFF111111.toInt())
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        val searchEdit = EditText(this).apply {
+            hint = "Пошук…"; textSize = 14f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()) }
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f).also { it.marginEnd = dp(8) }
+            addTextChangedListener(object : TextWatcher {
+                override fun afterTextChanged(s: Editable?) { searchQuery = s?.toString() ?: ""; rebuildList() }
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            })
+        }
+        toolbar.addView(searchEdit)
+        toolbar.addView(TextView(this).apply {
+            text = "+"; textSize = 22f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF1B5E20.toInt()) }
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also {
-                it.setMargins(dp(16), dp(12), dp(16), dp(4))
-            }
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
             setOnClickListener {
                 editingOldName = null
                 startActivityForResult(Intent(this@LocationManagerActivity, LocationPickerActivity::class.java), RC_PICK)
             }
         })
+        root.addView(toolbar)
 
         val scroll = ScrollView(this).apply { layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f) }
         listContainer = LinearLayout(this).apply {
@@ -75,11 +94,14 @@ class LocationManagerActivity : Activity() {
 
     private fun rebuildList() {
         listContainer.removeAllViews()
-        val locations = LocationsStore.load(this)
+        val all = LocationsStore.load(this)
+        val locations = if (searchQuery.isBlank()) all
+                        else all.filter { it.name.contains(searchQuery, ignoreCase = true) }
         if (locations.isEmpty()) {
             listContainer.addView(TextView(this).apply {
-                text = "Немає збережених локацій.\nДодайте першу ↑"; textSize = 14f
-                setTextColor(0xFF555555.toInt()); gravity = Gravity.CENTER
+                text = if (searchQuery.isBlank()) "Немає збережених локацій.\nДодайте першу ↑"
+                       else "Нічого не знайдено"
+                textSize = 14f; setTextColor(0xFF555555.toInt()); gravity = Gravity.CENTER
                 setPadding(0, dp(32), 0, 0)
                 layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
             })

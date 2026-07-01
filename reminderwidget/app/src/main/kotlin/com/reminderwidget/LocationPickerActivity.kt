@@ -150,10 +150,8 @@ class LocationPickerActivity : Activity() {
         @JavascriptInterface
         fun onNameSuggested(name: String) {
             runOnUiThread {
-                if (nameEdit.text.isBlank()) {
-                    nameEdit.setText(name.take(50))
-                    nameEdit.setSelection(nameEdit.text.length)
-                }
+                nameEdit.setText(name.take(50))
+                nameEdit.setSelection(nameEdit.text.length)
             }
         }
     }
@@ -183,7 +181,7 @@ class LocationPickerActivity : Activity() {
                     runOnUiThread {
                         coordsLabel.text = "%.5f, %.5f".format(loc.latitude, loc.longitude)
                         webView.evaluateJavascript(
-                            "map.setView([${loc.latitude},${loc.longitude}],17);", null
+                            "map.setView([${loc.latitude},${loc.longitude}],17); reverseGeocode(${loc.latitude},${loc.longitude});", null
                         )
                     }
                 } else Toast.makeText(this, "GPS не знайдено. Спробуйте ще раз.", Toast.LENGTH_SHORT).show()

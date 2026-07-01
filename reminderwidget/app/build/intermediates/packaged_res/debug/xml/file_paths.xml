@@ -2,5 +2,6 @@
 <paths>
     <cache-path name="shared_images" path="images/"/>
     <cache-path name="shared_apk" path="apk/"/>
+    <cache-path name="shared_ics" path="."/>
     <external-files-path name="shared_apk_ext" path="share/"/>
 </paths>

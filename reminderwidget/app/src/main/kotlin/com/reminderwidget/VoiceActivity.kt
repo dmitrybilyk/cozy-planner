@@ -111,32 +111,57 @@ class VoiceActivity : Activity() {
         }
     }
 
+    private fun extractLeadingLocation(text: String): Pair<String, String>? {
+        val locations = LocationsStore.load(this)
+        if (locations.isEmpty()) return null
+        val lower = text.lowercase().trim()
+        val preps = listOf("в ", "у ", "на ", "до ")
+        for (loc in locations.sortedByDescending { it.name.length }) {
+            val name = loc.name.lowercase()
+            if (lower.startsWith("$name ")) {
+                val rest = text.drop(name.length).trim()
+                if (rest.isNotBlank()) return Pair(rest, loc.name)
+            }
+            for (prep in preps) {
+                if (lower.startsWith("$prep$name ")) {
+                    val rest = text.drop((prep + name).length).trim()
+                    if (rest.isNotBlank()) return Pair(rest, loc.name)
+                }
+            }
+        }
+        return null
+    }
+
     private fun createEventAsync(text: String, exportToCalendar: Boolean) {
         val nowMs = System.currentTimeMillis()
         val p     = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
         val tp    = NlpParser.TimePrefs(
-            morningHour  = p.getInt(MainActivity.KEY_MORNING_HOUR, 8),
+            morningHour  = p.getInt(MainActivity.KEY_MORNING_HOUR, 9),
             morningMin   = p.getInt(MainActivity.KEY_MORNING_MIN,  0),
             dayHour      = p.getInt(MainActivity.KEY_DAY_HOUR,    13),
             dayMin       = p.getInt(MainActivity.KEY_DAY_MIN,      0),
             eveningHour  = p.getInt(MainActivity.KEY_EVENING_HOUR, 19),
             eveningMin   = p.getInt(MainActivity.KEY_EVENING_MIN,  0),
         )
+        val locExtraction  = extractLeadingLocation(text)
+        val parseText      = locExtraction?.first ?: text
+        val leadingLocName = locExtraction?.second
+
         val msgs = mutableListOf<Pair<String, String>>() // (when, what)
-        val multiResults = tryMultiDate(text, nowMs, tp)
+        val multiResults = tryMultiDate(parseText, nowMs, tp)
         if (multiResults != null) {
             multiResults.forEachIndexed { i, parsed ->
-                applyResult(text, parsed, exportToCalendar, idOffset = i.toLong())?.let { msgs.add(it) }
+                applyResult(parseText, parsed, exportToCalendar, idOffset = i.toLong(), leadingLocation = leadingLocName)?.let { msgs.add(it) }
             }
         } else {
-            val parsed = NlpParser.parse(text, nowMs, tp)
+            val parsed = NlpParser.parse(parseText, nowMs, tp)
             if (parsed.count > 1 && parsed.intervalMs != null) {
                 for (i in 0 until parsed.count) {
                     val shifted = parsed.copy(startMs = parsed.startMs + i * parsed.intervalMs, count = 1, intervalMs = null)
-                    applyResult(text, shifted, exportToCalendar, idOffset = i.toLong())?.let { msgs.add(it) }
+                    applyResult(parseText, shifted, exportToCalendar, idOffset = i.toLong(), leadingLocation = leadingLocName)?.let { msgs.add(it) }
                 }
             } else {
-                applyResult(text, parsed, exportToCalendar)?.let { msgs.add(it) }
+                applyResult(parseText, parsed, exportToCalendar, leadingLocation = leadingLocName)?.let { msgs.add(it) }
             }
         }
         if (msgs.isEmpty()) { finish(); return }
@@ -170,7 +195,7 @@ class VoiceActivity : Activity() {
         return results.map { it.copy(title = bestTitle) }
     }
 
-    private fun applyResult(originalText: String, parsed: NlpParser.Result, exportToCalendar: Boolean, idOffset: Long = 0L): Pair<String, String>? {
+    private fun applyResult(originalText: String, parsed: NlpParser.Result, exportToCalendar: Boolean, idOffset: Long = 0L, leadingLocation: String? = null): Pair<String, String>? {
         val prefs         = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
         val durationMs    = prefs.getLong(MainActivity.KEY_DURATION_MS, 7 * 24 * 60 * 60_000L)
         val color         = prefs.getInt(MainActivity.KEY_EVENT_COLOR, 0)
@@ -179,7 +204,7 @@ class VoiceActivity : Activity() {
 
         val event = EventStore.AppEvent(
             id         = localId,
-            title      = parsed.title,
+            title      = parsed.title.replaceFirstChar { it.uppercase() },
             startMs    = parsed.startMs,
             durationMs = effectiveDur,
             rrule      = parsed.rrule,
@@ -187,6 +212,7 @@ class VoiceActivity : Activity() {
         )
         EventStore.add(this, event)
         incrementCount(this)
+        if (leadingLocation != null) EventStore.setLocation(this, localId, leadingLocation)
 
         if (!parsed.hasTime) {
             NotificationHelper.post(this, event, ongoing = true, silent = true, fullscreen = false, pinned = true)
@@ -196,7 +222,8 @@ class VoiceActivity : Activity() {
             }
             EventsWidget.update(this)
             PersistentNotif.update(this)
-            return Pair("📌 Без часу", "«${parsed.title}» — натисни 📍 щоб прив'язати до місця")
+            val locSuffix = if (leadingLocation != null) " · 📍 $leadingLocation" else " — натисни 📍 щоб прив'язати до місця"
+            return Pair("📌 Без часу", "«${parsed.title}»$locSuffix")
         }
 
         val now       = System.currentTimeMillis()

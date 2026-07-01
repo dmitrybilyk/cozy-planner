@@ -111,6 +111,8 @@ class MainActivity : Activity() {
     private var eventsSubTabBtns:   Array<TextView> = emptyArray()
     private var eventsAllScroll:    ScrollView? = null
     private var eventsFavScroll:    ScrollView? = null
+    private var eventsNoTimeScroll: ScrollView? = null
+    private var noTimeContainer:    LinearLayout? = null
     private var currentTodoTab      = 0
     private var todoSubTabBtns:     Array<TextView> = emptyArray()
     private var todoGroupPanel:     LinearLayout? = null
@@ -137,6 +139,14 @@ class MainActivity : Activity() {
     private var currentTodoMode     = 0   // 0=private, 1=group
     private var modeSwitcherBtns:   Array<TextView> = emptyArray()
     private val RC_LOCATION_MANAGER = 302
+    private var helpPage: View? = null
+    private var helpBtn:  TextView? = null
+    private var backBtn:  TextView? = null
+    private val RC_LOC_ADD          = 303
+    private val RC_LOC_EDIT         = 304
+    private var editingLocationName: String? = null
+    private var locationsListContainer: LinearLayout? = null
+    private var locationsSearchQuery: String = ""
     private var groupJoinContainer:      LinearLayout? = null
     private var groupConnectedContainer: LinearLayout? = null
 
@@ -148,6 +158,7 @@ class MainActivity : Activity() {
             }
             loadEventsList()
             loadFavoritesList()
+            loadNoTimeList()
             if (currentTab == 1) loadTodoList()
         }
     }
@@ -229,7 +240,7 @@ class MainActivity : Activity() {
                 NotificationHelper.cancelAlarm(this, id)
             }
             if (added.isNotEmpty() || removedIds.isNotEmpty()) {
-                if (currentTab == 0) { loadEventsList(); loadFavoritesList() }
+                if (currentTab == 0) { loadEventsList(); loadFavoritesList(); loadNoTimeList() }
                 EventsWidget.update(this)
             }
         }
@@ -254,7 +265,7 @@ class MainActivity : Activity() {
                 NotificationHelper.cancelRepeat(this, id)
             }
             if (added.isNotEmpty() || removedIds.isNotEmpty()) {
-                if (currentTab == 0) { loadEventsList(); loadFavoritesList() }
+                if (currentTab == 0) { loadEventsList(); loadFavoritesList(); loadNoTimeList() }
                 EventsWidget.update(this)
                 PersistentNotif.update(this)
             }
@@ -313,7 +324,32 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == RC_LOCATION_MANAGER && resultCode == RESULT_OK) {
-            loadEventsList(); loadFavoritesList()
+            loadEventsList(); loadFavoritesList(); loadNoTimeList(); loadLocationsList()
+            return
+        }
+
+        if (requestCode == RC_LOC_ADD && resultCode == RESULT_OK && data != null) {
+            val name = data.getStringExtra(LocationPickerActivity.EXTRA_NAME) ?: return
+            val lat  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LAT, 0.0)
+            val lng  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LNG, 0.0)
+            LocationsStore.add(this, LocationsStore.AppLocation(name, lat, lng))
+            loadLocationsList()
+            return
+        }
+
+        if (requestCode == RC_LOC_EDIT && resultCode == RESULT_OK && data != null) {
+            val name = data.getStringExtra(LocationPickerActivity.EXTRA_NAME) ?: return
+            val lat  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LAT, 0.0)
+            val lng  = data.getDoubleExtra(LocationPickerActivity.EXTRA_LNG, 0.0)
+            val old  = editingLocationName
+            if (old != null && old != name) {
+                GeofenceManager.unregisterForLocation(this, old)
+                EventStore.clearLocation(this, old)
+                LocationsStore.remove(this, old)
+            }
+            LocationsStore.add(this, LocationsStore.AppLocation(name, lat, lng))
+            editingLocationName = null
+            loadLocationsList(); loadEventsList(); loadFavoritesList(); loadNoTimeList()
             return
         }
 
@@ -387,10 +423,11 @@ class MainActivity : Activity() {
         }
         tabPages = arrayOf(
             buildEventsPage(),
-            buildTodoPage(),
+            buildLocationsMainPage(),
             buildSettingsPage(),
         )
         tabPages.forEach { frame.addView(it) }
+        helpPage = buildHelpPage().also { it.visibility = View.GONE; frame.addView(it) }
         root.addView(frame)
         root.addView(buildBottomNav())
         showTab(0)
@@ -403,8 +440,15 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56))
             setBackgroundColor(0xFF111111.toInt())
-            setPadding(dp(16), 0, dp(16), 0)
+            setPadding(dp(12), 0, dp(12), 0)
         }
+        backBtn = TextView(this).apply {
+            text = "←"; textSize = 20f; setTextColor(0xFFFF5722.toInt())
+            setPadding(dp(4), dp(4), dp(12), dp(4))
+            visibility = View.GONE
+            setOnClickListener { hideHelp() }
+        }
+        bar.addView(backBtn!!)
         bar.addView(TextView(this).apply {
             text = "🎙  Нагадування"; textSize = 17f; setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
@@ -416,11 +460,38 @@ class MainActivity : Activity() {
             background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(0x22FF5722) }
         }
         bar.addView(usageBadge!!)
+        helpBtn = TextView(this).apply {
+            text = "?"; textSize = 18f; setTextColor(0xFF888888.toInt())
+            setPadding(dp(12), dp(4), dp(4), dp(4))
+            setTypeface(typeface, Typeface.BOLD)
+            setOnClickListener { showHelp() }
+        }
+        bar.addView(helpBtn!!)
         return bar
     }
 
+    private fun showHelp() {
+        tabPages.forEach { it.visibility = View.GONE }
+        helpPage?.visibility = View.VISIBLE
+        backBtn?.visibility  = View.VISIBLE
+        helpBtn?.visibility  = View.GONE
+    }
+
+    private fun hideHelp() {
+        helpPage?.visibility = View.GONE
+        backBtn?.visibility  = View.GONE
+        helpBtn?.visibility  = View.VISIBLE
+        tabPages.forEachIndexed { i, p -> p.visibility = if (i == currentTab) View.VISIBLE else View.GONE }
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onBackPressed() {
+        if (helpPage?.visibility == View.VISIBLE) { hideHelp(); return }
+        super.onBackPressed()
+    }
+
     private fun buildBottomNav(): View {
-        val navData = listOf("📋" to "Події", "✅" to "Список", "⚙️" to "Налаш.")
+        val navData = listOf("📋" to "Події", "📍" to "Локації", "⚙️" to "Налаш.")
         val navBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(56))
@@ -448,6 +519,9 @@ class MainActivity : Activity() {
     }
 
     private fun showTab(idx: Int) {
+        helpPage?.visibility = View.GONE
+        backBtn?.visibility  = View.GONE
+        helpBtn?.visibility  = View.VISIBLE
         currentTab = idx
         tabPages.forEachIndexed { i, p -> p.visibility = if (i == idx) View.VISIBLE else View.GONE }
         navBtns.forEachIndexed { i, col ->
@@ -457,8 +531,8 @@ class MainActivity : Activity() {
             (col.getChildAt(1) as? TextView)?.setTextColor(if (active) 0xFFFF5722.toInt() else 0xFF555555.toInt())
         }
         when (idx) {
-            0 -> { loadEventsList(); loadFavoritesList() }
-            1 -> loadTodoList()
+            0 -> { loadEventsList(); loadFavoritesList(); loadNoTimeList() }
+            1 -> loadLocationsList()
             2 -> updateSoundBtn()
         }
     }
@@ -485,10 +559,14 @@ class MainActivity : Activity() {
         }
         val favBtn = TextView(this).apply {
             text = "❤️ Обрані"; textSize = 13f; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f).also { it.marginStart = dp(4); it.marginEnd = dp(4) }
+        }
+        val noTimeBtn = TextView(this).apply {
+            text = "📌 Без часу"; textSize = 13f; gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, dp(32), 1f).also { it.marginStart = dp(4) }
         }
-        eventsSubTabBtns = arrayOf(allBtn, favBtn)
-        subTabBar.addView(allBtn); subTabBar.addView(favBtn)
+        eventsSubTabBtns = arrayOf(allBtn, favBtn, noTimeBtn)
+        subTabBar.addView(allBtn); subTabBar.addView(favBtn); subTabBar.addView(noTimeBtn)
         page.addView(subTabBar)
 
         val contentFrame = FrameLayout(this).apply {
@@ -513,45 +591,73 @@ class MainActivity : Activity() {
         favoritesContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         favInner.addView(favoritesContainer); eventsFavScroll!!.addView(favInner)
 
-        contentFrame.addView(eventsAllScroll); contentFrame.addView(eventsFavScroll)
+        eventsNoTimeScroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT); visibility = View.GONE
+        }
+        val noTimeInner = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(8), dp(12), dp(24))
+        }
+        noTimeContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        noTimeInner.addView(noTimeContainer); eventsNoTimeScroll!!.addView(noTimeInner)
+
+        contentFrame.addView(eventsAllScroll); contentFrame.addView(eventsFavScroll); contentFrame.addView(eventsNoTimeScroll)
         page.addView(contentFrame)
 
-        val micFab = Button(this).apply {
-            text = "🎙"
-            textSize = 22f
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            background = GradientDrawable().apply {
-                setColor(0xFFFF5722.toInt())
-                cornerRadius = dp(28).toFloat()
+        val bottomBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(0xFF0D0D0D.toInt())
+            setPadding(dp(16), dp(6), dp(12), dp(6))
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+        }
+        val persistLabel = TextView(this).apply {
+            text = "Показувати в статус-барі"
+            textSize = 12f; setTextColor(0xFFAAAAAA.toInt())
+            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+        }
+        val persistSwitch = Switch(this).apply {
+            isChecked = prefs.getBoolean(PersistentNotif.KEY_ENABLED, false)
+            setOnCheckedChangeListener { _, checked ->
+                prefs.edit().putBoolean(PersistentNotif.KEY_ENABLED, checked).apply()
+                PersistentNotif.update(this@MainActivity)
             }
-            val lp = LinearLayout.LayoutParams(dp(56), dp(56))
-            lp.gravity = Gravity.END
-            lp.marginEnd = dp(16)
-            lp.topMargin = dp(8)
-            lp.bottomMargin = dp(8)
-            layoutParams = lp
+        }
+        bottomBar.addView(persistLabel)
+        bottomBar.addView(persistSwitch)
+        val micFab = Button(this).apply {
+            text = "🎙"; textSize = 22f; isAllCaps = false; setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor(0xFFFF5722.toInt()); cornerRadius = dp(28).toFloat() }
+            layoutParams = LinearLayout.LayoutParams(dp(56), dp(56)).also {
+                it.marginStart = dp(12)
+            }
             setOnClickListener {
                 startActivity(Intent(this@MainActivity, VoiceActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 })
             }
         }
-        page.addView(micFab)
+        bottomBar.addView(micFab)
+        page.addView(bottomBar)
 
         fun applyEventsSubTab(idx: Int) {
             currentEventsSubTab = idx
-            eventsAllScroll?.visibility  = if (idx == 0) View.VISIBLE else View.GONE
-            eventsFavScroll?.visibility  = if (idx == 1) View.VISIBLE else View.GONE
-            micFab.visibility            = if (idx == 0) View.VISIBLE else View.GONE
+            eventsAllScroll?.visibility    = if (idx == 0) View.VISIBLE else View.GONE
+            eventsFavScroll?.visibility    = if (idx == 1) View.VISIBLE else View.GONE
+            eventsNoTimeScroll?.visibility = if (idx == 2) View.VISIBLE else View.GONE
+            micFab.visibility              = if (idx == 0) View.VISIBLE else View.INVISIBLE
             eventsSubTabBtns.forEachIndexed { i, btn ->
                 btn.background = roundedBg(if (i == idx) 0xFFFF5722.toInt() else 0xFF252525.toInt(), 8f)
                 btn.setTextColor(if (i == idx) Color.WHITE else 0xFF666666.toInt())
             }
-            if (idx == 0) loadEventsList() else loadFavoritesList()
+            when (idx) {
+                0 -> loadEventsList()
+                1 -> loadFavoritesList()
+                2 -> loadNoTimeList()
+            }
         }
         allBtn.setOnClickListener { applyEventsSubTab(0) }
         favBtn.setOnClickListener { applyEventsSubTab(1) }
+        noTimeBtn.setOnClickListener { applyEventsSubTab(2) }
         applyEventsSubTab(0)
         return page
     }
@@ -589,6 +695,15 @@ class MainActivity : Activity() {
             EventStore.load(this).filter { it.favorite },
             showDeleteAll = false,
             emptyText = "Натисніть ❤️ на нагадуванні\nщоб додати до обраних"
+        )
+    }
+
+    private fun loadNoTimeList() {
+        populateContainer(
+            noTimeContainer ?: return,
+            EventStore.load(this).filter { !it.completed && !it.hasTime },
+            showDeleteAll = false,
+            emptyText = "Немає нагадувань без часу.\n\nСкажіть подію без часу — вона з'явиться тут."
         )
     }
 
@@ -840,7 +955,7 @@ class MainActivity : Activity() {
                     Toast.makeText(this, "📌 Закріплено в статус-барі", Toast.LENGTH_SHORT).show()
                     EventsWidget.update(this)
                 }
-                loadEventsList(); loadFavoritesList()
+                loadEventsList(); loadFavoritesList(); loadNoTimeList()
             })
         }
 
@@ -849,31 +964,16 @@ class MainActivity : Activity() {
             row.addView(gcalExportBtn(btnSz, exported) { exportEventToCalendar(event) })
         }
 
+        // 📤 share event
+        row.addView(iconBtn("📤", btnSz, 0xFF242424.toInt()) { shareEvent(event) })
+
         // ❤️ favorite toggle — always
         row.addView(iconBtn(if (event.favorite) "❤️" else "🤍", btnSz,
             if (event.favorite) 0xFF2A1020.toInt() else 0xFF242424.toInt()) {
             EventStore.markFavorite(this, event.id, !event.favorite)
-            loadEventsList(); loadFavoritesList()
+            loadEventsList(); loadFavoritesList(); loadNoTimeList()
         })
 
-        // 👥 group toggle — only when in a group
-        if (GroupStore.isInGroup(this)) {
-            row.addView(iconBtn("👥", btnSz,
-                if (event.isGroup) 0xFF0D2A0D.toInt() else 0xFF242424.toInt(),
-                tint = if (event.isGroup) 0xFF66BB6A.toInt() else 0xFF333333.toInt()) {
-                val nowGroup = !event.isGroup
-                EventStore.markGroup(this, event.id, nowGroup)
-                if (nowGroup) {
-                    val groupId = GroupStore.getGroupId(this)!!
-                    val updated = EventStore.load(this).find { it.id == event.id } ?: return@iconBtn
-                    FirebaseSync.pushGroupEvent(groupId, updated)
-                    Toast.makeText(this, "👥 Подія поширена до групи", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "👥 Групову мітку знято", Toast.LENGTH_SHORT).show()
-                }
-                loadEventsList(); loadFavoritesList()
-            })
-        }
 
         // 📍 location — only on non-completed events where no specific time was recognized
         if (!event.completed && !event.hasTime) {
@@ -894,7 +994,7 @@ class MainActivity : Activity() {
             NotificationHelper.setRepeating(this, event.id, false)
             EventStore.remove(this, event.id)
             EventsWidget.update(this)
-            loadEventsList(); loadFavoritesList()
+            loadEventsList(); loadFavoritesList(); loadNoTimeList()
         })
 
         card.addView(row)
@@ -1008,7 +1108,7 @@ class MainActivity : Activity() {
 
                 EventsWidget.update(this)
                 sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                loadEventsList(); loadFavoritesList()
+                loadEventsList(); loadFavoritesList(); loadNoTimeList()
             }
             .setNegativeButton("Скасувати", null)
             .show()
@@ -1045,10 +1145,44 @@ class MainActivity : Activity() {
         if (calId != -1L) {
             EventStore.updateCalendarId(this, event.id, calId)
             Toast.makeText(this, "📅 Додано до Google Календаря", Toast.LENGTH_SHORT).show()
-            loadEventsList(); loadFavoritesList()
+            loadEventsList(); loadFavoritesList(); loadNoTimeList()
         } else {
             Toast.makeText(this, "Не вдалося додати до Календаря", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun shareEvent(event: EventStore.AppEvent) {
+        val endMs = event.startMs + event.durationMs
+        val enc: (String) -> String = { java.net.URLEncoder.encode(it, "UTF-8") }
+
+        val dates = if (event.hasTime) {
+            val fmt = java.text.SimpleDateFormat("yyyyMMdd'T'HHmmss", java.util.Locale.US)
+            fmt.timeZone = java.util.TimeZone.getDefault()
+            "${fmt.format(java.util.Date(event.startMs))}/${fmt.format(java.util.Date(endMs))}"
+        } else {
+            val fmt = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.US)
+            val d = fmt.format(java.util.Date(event.startMs))
+            "$d/$d"
+        }
+
+        val gcalUrl = buildString {
+            append("https://calendar.google.com/calendar/render?action=TEMPLATE")
+            append("&text=${enc(event.title)}")
+            append("&dates=${enc(dates)}")
+            event.rrule?.let { append("&recur=${enc("RRULE:$it")}") }
+        }
+
+        val displayFmt = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
+        val timeStr = if (event.hasTime) displayFmt.format(java.util.Date(event.startMs))
+                      else java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.getDefault()).format(java.util.Date(event.startMs))
+
+        val text = "📅 ${event.title}\n🕐 $timeStr\n\nДодати до Google Calendar:\n$gcalUrl"
+
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+            putExtra(Intent.EXTRA_SUBJECT, event.title)
+        }, "Поділитись нагадуванням"))
     }
 
     private fun handleIncomingIntent() {
@@ -1071,7 +1205,7 @@ class MainActivity : Activity() {
                 .setMessage("Нагадування спрацює при наближенні на ${GeofenceManager.RADIUS_METERS.toInt()}м.")
                 .setPositiveButton("Видалити") { _, _ ->
                     EventStore.setLocation(this, event.id, null)
-                    loadEventsList(); loadFavoritesList()
+                    loadEventsList(); loadFavoritesList(); loadNoTimeList()
                 }
                 .setNegativeButton("Скасувати", null).show()
             return
@@ -1092,7 +1226,7 @@ class MainActivity : Activity() {
             .setTitle("📍 Локація для «${event.title}»")
             .setItems(names) { _, which ->
                 EventStore.setLocation(this, event.id, names[which])
-                loadEventsList(); loadFavoritesList()
+                loadEventsList(); loadFavoritesList(); loadNoTimeList()
             }.show()
     }
 
@@ -2184,7 +2318,7 @@ class MainActivity : Activity() {
             setBackgroundColor(0xFF111111.toInt())
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, dp(44))
         }
-        val tabLabels = listOf("⚙️ Основні", "📅 Google Cal", "📍 Локації")
+        val tabLabels = listOf("⚙️ Основні", "📅 Google Cal")
         val tabBtns = tabLabels.map { label ->
             TextView(this).apply {
                 text = label; textSize = 12f; gravity = Gravity.CENTER
@@ -2198,8 +2332,7 @@ class MainActivity : Activity() {
         // ── Tab content pages ──────────────────────────────────────────────────
         val tabPages = listOf(
             buildGeneralSettingsScroll(),
-            buildGCalSettingsScroll(),
-            buildLocationsSettingsScroll()
+            buildGCalSettingsScroll()
         )
         val contentFrame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
@@ -2259,23 +2392,6 @@ class MainActivity : Activity() {
         page.addView(soundBtn!!)
         page.addView(small("Відкриває системні налаштування каналу", btm = 8))
 
-        val persistRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 4); gravity = Gravity.CENTER_VERTICAL
-        }
-        persistRow.addView(TextView(this).apply {
-            text = "Показувати в статус-барі"; textSize = 13f; setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-        })
-        val persistSwitch = Switch(this).apply {
-            isChecked = prefs.getBoolean(PersistentNotif.KEY_ENABLED, false)
-            setOnCheckedChangeListener { _, checked ->
-                prefs.edit().putBoolean(PersistentNotif.KEY_ENABLED, checked).apply()
-                PersistentNotif.update(this@MainActivity)
-            }
-        }
-        persistRow.addView(persistSwitch)
-        page.addView(persistRow)
-        page.addView(small("Зворотній відлік до наступного нагадування + мікрофон із заблокованого екрану", btm = 16))
 
         page.addView(section("Кнопки «Відкласти»"))
         page.addView(snoozeInputRow())
@@ -2283,16 +2399,103 @@ class MainActivity : Activity() {
         page.addView(section("Час дня (для «зранку/вдень/ввечері»)"))
         page.addView(timeOfDaySection())
 
-        page.addView(section("Приклади голосових команд"))
-        page.addView(exampleBox(
-            "«Через 5 хвилин відкрити двері»\n" +
-            "«За годину нагадати зустріч»\n" +
-            "«In 4 minutes open the door»\n" +
-            "«On Wednesday close the deal»\n" +
-            "«Every hour stand up»\n" +
-            "«Tomorrow buy milk»"
-        ))
+        page.addView(section("Резервна копія"))
+        val backupRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; layoutParams = lp(btm = 16); gravity = Gravity.CENTER_VERTICAL
+        }
+        backupRow.addView(Button(this).apply {
+            text = "💾  Зберегти"; textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF1A2A3A.toInt(), 8f)
+            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).also { it.marginEnd = dp(6) }
+            setOnClickListener {
+                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"
+                    putExtra(Intent.EXTRA_TITLE, "remindly-backup-${sdf.format(java.util.Date())}.json")
+                }, RC_EXPORT_BACKUP)
+            }
+        })
+        backupRow.addView(Button(this).apply {
+            text = "♻️  Відновити"; textSize = 12f; setTextColor(Color.WHITE)
+            background = roundedBg(0xFF2A1A1A.toInt(), 8f)
+            layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).also { it.marginStart = dp(6) }
+            setOnClickListener {
+                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE); type = "application/json"
+                }, RC_IMPORT_BACKUP)
+            }
+        })
+        page.addView(backupRow)
 
+        scroll.addView(page)
+        return scroll
+    }
+
+    private fun buildHelpPage(): View {
+        val scroll = ScrollView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            setBackgroundColor(0xFF0D0D0D.toInt())
+        }
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(32))
+        }
+        fun helpCard(title: String, body: String) {
+            page.addView(TextView(this).apply {
+                text = title; textSize = 13f; setTextColor(0xFFFF5722.toInt())
+                setTypeface(typeface, Typeface.BOLD)
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(4) }
+            })
+            page.addView(TextView(this).apply {
+                text = body; textSize = 13f; setTextColor(0xFFCCCCCC.toInt()); lineHeight = (textSize * 1.5f).toInt()
+                background = roundedBg(0xFF181818.toInt(), 8f)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(16) }
+            })
+        }
+        helpCard("⏰ Нагадування з часом",
+            "Скажи час у голосовій команді — додаток розпізнає і поставить нагадування:\n\n" +
+            "• «Через 5 хвилин відкрити двері»\n" +
+            "• «Завтра о дев'ятій зателефонувати»\n" +
+            "• «In 4 minutes open the door»\n" +
+            "• «Every hour stand up»\n" +
+            "• «On Wednesday close the deal»"
+        )
+        helpCard("📌 Нагадування без часу",
+            "Якщо час не розпізнано — нагадування одразу з'являється і залишається закріпленим зверху списку.\n\n" +
+            "Такі події можна прив'язати до місця: натисни 📍 на івенті та вибери локацію. Нагадування спрацює, коли ти опинишся поруч із цим місцем."
+        )
+        helpCard("📌 Закріплення в статус-барі",
+            "Натисни 📌 на будь-якому активному івенті, щоб нотифікація залишалась у шторці постійно — навіть після перезавантаження.\n\n" +
+            "Перемикач «Показувати в статус-барі» внизу головного екрану показує відлік до наступного нагадування."
+        )
+        helpCard("🔁 Нагадування щохвилини",
+            "У нотифікації натисни кнопку 🔁 — нагадування почне повторюватись кожну хвилину, доки ти не відхилиш або не виконаєш його."
+        )
+        helpCard("⏱ Кнопки «Відкласти»",
+            "У нотифікації є дві кнопки відкладення (Кнопка 1 і Кнопка 2). Значення і одиниці (хв або дн) налаштовуються у ⚙️ → «Кнопки Відкласти»."
+        )
+        helpCard("📅 Google Calendar",
+            "Натисни 📅 на будь-якому івенті, щоб додати його до Google Calendar вручну.\n\n" +
+            "Або увімкни «Авто-додавати при створенні» у ⚙️ → Google Cal — тоді кожне нове нагадування автоматично потрапить у календар."
+        )
+        helpCard("📤 Поділитись нагадуванням",
+            "Натисни 📤 на івенті — додаток сформує текст із посиланням на Google Calendar. Надішли його в Telegram, WhatsApp або будь-де. Отримувач натискає посилання і зберігає подію до свого Calendar."
+        )
+        helpCard("📍 Локації",
+            "У вкладці 📍 зберігай важливі місця: дім, робота, магазин.\n\n" +
+            "Прив'язуй їх до нагадувань без часу — і телефон нагадає саме тоді, коли ти там опинишся."
+        )
+        helpCard("🗣 Локація у голосовій команді",
+            "Якщо на початку команди стоїть назва збереженої локації — додаток автоматично прив'яже її до події.\n\n" +
+            "• «Вдома зробити зарядку» → подія «Зробити зарядку» · 📍 Вдома\n" +
+            "• «На роботі зустріч» → подія «Зустріч» · 📍 Робота\n" +
+            "• «В офісі дзвінок о третій» → подія «Дзвінок» о 15:00 · 📍 Офіс\n\n" +
+            "Також працює з прийменниками: «в», «у», «на», «до». Назва локації має збігатись із збереженою у вкладці 📍."
+        )
+        helpCard("💾 Резервна копія",
+            "У ⚙️ → «Резервна копія» можна зберегти всі події, задачі і локації у файл, та відновити їх пізніше."
+        )
         scroll.addView(page)
         return scroll
     }
@@ -2336,35 +2539,6 @@ class MainActivity : Activity() {
         page.addView(section("Колір події"))
         page.addView(colorRow(EVENT_COLORS, KEY_EVENT_COLOR, 0))
 
-        page.addView(section("Резервна копія"))
-        page.addView(Button(this).apply {
-            text = "📥  Зберегти резервну копію"
-            textSize = 12f; setTextColor(Color.WHITE)
-            background = roundedBg(0xFF1A2A3A.toInt(), 8f); layoutParams = lp(h = 46, btm = 4)
-            setOnClickListener {
-                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                val name = "remindly-backup-${sdf.format(java.util.Date())}.json"
-                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "application/json"
-                    putExtra(Intent.EXTRA_TITLE, name)
-                }
-                startActivityForResult(intent, RC_EXPORT_BACKUP)
-            }
-        })
-        page.addView(Button(this).apply {
-            text = "📤  Відновити з резервної копії"
-            textSize = 12f; setTextColor(Color.WHITE)
-            background = roundedBg(0xFF2A1A1A.toInt(), 8f); layoutParams = lp(h = 46, btm = 4)
-            setOnClickListener {
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "application/json"
-                }
-                startActivityForResult(intent, RC_IMPORT_BACKUP)
-            }
-        })
-        page.addView(small("Зберігає та відновлює всі події, задачі і локації.", btm = 16))
 
         page.addView(section("Поділитись"))
         page.addView(Button(this).apply {
@@ -2401,6 +2575,133 @@ class MainActivity : Activity() {
             startActivity(Intent.createChooser(sendIntent, "Поділитись Remindly.apk"))
         } catch (e: Exception) {
             Toast.makeText(this, "Помилка: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TAB 2 — LOCATIONS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private fun buildLocationsMainPage(): View {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        }
+
+        // ── top bar: search + add ─────────────────────────────────────────────
+        val topBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(0xFF111111.toInt())
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        val searchEdit = android.widget.EditText(this).apply {
+            hint = "Пошук…"; textSize = 14f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt())
+            }
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f).also { it.marginEnd = dp(8) }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    locationsSearchQuery = s?.toString() ?: ""; loadLocationsList()
+                }
+            })
+        }
+        topBar.addView(searchEdit)
+        topBar.addView(TextView(this).apply {
+            text = "+"; textSize = 22f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            background = roundedBg(0xFF1B5E20.toInt(), 8f)
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+            setOnClickListener {
+                startActivityForResult(
+                    Intent(this@MainActivity, LocationPickerActivity::class.java), RC_LOC_ADD
+                )
+            }
+        })
+        root.addView(topBar)
+
+        val scroll = ScrollView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f)
+        }
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(12), dp(16), dp(32))
+        }
+        locationsListContainer = list
+        scroll.addView(list)
+        root.addView(scroll)
+        return root
+    }
+
+    private fun loadLocationsList() {
+        val container = locationsListContainer ?: return
+        container.removeAllViews()
+        val all  = LocationsStore.load(this)
+        val locs = if (locationsSearchQuery.isBlank()) all
+                   else all.filter { it.name.contains(locationsSearchQuery, ignoreCase = true) }
+        if (locs.isEmpty()) {
+            container.addView(TextView(this).apply {
+                text = if (locationsSearchQuery.isBlank()) "Немає збережених локацій.\nНатисніть «+» вгорі, щоб додати."
+                       else "Нічого не знайдено"
+                textSize = 13f; setTextColor(0xFF888888.toInt())
+                gravity = Gravity.CENTER; setPadding(0, dp(40), 0, 0)
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
+            })
+            return
+        }
+        locs.forEach { loc ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(10), dp(8), dp(10))
+                background = roundedBg(0xFF1A1A1A.toInt(), 10f)
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(8) }
+            }
+            val info = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            }
+            info.addView(TextView(this).apply {
+                text = loc.name; textSize = 14f; setTextColor(Color.WHITE)
+                setTypeface(typeface, Typeface.BOLD)
+            })
+            info.addView(TextView(this).apply {
+                text = "%.5f, %.5f".format(loc.lat, loc.lng)
+                textSize = 11f; setTextColor(0xFF555555.toInt())
+            })
+            row.addView(info)
+            row.addView(TextView(this).apply {
+                text = "✏️"; textSize = 18f; setPadding(dp(8), dp(4), dp(4), dp(4))
+                setOnClickListener {
+                    editingLocationName = loc.name
+                    startActivityForResult(
+                        Intent(this@MainActivity, LocationPickerActivity::class.java).apply {
+                            putExtra(LocationPickerActivity.EDIT_NAME,         loc.name)
+                            putExtra(LocationPickerActivity.EXTRA_INITIAL_LAT, loc.lat)
+                            putExtra(LocationPickerActivity.EXTRA_INITIAL_LNG, loc.lng)
+                        }, RC_LOC_EDIT
+                    )
+                }
+            })
+            row.addView(TextView(this).apply {
+                text = "🗑"; textSize = 18f; setPadding(dp(4), dp(4), dp(4), dp(4))
+                setOnClickListener {
+                    android.app.AlertDialog.Builder(this@MainActivity, android.R.style.Theme_Material_Dialog_Alert)
+                        .setTitle("Видалити «${loc.name}»?")
+                        .setPositiveButton("Видалити") { _, _ ->
+                            GeofenceManager.unregisterForLocation(this@MainActivity, loc.name)
+                            EventStore.clearLocation(this@MainActivity, loc.name)
+                            LocationsStore.remove(this@MainActivity, loc.name)
+                            loadLocationsList()
+                            loadEventsList(); loadFavoritesList(); loadNoTimeList()
+                        }
+                        .setNegativeButton("Скасувати", null).show()
+                }
+            })
+            container.addView(row)
         }
     }
 
@@ -2507,15 +2808,40 @@ class MainActivity : Activity() {
     }
 
     private fun snoozeInputRow(): LinearLayout {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             layoutParams = lp(btm = 20)
-            gravity = android.view.Gravity.CENTER_VERTICAL
         }
-        fun labeledInput(key: String, default: Int): android.widget.EditText {
-            val et = android.widget.EditText(this).apply {
+        fun unitToggle(keyIsDays: String): TextView {
+            val isDays = prefs.getBoolean(keyIsDays, false)
+            val tv = TextView(this).apply {
+                text = if (isDays) "дн" else "хв"
+                textSize = 12f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                background = roundedBg(if (isDays) 0xFF1E3A1E.toInt() else 0xFF2A2A2A.toInt(), 6f)
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+                layoutParams = LinearLayout.LayoutParams(dp(44), WRAP_CONTENT).also { it.marginStart = dp(6) }
+            }
+            tv.setOnClickListener {
+                val now = !prefs.getBoolean(keyIsDays, false)
+                prefs.edit().putBoolean(keyIsDays, now).apply()
+                tv.text = if (now) "дн" else "хв"
+                tv.background = roundedBg(if (now) 0xFF1E3A1E.toInt() else 0xFF2A2A2A.toInt(), 6f)
+            }
+            return tv
+        }
+        fun snoozeRow(label: String, keyMin: String, keyIsDays: String, default: Int): LinearLayout {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(8) }
+            }
+            row.addView(TextView(this).apply {
+                text = label; textSize = 13f; setTextColor(Color.WHITE)
+                layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
+            })
+            row.addView(android.widget.EditText(this).apply {
                 inputType = android.text.InputType.TYPE_CLASS_NUMBER
-                setText(prefs.getInt(key, default).toString())
+                setText(prefs.getInt(keyMin, default).toString())
                 textSize = 14f; setTextColor(Color.WHITE)
                 background = roundedBg(0xFF1E2A30.toInt(), 6f)
                 setPadding(dp(10), dp(6), dp(10), dp(6))
@@ -2525,28 +2851,16 @@ class MainActivity : Activity() {
                     override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
                     override fun afterTextChanged(s: android.text.Editable?) {
                         val v = s?.toString()?.toIntOrNull() ?: return
-                        if (v >= 1) prefs.edit().putInt(key, v).apply()
+                        if (v >= 1) prefs.edit().putInt(keyMin, v).apply()
                     }
                 })
-            }
-            return et
+            })
+            row.addView(unitToggle(keyIsDays))
+            return row
         }
-        fun minLabel(text: String) = TextView(this).apply {
-            this.text = text; textSize = 13f; setTextColor(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).also { it.marginEnd = dp(12) }
-        }
-        row.addView(minLabel("Кнопка 1:"))
-        row.addView(labeledInput(KEY_SNOOZE1_MIN, 1))
-        row.addView(TextView(this).apply {
-            text = " хв"; textSize = 13f; setTextColor(0xFF888888.toInt())
-            layoutParams = LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).also { it.marginEnd = dp(24) }
-        })
-        row.addView(minLabel("Кнопка 2:"))
-        row.addView(labeledInput(KEY_SNOOZE2_MIN, 30))
-        row.addView(TextView(this).apply {
-            text = " хв"; textSize = 13f; setTextColor(0xFF888888.toInt())
-        })
-        return row
+        col.addView(snoozeRow("Кнопка 1", KEY_SNOOZE1_MIN, NotificationHelper.KEY_SNOOZE1_IS_DAYS, 1))
+        col.addView(snoozeRow("Кнопка 2", KEY_SNOOZE2_MIN, NotificationHelper.KEY_SNOOZE2_IS_DAYS, 30))
+        return col
     }
 
     private fun timeOfDaySection(): LinearLayout {
@@ -2577,7 +2891,7 @@ class MainActivity : Activity() {
             row.addView(btn)
             col.addView(row)
         }
-        timeRow("Зранку",  KEY_MORNING_HOUR, KEY_MORNING_MIN, 8,  0)
+        timeRow("Зранку",  KEY_MORNING_HOUR, KEY_MORNING_MIN, 9,  0)
         timeRow("Вдень",   KEY_DAY_HOUR,     KEY_DAY_MIN,     13, 0)
         timeRow("Ввечері", KEY_EVENING_HOUR, KEY_EVENING_MIN, 19, 0)
         return col

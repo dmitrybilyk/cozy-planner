@@ -77,7 +77,7 @@
     var resultsEl = document.getElementById('results');
     resultsEl.innerHTML = '<div class="result-item">Пошук...</div>';
     resultsEl.style.display = 'block';
-    fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=6&accept-language=uk')
+    fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=6&addressdetails=1&accept-language=uk')
       .then(function(r) { return r.json(); })
       .then(function(data) {
         resultsEl.innerHTML = '';
@@ -93,8 +93,16 @@
             map.setView([parseFloat(item.lat), parseFloat(item.lon)], 17);
             resultsEl.style.display = 'none';
             document.getElementById('search-input').blur();
-            var shortName = item.display_name.split(',')[0].trim();
-            if (window.Android) Android.onNameSuggested(shortName);
+            var a = item.address || {};
+            var name = a.amenity || a.shop || a.tourism || a.leisure || a.office || a.building;
+            if (!name) {
+              var road = a.road || a.pedestrian || a.footway || a.street || '';
+              var num  = a.house_number || '';
+              if (road && num) name = road + ', ' + num;
+              else if (road)   name = road;
+            }
+            if (!name) name = item.display_name.split(',').slice(0, 2).join(',').trim();
+            if (window.Android) Android.onNameSuggested(name);
           };
           resultsEl.appendChild(el);
         });
@@ -102,6 +110,20 @@
       .catch(function() {
         resultsEl.innerHTML = '<div class="result-item">Помилка пошуку</div>';
       });
+  }
+
+  function reverseGeocode(lat, lng) {
+    fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lng + '&format=json&accept-language=uk')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data || !data.address) return;
+        var a = data.address;
+        var name = a.amenity || a.shop || a.tourism || a.leisure || a.office
+                || a.building || a.road || a.neighbourhood || a.suburb
+                || (data.display_name ? data.display_name.split(',')[0].trim() : '');
+        if (name && window.Android) Android.onNameSuggested(name);
+      })
+      .catch(function() {});
   }
 
   document.getElementById('map').addEventListener('click', function() {
