@@ -23,7 +23,7 @@ class VoiceActivity : Activity() {
         private const val KEY_COUNT      = "day_count"
         const val FREE_LIMIT = 3
 
-        fun isUnlocked(context: Context): Boolean = true
+        fun isUnlocked(context: Context): Boolean = ProState.isUnlocked(context)
 
         fun todayCount(context: Context): Int {
             val prefs = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
@@ -40,6 +40,7 @@ class VoiceActivity : Activity() {
     }
 
     private var pendingText: String? = null
+    private var pendingIsGoogle = false
     private var recognitionStarted = false
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
@@ -91,9 +92,22 @@ class VoiceActivity : Activity() {
     }
 
     private fun handleText(text: String) {
+        val googleRx = Regex("""^google\s+""", RegexOption.IGNORE_CASE)
+        if (googleRx.containsMatchIn(text)) {
+            val googleText = googleRx.replace(text, "").trim()
+            if (!hasCalendarPerms()) {
+                pendingText = googleText; pendingIsGoogle = true
+                ActivityCompat.requestPermissions(this,
+                    arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR),
+                    RC_CAL_PERM)
+            } else {
+                handleGoogleEvent(googleText)
+            }
+            return
+        }
         val calExport = calendarExportEnabled()
         if (calExport && !hasCalendarPerms()) {
-            pendingText = text
+            pendingText = text; pendingIsGoogle = false
             ActivityCompat.requestPermissions(this,
                 arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR),
                 RC_CAL_PERM)
@@ -107,7 +121,13 @@ class VoiceActivity : Activity() {
         if (requestCode == RC_CAL_PERM) {
             val text = pendingText ?: run { finish(); return }
             pendingText = null
-            createEventAsync(text, grantResults.all { it == PackageManager.PERMISSION_GRANTED })
+            if (pendingIsGoogle) {
+                pendingIsGoogle = false
+                if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) handleGoogleEvent(text)
+                else { Toast.makeText(this, "Потрібен доступ до Google Календаря", Toast.LENGTH_LONG).show(); finish() }
+            } else {
+                createEventAsync(text, grantResults.all { it == PackageManager.PERMISSION_GRANTED })
+            }
         }
     }
 
@@ -133,6 +153,24 @@ class VoiceActivity : Activity() {
     }
 
     private fun createEventAsync(text: String, exportToCalendar: Boolean) {
+        if (!ProState.isUnlocked(this)) {
+            val nowMs2 = System.currentTimeMillis()
+            val activeCount = EventStore.load(this).count { !it.completed && it.hasTime && it.startMs > nowMs2 }
+            if (activeCount >= 2) {
+                android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+                    .setTitle("Remindly Pro")
+                    .setMessage(AppLang.paywallLimitMsg + "\n\n" + AppLang.paywallFeatures)
+                    .setPositiveButton(AppLang.proSubscribeBtn) { _, _ ->
+                        ProState.setMockState(this, ProState.MOCK_PRO)
+                        android.widget.Toast.makeText(this, AppLang.proWelcomeToast, android.widget.Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
+                    .setNegativeButton(AppLang.dlgCancel) { _, _ -> finish() }
+                    .setOnDismissListener { finish() }
+                    .show()
+                return
+            }
+        }
         val nowMs = System.currentTimeMillis()
         val p     = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
         val tp    = NlpParser.TimePrefs(
@@ -223,7 +261,7 @@ class VoiceActivity : Activity() {
             EventsWidget.update(this)
             PersistentNotif.update(this)
             val locSuffix = if (leadingLocation != null) " · 📍 $leadingLocation" else " — натисни 📍 щоб прив'язати до місця"
-            return Pair("📌 Без часу", "«${parsed.title}»$locSuffix")
+            return Pair("📌 Без часу", "«${event.title}»$locSuffix")
         }
 
         val now       = System.currentTimeMillis()
@@ -257,7 +295,75 @@ class VoiceActivity : Activity() {
                 "$icon $dayStr · ${timeFmt.format(java.util.Date(event.startMs))}"
             }
         }
-        return Pair(whenStr, "«${parsed.title}»")
+        return Pair(whenStr, "«${event.title}»")
+    }
+
+    private fun handleGoogleEvent(text: String) {
+        val nowMs = System.currentTimeMillis()
+        val p  = getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+        val tp = NlpParser.TimePrefs(
+            morningHour = p.getInt(MainActivity.KEY_MORNING_HOUR, 9),
+            morningMin  = p.getInt(MainActivity.KEY_MORNING_MIN,  0),
+            dayHour     = p.getInt(MainActivity.KEY_DAY_HOUR,    13),
+            dayMin      = p.getInt(MainActivity.KEY_DAY_MIN,      0),
+            eveningHour = p.getInt(MainActivity.KEY_EVENING_HOUR, 19),
+            eveningMin  = p.getInt(MainActivity.KEY_EVENING_MIN,  0),
+        )
+
+        val isDaily = Regex(
+            """(?:кожного?\s+(?:дня|дн[іи])|щоденно|кожен\s+день)""",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(text)
+
+        val parsed = NlpParser.parse(text, nowMs, tp)
+        val title  = parsed.title.replaceFirstChar { it.uppercase() }
+
+        val (durationMs, rrule) = if (isDaily) {
+            val endCal = java.util.Calendar.getInstance().apply {
+                timeInMillis = parsed.startMs
+                set(java.util.Calendar.HOUR_OF_DAY, 23)
+                set(java.util.Calendar.MINUTE, 59)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            Pair(maxOf(endCal.timeInMillis - parsed.startMs, 60_000L), "FREQ=DAILY")
+        } else {
+            Pair(7L * 24 * 60 * 60_000L, null)
+        }
+
+        val calId = CalendarHelper.createReminder(this, title, parsed.startMs, durationMs, 0, rrule)
+
+        val timeFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        val dateFmt = java.text.SimpleDateFormat("dd.MM", java.util.Locale.getDefault())
+        val eCal  = java.util.Calendar.getInstance().apply { timeInMillis = parsed.startMs }
+        val today = java.util.Calendar.getInstance()
+        val tmrw  = java.util.Calendar.getInstance().apply { add(java.util.Calendar.DAY_OF_YEAR, 1) }
+        val dayStr = when {
+            eCal.get(java.util.Calendar.YEAR) == today.get(java.util.Calendar.YEAR) &&
+            eCal.get(java.util.Calendar.DAY_OF_YEAR) == today.get(java.util.Calendar.DAY_OF_YEAR) -> "сьогодні"
+            eCal.get(java.util.Calendar.YEAR) == tmrw.get(java.util.Calendar.YEAR) &&
+            eCal.get(java.util.Calendar.DAY_OF_YEAR) == tmrw.get(java.util.Calendar.DAY_OF_YEAR) -> "завтра"
+            else -> dateFmt.format(java.util.Date(parsed.startMs))
+        }
+
+        val whenStr = if (isDaily)
+            "🔁 Google · щоденно · ${timeFmt.format(java.util.Date(parsed.startMs))}–23:59"
+        else
+            "📅 Google · $dayStr${if (parsed.hasTime) " · ${timeFmt.format(java.util.Date(parsed.startMs))}" else ""} · 7 дн"
+
+        val whatStr = if (calId != -1L) "«$title»\n✓ Додано до Google Календаря"
+                      else              "«$title»\n❌ Не вдалося додати до Google Календаря"
+
+        val dialog = android.app.AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
+            .setTitle(whenStr)
+            .setMessage(whatStr)
+            .setOnDismissListener { finish() }
+            .create()
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.show()
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (!isFinishing && dialog.isShowing) dialog.dismiss()
+        }, 4000)
     }
 
     private fun calendarExportEnabled(): Boolean {

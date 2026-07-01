@@ -1,10 +1,27 @@
 {
     "logs": [
         {
-            "outputFile": "com.reminderwidget.app-mergeDebugResources-24:/values-pt-rBR/values-pt-rBR.xml",
+            "outputFile": "com.reminderwidget.app-mergeDebugResources-25:/values-pt-rBR/values-pt-rBR.xml",
             "map": [
                 {
-                    "source": "/home/dik81/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/res/values-pt-rBR/values.xml",
+                    "source": "/home/dmytro/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/res/values-pt-rBR/values-pt-rBR.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,152,254,353,453,560,670,790",
+                        "endColumns": "96,101,98,99,106,109,119,100",
+                        "endOffsets": "147,249,348,448,555,665,785,886"
+                    },
+                    "to": {
+                        "startLines": "4,5,6,7,8,9,10,33",
+                        "startColumns": "4,4,4,4,4,4,4,4",
+                        "startOffsets": "286,383,485,584,684,791,901,3715",
+                        "endColumns": "96,101,98,99,106,109,119,100",
+                        "endOffsets": "378,480,579,679,786,896,1016,3811"
+                    }
+                },
+                {
+                    "source": "/home/dmytro/.gradle/caches/8.14.4/transforms/a37605efea2d60fefd8caeb4e62386c9/transformed/jetified-play-services-basement-18.4.0/res/values-pt-rBR/values.xml",
                     "from": {
                         "startLines": "4",
                         "startColumns": "0",
@@ -21,34 +38,7 @@
                     }
                 },
                 {
-                    "source": "/home/dik81/.gradle/caches/8.14.4/transforms/8bd18ef024d4ed0d67be2f4224a3203f/transformed/browser-1.4.0/res/values-pt-rBR/values-pt-rBR.xml",
-                    "from": {
-                        "startLines": "2,3,4,5",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "55,170,269,381",
-                        "endColumns": "114,98,111,105",
-                        "endOffsets": "165,264,376,482"
-                    },
-                    "to": {
-                        "startLines": "29,30,31,32",
-                        "startColumns": "4,4,4,4",
-                        "startOffsets": "3283,3398,3497,3609",
-                        "endColumns": "114,98,111,105",
-                        "endOffsets": "3393,3492,3604,3710"
-                    }
-                },
-                {
-                    "source": "/home/dik81/.gradle/caches/8.14.4/transforms/87bd92af55556e0d8f1eb3cdfb3b3cac/transformed/jetified-credentials-1.2.0-rc01/res/values-pt-rBR/values-pt-rBR.xml",
-                    "from": {
-                        "startLines": "2,3",
-                        "startColumns": "4,4",
-                        "startOffsets": "55,164",
-                        "endColumns": "108,121",
-                        "endOffsets": "159,281"
-                    }
-                },
-                {
-                    "source": "/home/dik81/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/res/values-pt-rBR/values.xml",
+                    "source": "/home/dmytro/.gradle/caches/8.14.4/transforms/37e09c8a70f6e05fec57c5c355807b6f/transformed/jetified-play-services-base-18.5.0/res/values-pt-rBR/values.xml",
                     "from": {
                         "startLines": "4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20",
                         "startColumns": "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0",
@@ -65,20 +55,30 @@
                     }
                 },
                 {
-                    "source": "/home/dik81/.gradle/caches/8.14.4/transforms/26df867a0e3f63bf42e810205d3a4987/transformed/core-1.13.1/res/values-pt-rBR/values-pt-rBR.xml",
+                    "source": "/home/dmytro/.gradle/caches/8.14.4/transforms/8bd18ef024d4ed0d67be2f4224a3203f/transformed/browser-1.4.0/res/values-pt-rBR/values-pt-rBR.xml",
                     "from": {
-                        "startLines": "2,3,4,5,6,7,8,9",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "55,152,254,353,453,560,670,790",
-                        "endColumns": "96,101,98,99,106,109,119,100",
-                        "endOffsets": "147,249,348,448,555,665,785,886"
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,170,269,381",
+                        "endColumns": "114,98,111,105",
+                        "endOffsets": "165,264,376,482"
                     },
                     "to": {
-                        "startLines": "4,5,6,7,8,9,10,33",
-                        "startColumns": "4,4,4,4,4,4,4,4",
-                        "startOffsets": "286,383,485,584,684,791,901,3715",
-                        "endColumns": "96,101,98,99,106,109,119,100",
-                        "endOffsets": "378,480,579,679,786,896,1016,3811"
+                        "startLines": "29,30,31,32",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "3283,3398,3497,3609",
+                        "endColumns": "114,98,111,105",
+                        "endOffsets": "3393,3492,3604,3710"
+                    }
+                },
+                {
+                    "source": "/home/dmytro/.gradle/caches/8.14.4/transforms/87bd92af55556e0d8f1eb3cdfb3b3cac/transformed/jetified-credentials-1.2.0-rc01/res/values-pt-rBR/values-pt-rBR.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,164",
+                        "endColumns": "108,121",
+                        "endOffsets": "159,281"
                     }
                 }
             ]

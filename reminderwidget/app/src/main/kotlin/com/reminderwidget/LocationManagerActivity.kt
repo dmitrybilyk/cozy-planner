@@ -40,7 +40,7 @@ class LocationManagerActivity : Activity() {
             setPadding(dp(14), dp(12), dp(14), dp(12))
         }
         header.addView(TextView(this).apply {
-            text = "📍 Менеджер локацій"; textSize = 16f; setTextColor(Color.WHITE)
+            text = AppLang.locMgrTitle; textSize = 16f; setTextColor(Color.WHITE)
             setTypeface(typeface, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
         })
@@ -58,7 +58,7 @@ class LocationManagerActivity : Activity() {
             setPadding(dp(12), dp(8), dp(12), dp(8))
         }
         val searchEdit = EditText(this).apply {
-            hint = "Пошук…"; textSize = 14f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            hint = AppLang.locSearchHint; textSize = 14f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()) }
             setPadding(dp(10), dp(8), dp(10), dp(8))
             layoutParams = LinearLayout.LayoutParams(0, dp(40), 1f).also { it.marginEnd = dp(8) }
@@ -99,8 +99,7 @@ class LocationManagerActivity : Activity() {
                         else all.filter { it.name.contains(searchQuery, ignoreCase = true) }
         if (locations.isEmpty()) {
             listContainer.addView(TextView(this).apply {
-                text = if (searchQuery.isBlank()) "Немає збережених локацій.\nДодайте першу ↑"
-                       else "Нічого не знайдено"
+                text = if (searchQuery.isBlank()) AppLang.locMgrEmpty else AppLang.locNotFound
                 textSize = 14f; setTextColor(0xFF555555.toInt()); gravity = Gravity.CENTER
                 setPadding(0, dp(32), 0, 0)
                 layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -136,15 +135,15 @@ class LocationManagerActivity : Activity() {
                 text = "🗑"; textSize = 18f; setPadding(dp(4), dp(4), dp(4), dp(4))
                 setOnClickListener {
                     android.app.AlertDialog.Builder(this@LocationManagerActivity, android.R.style.Theme_Material_Dialog_Alert)
-                        .setTitle("Видалити «${loc.name}»?")
-                        .setPositiveButton("Видалити") { _, _ ->
+                        .setTitle(AppLang.locDeleteTitle(loc.name))
+                        .setPositiveButton(AppLang.dlgDelete) { _, _ ->
                             GeofenceManager.unregisterForLocation(this@LocationManagerActivity, loc.name)
                             EventStore.clearLocation(this@LocationManagerActivity, loc.name)
                             LocationsStore.remove(this@LocationManagerActivity, loc.name)
                             rebuildList()
                             setResult(RESULT_OK)
                         }
-                        .setNegativeButton("Скасувати", null).show()
+                        .setNegativeButton(AppLang.dlgCancel, null).show()
                 }
             })
             listContainer.addView(row)

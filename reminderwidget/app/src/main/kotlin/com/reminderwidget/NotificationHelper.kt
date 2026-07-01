@@ -221,18 +221,22 @@ object NotificationHelper {
                 v.setViewVisibility(R.id.row_buttons, View.GONE)
                 v.setViewVisibility(R.id.pinned_row, View.VISIBLE)
                 v.setViewVisibility(R.id.btn_snooze_pin, View.VISIBLE)
-                v.setTextViewText(R.id.btn_snooze_pin, "📍")
-                v.setInt(R.id.btn_snooze_pin, "setBackgroundColor", if (hasLoc) 0xFF0D2040.toInt() else Color.TRANSPARENT)
+                v.setTextViewText(R.id.btn_snooze_pin, if (hasLoc) "📍 ${event.locationName}" else "📍 Місце")
+                v.setInt(R.id.btn_snooze_pin, "setBackgroundResource",
+                    if (hasLoc) R.drawable.bg_notif_btn_amber else R.drawable.bg_notif_btn)
                 v.setOnClickPendingIntent(R.id.btn_snooze_pin, locationPi)
                 v.setViewVisibility(R.id.btn_postpone_day, View.VISIBLE)
-                v.setTextViewText(R.id.btn_postpone_day, "📌")
-                v.setInt(R.id.btn_postpone_day, "setBackgroundColor", if (effectivePinned) 0xFFFFAB40.toInt() else Color.TRANSPARENT)
+                v.setTextViewText(R.id.btn_postpone_day, if (effectivePinned) "📌 Закріп." else "📌 Закріпити")
+                v.setInt(R.id.btn_postpone_day, "setBackgroundResource",
+                    if (effectivePinned) R.drawable.bg_notif_btn_amber else R.drawable.bg_notif_btn)
                 v.setOnClickPendingIntent(R.id.btn_postpone_day, pinPi)
                 v.setViewVisibility(R.id.btn_add_calendar, View.VISIBLE)
                 v.setImageViewResource(R.id.btn_add_calendar, R.drawable.ic_export_gc)
-                v.setInt(R.id.btn_add_calendar, "setColorFilter", if (exported) 0xFF66BB6A.toInt() else 0xFFFFFFFF.toInt())
-                v.setInt(R.id.btn_add_calendar, "setBackgroundColor", if (exported) 0xFF1B2B0E.toInt() else Color.TRANSPARENT)
+                v.setInt(R.id.btn_add_calendar, "setColorFilter", if (exported) 0xFF66BB6A.toInt() else 0xFFAAAAAA.toInt())
+                v.setInt(R.id.btn_add_calendar, "setBackgroundResource",
+                    if (exported) R.drawable.bg_notif_btn_amber else R.drawable.bg_notif_btn)
                 v.setOnClickPendingIntent(R.id.btn_add_calendar, gcalNotifPi)
+                v.setInt(R.id.btn_done_pinned, "setBackgroundResource", R.drawable.bg_notif_btn)
                 v.setOnClickPendingIntent(R.id.btn_done_pinned, donePi)
             } else {
                 // Has-time events: always show row_buttons
@@ -241,23 +245,25 @@ object NotificationHelper {
                 v.setOnClickPendingIntent(R.id.btn_done, donePi)
                 v.setOnClickPendingIntent(R.id.btn_repeat, repeatPi)
                 listOf(R.id.btn_snooze_a, R.id.btn_snooze_b, R.id.btn_done).forEach { id ->
-                    v.setInt(id, "setBackgroundColor", Color.TRANSPARENT)
+                    v.setInt(id, "setBackgroundResource", R.drawable.bg_notif_btn)
                     v.setTextColor(id, btnText)
                 }
-                // Repeat button: orange when active, transparent otherwise; shows "🔁1'"
-                v.setInt(R.id.btn_repeat, "setBackgroundColor", if (repeating) 0xFFFF5722.toInt() else Color.TRANSPARENT)
+                // Repeat button: orange when active, subtle otherwise; shows "🔁1'"
+                v.setInt(R.id.btn_repeat, "setBackgroundResource",
+                    if (repeating) R.drawable.bg_notif_btn_amber else R.drawable.bg_notif_btn)
                 v.setTextColor(R.id.btn_repeat, btnText)
                 v.setTextViewText(R.id.btn_repeat, "🔁1'")
                 v.setTextViewText(R.id.btn_snooze_a, fmtSnooze(snooze1Value, snooze1IsDays))
                 v.setTextViewText(R.id.btn_snooze_b, fmtSnooze(snooze2Value, snooze2IsDays))
                 v.setOnClickPendingIntent(R.id.btn_snooze_a, snoozePi1)
                 v.setOnClickPendingIntent(R.id.btn_snooze_b, snoozePi2)
-                // Pin button: hidden when repeating (repeat = pinned); orange when already pinned
+                // Pin button: hidden when repeating; amber when pinned, subtle otherwise
                 if (repeating) {
                     v.setViewVisibility(R.id.btn_pin, View.GONE)
                 } else {
                     v.setViewVisibility(R.id.btn_pin, View.VISIBLE)
-                    v.setInt(R.id.btn_pin, "setBackgroundColor", if (effectivePinned) 0xFFFFAB40.toInt() else Color.TRANSPARENT)
+                    v.setInt(R.id.btn_pin, "setBackgroundResource",
+                        if (effectivePinned) R.drawable.bg_notif_btn_amber else R.drawable.bg_notif_btn)
                     v.setTextColor(R.id.btn_pin, btnText)
                     v.setOnClickPendingIntent(R.id.btn_pin, pinPi)
                 }

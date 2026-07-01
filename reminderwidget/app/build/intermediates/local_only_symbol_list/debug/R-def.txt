@@ -1,6 +1,8 @@
 R_DEF: Internal format may change without notice
 local
 animator bell_shake
+drawable bg_notif_btn
+drawable bg_notif_btn_amber
 drawable btn_done_pinned_bg
 drawable btn_postpone_bg
 drawable dot_active

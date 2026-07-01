@@ -85,12 +85,14 @@ object PersistentNotif {
 
         if (next != null) {
             val msUntil = next.startMs - now
-            if (msUntil <= 24 * 3_600_000L) {
-                // within 24h — show live countdown
+            if (msUntil in 1..24 * 3_600_000L) {
+                // within 24h and still in the future — show live countdown
                 val chronoBase = SystemClock.elapsedRealtime() + msUntil
                 rv.setChronometer(R.id.status_chrono, chronoBase, null, true)
                 rv.setChronometerCountDown(R.id.status_chrono, true)
                 rv.setViewVisibility(R.id.status_chrono, View.VISIBLE)
+            } else if (msUntil <= 0) {
+                rv.setViewVisibility(R.id.status_chrono, View.GONE)
             } else {
                 // further out — show readable date/time
                 val eCal  = Calendar.getInstance().apply { timeInMillis = next.startMs }

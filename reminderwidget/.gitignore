@@ -9,3 +9,8 @@ local.properties
 # IDE
 .idea/
 *.iml
+
+# Keystore secrets — never commit
+keystore.properties
+*.jks
+*.keystore

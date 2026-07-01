@@ -60,11 +60,11 @@ class LocationPickerActivity : Activity() {
             setPadding(dp(14), dp(10), dp(14), dp(10))
         }
         topBar.addView(TextView(this).apply {
-            text = "Оберіть точку на карті"; textSize = 11f; setTextColor(0xFF888888.toInt())
+            text = AppLang.locPickerSubtitle; textSize = 11f; setTextColor(0xFF888888.toInt())
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).also { it.bottomMargin = dp(6) }
         })
         nameEdit = EditText(this).apply {
-            hint = "Назва місця"; textSize = 15f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
+            hint = AppLang.locPickerNameHint; textSize = 15f; setTextColor(Color.WHITE); setHintTextColor(0xFF555555.toInt())
             setText(intent.getStringExtra(EDIT_NAME) ?: "")
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF252525.toInt()); setStroke(dp(1), 0xFF333333.toInt()) }
             setPadding(dp(12), dp(10), dp(12), dp(10))
@@ -72,13 +72,13 @@ class LocationPickerActivity : Activity() {
         }
         topBar.addView(nameEdit)
         coordsLabel = TextView(this).apply {
-            text = "Перемістіть карту до потрібного місця"; textSize = 11f; setTextColor(0xFF888888.toInt())
+            text = AppLang.locPickerMoveHint; textSize = 11f; setTextColor(0xFF888888.toInt())
         }
         topBar.addView(coordsLabel)
         root.addView(topBar)
 
         root.addView(TextView(this).apply {
-            text = "🎯  Використати поточне місце"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            text = AppLang.locPickerGpsBtn; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = GradientDrawable().apply { setColor(0xFF1565C0.toInt()) }
             setPadding(dp(12), dp(12), dp(12), dp(12))
             layoutParams = LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)
@@ -111,13 +111,13 @@ class LocationPickerActivity : Activity() {
             setPadding(dp(12), dp(10), dp(12), dp(10))
         }
         bottomRow.addView(Button(this).apply {
-            text = "Скасувати"; setTextColor(Color.WHITE)
+            text = AppLang.locPickerCancel; setTextColor(Color.WHITE)
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF333333.toInt()) }
             layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f).also { it.marginEnd = dp(6) }
             setOnClickListener { finish() }
         })
         saveBtn = Button(this).apply {
-            text = "Зберегти"; setTextColor(Color.WHITE)
+            text = AppLang.locPickerSave; setTextColor(Color.WHITE)
             background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xFF1B5E20.toInt()) }
             layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f).also { it.marginStart = dp(6) }
             setOnClickListener { save() }
@@ -184,7 +184,7 @@ class LocationPickerActivity : Activity() {
                             "map.setView([${loc.latitude},${loc.longitude}],17); reverseGeocode(${loc.latitude},${loc.longitude});", null
                         )
                     }
-                } else Toast.makeText(this, "GPS не знайдено. Спробуйте ще раз.", Toast.LENGTH_SHORT).show()
+                } else Toast.makeText(this, AppLang.locPickerNoGps, Toast.LENGTH_SHORT).show()
             }
         } catch (_: SecurityException) {}
     }

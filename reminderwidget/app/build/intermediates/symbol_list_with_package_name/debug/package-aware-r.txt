@@ -75,6 +75,8 @@ dimen notification_small_icon_size_as_large
 dimen notification_subtext_size
 dimen notification_top_pad
 dimen notification_top_pad_large_text
+drawable bg_notif_btn
+drawable bg_notif_btn_amber
 drawable btn_done_pinned_bg
 drawable btn_postpone_bg
 drawable common_full_open_on_phone
@@ -276,6 +278,8 @@ layout widget_event_row
 layout widget_events
 layout widget_reminder
 mipmap ic_launcher
+raw com_android_billingclient_heterodyne_info
+raw com_android_billingclient_registration_info
 raw firebase_common_keep
 string android_credentials_TYPE_PASSWORD_CREDENTIAL
 string androidx_credentials_TYPE_PUBLIC_KEY_CREDENTIAL
@@ -338,6 +342,7 @@ styleable GradientColor android_startColor android_endColor android_type android
 styleable GradientColorItem android_color android_offset
 styleable LoadingImageView circleCrop imageAspectRatio imageAspectRatioAdjust
 styleable SignInButton buttonSize colorScheme scopeUris
+xml com_android_billingclient_phenotype
 xml events_widget_info
 xml file_paths
 xml image_share_filepaths

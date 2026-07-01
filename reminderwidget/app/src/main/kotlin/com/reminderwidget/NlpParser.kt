@@ -58,6 +58,14 @@ object NlpParser {
         "жовтня" to 10,   "жовтень" to 10,   "october" to 10,  "oct" to 10,
         "листопада" to 11, "листопад" to 11, "november" to 11, "nov" to 11,
         "грудня" to 12,   "грудень" to 12,   "december" to 12, "dec" to 12,
+        // Spanish months
+        "enero" to 1, "febrero" to 2, "marzo" to 3, "abril" to 4,
+        "mayo" to 5, "junio" to 6, "julio" to 7, "agosto" to 8,
+        "septiembre" to 9, "octubre" to 10, "noviembre" to 11, "diciembre" to 12,
+        // German months
+        "januar" to 1, "februar" to 2, "märz" to 3, "marz" to 3, "april" to 4,
+        "juni" to 6, "juli" to 7, "august" to 8,
+        "september" to 9, "oktober" to 10, "november" to 11, "dezember" to 12,
     )
 
     // Ukrainian accusative ordinal hours for "пів на третю" = 2:30
@@ -101,6 +109,20 @@ object NlpParser {
         "середах"    to Calendar.WEDNESDAY,
         "четвергах"  to Calendar.THURSDAY,
         "п'ятницях"  to Calendar.FRIDAY,  "пятницях" to Calendar.FRIDAY,
+        // Spanish weekdays
+        "lunes" to Calendar.MONDAY, "martes" to Calendar.TUESDAY,
+        "miércoles" to Calendar.WEDNESDAY, "miercoles" to Calendar.WEDNESDAY,
+        "jueves" to Calendar.THURSDAY, "viernes" to Calendar.FRIDAY,
+        "sábado" to Calendar.SATURDAY, "sabado" to Calendar.SATURDAY,
+        "domingo" to Calendar.SUNDAY,
+        // German weekdays
+        "montag" to Calendar.MONDAY, "montags" to Calendar.MONDAY,
+        "dienstag" to Calendar.TUESDAY, "dienstags" to Calendar.TUESDAY,
+        "mittwoch" to Calendar.WEDNESDAY, "mittwochs" to Calendar.WEDNESDAY,
+        "donnerstag" to Calendar.THURSDAY, "donnerstags" to Calendar.THURSDAY,
+        "freitag" to Calendar.FRIDAY, "freitags" to Calendar.FRIDAY,
+        "samstag" to Calendar.SATURDAY, "samstags" to Calendar.SATURDAY,
+        "sonntag" to Calendar.SUNDAY, "sonntags" to Calendar.SUNDAY,
     )
 
     private val EVERY_WEEKDAY_UK = mapOf(
@@ -123,10 +145,11 @@ object NlpParser {
         WORD_NUMS.keys.sortedByDescending { it.length }.map { Regex.escape(it) } + listOf("""\d+""")
     ).joinToString("|")
 
-    private val MIN_UNIT  = """(?:хвилин(?:у|ки|и)?|хв\.?|min(?:utes?)?)"""
-    private val HOUR_UNIT = """(?:годин(?:у|и)?|год\.?|h(?:ou)?rs?)"""
-    private val DAY_UNIT  = """(?:дн(?:ів|я|і)|день|days?)"""
-    private val WEEK_UNIT = """(?:тижн(?:ів|я|і)|тиждень|weeks?)"""
+    private val MIN_UNIT  = """(?:хвилин(?:у|ки|и)?|хв\.?|min(?:utes?)?|minutos?|Minuten?)"""
+    private val HOUR_UNIT = """(?:годин(?:у|и)?|год\.?|h(?:ou)?rs?|horas?|Stunden?)"""
+    private val DAY_UNIT  = """(?:дн(?:ів|я|і)|день|days?|días?|Tagen?)"""
+    private val WEEK_UNIT = """(?:тижн(?:ів|я|і)|тиждень|weeks?|semanas?|Wochen?)"""
+    private val MONTH_UNIT = """(?:місяц(?:ів|я|і)|місяць|months?|meses?|Monate?n?)"""
 
     fun parse(input: String, fallbackStartMs: Long, timePrefs: TimePrefs = TimePrefs()): Result {
         val normalized = input
@@ -146,7 +169,7 @@ object NlpParser {
             return Result(cal.timeInMillis, cleanTitle(normalized, stripped), 3_600_000L, "FREQ=HOURLY")
         }
 
-        val everyDayRx = Regex("""every\s+day|щодня|кожен\s+день|кожного\s+дня""")
+        val everyDayRx = Regex("""every\s+day|щодня|щоденно|кожен\s+день|кожного\s+дня|cada\s+d[ií]a|t[aä]glich|jeden\s+tag""")
         if (everyDayRx.containsMatchIn(lower)) {
             val clock      = extractClockTime(lower, timePrefs)
             val razyRx     = Regex("""($NUM_ALT)\s*(?:раз(?:ів|и)?|times?)""")

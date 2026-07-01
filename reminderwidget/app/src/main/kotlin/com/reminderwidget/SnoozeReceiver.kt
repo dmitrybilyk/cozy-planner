@@ -35,13 +35,13 @@ class SnoozeReceiver : BroadcastReceiver() {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 1L)
                 Toast.makeText(context, "⏰ Відкладено на 1'", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                EventsWidget.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE5 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 5L)
                 Toast.makeText(context, "⏰ Відкладено на 5'", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                EventsWidget.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE -> {
                 val mins = intent.getIntExtra(NotificationHelper.EXTRA_SNOOZE_MINUTES, 5).toLong()
@@ -49,37 +49,36 @@ class SnoozeReceiver : BroadcastReceiver() {
                 val minStr = if (mins >= 60) "${mins / 60}г${if (mins % 60 != 0L) "${mins % 60}'" else ""}" else "$mins'"
                 Toast.makeText(context, "⏰ Відкладено на $minStr", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                EventsWidget.update(context)
-                PersistentNotif.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE10 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 10L)
                 Toast.makeText(context, "⏰ Відкладено на 10'", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                EventsWidget.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_SNOOZE15 -> {
                 nm.cancel(nid); scheduleSnooze(context, eventId, 15L)
                 Toast.makeText(context, "⏰ Відкладено на 15'", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                EventsWidget.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_DISMISS_NOTIF -> {
                 nm.cancel(nid)
                 Toast.makeText(context, "🔕 Прибрано зі статус-бару", Toast.LENGTH_SHORT).show()
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                EventsWidget.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_REPOST -> {
                 val event = EventStore.load(context).find { it.id == eventId } ?: return
                 val silent     = intent.getBooleanExtra(NotificationHelper.EXTRA_SILENT,     false)
                 val fullscreen = intent.getBooleanExtra(NotificationHelper.EXTRA_FULLSCREEN, false)
                 NotificationHelper.post(context, event, silent = silent, fullscreen = fullscreen)
-                EventsWidget.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_DISMISSED -> {
                 context.sendBroadcast(Intent(NotificationHelper.ACTION_LIST_CHANGED))
-                EventsWidget.update(context)
+                EventsWidget.update(context); PersistentNotif.update(context)
             }
             NotificationHelper.ACTION_REPEAT_TOGGLE -> {
                 val event = EventStore.load(context).find { it.id == eventId } ?: return
